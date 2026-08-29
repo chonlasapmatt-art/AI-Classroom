@@ -1,4 +1,9 @@
-export function ConfigurationScreen() {
+interface Props {
+  /** Only provided by development builds (or VITE_ENABLE_PREVIEW_MODE=true). */
+  onEnterPreview?: () => void;
+}
+
+export function ConfigurationScreen({ onEnterPreview }: Props) {
   return (
     <main className="configuration-page">
       <section className="configuration-hero">
@@ -13,6 +18,14 @@ export function ConfigurationScreen() {
         <p>เพื่อรักษากฎ “First login ต้องออนไลน์” ระบบจะไม่สร้างผู้ใช้หรือข้อมูลปลอมแทน backend</p>
         <ol><li>สร้าง Supabase project สำหรับ environment นี้</li><li>รัน migrations ใน <code>supabase/migrations</code> ตามลำดับ</li><li>คัดลอก <code>.env.example</code> เป็น <code>apps/web/.env.local</code></li><li>ใส่ <code>VITE_SUPABASE_URL</code> และ <code>VITE_SUPABASE_ANON_KEY</code></li><li>รีสตาร์ต dev server แล้วเข้าสู่ระบบ</li></ol>
         <div className="security-note"><span aria-hidden="true">✓</span><p><strong>ปลอดภัยโดยค่าเริ่มต้น</strong><br/>Service role, LINE secret และ HMAC secret ไม่ถูกส่งเข้า browser</p></div>
+        {onEnterPreview && (
+          <div className="preview-entry">
+            <span className="status-chip warning">สำหรับการพัฒนาเท่านั้น — ไม่ใช่ข้อมูลจริง</span>
+            <h3>ดู UX ก่อนตั้งค่า Supabase</h3>
+            <p>Preview Mode ใช้ข้อมูลจำลองในหน่วยความจำ ไม่เชื่อมต่อ Supabase ไม่เขียนลงฐานข้อมูลจริง และไม่ส่งเข้า sync queue</p>
+            <button className="secondary-button" onClick={onEnterPreview}>เข้าสู่โหมด Preview</button>
+          </div>
+        )}
       </section>
     </main>
   );

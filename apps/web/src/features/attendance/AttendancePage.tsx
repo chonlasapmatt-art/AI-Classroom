@@ -1,16 +1,100 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { useState } from 'react';
-import { useAuth } from '../../app/AuthContext';
-import { db } from '../../db/database';
-import { commitLocalMutation } from '../../db/localMutation';
+import { useMemo, useState } from 'react';
+import { useSession } from '../../app/SessionContext';
+import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
+import { activeClasses, attendanceSummary, rosterFor } from '../../data/selectors';
 import type { AttendanceStatus } from '../../domain/types';
-import { AvatarRenderer } from '../avatars/AvatarRenderer';
+import { ProfileAvatar } from '../avatars/ProfileAvatar';
 
 const labels: Record<AttendanceStatus, string> = { present: 'มาเรียน', late: 'สาย', absent: 'ขาด', leave: 'ลา' };
+const order: AttendanceStatus[] = ['present', 'late', 'absent', 'leave'];
+
 export function AttendancePage() {
-  const { active } = useAuth(); const [date, setDate] = useState(new Date().toISOString().slice(0, 10)); const classes = useLiveQuery(() => db.classes.where('schoolId').equals(active!.schoolId).toArray(), [active!.schoolId]) ?? []; const [classId, setClassId] = useState(''); const selected = classId || classes[0]?.id || '';
-  const enrollments = useLiveQuery(() => selected ? db.enrollments.where({ classId: selected, status: 'active' }).toArray() : [], [selected]) ?? []; const students = useLiveQuery(async () => Promise.all(enrollments.map((item) => db.students.get(item.studentId))).then((items) => items.filter((item) => item !== undefined)), [enrollments.map((item) => item.id).join(',')]) ?? []; const records = useLiveQuery(() => selected ? db.attendance.where('[classId+attendanceDate]').equals([selected, date]).toArray() : [], [selected, date]) ?? [];
-  async function mark(studentId: string, status: AttendanceStatus) { const existing = records.find((item) => item.studentId === studentId); const now = new Date().toISOString(); await commitLocalMutation('attendance', { id: existing?.id ?? crypto.randomUUID(), schoolId: active!.schoolId, classId: selected, studentId, attendanceDate: date, status, note: existing?.note ?? '', version: existing?.version ?? 0, createdAt: existing?.createdAt ?? now, updatedAt: now, deletedAt: null }); }
-  async function presentAll() { await Promise.all(students.map((student) => mark(student.id, 'present'))); }
-  return <><section className="page-heading"><div><span className="eyebrow">Local-first classroom</span><h1>เช็กชื่อ</h1><p>การเปลี่ยนแปลงจะบันทึกในเครื่องพร้อมเข้าคิวซิงก์</p></div><button className="primary-button" disabled={!selected || students.length === 0} onClick={() => void presentAll()}>✓ มาเรียนทั้งหมด</button></section><section className="toolbar panel"><label>ห้องเรียน<select value={selected} onChange={(e) => setClassId(e.target.value)}><option value="">เลือกห้องเรียน</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>วันที่<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label><span className="sync-pill offline">บันทึก Local ก่อนเสมอ</span></section><section className="panel data-panel">{!selected ? <div className="empty-state"><span>▣</span><h3>เลือกห้องเรียน</h3><p>แสดงเฉพาะห้องที่คุณได้รับมอบหมาย</p></div> : students.length === 0 ? <div className="empty-state"><span>◉</span><h3>ยังไม่มีนักเรียนที่ลงทะเบียน</h3><p>ตรวจ enrollment ของห้องเรียนนี้</p></div> : <div className="attendance-list">{students.map((student) => { const current = records.find((item) => item.studentId === student.id)?.status; return <article key={student.id}><AvatarRenderer avatarIndex={student.avatarIndex} size={60}/><div className="student-name"><strong>{student.displayName}</strong><span>{student.studentCode}</span></div><div className="segmented" role="group" aria-label={`สถานะ ${student.displayName}`}>{(Object.keys(labels) as AttendanceStatus[]).map((status) => <button key={status} className={current === status ? `active ${status}` : ''} onClick={() => void mark(student.id, status)}>{labels[status]}</button>)}</div></article>; })}</div>}</section></>;
+  const { membership } = useSession();
+  const repository = useRepository();
+  const snapshot = useSchoolSnapshot();
+  const classes = activeClasses(snapshot);
+  const [classId, setClassId] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [message, setMessage] = useState<string | null>(null);
+
+  const selectedClassId = classId || classes[0]?.id || '';
+  const roster = useMemo(() => rosterFor(snapshot, selectedClassId), [snapshot, selectedClassId]);
+  const canMark = membership.role === 'admin' || membership.role === 'teacher';
+  const summary = attendanceSummary(snapshot, { classId: selectedClassId, date });
+
+  const statusOf = (studentId: string): AttendanceStatus | null =>
+    snapshot.attendance.find((item) => item.classId === selectedClassId && item.studentId === studentId && item.attendanceDate === date)?.status ?? null;
+
+  async function mark(studentId: string, status: AttendanceStatus) {
+    try {
+      await repository.setAttendance({ classId: selectedClassId, studentId, attendanceDate: date, status });
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ');
+    }
+  }
+
+  async function markAllPresent() {
+    const unmarked = roster.filter((student) => statusOf(student.id) === null).map((student) => student.id);
+    if (unmarked.length === 0) { setMessage('เช็กชื่อครบทุกคนแล้ว'); return; }
+    await repository.setAttendanceForStudents(selectedClassId, date, 'present', unmarked);
+    setMessage(`บันทึก "มาเรียน" ${unmarked.length} คน`);
+  }
+
+  return (
+    <>
+      <section className="page-heading">
+        <div>
+          <span className="eyebrow">บันทึกรายวัน</span>
+          <h1>เช็กชื่อ</h1>
+          <p>มา {summary.present} · สาย {summary.late} · ขาด {summary.absent} · ลา {summary.leave} จาก {roster.length} คน</p>
+        </div>
+        {canMark && <button className="primary-button" onClick={() => void markAllPresent()}>มาเรียนทั้งหมด</button>}
+      </section>
+
+      <div className="toolbar">
+        <label>
+          ห้องเรียน
+          <select value={selectedClassId} onChange={(event) => setClassId(event.target.value)}>
+            {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </label>
+        <label>วันที่<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+        <div className={`sync-pill ${roster.length > 0 && summary.total === roster.length ? 'online' : 'offline'}`}>
+          <span />{summary.total}/{roster.length} เช็กแล้ว
+        </div>
+      </div>
+
+      <section className="panel data-panel">
+        {roster.length === 0 ? (
+          <div className="empty-state"><span>✓</span><h3>ยังไม่มีนักเรียนในห้องนี้</h3><p>เพิ่มนักเรียนหรือย้ายเข้าห้องก่อนเช็กชื่อ</p></div>
+        ) : (
+          <div className="attendance-list">
+            {roster.map((student) => {
+              const status = statusOf(student.id);
+              return (
+                <article key={student.id}>
+                  <ProfileAvatar displayName={student.displayName} avatarId={student.avatarId} avatarIndex={student.avatarIndex} avatarConfig={student.avatarConfig} size={56} animation={status === 'present' ? 'wave' : 'idle'} />
+                  <div className="student-name"><strong>{student.displayName}</strong><span>{student.studentCode}</span></div>
+                  <div className="segmented">
+                    {order.map((value) => (
+                      <button
+                        key={value}
+                        className={status === value ? `active ${value}` : ''}
+                        disabled={!canMark}
+                        onClick={() => void mark(student.id, value)}
+                      >
+                        {labels[value]}
+                      </button>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
+    </>
+  );
 }

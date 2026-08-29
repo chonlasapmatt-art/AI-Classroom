@@ -1,14 +1,186 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { useState, type FormEvent } from 'react';
-import { useAuth } from '../../app/AuthContext';
-import { db } from '../../db/database';
-import { commitLocalMutation } from '../../db/localMutation';
+import { useMemo, useState, type FormEvent } from 'react';
+import { useSession } from '../../app/SessionContext';
+import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
+import { activeClasses, classIdOfStudent, rosterFor } from '../../data/selectors';
+import { ProfileAvatar } from '../avatars/ProfileAvatar';
+import { AvatarStudio } from '../avatars/AvatarStudio';
 import type { Student } from '../../domain/types';
-import { AvatarRenderer } from '../avatars/AvatarRenderer';
+import { previewStudentCsv } from './csvImport';
 
 export function StudentsPage() {
-  const { active } = useAuth(); const [open, setOpen] = useState(false); const [error, setError] = useState<string | null>(null);
-  const students = useLiveQuery(() => db.students.where('schoolId').equals(active!.schoolId).filter((item) => !item.deletedAt).sortBy('displayName'), [active!.schoolId]) ?? [];
-  async function createStudent(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); const code = String(form.get('code')).trim(); const name = String(form.get('name')).trim(); if (!code || !name) return; const duplicate = await db.students.where({ schoolId: active!.schoolId, studentCode: code }).first(); if (duplicate) { setError('รหัสนักเรียนนี้มีอยู่แล้ว'); return; } const now = new Date().toISOString(); const record: Student = { id: crypto.randomUUID(), schoolId: active!.schoolId, profileId: null, studentCode: code, displayName: name, avatarIndex: crypto.getRandomValues(new Uint16Array(1))[0]! % 144, avatarConfig: null, status: 'active', version: 0, createdAt: now, updatedAt: now, deletedAt: null }; await commitLocalMutation('student', record); event.currentTarget.reset(); setOpen(false); }
-  return <><section className="page-heading"><div><span className="eyebrow">ข้อมูลตามสิทธิ์</span><h1>นักเรียน</h1><p>{students.length} คนใน authorized offline projection</p></div>{['admin','teacher'].includes(active!.role) && <button className="primary-button" onClick={() => setOpen(true)}>+ เพิ่มนักเรียน</button>}</section>{open && <form className="inline-form panel" onSubmit={(event) => void createStudent(event)}><div className="panel-heading"><h2>เพิ่มนักเรียน</h2><button type="button" className="icon-button" onClick={() => setOpen(false)}>×</button></div><div className="form-grid"><label>รหัสนักเรียน<input name="code" required /></label><label>ชื่อ-นามสกุล<input name="name" required /></label></div>{error && <div className="alert error">{error}</div>}<button className="primary-button">บันทึกในเครื่อง</button></form>}<section className="panel data-panel">{students.length === 0 ? <div className="empty-state"><span>◉</span><h3>ยังไม่มีนักเรียนในเครื่องนี้</h3><p>เพิ่มนักเรียนหรือนำเข้าจากระบบ Cloud ที่ได้รับอนุญาต</p></div> : <div className="student-grid">{students.map((student) => <article className="student-card" key={student.id}><AvatarRenderer avatarIndex={student.avatarIndex} config={student.avatarConfig} size={84} /><div><strong>{student.displayName}</strong><span>{student.studentCode}</span><small className="status-chip success">ใช้งาน</small></div></article>)}</div>}</section></>;
+  const { membership } = useSession();
+  const repository = useRepository();
+  const snapshot = useSchoolSnapshot();
+  const classes = activeClasses(snapshot);
+  const [classId, setClassId] = useState('');
+  const [open, setOpen] = useState(false);
+  const [csv, setCsv] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+  const [studioStudent, setStudioStudent] = useState<Student | null>(null);
+  const [renaming, setRenaming] = useState<Student | null>(null);
+
+  const selectedClassId = classId || classes[0]?.id || '';
+  const canEdit = membership.role === 'admin' || membership.role === 'teacher';
+  const students = useMemo(
+    () => (selectedClassId ? rosterFor(snapshot, selectedClassId) : snapshot.students),
+    [snapshot, selectedClassId]
+  );
+  const term = snapshot.terms.find((item) => item.status === 'active') ?? snapshot.terms[0];
+
+  async function addStudent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const studentCode = String(data.get('code') ?? '').trim();
+    const displayName = String(data.get('name') ?? '').trim();
+    if (!studentCode || !displayName) return;
+    if (snapshot.students.some((item) => item.studentCode === studentCode)) {
+      setMessage('รหัสนักเรียนนี้มีอยู่แล้ว');
+      return;
+    }
+    try {
+      const id = crypto.randomUUID();
+      await repository.saveStudent({ id, studentCode, displayName, avatarIndex: snapshot.students.length * 7 });
+      if (selectedClassId && term) await repository.enrollStudent(id, selectedClassId, term.id);
+      form.reset();
+      setOpen(false);
+      setMessage(`เพิ่ม ${displayName} แล้ว`);
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ');
+    }
+  }
+
+  async function importCsv() {
+    const existing = new Set(snapshot.students.map((item) => item.studentCode));
+    const preview = previewStudentCsv(csv, existing);
+    if (preview.errors.length > 0) setMessage(`ข้าม ${preview.errors.length} แถว: ${preview.errors[0]!.message}`);
+    for (const row of preview.rows) {
+      const id = crypto.randomUUID();
+      await repository.saveStudent({ id, studentCode: row.studentCode, displayName: row.displayName, avatarIndex: row.rowNumber * 5 });
+      if (selectedClassId && term) await repository.enrollStudent(id, selectedClassId, term.id);
+    }
+    if (preview.rows.length > 0) setMessage(`นำเข้า ${preview.rows.length} คนแล้ว`);
+    setCsv('');
+  }
+
+  return (
+    <>
+      <section className="page-heading">
+        <div>
+          <span className="eyebrow">ข้อมูลตามสิทธิ์</span>
+          <h1>นักเรียน</h1>
+          <p>{students.length} คนในขอบเขตที่คุณเข้าถึงได้</p>
+        </div>
+        {canEdit && <button className="primary-button" onClick={() => setOpen((value) => !value)}>+ เพิ่มนักเรียน</button>}
+      </section>
+
+      <div className="toolbar">
+        <label>
+          ห้องเรียน
+          <select value={selectedClassId} onChange={(event) => setClassId(event.target.value)}>
+            {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </label>
+      </div>
+
+      {open && canEdit && (
+        <section className="panel inline-form">
+          <div className="panel-heading"><h2>เพิ่มนักเรียนใหม่</h2></div>
+          <form onSubmit={(event) => void addStudent(event)}>
+            <div className="form-grid">
+              <label>รหัสนักเรียน<input name="code" required /></label>
+              <label>ชื่อ-สกุล<input name="name" required /></label>
+            </div>
+            <button className="primary-button">บันทึก</button>
+          </form>
+          <div className="panel-heading spaced"><h2>นำเข้าจาก CSV</h2></div>
+          <label>
+            วางข้อมูล (header: student_code,display_name)
+            <textarea rows={4} value={csv} onChange={(event) => setCsv(event.target.value)} />
+          </label>
+          <button className="secondary-button" onClick={() => void importCsv()} disabled={!csv.trim()}>ตรวจและนำเข้า</button>
+        </section>
+      )}
+
+      <section className="panel data-panel">
+        {students.length === 0 ? (
+          <div className="empty-state">
+            <span>◉</span><h3>ยังไม่มีนักเรียนในห้องนี้</h3>
+            <p>เพิ่มรายชื่อทีละคน หรือนำเข้าจากไฟล์ CSV</p>
+          </div>
+        ) : (
+          <div className="student-grid">
+            {students.map((student) => (
+              <article key={student.id} className="student-card">
+                <ProfileAvatar displayName={student.displayName} avatarId={student.avatarId} avatarIndex={student.avatarIndex} avatarConfig={student.avatarConfig} size={56} />
+                <div>
+                  <strong>{student.displayName}</strong>
+                  <span>
+                    {student.studentCode} · {classes.find((item) => item.id === classIdOfStudent(snapshot, student.id))?.name ?? 'ยังไม่มีห้อง'}
+                  </span>
+                  <div className="record-actions">
+                    <button className="text-button" onClick={() => setStudioStudent(student)}>ปรับแต่งอวตาร</button>
+                    {canEdit && <button className="text-button" onClick={() => setRenaming(student)}>แก้ไข</button>}
+                    {canEdit && (
+                      <button
+                        className="text-button danger"
+                        onClick={() => void repository.removeStudent(student.id).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'ลบไม่สำเร็จ'))}
+                      >
+                        ลบ
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {renaming && canEdit && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="แก้ไขข้อมูลนักเรียน">
+          <section className="modal-card">
+            <div className="panel-heading"><h2>แก้ไข {renaming.displayName}</h2><button className="icon-button" onClick={() => setRenaming(null)} aria-label="ปิด">×</button></div>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const data = new FormData(event.currentTarget);
+                void repository.saveStudent({
+                  id: renaming.id,
+                  studentCode: String(data.get('code') ?? '').trim(),
+                  displayName: String(data.get('name') ?? '').trim(),
+                  avatarIndex: renaming.avatarIndex
+                }).then(() => { setRenaming(null); setMessage('บันทึกการแก้ไขแล้ว'); });
+              }}
+            >
+              <div className="form-grid">
+                <label>รหัสนักเรียน<input name="code" defaultValue={renaming.studentCode} required /></label>
+                <label>ชื่อ-สกุล<input name="name" defaultValue={renaming.displayName} required /></label>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="text-button" onClick={() => setRenaming(null)}>ยกเลิก</button>
+                <button className="primary-button">บันทึก</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {studioStudent && (
+        <AvatarStudio
+          avatarIndex={studioStudent.avatarIndex}
+          config={studioStudent.avatarConfig}
+          studentName={studioStudent.displayName}
+          onClose={() => setStudioStudent(null)}
+          onSave={(config) => {
+            void repository.saveStudentAvatar(studioStudent.id, config)
+              .then(() => { setStudioStudent(null); setMessage('บันทึกอวตารแล้ว'); })
+              .catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'บันทึกอวตารไม่สำเร็จ'));
+          }}
+        />
+      )}
+
+      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
+    </>
+  );
 }

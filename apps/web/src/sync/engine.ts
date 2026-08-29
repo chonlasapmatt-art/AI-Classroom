@@ -39,6 +39,20 @@ const localTables: Record<string, string> = { student:'students', enrollment:'en
 function camel(key: string): string { return key.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase()); }
 function fromCloud(row: Record<string, unknown>): Record<string, unknown> { return Object.fromEntries(Object.entries(row).map(([key,value])=>[camel(key),value])); }
 
+// Fields the local schema carries that an older server build may not return yet. Keeping the local
+// value when the pulled row omits it stops a pull from wiping data the client already holds.
+const LOCAL_ONLY_FIELDS = ['subjectId', 'instructions', 'studentNote'] as const;
+function mergeLocal(existing: Record<string, unknown> | undefined, incoming: Record<string, unknown>): Record<string, unknown> {
+  if (!existing) return incoming;
+  const merged = { ...incoming };
+  for (const field of LOCAL_ONLY_FIELDS) {
+    if (merged[field] === undefined || merged[field] === null) {
+      if (existing[field] !== undefined) merged[field] = existing[field];
+    }
+  }
+  return merged;
+}
+
 export async function registerAndSync(schoolId: string, deviceId: string, deviceName: string, deviceType: 'board'|'desktop'|'tablet'|'mobile') {
   const client=requireSupabase(); const {error}=await client.rpc('register_device',{p_school_id:schoolId,p_device_id:deviceId,p_device_name:deviceName,p_device_type:deviceType}); if(error) throw error;
   const pushed=await pushPending(schoolId,deviceId); const pulled=await pullChanges(schoolId,deviceId); return {...pushed,pulled};
@@ -49,7 +63,7 @@ export async function pullChanges(schoolId: string, deviceId: string): Promise<n
   const {data,error}=await client.rpc('sync_pull',{p_school_id:schoolId,p_after_revision:after,p_limit:500}); if(error) throw error;
   const response=data as unknown as PullResponse; if(response.minimumSupportedProtocol>SYNC_PROTOCOL_VERSION) throw new Error('CLIENT_UPDATE_REQUIRED');
   let applied=0;
-  for(const change of response.changes){const cloud=cloudTables[change.entityType];const local=localTables[change.entityType];if(!cloud||!local)continue;const table=db.table<Record<string,unknown>,string>(local);if(change.operation==='delete'){const existing=await table.get(change.entityId);if(existing)await table.put({...existing,deletedAt:new Date().toISOString(),version:change.version,id:change.entityId});applied+=1;continue;}const {data:rows,error:readError}=await client.from(cloud).select('*').eq('id',change.entityId).limit(1);if(readError)throw readError;if(rows?.[0]){await table.put(fromCloud(rows[0] as Record<string,unknown>));applied+=1;}}
+  for(const change of response.changes){const cloud=cloudTables[change.entityType];const local=localTables[change.entityType];if(!cloud||!local)continue;const table=db.table<Record<string,unknown>,string>(local);if(change.operation==='delete'){const existing=await table.get(change.entityId);if(existing)await table.put({...existing,deletedAt:new Date().toISOString(),version:change.version,id:change.entityId});applied+=1;continue;}const {data:rows,error:readError}=await client.from(cloud).select('*').eq('id',change.entityId).limit(1);if(readError)throw readError;if(rows?.[0]){const current=await table.get(change.entityId);await table.put(mergeLocal(current,fromCloud(rows[0] as Record<string,unknown>)));applied+=1;}}
   await db.syncState.put({key,deviceId,schoolId,lastPullRevision:response.nextRevision,lastSuccessfulSyncAt:new Date().toISOString(),localSchemaVersion:LOCAL_SCHEMA_VERSION,syncProtocolVersion:SYNC_PROTOCOL_VERSION}); return applied;
 }
 

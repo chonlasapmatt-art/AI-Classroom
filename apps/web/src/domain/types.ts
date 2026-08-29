@@ -14,21 +14,66 @@ export interface SyncRecord {
 
 export interface School extends SyncRecord { name: string; code: string; timezone: string; status: 'active' | 'suspended'; }
 export interface AcademicTerm extends SyncRecord { academicYear: string; term: string; startsOn: string; endsOn: string; status: 'draft' | 'active' | 'closed'; }
-export interface Classroom extends SyncRecord { academicTermId: string; name: string; gradeLevel: string; status: 'active' | 'archived'; }
+export interface Classroom extends SyncRecord { academicTermId: string; name: string; gradeLevel: string; capacity: number; status: 'active' | 'archived'; }
 export interface Student extends SyncRecord {
   profileId: string | null;
   studentCode: string;
   displayName: string;
   avatarIndex: number;
   avatarConfig: AvatarConfig | null;
+  /** Catalogue id (avatar_001..avatar_100) a student picked for themselves. */
+  avatarId: string | null;
+  /** Attachment id of an uploaded photo, which takes precedence over the catalogue avatar. */
+  avatarPhotoId: string | null;
   status: 'active' | 'inactive';
 }
 export interface Enrollment extends SyncRecord { studentId: string; classId: string; academicTermId: string; status: 'active' | 'transferred' | 'left'; enrolledAt: string; leftAt: string | null; }
-export interface Assignment extends SyncRecord { classId: string; title: string; description: string; assignedAt: string; dueAt: string | null; maxScore: number; status: 'draft' | 'published' | 'closed' | 'archived'; }
-export interface Submission extends SyncRecord { assignmentId: string; studentId: string; submittedAt: string | null; status: 'draft' | 'submitted' | 'graded' | 'returned'; score: number | null; isLate: boolean; teacherNote: string; }
-export interface Activity extends SyncRecord { classId: string; title: string; activityDate: string; maxScore: number; status: 'draft' | 'published' | 'closed'; }
+/** Any piece of academic work a teacher hands out. One record type, four presentations. */
+export type WorkType = 'assignment' | 'homework' | 'project' | 'activity';
+export type WorkStatus = 'draft' | 'published' | 'closed' | 'archived' | 'cancelled';
+
+export interface Assignment extends SyncRecord {
+  classId: string;
+  subjectId: string | null;
+  workType: WorkType;
+  title: string;
+  description: string;
+  instructions: string;
+  assignedAt: string;
+  startAt: string | null;
+  dueAt: string | null;
+  maxScore: number;
+  rubricId: string | null;
+  /** Minutes before the deadline at which a reminder fires; 0 means "when published". */
+  reminderOffsets: number[];
+  status: WorkStatus;
+  publishedAt: string | null;
+  cancelledAt: string | null;
+}
+export interface Submission extends SyncRecord {
+  assignmentId: string;
+  studentId: string;
+  submittedAt: string | null;
+  status: SubmissionStatus;
+  score: number | null;
+  isLate: boolean;
+  teacherNote: string;
+  studentNote: string;
+  /** Latest version number; every turn-in is also kept in submissionVersions. */
+  version: number;
+  openedAt: string | null;
+  acknowledgedAt: string | null;
+  revisionNote: string;
+  percentage: number | null;
+  calculatedGrade: string | null;
+  finalGrade: string | null;
+  gradeOverrideReason: string;
+  gradedBy: string | null;
+  gradedAt: string | null;
+}
+export interface Activity extends SyncRecord { classId: string; subjectId: string | null; title: string; activityDate: string; maxScore: number; status: 'draft' | 'published' | 'closed'; }
 export interface ActivityScore extends SyncRecord { activityId: string; studentId: string; score: number | null; note: string; }
-export interface TestRecord extends SyncRecord { classId: string; title: string; testDate: string; maxScore: number; status: 'draft' | 'published' | 'closed'; }
+export interface TestRecord extends SyncRecord { classId: string; subjectId: string | null; title: string; testDate: string; maxScore: number; status: 'draft' | 'published' | 'closed'; }
 export interface TestScore extends SyncRecord { testId: string; studentId: string; score: number | null; publishedAt: string | null; }
 export interface Attendance extends SyncRecord { classId: string; studentId: string; attendanceDate: string; status: AttendanceStatus; note: string; }
 export interface Setting extends SyncRecord { scopeType: string; scopeId: string | null; key: string; valueJson: Record<string, unknown>; }
@@ -58,3 +103,175 @@ export interface LocalSessionMetadata { profileId: string; schoolId: string; dis
 export interface DeviceMetadata { deviceId: string; schoolId: string; deviceName: string; deviceType: 'board' | 'desktop' | 'tablet' | 'mobile'; status: 'active' | 'revoked'; }
 
 export interface MembershipContext { membershipId: string; schoolId: string; schoolName: string; profileId: string; displayName: string; role: Role; status: 'active' | 'suspended'; }
+
+export interface Teacher extends SyncRecord {
+  profileId: string | null;
+  avatarId: string | null;
+  avatarPhotoId: string | null;
+  teacherCode: string;
+  displayName: string;
+  email: string;
+  subject: string;
+  status: 'active' | 'inactive';
+}
+
+export interface ClassTeacher extends SyncRecord {
+  classId: string;
+  teacherId: string;
+  role: 'primary' | 'assistant';
+}
+
+export type ParentLinkStatus = 'invited' | 'linked' | 'revoked';
+
+export interface ParentLink extends SyncRecord {
+  studentId: string;
+  avatarId: string | null;
+  avatarPhotoId: string | null;
+  parentName: string;
+  relationship: string;
+  contact: string;
+  lineUserId: string | null;
+  status: ParentLinkStatus;
+  invitationCode: string | null;
+  consentVersion: string | null;
+  consentGrantedAt: string | null;
+}
+
+export type SubmissionStatus =
+  | 'not_started' | 'in_progress' | 'submitted' | 'late' | 'graded'
+  | 'revision_requested' | 'resubmitted' | 'overdue'
+  /** Legacy states kept so older local rows stay readable. */
+  | 'assigned' | 'draft' | 'returned';
+
+/** A subject (learning area). Schools start from the eight standard areas and add their own. */
+export interface Subject extends SyncRecord {
+  code: string;
+  name: string;
+  nameEn: string;
+  colorIndex: number;
+  iconKey: string;
+  sortOrder: number;
+  status: 'active' | 'archived';
+}
+
+export type ClassroomNotificationKind =
+  | 'assignment_published' | 'submission_reminder' | 'work_returned'
+  | 'deadline_changed' | 'work_cancelled' | 'revision_requested' | 'announcement' | 'grade_posted';
+
+/** Delivery lifecycle, kept separate from creation so other channels can be added later. */
+export type NotificationState = 'queued' | 'scheduled' | 'sent' | 'delivered' | 'failed' | 'read';
+
+/** In-app notice for one student. Local-first, mirrored to the server notification outbox. */
+export interface ClassroomNotification extends SyncRecord {
+  studentId: string;
+  classId: string;
+  assignmentId: string | null;
+  kind: ClassroomNotificationKind;
+  title: string;
+  body: string;
+  /** Stable identity so a retry, a resync or a recalculation never duplicates a notice. */
+  dedupeKey: string;
+  state: NotificationState;
+  scheduledAt: string;
+  sentAt: string | null;
+  readAt: string | null;
+}
+
+export type AttachmentOwner = 'assignment' | 'submission' | 'subject' | 'profile';
+export type AttachmentKind = 'pdf' | 'spreadsheet' | 'csv' | 'document' | 'image' | 'other';
+
+/**
+ * A file attached to teaching material or to a student's turned-in work.
+ *
+ * Bytes never travel through the sync protocol (it carries records, not blobs). Instead the file is
+ * kept locally and, when the school is connected, mirrored to Supabase Storage so the other devices
+ * in the class can download it. `storagePath` is the shared copy; a null value means the file only
+ * exists on the device that added it.
+ */
+export interface Attachment extends SyncRecord {
+  ownerType: AttachmentOwner;
+  ownerId: string;
+  uploadedBy: string;
+  fileName: string;
+  mimeType: string;
+  kind: AttachmentKind;
+  byteSize: number;
+  storagePath: string | null;
+}
+
+/** A reusable marking scheme. Criteria are stored inline so one record describes the whole rubric. */
+export interface RubricCriterion { id: string; label: string; maxScore: number; description: string }
+
+export interface Rubric extends SyncRecord {
+  title: string;
+  subjectId: string | null;
+  criteria: RubricCriterion[];
+  status: 'active' | 'archived';
+}
+
+/** One criterion's mark for one student on one piece of work. */
+export interface RubricScore extends SyncRecord {
+  assignmentId: string;
+  studentId: string;
+  criterionId: string;
+  score: number | null;
+  comment: string;
+}
+
+/** Every turn-in is kept; a resubmission adds a version instead of overwriting the last one. */
+export interface SubmissionVersion extends SyncRecord {
+  assignmentId: string;
+  studentId: string;
+  versionNumber: number;
+  submittedAt: string;
+  isLate: boolean;
+  studentNote: string;
+  /** Attachment owner id for the files sent with this version. */
+  attachmentOwnerId: string;
+}
+
+/** A personal deadline for one student. The class deadline is untouched. */
+export interface DeadlineExtension extends SyncRecord {
+  assignmentId: string;
+  studentId: string;
+  dueAt: string;
+  reason: string;
+  grantedBy: string;
+}
+
+export interface Announcement extends SyncRecord {
+  classId: string;
+  subjectId: string | null;
+  title: string;
+  body: string;
+  /** Empty means the whole class. */
+  studentIds: string[];
+  createdBy: string;
+}
+
+/** Per-person delivery preferences for non-critical reminders. */
+export interface NotificationPreference extends SyncRecord {
+  profileId: string;
+  assignmentReminder: boolean;
+  projectReminder: boolean;
+  gradeNotification: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+}
+
+export type AcademicAuditAction =
+  | 'SCORE_CREATED' | 'SCORE_CHANGED' | 'GRADE_OVERRIDE' | 'GRADE_OVERRIDE_REMOVED'
+  | 'DEADLINE_CHANGED' | 'STUDENT_EXTENSION_CREATED' | 'ASSIGNMENT_PUBLISHED'
+  | 'ASSIGNMENT_CANCELLED' | 'REVISION_REQUESTED';
+
+/** Local mirror of the academic audit trail so the history is readable offline too. */
+export interface AcademicAuditEntry extends SyncRecord {
+  action: AcademicAuditAction;
+  actorProfileId: string;
+  assignmentId: string | null;
+  studentId: string | null;
+  oldValue: string;
+  newValue: string;
+  reason: string;
+  occurredAt: string;
+}

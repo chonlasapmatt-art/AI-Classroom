@@ -1,0 +1,26 @@
+import type { AttachmentKind } from '../domain/types';
+
+/** Maps a picked file to the kind used for icons, filters and validation messages. */
+export function attachmentKindFor(fileName: string, mimeType: string): AttachmentKind {
+  const name = fileName.toLowerCase();
+  if (name.endsWith('.pdf') || mimeType === 'application/pdf') return 'pdf';
+  if (name.endsWith('.xlsx') || name.endsWith('.xls') || mimeType.includes('spreadsheet')) return 'spreadsheet';
+  if (name.endsWith('.csv') || name.endsWith('.tsv') || mimeType === 'text/csv') return 'csv';
+  if (name.endsWith('.doc') || name.endsWith('.docx') || name.endsWith('.txt') || mimeType.startsWith('text/')) return 'document';
+  if (mimeType.startsWith('image/')) return 'image';
+  return 'other';
+}
+
+export const attachmentIcons: Record<AttachmentKind, string> = {
+  pdf: '▣', spreadsheet: '▦', csv: '▤', document: '▥', image: '◨', other: '◆'
+};
+
+export const attachmentLabels: Record<AttachmentKind, string> = {
+  pdf: 'PDF', spreadsheet: 'Excel', csv: 'CSV', document: 'เอกสาร', image: 'รูปภาพ', other: 'ไฟล์'
+};
+
+export function formatBytes(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}

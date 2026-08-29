@@ -12,3 +12,4 @@ test-results/
 work/
 outputs/
 .supabase/
+.claude/
