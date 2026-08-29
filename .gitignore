@@ -8,6 +8,7 @@ test-results/
 !.env.example
 .DS_Store
 *.log
+*.tsbuildinfo
 work/
 outputs/
 .supabase/
