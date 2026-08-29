@@ -1,0 +1,6 @@
+import { useLiveQuery } from 'dexie-react-hooks';
+import { useAuth } from '../../app/AuthContext';
+import { db } from '../../db/database';
+import { AvatarRenderer } from '../avatars/AvatarRenderer';
+
+export function LeaderboardPage() { const { active } = useAuth(); const students = useLiveQuery(() => db.students.where('schoolId').equals(active!.schoolId).filter((s) => !s.deletedAt).sortBy('displayName'), [active!.schoolId]) ?? []; return <><section className="page-heading"><div><span className="eyebrow">แรงบันดาลใจเชิงบวก</span><h1>Leaderboard</h1><p>ไม่แสดงการลงโทษหรือทำให้นักเรียนที่อันดับต่ำรู้สึกอับอาย</p></div></section><section className="leaderboard panel">{students.length === 0 ? <div className="empty-state"><span>♕</span><h3>ยังไม่มีข้อมูลจัดอันดับ</h3><p>คะแนนที่เผยแพร่แล้วจะถูกคำนวณอย่าง deterministic</p></div> : students.map((student, index) => <article key={student.id} className={index < 3 ? `rank top-${index + 1}` : 'rank'}><strong className="rank-number">{index + 1}</strong><AvatarRenderer avatarIndex={student.avatarIndex} size={76} animation={index === 0 ? 'celebrate' : index === 1 ? 'wave' : 'idle'} /><div><strong>{student.displayName}</strong><span>{student.studentCode}</span></div><div className="score"><strong>—</strong><span>รอคะแนนเผยแพร่</span></div></article>)}</section></> }

@@ -1,0 +1,18 @@
+{
+  "name": "ai-smart-classroom",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace @smart-classroom/web",
+    "build": "npm run build --workspace @smart-classroom/web",
+    "typecheck": "npm run typecheck --workspace @smart-classroom/web",
+    "lint": "npm run lint --workspace @smart-classroom/web",
+    "test": "npm run test --workspace @smart-classroom/web",
+    "test:coverage": "npm run test:coverage --workspace @smart-classroom/web",
+    "test:e2e": "npm run test:e2e --workspace @smart-classroom/web",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+  },
+  "engines": { "node": ">=22" }
+}
