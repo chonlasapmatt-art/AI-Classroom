@@ -1,8 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { AcademicTerm, AcademicAuditEntry, Announcement, Attachment, Activity, ActivityScore, Assignment, Attendance, ClassTeacher, ClassroomNotification, Classroom, DeviceMetadata, Enrollment, LocalSessionMetadata, ParentLink, DeadlineExtension, NotificationPreference, Rubric, RubricScore, Setting, Student, Subject, Submission, SubmissionVersion,
-  SyncQueueItem, SyncState, Teacher, TestRecord, TestScore } from '../domain/types';
+import type { AcademicTerm, AcademicAuditEntry, Announcement, Attachment, Activity, ActivityScore, Assignment, Attendance, ClassTeacher, ClassroomNotification, Classroom, DeviceMetadata, Enrollment, LocalSessionMetadata, ParentLink, DeadlineExtension, NotificationPreference, Rubric, RubricScore, Setting, Student, StudentAchievement, Subject, Submission, SubmissionVersion,
+  SyncQueueItem, SyncState, Teacher, TestRecord, TestScore, TimetableEntry } from '../domain/types';
 
-export const LOCAL_SCHEMA_VERSION = 5;
+export const LOCAL_SCHEMA_VERSION = 8;
 
 /**
  * Attachment row as stored locally: metadata plus the file bytes when this device has them.
@@ -26,6 +26,8 @@ export class SmartClassroomDatabase extends Dexie {
   announcements!: EntityTable<Announcement, 'id'>;
   notificationPreferences!: EntityTable<NotificationPreference, 'id'>;
   academicAudit!: EntityTable<AcademicAuditEntry, 'id'>;
+  timetable!: EntityTable<TimetableEntry, 'id'>;
+  achievements!: EntityTable<StudentAchievement, 'id'>;
   students!: EntityTable<Student, 'id'>;
   enrollments!: EntityTable<Enrollment, 'id'>;
   assignments!: EntityTable<Assignment, 'id'>;
@@ -79,7 +81,7 @@ export class SmartClassroomDatabase extends Dexie {
     });
     // v5 carries the academic workflow: rubrics, submission history, personal deadlines,
     // announcements, delivery preferences and the local mirror of the academic audit trail.
-    this.version(LOCAL_SCHEMA_VERSION).stores({
+    this.version(5).stores({
       rubrics: 'id, schoolId, subjectId, status, deletedAt',
       rubricScores: 'id, schoolId, assignmentId, studentId, criterionId, [assignmentId+studentId], deletedAt',
       submissionVersions: 'id, schoolId, assignmentId, studentId, [assignmentId+studentId], versionNumber, submittedAt',
@@ -118,6 +120,29 @@ export class SmartClassroomDatabase extends Dexie {
         row.scheduledAt ??= row.createdAt;
         row.sentAt ??= row.createdAt;
       });
+    });
+    // v6 adds the queue index used by school-scoped pending/blocked diagnostics.
+    // Dexie upgrades indexes in place and preserves every unsynced queue record.
+    this.version(6).stores({
+      syncQueue: 'queueId, schoolId, entityType, entityId, status, [schoolId+status], nextRetryAt, createdAt'
+    });
+    // v7 adds the weekly timetable and the positive achievement record, and mirrors the server's
+    // teacher verification lifecycle locally so the UI can show where a teacher stands offline.
+    this.version(7).stores({
+      timetable: 'id, schoolId, classId, teacherId, academicTermId, dayOfWeek, [classId+dayOfWeek], [academicTermId+classId], status, deletedAt',
+      achievements: 'id, schoolId, studentId, achievementKey, dedupeKey, awardedAt, deletedAt'
+    }).upgrade(async (transaction) => {
+      // Existing local teachers were created before verification existed. Treating them as verified
+      // matches the server migration, which grandfathers the same rows instead of locking them out.
+      await transaction.table('teachers').toCollection().modify((row: { verificationStatus?: string }) => {
+        row.verificationStatus ??= 'verified_teacher';
+      });
+    });
+    // v8 indexes the two lookups the timetable and the award pass do on every write: one class's
+    // week within a term, and one badge's dedupe key. Dexie adds indexes in place; no row moves.
+    this.version(LOCAL_SCHEMA_VERSION).stores({
+      timetable: 'id, schoolId, classId, teacherId, academicTermId, dayOfWeek, [classId+dayOfWeek], [academicTermId+classId], [schoolId+academicTermId], status, deletedAt',
+      achievements: 'id, schoolId, studentId, achievementKey, dedupeKey, [schoolId+dedupeKey], awardedAt, deletedAt'
     });
   }
 }

@@ -6,9 +6,10 @@ import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { AvatarStudio } from '../avatars/AvatarStudio';
 import type { Student } from '../../domain/types';
 import { previewStudentCsv } from './csvImport';
+import { requireSupabase } from '../../services/supabase';
 
 export function StudentsPage() {
-  const { membership } = useSession();
+  const { membership, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
   const classes = activeClasses(snapshot);
@@ -26,6 +27,28 @@ export function StudentsPage() {
     [snapshot, selectedClassId]
   );
   const term = snapshot.terms.find((item) => item.status === 'active') ?? snapshot.terms[0];
+
+  /**
+   * Turns an existing student record into a login. The invitation is addressed to this record, so
+   * redeeming it links the new account to the student already in the register — it never creates a
+   * second student.
+   */
+  async function activateLogin(student: Student) {
+    const email = window.prompt(`อีเมลสำหรับบัญชีของ ${student.displayName}\nนักเรียนต้องสมัครด้วยอีเมลนี้แล้วกรอกรหัสคำเชิญ`);
+    if (!email) return;
+    try {
+      const { data, error } = await requireSupabase().functions.invoke('member-invitation', {
+        body: { action: 'create', schoolId: membership.schoolId, role: 'student', targetEntityId: student.id, email: email.trim() }
+      });
+      if (error) throw error;
+      const code = (data as { code?: string } | null)?.code;
+      setMessage(code
+        ? `รหัสคำเชิญของ ${student.displayName}: ${code} (ใช้ได้ 48 ชั่วโมง ครั้งเดียว)`
+        : 'สร้างคำเชิญแล้ว');
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'สร้างคำเชิญไม่สำเร็จ');
+    }
+  }
 
   async function addStudent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -121,6 +144,10 @@ export function StudentsPage() {
                   <div className="record-actions">
                     <button className="text-button" onClick={() => setStudioStudent(student)}>ปรับแต่งอวตาร</button>
                     {canEdit && <button className="text-button" onClick={() => setRenaming(student)}>แก้ไข</button>}
+                    {canEdit && mode === 'cloud' && !student.profileId && (
+                      <button className="text-button" onClick={() => void activateLogin(student)}>เปิดบัญชีเข้าใช้งาน</button>
+                    )}
+                    {student.profileId && <span className="status-chip success">มีบัญชีแล้ว</span>}
                     {canEdit && (
                       <button
                         className="text-button danger"

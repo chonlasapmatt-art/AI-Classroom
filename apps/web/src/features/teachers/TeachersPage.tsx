@@ -1,9 +1,19 @@
 import { useState, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
+import { requireSupabase } from '../../services/supabase';
+import type { TeacherVerificationStatus } from '../../domain/types';
+
+const verificationLabels: Record<TeacherVerificationStatus, string> = {
+  teacher_requested: 'ขอสิทธิ์ครู', verification_pending: 'รอตรวจสอบ',
+  verified_teacher: 'ยืนยันแล้ว', revoked: 'ถูกเพิกถอน'
+};
+const verificationTone: Record<TeacherVerificationStatus, string> = {
+  teacher_requested: 'warning', verification_pending: 'warning', verified_teacher: 'success', revoked: 'danger'
+};
 
 export function TeachersPage() {
-  const { membership } = useSession();
+  const { membership, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
   const [message, setMessage] = useState<string | null>(null);
@@ -11,23 +21,44 @@ export function TeachersPage() {
     teacherId: '', classId: '', role: 'primary'
   });
 
-  const canEdit = membership.role === 'admin' && repository.canManageStructure;
+  const canEdit = (membership.role === 'admin' || membership.role === 'teacher') && repository.canManageStructure;
 
   async function createTeacher(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
     try {
+      const teacherId = crypto.randomUUID();
       await repository.saveTeacher({
+        id: teacherId,
         teacherCode: String(data.get('code') ?? '').trim(),
         displayName: String(data.get('name') ?? '').trim(),
         email: String(data.get('email') ?? '').trim(),
         subject: String(data.get('subject') ?? '').trim()
       });
+      if (mode === 'cloud' && data.get('invite') === 'on') {
+        const { data: invitation, error } = await requireSupabase().functions.invoke('member-invitation', {
+          body: { action: 'create', schoolId: membership.schoolId, role: 'teacher', targetEntityId: teacherId, email: String(data.get('email') ?? '').trim() }
+        });
+        if (error) throw error;
+        setMessage(`เพิ่มครูแล้ว · รหัสคำเชิญ ${(invitation as { code?: string } | null)?.code ?? 'สร้างแล้ว'}`);
+      } else {
+        setMessage('เพิ่มครูแล้ว');
+      }
       form.reset();
-      setMessage('เพิ่มครูแล้ว');
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ');
+    }
+  }
+
+  async function verify(teacherId: string, displayName: string) {
+    const reason = window.prompt(`ยืนยันสถานะครูของ ${displayName}\nระบุเหตุผล (อย่างน้อย 4 ตัวอักษร)`, 'ตรวจสอบเอกสารประจำตัวแล้ว');
+    if (reason === null) return;
+    try {
+      await repository.verifyTeacher(teacherId, reason);
+      setMessage(`ยืนยันสถานะครูของ ${displayName} แล้ว`);
+    } catch (reason2) {
+      setMessage(reason2 instanceof Error ? reason2.message : 'ยืนยันสถานะไม่สำเร็จ');
     }
   }
 
@@ -59,6 +90,7 @@ export function TeachersPage() {
             <label>ชื่อ-สกุล<input name="name" required /></label>
             <label>อีเมล<input name="email" type="email" required /></label>
             <label>กลุ่มสาระ<input name="subject" required /></label>
+            {mode === 'cloud' && <label className="checkbox-field"><input name="invite" type="checkbox" /> สร้างคำเชิญบัญชีเข้าใช้งาน</label>}
           </div>
           <button className="primary-button">บันทึก</button>
         </form>
@@ -75,8 +107,19 @@ export function TeachersPage() {
                     <strong>{teacher.displayName}</strong>
                     <span>{teacher.teacherCode} · {teacher.subject} · {teacher.email}</span>
                   </div>
+                  <span className={`status-chip ${verificationTone[teacher.verificationStatus]}`}>
+                    {verificationLabels[teacher.verificationStatus]}
+                  </span>
                   <span className="status-chip success">{links.length} ห้อง</span>
                 </div>
+                {membership.role === 'admin' && teacher.verificationStatus !== 'verified_teacher' && (
+                  <div className="record-actions">
+                    <button className="secondary-button" onClick={() => void verify(teacher.id, teacher.displayName)}>
+                      ยืนยันสถานะครู
+                    </button>
+                    <span className="hint">ครูที่ยังไม่ยืนยันจะยังใช้งานข้อมูลห้องเรียนไม่ได้</span>
+                  </div>
+                )}
                 {links.length > 0 && (
                   <div className="record-actions">
                     {links.map((link) => {

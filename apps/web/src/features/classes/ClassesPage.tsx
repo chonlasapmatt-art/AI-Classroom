@@ -17,9 +17,9 @@ export function ClassesPage() {
   const [capacity, setCapacity] = useState<number>(editing?.capacity ?? 40);
   const [customCapacity, setCustomCapacity] = useState('');
 
-  const isAdmin = membership.role === 'admin';
+  const isOperator = membership.role === 'admin' || membership.role === 'teacher';
   const term = snapshot.terms.find((item) => item.status === 'active') ?? snapshot.terms[0];
-  const canEdit = isAdmin && repository.canManageStructure && Boolean(term);
+  const canEdit = isOperator && repository.canManageStructure && Boolean(term);
   const classes = [...snapshot.classes].sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
   async function saveClass(event: FormEvent<HTMLFormElement>) {
@@ -137,7 +137,7 @@ export function ClassesPage() {
         </form>
       )}
 
-      {!repository.canManageStructure && isAdmin && (
+      {!repository.canManageStructure && isOperator && (
         <div className="alert">ต้องเชื่อมต่อ Supabase ก่อนจึงจะสร้าง แก้ไข หรือลบห้องเรียนได้ (ห้องเรียนเป็นข้อมูลฝั่งเซิร์ฟเวอร์)</div>
       )}
 
@@ -186,7 +186,7 @@ export function ClassesPage() {
         </ul>
       </section>
 
-      {isAdmin && (
+      {isOperator && (
         <section className="panel data-panel">
           <div className="panel-heading"><h2>ย้ายนักเรียนระหว่างห้อง</h2></div>
           <div className="form-grid">

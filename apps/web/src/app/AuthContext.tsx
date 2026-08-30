@@ -10,8 +10,21 @@ interface AuthState {
   active: MembershipContext | null;
   error: string | null;
   signIn(email: string, password: string): Promise<void>;
+  signUp(input: RegistrationInput): Promise<{ emailConfirmationRequired: boolean }>;
+  requestPasswordReset(email: string): Promise<void>;
+  updatePassword(password: string): Promise<void>;
   signOut(): Promise<void>;
+  refreshMemberships(): Promise<void>;
   selectMembership(id: string): void;
+}
+
+export type PublicRegistrationRole = 'teacher' | 'student' | 'parent';
+
+export interface RegistrationInput {
+  displayName: string;
+  email: string;
+  password: string;
+  role: PublicRegistrationRole;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -59,15 +72,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
     setError(null); setLoading(true);
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) { setLoading(false); throw signInError; }
-    setSession(data.session); await loadMemberships(data.session); setLoading(false);
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
+      setSession(data.session); await loadMemberships(data.session);
+    } finally { setLoading(false); }
   }, [loadMemberships]);
 
+  const signUp = useCallback(async (input: RegistrationInput) => {
+    if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
+    const displayName = input.displayName.trim();
+    if (displayName.length < 2) throw new Error('กรุณาระบุชื่ออย่างน้อย 2 ตัวอักษร');
+    if (input.password.length < 8) throw new Error('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
+    setError(null); setLoading(true);
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: input.email.trim(), password: input.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+          data: { display_name: displayName, requested_role: input.role }
+        }
+      });
+      if (signUpError) throw signUpError;
+      setSession(data.session);
+      if (data.session) await loadMemberships(data.session);
+      return { emailConfirmationRequired: data.session === null };
+    } finally { setLoading(false); }
+  }, [loadMemberships]);
+
+  const requestPasswordReset = useCallback(async (email: string) => {
+    if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`
+    });
+    if (resetError) throw resetError;
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
+    if (password.length < 8) throw new Error('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) throw updateError;
+  }, []);
+
   const signOut = useCallback(async () => { if (supabase) await supabase.auth.signOut(); setSession(null); setMemberships([]); setActiveId(null); localStorage.removeItem('active-membership'); }, []);
+  const refreshMemberships = useCallback(async () => { await loadMemberships(session); }, [loadMemberships, session]);
   const selectMembership = useCallback((id: string) => { setActiveId(id); localStorage.setItem('active-membership', id); }, []);
   const active = memberships.find((item) => item.membershipId === activeId) ?? memberships[0] ?? null;
-  const value = useMemo(() => ({ loading, session, memberships, active, error, signIn, signOut, selectMembership }), [active, error, loading, memberships, selectMembership, session, signIn, signOut]);
+  const value = useMemo(() => ({
+    loading, session, memberships, active, error, signIn, signUp, requestPasswordReset,
+    updatePassword, signOut, refreshMemberships, selectMembership
+  }), [active, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, session, signIn, signOut, signUp, updatePassword]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

@@ -1,8 +1,8 @@
 import type {
-  AcademicAuditEntry, AcademicTerm, Activity, ActivityScore, Announcement, Assignment, Attendance, AttendanceStatus,
-  ClassTeacher, Classroom, ClassroomNotification, DeadlineExtension, Enrollment, MembershipContext,
-  NotificationPreference, ParentLink, Rubric, RubricScore, Setting, Student, Subject, Submission, SubmissionVersion,
-  SyncRecord, Teacher, TestRecord, TestScore
+  AcademicAuditEntry, AcademicTerm, AchievementKey, Activity, ActivityScore, Announcement, Assignment, Attendance,
+  AttendanceStatus, ClassTeacher, Classroom, ClassroomNotification, DeadlineExtension, Enrollment, MembershipContext,
+  NotificationPreference, ParentLink, Rubric, RubricScore, Setting, Student, StudentAchievement, Subject, Submission,
+  SubmissionVersion, SyncRecord, Teacher, TestRecord, TestScore, TimetableEntry
 } from '../../domain/types';
 import { standardSubjects } from '../subjectCatalog';
 import type { SchoolSnapshot } from '../schoolRepository';
@@ -103,9 +103,9 @@ export function buildFixtureData(): FixtureData {
   const primaryClassId = 'fixture-class-1';
 
   const teachers: Teacher[] = [
-    { ...record('fixture-teacher-1'), profileId: 'preview-teacher', avatarId: 'avatar_010', avatarPhotoId: null, teacherCode: 'T-001', displayName: 'ครูสมฤทัย ปัญญาดี', email: 'somruethai@example.ac.th', subject: 'วิทยาศาสตร์', status: 'active' },
-    { ...record('fixture-teacher-2'), profileId: null, avatarId: 'avatar_020', avatarPhotoId: null, teacherCode: 'T-002', displayName: 'ครูอนุชา ตั้งใจสอน', email: 'anucha@example.ac.th', subject: 'คณิตศาสตร์', status: 'active' },
-    { ...record('fixture-teacher-3'), profileId: null, avatarId: 'avatar_030', avatarPhotoId: null, teacherCode: 'T-003', displayName: 'ครูพิมพ์ชนก ใจงาม', email: 'pimchanok@example.ac.th', subject: 'ภาษาไทย', status: 'active' }
+    { ...record('fixture-teacher-1'), profileId: 'preview-teacher', avatarId: 'avatar_010', avatarPhotoId: null, teacherCode: 'T-001', displayName: 'ครูสมฤทัย ปัญญาดี', email: 'somruethai@example.ac.th', subject: 'วิทยาศาสตร์', verificationStatus: 'verified_teacher', status: 'active' },
+    { ...record('fixture-teacher-2'), profileId: null, avatarId: 'avatar_020', avatarPhotoId: null, teacherCode: 'T-002', displayName: 'ครูอนุชา ตั้งใจสอน', email: 'anucha@example.ac.th', subject: 'คณิตศาสตร์', verificationStatus: 'verified_teacher', status: 'active' },
+    { ...record('fixture-teacher-3'), profileId: null, avatarId: 'avatar_030', avatarPhotoId: null, teacherCode: 'T-003', displayName: 'ครูพิมพ์ชนก ใจงาม', email: 'pimchanok@example.ac.th', subject: 'ภาษาไทย', verificationStatus: 'verification_pending', status: 'active' }
   ];
 
   const classTeachers: ClassTeacher[] = [
@@ -390,6 +390,49 @@ export function buildFixtureData(): FixtureData {
     valueJson: { homework: 20, assignment: 20, activity: 10, project: 20, test: 30 }
   });
 
+  // A readable week: three classes, five teaching days, four periods each, so every timetable view
+  // has something to show without the preview pretending to be a real school schedule.
+  const periodClock = [
+    { startTime: '08:30', endTime: '09:20' }, { startTime: '09:30', endTime: '10:20' },
+    { startTime: '10:30', endTime: '11:20' }, { startTime: '13:00', endTime: '13:50' }
+  ];
+  const weekSubjects = ['TH', 'MA', 'SC', 'EN', 'SO', 'AR', 'PE', 'OC'];
+  const timetable: TimetableEntry[] = [];
+  classes.forEach((classroom, classIndex) => {
+    for (let day = 1; day <= 5; day += 1) {
+      periodClock.forEach((clock, periodIndex) => {
+        const slot = (classIndex * 3 + day + periodIndex) % weekSubjects.length;
+        timetable.push({
+          ...record(`fixture-timetable-${classroom.id}-${day}-${periodIndex + 1}`),
+          classId: classroom.id, subjectId: subjectId(weekSubjects[slot] ?? 'TH'),
+          teacherId: teachers[(classIndex + periodIndex) % teachers.length]?.id ?? null,
+          academicTermId: termId, dayOfWeek: day, period: periodIndex + 1,
+          startTime: clock.startTime, endTime: clock.endTime,
+          room: `อาคาร ${classIndex + 1} ห้อง ${classIndex + 1}0${periodIndex + 1}`, status: 'active'
+        });
+      });
+    }
+  });
+
+  const achievementSeeds: { studentIndex: number; key: AchievementKey; note: string }[] = [
+    { studentIndex: 0, key: 'on_time_submitter', note: 'ส่งงานตรงเวลาต่อเนื่อง 5 ชิ้น' },
+    { studentIndex: 0, key: 'reader', note: 'อ่านหนังสือนอกเวลาครบตามเป้า' },
+    { studentIndex: 1, key: 'steady_attendance', note: 'มาเรียนครบทุกวันในเดือนนี้' },
+    { studentIndex: 2, key: 'score_improver', note: 'คะแนนดีขึ้นจากการสอบครั้งก่อน' },
+    { studentIndex: 3, key: 'helper', note: 'ช่วยเพื่อนทบทวนบทเรียน' },
+    { studentIndex: 4, key: 'experimenter', note: 'ออกแบบการทดลองด้วยตนเอง' }
+  ];
+  const achievements: StudentAchievement[] = achievementSeeds.flatMap((seed, index) => {
+    const student = students[seed.studentIndex];
+    if (!student) return [];
+    return [{
+      ...record(`fixture-achievement-${index + 1}`),
+      studentId: student.id, achievementKey: seed.key, dedupeKey: `${student.id}:${seed.key}`,
+      note: seed.note, awardedBy: 'preview-teacher',
+      awardedAt: `${addDays(FIXTURE_TODAY, -(index + 1))}T03:00:00.000Z`
+    }];
+  });
+
   const memberships: MembershipContext[] = [
     { membershipId: 'preview-admin', schoolId: FIXTURE_SCHOOL_ID, schoolName: FIXTURE_SCHOOL_NAME, profileId: 'preview-admin', displayName: 'ผู้ดูแลระบบ (Preview)', role: 'admin', status: 'active' },
     { membershipId: 'preview-teacher', schoolId: FIXTURE_SCHOOL_ID, schoolName: FIXTURE_SCHOOL_NAME, profileId: 'preview-teacher', displayName: teachers[0]!.displayName, role: 'teacher', status: 'active' },
@@ -401,7 +444,7 @@ export function buildFixtureData(): FixtureData {
     ready: true, terms, classes, subjects, teachers, classTeachers, students, enrollments, assignments, submissions,
     activities, activityScores, tests, testScores, attendance, parentLinks, attachments: [], notifications,
     rubrics, rubricScores, submissionVersions, deadlineExtensions, announcements, notificationPreferences,
-    academicAudit, settings,
+    academicAudit, timetable, achievements, settings,
     pendingSync: 0, blockedSync: 0, memberships, primaryClassId
   };
 }

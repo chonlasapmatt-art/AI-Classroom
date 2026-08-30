@@ -3,16 +3,53 @@ import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { attendanceSummary, classIdOfStudent, consentedStudents, privacyPolicyFrom, standingsFor } from '../../data/selectors';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
+import { requireSupabase } from '../../services/supabase';
 
 const statusLabels = { invited: 'ส่งคำเชิญแล้ว', linked: 'เชื่อมบัญชีแล้ว', revoked: 'ยกเลิกแล้ว' } as const;
 
 export function ParentsPage() {
-  const { membership } = useSession();
+  const { membership, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
   const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const privacy = privacyPolicyFrom(snapshot.settings);
   const isStaff = membership.role === 'admin' || membership.role === 'teacher';
+
+  /**
+   * A guardian the school records itself. The account, when one is wanted, is invited against that
+   * same record, so a parent who signs up later joins the guardian already on file.
+   */
+  async function addParentAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const email = String(data.get('email') ?? '').trim();
+    setBusy(true);
+    try {
+      const { parentId } = await repository.saveParentAccount({
+        studentId: String(data.get('studentId') ?? ''),
+        displayName: String(data.get('displayName') ?? '').trim(),
+        relationship: String(data.get('relationship') ?? '').trim(),
+        phone: String(data.get('phone') ?? '').trim()
+      });
+      if (!email) {
+        setMessage('บันทึกผู้ปกครองแล้ว เปิดบัญชีให้ภายหลังได้');
+      } else {
+        const { data: invitation, error } = await requireSupabase().functions.invoke('member-invitation', {
+          body: { action: 'create', schoolId: membership.schoolId, role: 'parent', targetEntityId: parentId, email }
+        });
+        if (error) throw error;
+        const code = (invitation as { code?: string } | null)?.code;
+        setMessage(code ? `บันทึกแล้ว · รหัสคำเชิญ ${code} (ใช้ได้ 48 ชั่วโมง)` : 'บันทึกผู้ปกครองและสร้างคำเชิญแล้ว');
+      }
+      form.reset();
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'บันทึกผู้ปกครองไม่สำเร็จ');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -100,6 +137,31 @@ export function ParentsPage() {
             <label>เบอร์ติดต่อ<input name="contact" required /></label>
           </div>
           <button className="primary-button">สร้างคำเชิญ</button>
+          <p className="hint">เส้นทางนี้ใช้กับผู้ปกครองที่ผูกผ่าน LINE OA รหัสมีอายุจำกัดและใช้ได้ครั้งเดียว</p>
+        </form>
+      )}
+
+      {isStaff && mode === 'cloud' && (
+        <form className="panel inline-form" onSubmit={(event) => void addParentAccount(event)}>
+          <div className="panel-heading">
+            <h2>เพิ่มผู้ปกครองพร้อมบัญชีอีเมล</h2>
+            <p>บันทึกผู้ปกครองไว้ก่อนได้ แล้วค่อยเปิดบัญชีให้เข้าใช้งานเมื่อพร้อม</p>
+          </div>
+          <div className="form-grid">
+            <label>
+              นักเรียน
+              <select name="studentId" required defaultValue="">
+                <option value="" disabled>เลือกนักเรียน</option>
+                {snapshot.students.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
+              </select>
+            </label>
+            <label>ชื่อผู้ปกครอง<input name="displayName" required minLength={2} /></label>
+            <label>ความสัมพันธ์<input name="relationship" placeholder="มารดา / บิดา / ผู้ปกครอง" required /></label>
+            <label>เบอร์ติดต่อ<input name="phone" /></label>
+            <label>อีเมลสำหรับเปิดบัญชี (ไม่บังคับ)<input name="email" type="email" /></label>
+          </div>
+          <button className="primary-button" disabled={busy}>{busy ? 'กำลังบันทึก...' : 'บันทึกผู้ปกครอง'}</button>
+          <p className="hint">ถ้ากรอกอีเมล ระบบจะสร้างรหัสคำเชิญ 8 หลักให้ ผู้ปกครองสมัครด้วยอีเมลนั้นแล้วกรอกรหัสเพื่อผูกกับข้อมูลเดิม</p>
         </form>
       )}
 

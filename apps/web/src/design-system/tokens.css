@@ -20,6 +20,18 @@
   --line:#eceaf4;
   --line-strong:#ddd9ec;
 
+  /* Chrome: the navigation rail, the sticky top bar and anything that inverts. */
+  --nav-surface:#1d174b;
+  --nav-ink:#ffffff;
+  --nav-muted:#c8c3df;
+  --nav-faint:#aaa4ca;
+  --nav-hover:#ffffff0b;
+  --nav-divider:#ffffff13;
+  --topbar-surface:#ffffffd9;
+  --inverse-surface:#1d174b;
+  --inverse-ink:#ffffff;
+  --overlay:#17142cbb;
+
   /* Status */
   --success:#0f7a5f; --success-soft:#e3f7ef; --success-line:#bfeadb;
   --warning:#a15c05; --warning-soft:#fdf1dd; --warning-line:#f6ddb6;
@@ -62,4 +74,86 @@
 @media (min-width: 1600px) {
   /* Interactive boards: larger touch targets and a slightly bigger base size. */
   :root { --control-sm:48px; --control-md:56px; --control-lg:64px; --text-base:1rem; --text-sm:.9rem; }
+}
+
+/*
+ * Colour presets.
+ *
+ * A preset moves the brand ramp and nothing else: spacing, radius, elevation and every status
+ * colour stay identical, so a school choosing a different look never changes how the product reads.
+ * The default (Smart Violet) is the bare :root above.
+ */
+:root[data-preset="sky"] {
+  --brand-50:#eff6ff; --brand-100:#dbeafe; --brand-200:#bfdbfe; --brand-400:#60a5fa;
+  --brand-500:#3b82f6; --brand-600:#2563eb; --brand-700:#1d4ed8; --brand-800:#1e3a8a;
+  --nav-surface:#122a52; --inverse-surface:#122a52; --overlay:#0f2547bb;
+}
+:root[data-preset="mint"] {
+  --brand-50:#ecfdf5; --brand-100:#d1fae5; --brand-200:#a7f3d0; --brand-400:#34d399;
+  --brand-500:#10b981; --brand-600:#059669; --brand-700:#047857; --brand-800:#065f46;
+  --nav-surface:#0f3d33; --inverse-surface:#0f3d33; --overlay:#0b332bbb;
+}
+:root[data-preset="sunny"] {
+  --brand-50:#fff7ed; --brand-100:#ffedd5; --brand-200:#fed7aa; --brand-400:#fb923c;
+  --brand-500:#f97316; --brand-600:#ea580c; --brand-700:#c2410c; --brand-800:#9a3412;
+  --nav-surface:#4a2410; --inverse-surface:#4a2410; --overlay:#3d1d0dbb;
+}
+:root[data-preset="berry"] {
+  --brand-50:#fdf2f8; --brand-100:#fce7f3; --brand-200:#fbcfe8; --brand-400:#f472b6;
+  --brand-500:#ec4899; --brand-600:#db2777; --brand-700:#be185d; --brand-800:#9d174d;
+  --nav-surface:#4a0f31; --inverse-surface:#4a0f31; --overlay:#3d0d28bb;
+}
+
+/*
+ * Dark mode.
+ *
+ * Only surfaces, ink, lines and the soft status backgrounds move. Brand and status hues keep their
+ * meaning, and every value is defined here as well as in light so a toggle wins in both directions.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* Soft brand surfaces have to darken too, or light-on-light text disappears on brand tiles.
+     * The plain values keep older engines correct; color-mix re-tints them to the chosen preset. */
+    --brand-50:#241f4a; --brand-100:#2e2764; --brand-200:#3d3480;
+    --brand-50:color-mix(in srgb, var(--brand-600) 18%, #17142e);
+    --brand-100:color-mix(in srgb, var(--brand-600) 26%, #17142e);
+    --brand-200:color-mix(in srgb, var(--brand-600) 38%, #17142e);
+    --canvas:#131126; --surface:#1b1834; --surface-muted:#201d3d; --surface-sunken:#161331;
+    --line:#2c2850; --line-strong:#3b3668;
+    --ink-900:#f4f2ff; --ink-800:#e6e3f7; --ink-700:#d3cfec; --ink-600:#b8b3d8; --ink-500:#9a95bd;
+    --ink-400:#807aa4; --ink-300:#645f85;
+    --success-soft:#0e3a2e; --success-line:#1d5e4b; --success:#5fd3ae;
+    --warning-soft:#43290a; --warning-line:#6b4413; --warning:#f0b45f;
+    --danger-soft:#451822; --danger-line:#6d2635; --danger:#f38ea0;
+    --info-soft:#152a4d; --info-line:#25406e; --info:#7fb0ff;
+    --nav-surface:#100d24; --topbar-surface:#1b1834e6;
+    --inverse-surface:#e9e6ff; --inverse-ink:#1b1834;
+    --overlay:#05030fcc;
+    --shadow-xs:0 1px 2px rgba(0,0,0,.4); --shadow-sm:0 2px 8px rgba(0,0,0,.45);
+    --shadow-md:0 12px 30px rgba(0,0,0,.5); --shadow-lg:0 24px 60px rgba(0,0,0,.55);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  /* Soft brand surfaces have to darken too, or light-on-light text disappears on brand tiles.
+   * The plain values keep older engines correct; color-mix re-tints them to the chosen preset. */
+  --brand-50:#241f4a; --brand-100:#2e2764; --brand-200:#3d3480;
+  --brand-50:color-mix(in srgb, var(--brand-600) 18%, #17142e);
+  --brand-100:color-mix(in srgb, var(--brand-600) 26%, #17142e);
+  --brand-200:color-mix(in srgb, var(--brand-600) 38%, #17142e);
+  --canvas:#131126; --surface:#1b1834; --surface-muted:#201d3d; --surface-sunken:#161331;
+  --line:#2c2850; --line-strong:#3b3668;
+  --ink-900:#f4f2ff; --ink-800:#e6e3f7; --ink-700:#d3cfec; --ink-600:#b8b3d8; --ink-500:#9a95bd;
+  --ink-400:#807aa4; --ink-300:#645f85;
+  --success-soft:#0e3a2e; --success-line:#1d5e4b; --success:#5fd3ae;
+  --warning-soft:#43290a; --warning-line:#6b4413; --warning:#f0b45f;
+  --danger-soft:#451822; --danger-line:#6d2635; --danger:#f38ea0;
+  --info-soft:#152a4d; --info-line:#25406e; --info:#7fb0ff;
+  --nav-surface:#100d24; --topbar-surface:#1b1834e6;
+  --inverse-surface:#e9e6ff; --inverse-ink:#1b1834;
+  --overlay:#05030fcc;
+  --shadow-xs:0 1px 2px rgba(0,0,0,.4); --shadow-sm:0 2px 8px rgba(0,0,0,.45);
+  --shadow-md:0 12px 30px rgba(0,0,0,.5); --shadow-lg:0 24px 60px rgba(0,0,0,.55);
+  color-scheme: dark;
 }

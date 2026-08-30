@@ -24,7 +24,8 @@ Link the intended **development** project first. Never run automated tests again
 supabase link --project-ref <development-project-ref>
 supabase db push
 supabase functions deploy sync-push
-supabase functions deploy first-school-setup
+supabase functions deploy admin-access
+supabase functions deploy member-invitation
 supabase functions deploy parent-link
 supabase functions deploy line-notify --no-verify-jwt
 ```
@@ -33,6 +34,8 @@ Configure server secrets:
 
 ```bash
 supabase secrets set PARENT_LINK_HMAC_SECRET=<minimum-32-random-bytes>
+supabase secrets set ADMIN_ACCESS_CODE_HASH=<sha256-hex-of-owner-code>
+supabase secrets set MEMBER_INVITATION_HMAC_SECRET=<minimum-32-random-bytes>
 supabase secrets set LINE_CHANNEL_ACCESS_TOKEN=<token>
 supabase secrets set LINE_CHANNEL_SECRET=<secret>
 supabase secrets set ALLOWED_ORIGINS=https://your-app.example
@@ -44,5 +47,7 @@ Migrations are immutable after deployment. Apply corrective changes as a new mig
 
 1. Invite/create the first Supabase Auth user.
 2. Sign in through the application.
-3. The setup screen invokes `bootstrap_school` transactionally to create the school, first admin membership, active academic term, scoring policy and policy drafts.
-4. Register the board/device before the first critical sync.
+3. Open the private Owner entry route directly. It is deliberately not linked from public UI.
+4. The `admin-access` Edge Function rate-limits attempts, compares `ADMIN_ACCESS_CODE_HASH` server-side and invokes the service-role-only `bootstrap_school_owner` transaction.
+5. Rotate or revoke Owner access by changing/removing `ADMIN_ACCESS_CODE_HASH`; never place the raw code in source, HTML, browser environment variables or logs.
+6. Register the board/device before the first critical sync.

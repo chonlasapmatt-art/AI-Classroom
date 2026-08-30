@@ -6,6 +6,8 @@ import { RepositoryProvider } from '../data/RepositoryContext';
 import { createDexieRepository } from '../data/dexieSchoolRepository';
 import { ConfigurationScreen } from '../features/auth/ConfigurationScreen';
 import { LoginPage } from '../features/auth/LoginPage';
+import { AwaitingMembershipPage, ForgotPasswordPage, RegisterPage, ResetPasswordPage } from '../features/auth/AccountPages';
+import { OwnerAccessPage } from '../features/auth/OwnerAccessPage';
 import { AppShell } from '../layouts/AppShell';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
@@ -26,9 +28,13 @@ import { ParentsPage } from '../features/parents/ParentsPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { OperationsPage } from '../features/operations/OperationsPage';
+import { TimetablePage } from '../features/timetable/TimetablePage';
+import { AchievementsPage } from '../features/achievements/AchievementsPage';
+import { PromotionPage } from '../features/promotion/PromotionPage';
 import { AvatarGalleryPage } from '../features/avatars/AvatarGalleryPage';
-import { SetupSchoolPage } from '../features/schools/SetupSchoolPage';
 import { isCloudConfigured } from '../services/supabase';
+import { useBackgroundSync } from '../sync/useBackgroundSync';
+import { SyncStatusProvider } from '../sync/SyncStatusContext';
 import { PreviewProviders } from '../preview/PreviewProviders';
 import { disablePreviewMode, enablePreviewMode, isPreviewActive, isPreviewModeAvailable } from '../preview/previewMode';
 
@@ -44,6 +50,9 @@ function AppRoutes() {
         <Route path="gradebook" element={<GradebookPage />} />
         <Route path="grade-editor" element={<GradeEditorPage />} />
         <Route path="calendar" element={<CalendarPage />} />
+        <Route path="timetable" element={<TimetablePage />} />
+        <Route path="achievements" element={<AchievementsPage />} />
+        <Route path="promotion" element={<PromotionPage />} />
         <Route path="notifications" element={<NotificationCenterPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="import" element={<ImportPage />} />
@@ -75,13 +84,21 @@ function CloudRoutes() {
 
   if (auth.loading) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบเซสชัน...</p></main>;
   if (!auth.session) return <Navigate to="/login" replace />;
-  if (!session) return <SetupSchoolPage />;
+  if (!session) return <AwaitingMembershipPage />;
 
   return (
     <SessionProvider value={session}>
-      <RepositoryProvider repository={repository}><AppRoutes /></RepositoryProvider>
+      <RepositoryProvider repository={repository}>
+        <SyncedShell schoolId={schoolId} />
+      </RepositoryProvider>
     </SessionProvider>
   );
+}
+
+/** Keeps the device in step with the server for as long as a cloud session is on screen. */
+function SyncedShell({ schoolId }: { schoolId: string }) {
+  const status = useBackgroundSync(schoolId, Boolean(schoolId));
+  return <SyncStatusProvider value={status}><AppRoutes /></SyncStatusProvider>;
 }
 
 export function App() {
@@ -101,6 +118,10 @@ export function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/owner/access" element={<OwnerAccessPage />} />
         <Route path="/*" element={<CloudRoutes />} />
       </Routes>
     </AuthProvider>

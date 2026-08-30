@@ -1,6 +1,6 @@
 export type Role = 'admin' | 'teacher' | 'student' | 'parent';
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave';
-export type SyncEntityType = 'student' | 'enrollment' | 'assignment' | 'submission' | 'activity' | 'activity_score' | 'test' | 'test_score' | 'attendance' | 'setting';
+export type SyncEntityType = 'student' | 'enrollment' | 'assignment' | 'submission' | 'activity' | 'activity_score' | 'test' | 'test_score' | 'attendance' | 'setting' | 'timetable_entry' | 'achievement';
 export type SyncOperation = 'upsert' | 'delete';
 
 export interface SyncRecord {
@@ -27,7 +27,13 @@ export interface Student extends SyncRecord {
   avatarPhotoId: string | null;
   status: 'active' | 'inactive';
 }
-export interface Enrollment extends SyncRecord { studentId: string; classId: string; academicTermId: string; status: 'active' | 'transferred' | 'left'; enrolledAt: string; leftAt: string | null; }
+/**
+ * An enrollment is closed, never overwritten. `transferred` covers a move inside a term, `promoted`
+ * a move into the next academic year and `graduated` the end of the student's time at the school —
+ * so attendance, grades and submissions stay attached to the class they were earned in.
+ */
+export type EnrollmentStatus = 'active' | 'transferred' | 'left' | 'promoted' | 'graduated';
+export interface Enrollment extends SyncRecord { studentId: string; classId: string; academicTermId: string; status: EnrollmentStatus; enrolledAt: string; leftAt: string | null; }
 /** Any piece of academic work a teacher hands out. One record type, four presentations. */
 export type WorkType = 'assignment' | 'homework' | 'project' | 'activity';
 export type WorkStatus = 'draft' | 'published' | 'closed' | 'archived' | 'cancelled';
@@ -104,6 +110,14 @@ export interface DeviceMetadata { deviceId: string; schoolId: string; deviceName
 
 export interface MembershipContext { membershipId: string; schoolId: string; schoolName: string; profileId: string; displayName: string; role: Role; status: 'active' | 'suspended'; }
 
+/**
+ * Where a teacher stands in the verification lifecycle. Choosing "teacher" during public
+ * registration only produces a request; protected school data stays out of reach until a trusted
+ * server call (an admin, or a verified peer when school policy allows it) moves the record to
+ * `verified_teacher`. The database is the authority — this field mirrors it for the UI.
+ */
+export type TeacherVerificationStatus = 'teacher_requested' | 'verification_pending' | 'verified_teacher' | 'revoked';
+
 export interface Teacher extends SyncRecord {
   profileId: string | null;
   avatarId: string | null;
@@ -112,6 +126,7 @@ export interface Teacher extends SyncRecord {
   displayName: string;
   email: string;
   subject: string;
+  verificationStatus: TeacherVerificationStatus;
   status: 'active' | 'inactive';
 }
 
@@ -263,6 +278,38 @@ export type AcademicAuditAction =
   | 'SCORE_CREATED' | 'SCORE_CHANGED' | 'GRADE_OVERRIDE' | 'GRADE_OVERRIDE_REMOVED'
   | 'DEADLINE_CHANGED' | 'STUDENT_EXTENSION_CREATED' | 'ASSIGNMENT_PUBLISHED'
   | 'ASSIGNMENT_CANCELLED' | 'REVISION_REQUESTED';
+
+/** One recurring lesson slot. A week is described by the set of slots, not by a generated grid. */
+export interface TimetableEntry extends SyncRecord {
+  classId: string;
+  subjectId: string | null;
+  teacherId: string | null;
+  academicTermId: string;
+  /** 1 = Monday … 7 = Sunday, matching ISO-8601 so date maths needs no lookup table. */
+  dayOfWeek: number;
+  period: number;
+  /** Local wall-clock times in the school timezone, "HH:MM". */
+  startTime: string;
+  endTime: string;
+  room: string;
+  status: 'active' | 'archived';
+}
+
+/** Positive recognition only. A badge is earned, never taken away for poor performance. */
+export type AchievementKey =
+  | 'on_time_submitter' | 'steady_attendance' | 'score_improver' | 'reader'
+  | 'thinker' | 'experimenter' | 'creator' | 'helper';
+
+/** One badge earned by one student. Awarding is idempotent through `dedupeKey`. */
+export interface StudentAchievement extends SyncRecord {
+  studentId: string;
+  achievementKey: AchievementKey;
+  /** Stable identity so re-running the award pass never duplicates a badge. */
+  dedupeKey: string;
+  note: string;
+  awardedBy: string | null;
+  awardedAt: string;
+}
 
 /** Local mirror of the academic audit trail so the history is readable offline too. */
 export interface AcademicAuditEntry extends SyncRecord {

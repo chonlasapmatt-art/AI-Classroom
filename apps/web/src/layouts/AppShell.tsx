@@ -4,16 +4,23 @@ import { useSession } from '../app/SessionContext';
 import { useSchoolSnapshot } from '../data/RepositoryContext';
 import { unreadCount } from '../academic/views';
 import { isPreviewModeAvailable } from '../preview/previewMode';
+import { useSyncStatus } from '../sync/SyncStatusContext';
 import type { Role } from '../domain/types';
 
 const roleLabels: Record<Role, string> = { admin: 'ผู้ดูแลระบบ', teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง' };
 
 interface NavItem { to: string; label: string; icon: string; roles: Role[] }
 
+/** Sync state is shown as one calm pill; colour never carries the meaning on its own. */
+const syncPillTone: Record<string, string> = {
+  idle: 'online', syncing: 'syncing', synced: 'online', offline: 'offline', attention: 'attention', error: 'attention'
+};
+
 const navigation: NavItem[] = [
   { to: '/', label: 'ภาพรวม', icon: '◫', roles: ['admin', 'teacher', 'student', 'parent'] },
   { to: '/students', label: 'นักเรียน', icon: '◉', roles: ['admin', 'teacher'] },
   { to: '/calendar', label: 'ปฏิทิน', icon: '▦', roles: ['admin', 'teacher', 'student'] },
+  { to: '/timetable', label: 'ตารางสอน', icon: '▤', roles: ['admin', 'teacher', 'student', 'parent'] },
   { to: '/notifications', label: 'การแจ้งเตือน', icon: '🔔', roles: ['student'] },
   { to: '/classes', label: 'ห้องเรียน', icon: '▦', roles: ['admin', 'teacher'] },
   { to: '/subjects', label: 'รายวิชา', icon: '◆', roles: ['admin', 'teacher'] },
@@ -24,9 +31,11 @@ const navigation: NavItem[] = [
   { to: '/gradebook', label: 'สมุดเกรด', icon: '▩', roles: ['admin', 'teacher', 'student'] },
   { to: '/grade-editor', label: 'แก้ไขคะแนน', icon: '✎', roles: ['admin', 'teacher'] },
   { to: '/leaderboard', label: 'Leaderboard', icon: '♕', roles: ['admin', 'teacher', 'student'] },
+  { to: '/achievements', label: 'เหรียญรางวัล', icon: '✦', roles: ['admin', 'teacher', 'student', 'parent'] },
   { to: '/parents', label: 'ผู้ปกครอง', icon: '♧', roles: ['admin', 'teacher', 'parent'] },
   { to: '/reports', label: 'รายงาน', icon: '▥', roles: ['admin', 'teacher'] },
   { to: '/import', label: 'นำเข้ารายชื่อ', icon: '↥', roles: ['admin', 'teacher'] },
+  { to: '/promotion', label: 'ปีการศึกษา', icon: '⇪', roles: ['admin', 'teacher'] },
   { to: '/operations', label: 'Sync & Backup', icon: '↻', roles: ['admin', 'teacher'] },
   { to: '/settings', label: 'ตั้งค่า', icon: '⚙', roles: ['admin', 'teacher'] },
   { to: '/profile', label: 'โปรไฟล์ของฉัน', icon: '☺', roles: ['admin', 'teacher', 'student', 'parent'] }
@@ -35,6 +44,7 @@ const navigation: NavItem[] = [
 export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
   const snapshot = useSchoolSnapshot();
+  const sync = useSyncStatus();
   const [open, setOpen] = useState(false);
   const { membership } = session;
   const ownStudent = snapshot.students.find((item) => item.profileId === membership.profileId);
@@ -76,7 +86,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           {session.mode === 'preview' ? (
             <div className="sync-pill preview"><span />Preview / Development Only · ไม่ใช่ข้อมูลจริง</div>
           ) : (
-            <div className="sync-pill online"><span />เชื่อมต่อ Supabase</div>
+            <button
+              type="button"
+              className={`sync-pill ${syncPillTone[sync?.phase ?? 'idle'] ?? 'online'}`}
+              onClick={() => void sync?.syncNow()}
+              title={sync?.detail || 'ซิงก์ข้อมูลกับเซิร์ฟเวอร์'}
+            >
+              <span />{sync?.label ?? 'เชื่อมต่อ Supabase'}
+            </button>
           )}
           <div className="role-switch">
             {session.memberships.length > 1 && (
