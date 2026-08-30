@@ -74,9 +74,10 @@ export function StudentLoginPage() {
           <input
             name="studentCode" inputMode="text" value={studentCode}
             onChange={(event) => setStudentCode(event.target.value)}
-            placeholder="เช่น 1285" required
+            placeholder="เช่น 1285 หรือ ป.6/1-15" aria-describedby="student-code-hint" required
           />
         </label>
+        <p className="field-hint" id="student-code-hint">เลขที่คุณครูให้ไว้ มีขีดหรือเว้นวรรคก็พิมพ์ได้ตามที่เห็น</p>
         {schools.length > 0 && (
           <label>
             โรงเรียน
@@ -142,17 +143,17 @@ export function StudentFirstTimePage() {
       <form className="auth-card student-card" onSubmit={(event) => void submit(event)}>
         <h2>สมัครใช้งานครั้งแรก</h2>
         <div className="form-grid">
-          <label>ชื่อจริง<input value={firstName} onChange={(event) => setFirstName(event.target.value)} required /></label>
-          <label>นามสกุล<input value={lastName} onChange={(event) => setLastName(event.target.value)} required /></label>
+          <label>ชื่อจริง<input value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="เช่น ธนกร" required /></label>
+          <label>นามสกุล<input value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="เช่น ศรีสุข" required /></label>
         </div>
         <label>
           เลขประจำตัวนักเรียน
-          <input value={studentCode} onChange={(event) => setStudentCode(event.target.value)} required />
+          <input value={studentCode} onChange={(event) => setStudentCode(event.target.value)} placeholder="เช่น 1285 หรือ ป.6/1-15" required />
         </label>
         <label>
           โรงเรียน
           <input
-            value={schoolQuery} placeholder="พิมพ์ชื่อโรงเรียน"
+            value={schoolQuery} placeholder="เช่น โรงเรียนสาธิตสมาร์ท"
             onChange={(event) => { setSchoolQuery(event.target.value); setSchoolId(''); }}
             required
           />

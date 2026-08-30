@@ -36,6 +36,16 @@ test.describe('teacher and parent sign-in', () => {
     });
   }
 
+  test('shows what to type rather than leaving the fields blank', async ({ page }) => {
+    // A person who has never seen the screen cannot tell whether "ชื่อ" wants a first name, a full
+    // name or a nickname. The example answers that before they get it wrong and spend an attempt.
+    await page.goto('/login');
+    await page.getByRole('button', { name: 'ครู', exact: true }).click();
+    await expect(page.locator('input[name="displayName"]')).toHaveAttribute('placeholder', /สมชาย ใจดี/);
+    await expect(page.locator('input[name="password"]')).toHaveAttribute('placeholder', /รหัสผ่าน/);
+    await expect(page.getByText('ตัวพิมพ์เล็กใหญ่และเว้นวรรคไม่มีผล')).toBeVisible();
+  });
+
   test('keeps the button closed until both fields are filled', async ({ page }) => {
     await page.goto('/login');
     await page.getByRole('button', { name: 'ครู', exact: true }).click();
@@ -79,6 +89,17 @@ test.describe('signing up', () => {
     await expect(page.getByLabel('รหัสผ่าน', { exact: true })).toBeVisible();
     await expect(page.getByLabel('โรงเรียน')).toHaveCount(0);
     await expect(page.locator('input[type="email"]')).toHaveCount(0);
+  });
+
+  test('gives an example for every field a teacher has to fill in', async ({ page }) => {
+    await page.goto('/register');
+    await page.getByRole('button', { name: 'ครู', exact: true }).click();
+    await expect(page.locator('input[name="firstName"]')).toHaveAttribute('placeholder', /สมชาย/);
+    await expect(page.locator('input[name="lastName"]')).toHaveAttribute('placeholder', /ใจดี/);
+    await expect(page.locator('input[name="school"]')).toHaveAttribute('placeholder', /โรงเรียน/);
+    await expect(page.locator('input[name="password"]')).toHaveAttribute('placeholder', /8 ตัวอักษร/);
+    await expect(page.locator('input[name="confirmPassword"]')).toHaveAttribute('placeholder', /อีกครั้ง/);
+    await expect(page.getByText('แล้วกดเลือกจากรายการที่ขึ้นมา')).toBeVisible();
   });
 
   test('holds the button closed until the two passwords match', async ({ page }) => {

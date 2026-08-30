@@ -106,9 +106,11 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
             <input
               name="childName" value={childName} autoComplete="off"
               onChange={(event) => { setChildName(event.target.value); setCandidates(null); }}
-              placeholder="เช่น ธนกร" required minLength={2}
+              placeholder="เช่น ธนกร หรือ ธนกร ศรีสุข" aria-describedby="child-name-hint"
+              required minLength={2}
             />
           </label>
+          <p className="field-hint" id="child-name-hint">ใส่ชื่อจริงอย่างเดียวก็ได้ ถ้ามีเด็กชื่อซ้ำจะขึ้นให้เลือกหลายการ์ด</p>
           <button className="primary-button" disabled={busy || childName.trim().length < 2}>
             {busy ? 'กำลังค้นหา...' : 'ค้นหา'}
           </button>

@@ -392,3 +392,9 @@ button.sync-pill:focus-visible { outline: none; box-shadow: var(--focus-ring); }
   .candidate-card { grid-template-columns: 44px 1fr; }
   .candidate-card > button, .candidate-card > .status-chip { grid-column: 1 / -1; }
 }
+
+/* One line of plain guidance under a field. Examples belong in the placeholder; this is for the
+   rule a person cannot guess — what the value is for, or what happens if they get it wrong. */
+.field-hint { display: block; margin-top: var(--space-1); font-size: var(--text-xs);
+  font-weight: var(--weight-regular); color: var(--ink-500); line-height: 1.45; }
+p.field-hint { margin: calc(var(--space-1) * -1) 0 0; }

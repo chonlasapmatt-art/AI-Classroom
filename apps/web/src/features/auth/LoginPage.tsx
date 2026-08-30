@@ -88,19 +88,23 @@ export function LoginPage() {
         <form className="auth-card" onSubmit={(event) => void submit(event)}>
           <h2>เข้าสู่ระบบ{whoLabels[who]}</h2>
           <p className="role-hint">ใช้ชื่อกับรหัสผ่านเท่านั้น ไม่ต้องใช้อีเมล</p>
+          {/* The hint sits outside the label so the field keeps its short name — a screen reader
+              announces the label, then the description, rather than one long sentence. */}
           <label>
             ชื่อ
             <input
               name="displayName" autoComplete="name" value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="ชื่อ นามสกุล" required
+              placeholder="เช่น สมชาย ใจดี" aria-describedby="login-name-hint" required
             />
           </label>
+          <p className="field-hint" id="login-name-hint">ชื่อจริงและนามสกุล แบบเดียวกับตอนสมัคร (ตัวพิมพ์เล็กใหญ่และเว้นวรรคไม่มีผล)</p>
           <label>
             รหัสผ่าน
             <input
               name="password" type="password" autoComplete="current-password" value={password}
-              onChange={(event) => setPassword(event.target.value)} required
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="รหัสผ่านที่ตั้งไว้ตอนสมัคร" required
             />
           </label>
           {accounts.length > 0 && (

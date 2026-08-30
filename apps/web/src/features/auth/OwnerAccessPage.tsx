@@ -58,11 +58,11 @@ export function OwnerAccessPage() {
           <h1>สร้างบัญชีเจ้าของระบบ</h1>
           <p>ใช้ชื่อกับรหัสผ่านเหมือนผู้ใช้ทั่วไป บัญชีนี้ยังไม่มีสิทธิ์ใด ๆ จนกว่าจะยืนยันรหัสเจ้าของในขั้นถัดไป</p>
           <div className="form-grid">
-            <label>ชื่อจริง<input value={firstName} onChange={(event) => setFirstName(event.target.value)} required /></label>
-            <label>นามสกุล<input value={lastName} onChange={(event) => setLastName(event.target.value)} required /></label>
+            <label>ชื่อจริง<input value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="เช่น สมชาย" required /></label>
+            <label>นามสกุล<input value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="เช่น ใจดี" required /></label>
           </div>
-          <label>รหัสผ่าน<input type="password" autoComplete="new-password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
-          <label>ยืนยันรหัสผ่าน<input type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>
+          <label>รหัสผ่าน<input type="password" autoComplete="new-password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="อย่างน้อย 8 ตัวอักษร" required /></label>
+          <label>ยืนยันรหัสผ่าน<input type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="พิมพ์รหัสผ่านเดิมอีกครั้ง" required /></label>
           {error && <div className="alert error" role="alert">{error}</div>}
           <button className="primary-button" disabled={busy || !isCompleteMemberRegistration({ firstName, lastName, password, confirmPassword })}>
             {busy ? 'กำลังสร้างบัญชี...' : 'สร้างบัญชีและไปขั้นถัดไป'}
@@ -79,13 +79,18 @@ export function OwnerAccessPage() {
         <span className="eyebrow">PRIVATE OWNER ENTRY</span>
         <h1>ยืนยันเจ้าของและสร้างโรงเรียน</h1>
         <p>ระบบจะตรวจรหัสที่ฝั่งเซิร์ฟเวอร์ พร้อมจำกัดความถี่และบันทึกเหตุการณ์ รหัสไม่ถูกเก็บในเบราว์เซอร์</p>
-        <label>รหัสยืนยันเจ้าของ<input name="accessCode" type="password" autoComplete="one-time-code" minLength={4} maxLength={128} required /></label>
+        <label>
+          รหัสยืนยันเจ้าของ
+          <input name="accessCode" type="password" autoComplete="one-time-code" minLength={4} maxLength={128} aria-describedby="owner-code-hint" required />
+        </label>
+        <p className="field-hint" id="owner-code-hint">รหัสที่ตั้งไว้ฝั่งเซิร์ฟเวอร์ตอนติดตั้ง ไม่ใช่รหัสผ่านของบัญชีนี้</p>
         <div className="form-grid">
-          <label>ชื่อโรงเรียน<input name="schoolName" minLength={2} maxLength={200} required /></label>
-          <label>รหัสโรงเรียน<input name="schoolCode" pattern="[A-Za-z0-9-]{3,20}" required /></label>
-          <label>ปีการศึกษา<input name="academicYear" minLength={2} maxLength={20} required /></label>
-          <label>ภาคเรียน<input name="term" minLength={1} maxLength={20} required /></label>
+          <label>ชื่อโรงเรียน<input name="schoolName" placeholder="เช่น โรงเรียนสาธิตสมาร์ท" minLength={2} maxLength={200} required /></label>
+          <label>รหัสโรงเรียน<input name="schoolCode" placeholder="เช่น SC-01" pattern="[A-Za-z0-9-]{3,20}" required /></label>
+          <label>ปีการศึกษา<input name="academicYear" placeholder="เช่น 2569" minLength={2} maxLength={20} required /></label>
+          <label>ภาคเรียน<input name="term" placeholder="เช่น 1" minLength={1} maxLength={20} required /></label>
         </div>
+        <p className="field-hint">รหัสโรงเรียนใช้ A-Z 0-9 และขีดกลาง 3–20 ตัว ห้ามซ้ำกับโรงเรียนอื่นในระบบ</p>
         {error && <div className="alert error" role="alert">{error}</div>}
         <button className="primary-button" disabled={busy}>{busy ? 'กำลังตรวจสอบ...' : 'ยืนยันและเริ่มตั้งค่าโรงเรียน'}</button>
       </form>

@@ -86,20 +86,26 @@ export function RegisterPage() {
       ) : (
         <form className="auth-card" onSubmit={(event) => void submit(event)}>
           <h2>สมัครใช้งาน{roleLabels[role]}</h2>
+          <p className="field-hint">
+            {role === 'teacher'
+              ? 'ชื่อกับรหัสผ่านนี้คือสิ่งที่ใช้เข้าสู่ระบบครั้งต่อไป เลือกโรงเรียนแล้วเริ่มสอนได้ทันที ไม่ต้องรออนุมัติ'
+              : 'ชื่อกับรหัสผ่านนี้คือสิ่งที่ใช้เข้าสู่ระบบครั้งต่อไป เพิ่มลูกได้หลังเข้าระบบ โดยกรอกแค่ชื่อจริงของลูก'}
+          </p>
           <div className="form-grid">
-            <label>ชื่อจริง<input name="firstName" value={firstName} onChange={(event) => setFirstName(event.target.value)} minLength={1} required /></label>
-            <label>นามสกุล<input name="lastName" value={lastName} onChange={(event) => setLastName(event.target.value)} minLength={1} required /></label>
+            <label>ชื่อจริง<input name="firstName" value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="เช่น สมชาย" minLength={1} required /></label>
+            <label>นามสกุล<input name="lastName" value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="เช่น ใจดี" minLength={1} required /></label>
           </div>
           {role === 'teacher' && (
             <>
               <label>
                 โรงเรียน
                 <input
-                  name="school" value={schoolQuery} placeholder="พิมพ์ชื่อโรงเรียน"
+                  name="school" value={schoolQuery} placeholder="เช่น โรงเรียนสาธิตสมาร์ท"
                   onChange={(event) => { setSchoolQuery(event.target.value); setSchoolId(''); }}
-                  required
+                  aria-describedby="register-school-hint" required
                 />
               </label>
+              <p className="field-hint" id="register-school-hint">พิมพ์ชื่อโรงเรียน 2 ตัวอักษรขึ้นไป แล้วกดเลือกจากรายการที่ขึ้นมา</p>
               {!schoolId && options.length > 0 && (
                 <ul className="school-suggestions">
                   {options.map((school) => (
@@ -114,9 +120,12 @@ export function RegisterPage() {
               {schoolId && <p className="fine-print">เลือกโรงเรียนแล้ว · เริ่มใช้งานได้ทันทีหลังสมัคร</p>}
             </>
           )}
-          <label>รหัสผ่าน<input name="password" type="password" autoComplete="new-password" minLength={MEMBER_PASSWORD_MINIMUM} value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
-          <label>ยืนยันรหัสผ่าน<input name="confirmPassword" type="password" autoComplete="new-password" minLength={MEMBER_PASSWORD_MINIMUM} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>
-          {role === 'parent' && <p className="hint">เพิ่มลูกได้หลังเข้าสู่ระบบ โดยกรอกแค่ชื่อจริงของลูก</p>}
+          <label>
+            รหัสผ่าน
+            <input name="password" type="password" autoComplete="new-password" minLength={MEMBER_PASSWORD_MINIMUM} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={`อย่างน้อย ${MEMBER_PASSWORD_MINIMUM} ตัวอักษร`} aria-describedby="register-password-hint" required />
+          </label>
+          <p className="field-hint" id="register-password-hint">ตั้งเองได้ตามใจ จำให้ได้ ถ้าลืมต้องให้ทางโรงเรียนตั้งรหัสใหม่ให้</p>
+          <label>ยืนยันรหัสผ่าน<input name="confirmPassword" type="password" autoComplete="new-password" minLength={MEMBER_PASSWORD_MINIMUM} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="พิมพ์รหัสผ่านเดิมอีกครั้ง" required /></label>
           {error && <div className="alert error" role="alert">{error}</div>}
           <button className="primary-button big-button" disabled={busy || !complete}>
             {busy ? 'กำลังสร้างบัญชี...' : 'สร้างบัญชีและเข้าใช้งาน'}
@@ -169,7 +178,11 @@ export function ForgotPasswordPage() {
             </label>
           ))}
         </fieldset>
-        <label>ชื่อ<input name="displayName" autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} minLength={2} required /></label>
+        <label>
+          ชื่อ
+          <input name="displayName" autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="เช่น สมชาย ใจดี" aria-describedby="reset-name-hint" minLength={2} required />
+        </label>
+        <p className="field-hint" id="reset-name-hint">ชื่อจริงและนามสกุลที่ใช้ตอนสมัคร</p>
         {message && <div className="alert success" role="status">{message}</div>}
         <button className="primary-button" disabled={busy || displayName.trim().length < 2}>{busy ? 'กำลังส่ง...' : 'ส่งคำขอ'}</button>
         <div className="auth-links"><Link to="/login">กลับไปเข้าสู่ระบบ</Link></div>
