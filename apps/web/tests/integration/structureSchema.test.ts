@@ -64,8 +64,12 @@ describe('timetable, achievement and academic year schema', () => {
 
   it('keeps migration order reproducible for a fresh environment', () => {
     // Files are added, never edited in place, so a fresh database replays the same sequence.
+    // The check is on the naming rule rather than on whichever migration happens to be newest,
+    // so adding one does not require editing this test — which would defeat the point of it.
     const ordered = [...files].sort();
     expect(files).toEqual(ordered);
-    expect(files.at(-1)).toBe('202608300012_parent_accounts.sql');
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) expect(file).toMatch(/^\d{12}_[a-z0-9_]+\.sql$/);
+    expect(new Set(files.map((file) => file.slice(0, 12))).size).toBe(files.length);
   });
 });

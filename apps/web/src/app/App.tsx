@@ -6,8 +6,9 @@ import { RepositoryProvider } from '../data/RepositoryContext';
 import { createDexieRepository } from '../data/dexieSchoolRepository';
 import { ConfigurationScreen } from '../features/auth/ConfigurationScreen';
 import { LoginPage } from '../features/auth/LoginPage';
-import { AwaitingMembershipPage, ForgotPasswordPage, RegisterPage, ResetPasswordPage } from '../features/auth/AccountPages';
+import { AuthCallbackPage, AwaitingMembershipPage, ForgotPasswordPage, RegisterPage, ResetPasswordPage } from '../features/auth/AccountPages';
 import { OwnerAccessPage } from '../features/auth/OwnerAccessPage';
+import { StudentFirstTimePage, StudentLoginPage } from '../features/auth/StudentAccessPages';
 import { AppShell } from '../layouts/AppShell';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
@@ -119,6 +120,9 @@ export function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/student" element={<StudentLoginPage />} />
+        <Route path="/student/first-time" element={<StudentFirstTimePage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/owner/access" element={<OwnerAccessPage />} />

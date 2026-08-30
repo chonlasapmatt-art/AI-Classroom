@@ -29,24 +29,22 @@ export function StudentsPage() {
   const term = snapshot.terms.find((item) => item.status === 'active') ?? snapshot.terms[0];
 
   /**
-   * Turns an existing student record into a login. The invitation is addressed to this record, so
-   * redeeming it links the new account to the student already in the register — it never creates a
-   * second student.
+   * Students sign in with the name and student number already on this card, so there is nothing to
+   * hand out — the only lever a teacher needs is the ability to close that door again when a record
+   * is disputed or a device is lost. Turning access off also releases the account binding, which
+   * ends any session already open against the record.
    */
-  async function activateLogin(student: Student) {
-    const email = window.prompt(`อีเมลสำหรับบัญชีของ ${student.displayName}\nนักเรียนต้องสมัครด้วยอีเมลนี้แล้วกรอกรหัสคำเชิญ`);
-    if (!email) return;
+  async function setAccess(student: Student, enabled: boolean) {
     try {
-      const { data, error } = await requireSupabase().functions.invoke('member-invitation', {
-        body: { action: 'create', schoolId: membership.schoolId, role: 'student', targetEntityId: student.id, email: email.trim() }
+      const { error } = await requireSupabase().rpc('set_student_access', {
+        p_student_id: student.id, p_enabled: enabled
       });
       if (error) throw error;
-      const code = (data as { code?: string } | null)?.code;
-      setMessage(code
-        ? `รหัสคำเชิญของ ${student.displayName}: ${code} (ใช้ได้ 48 ชั่วโมง ครั้งเดียว)`
-        : 'สร้างคำเชิญแล้ว');
+      setMessage(enabled
+        ? `เปิดการเข้าใช้งานของ ${student.displayName} แล้ว`
+        : `ปิดการเข้าใช้งานของ ${student.displayName} แล้ว`);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'สร้างคำเชิญไม่สำเร็จ');
+      setMessage(reason instanceof Error ? reason.message : 'ปรับสิทธิ์เข้าใช้งานไม่สำเร็จ');
     }
   }
 
@@ -55,7 +53,10 @@ export function StudentsPage() {
     const form = event.currentTarget;
     const data = new FormData(form);
     const studentCode = String(data.get('code') ?? '').trim();
-    const displayName = String(data.get('name') ?? '').trim();
+    // The student later signs in by typing this name back, so it is stored exactly as the two
+    // fields the teacher filled in, with the whitespace between them normalised.
+    const displayName = `${String(data.get('firstName') ?? '').trim()} ${String(data.get('lastName') ?? '').trim()}`
+      .replace(/\s+/g, ' ').trim();
     if (!studentCode || !displayName) return;
     if (snapshot.students.some((item) => item.studentCode === studentCode)) {
       setMessage('รหัสนักเรียนนี้มีอยู่แล้ว');
@@ -109,10 +110,12 @@ export function StudentsPage() {
       {open && canEdit && (
         <section className="panel inline-form">
           <div className="panel-heading"><h2>เพิ่มนักเรียนใหม่</h2></div>
+          <p className="hint">นักเรียนไม่ต้องมีอีเมลหรือรหัสผ่าน หลังบันทึกแล้วเข้าใช้งานได้ทันทีด้วยชื่อและเลขประจำตัวนี้</p>
           <form onSubmit={(event) => void addStudent(event)}>
             <div className="form-grid">
-              <label>รหัสนักเรียน<input name="code" required /></label>
-              <label>ชื่อ-สกุล<input name="name" required /></label>
+              <label>ชื่อจริง<input name="firstName" required /></label>
+              <label>นามสกุล<input name="lastName" required /></label>
+              <label>เลขประจำตัวนักเรียน<input name="code" required /></label>
             </div>
             <button className="primary-button">บันทึก</button>
           </form>
@@ -144,10 +147,13 @@ export function StudentsPage() {
                   <div className="record-actions">
                     <button className="text-button" onClick={() => setStudioStudent(student)}>ปรับแต่งอวตาร</button>
                     {canEdit && <button className="text-button" onClick={() => setRenaming(student)}>แก้ไข</button>}
-                    {canEdit && mode === 'cloud' && !student.profileId && (
-                      <button className="text-button" onClick={() => void activateLogin(student)}>เปิดบัญชีเข้าใช้งาน</button>
+                    {student.profileId && <span className="status-chip success">เคยเข้าใช้งานแล้ว</span>}
+                    {canEdit && mode === 'cloud' && (
+                      <>
+                        <button className="text-button" onClick={() => void setAccess(student, false)}>ปิดการเข้าใช้งาน</button>
+                        <button className="text-button" onClick={() => void setAccess(student, true)}>เปิดการเข้าใช้งาน</button>
+                      </>
                     )}
-                    {student.profileId && <span className="status-chip success">มีบัญชีแล้ว</span>}
                     {canEdit && (
                       <button
                         className="text-button danger"

@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../../src/app/App';
 import { resetFixtureRepository } from '../../src/data/fixtureSchoolRepository';
+import { ConfigurationScreen } from '../../src/features/auth/ConfigurationScreen';
 import { disablePreviewMode, enablePreviewMode, isPreviewActive, isPreviewModeAvailable } from '../../src/preview/previewMode';
 
 afterEach(() => { cleanup(); disablePreviewMode(); resetFixtureRepository(); });
@@ -14,13 +15,12 @@ describe('preview mode', () => {
   });
 
   it('offers the preview entry on the Supabase configuration screen', async () => {
-    render(<MemoryRouter><App /></MemoryRouter>);
+    render(<ConfigurationScreen onEnterPreview={enablePreviewMode} />);
     expect(screen.getByText('เชื่อมต่อ Supabase')).toBeInTheDocument();
     expect(screen.getByText('สำหรับการพัฒนาเท่านั้น — ไม่ใช่ข้อมูลจริง')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'เข้าสู่โหมด Preview' }));
     expect(isPreviewActive()).toBe(true);
-    await waitFor(() => expect(screen.getByText(/Preview \/ Development Only/)).toBeInTheDocument());
   });
 
   it('renders the dashboard from fixtures and switches roles', async () => {

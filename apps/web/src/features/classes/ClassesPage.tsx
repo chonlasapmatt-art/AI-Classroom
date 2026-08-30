@@ -4,9 +4,18 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { rosterFor } from '../../data/selectors';
 import { Field, ProgressBar } from '../../ui/components';
 import type { Classroom } from '../../domain/types';
+import { requireSupabase } from '../../services/supabase';
+
+interface StudentSearchResult {
+  studentId: string;
+  displayName: string;
+  studentCode: string;
+  currentClassId: string | null;
+  currentClassName: string | null;
+}
 
 export function ClassesPage() {
-  const { membership } = useSession();
+  const { membership, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
   const [message, setMessage] = useState<string | null>(null);
@@ -16,6 +25,10 @@ export function ClassesPage() {
   const [confirmDelete, setConfirmDelete] = useState<Classroom | null>(null);
   const [capacity, setCapacity] = useState<number>(editing?.capacity ?? 40);
   const [customCapacity, setCustomCapacity] = useState('');
+  const [rosterClassId, setRosterClassId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<StudentSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const isOperator = membership.role === 'admin' || membership.role === 'teacher';
   const term = snapshot.terms.find((item) => item.status === 'active') ?? snapshot.terms[0];
@@ -75,6 +88,75 @@ export function ClassesPage() {
       setTransfer(null);
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'ย้ายห้องไม่สำเร็จ');
+    }
+  }
+
+  async function searchStudents(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const classId = rosterClassId || classes.find((item) => item.status === 'active')?.id || '';
+    if (!classId || searchQuery.trim().length < 2) {
+      setMessage('เลือกห้องและพิมพ์ชื่อนักเรียนอย่างน้อย 2 ตัวอักษร');
+      return;
+    }
+    setSearching(true); setMessage(null);
+    try {
+      if (mode === 'cloud') {
+        const { data, error } = await requireSupabase().rpc('search_school_students', {
+          p_school_id: membership.schoolId,
+          p_class_id: classId,
+          p_query: searchQuery.trim()
+        });
+        if (error) throw error;
+        const rows = (data ?? []) as {
+          student_id: string; display_name: string; student_code: string;
+          current_class_id: string | null; current_class_name: string | null;
+        }[];
+        setSearchResults(rows.map((row) => ({
+          studentId: String(row.student_id),
+          displayName: String(row.display_name),
+          studentCode: String(row.student_code),
+          currentClassId: row.current_class_id ? String(row.current_class_id) : null,
+          currentClassName: row.current_class_name ? String(row.current_class_name) : null
+        })));
+      } else {
+        setSearchResults(snapshot.students
+          .filter((student) => student.displayName.toLocaleLowerCase('th').includes(searchQuery.trim().toLocaleLowerCase('th')))
+          .slice(0, 20)
+          .map((student) => {
+            const enrollment = snapshot.enrollments.find((item) => item.studentId === student.id && item.status === 'active');
+            const currentClass = snapshot.classes.find((item) => item.id === enrollment?.classId);
+            return { studentId: student.id, displayName: student.displayName, studentCode: student.studentCode, currentClassId: currentClass?.id ?? null, currentClassName: currentClass?.name ?? null };
+          }));
+      }
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'ค้นหานักเรียนไม่สำเร็จ');
+    } finally { setSearching(false); }
+  }
+
+  async function inviteStudent(student: StudentSearchResult) {
+    const classId = rosterClassId || classes.find((item) => item.status === 'active')?.id || '';
+    if (!classId || !term) return;
+    try {
+      if (mode === 'cloud') {
+        const { data, error } = await requireSupabase().rpc('invite_student_to_class', {
+          p_school_id: membership.schoolId,
+          p_class_id: classId,
+          p_student_id: student.studentId
+        });
+        if (error) throw error;
+        const result = data as { status?: string } | null;
+        if (result?.status === 'already_enrolled_elsewhere') {
+          setMessage(`${student.displayName} อยู่ใน ${student.currentClassName ?? 'ห้องอื่น'} แล้ว กรุณาใช้เมนูย้ายห้อง`);
+          return;
+        }
+        setMessage(result?.status === 'already_member' ? `${student.displayName} อยู่ในห้องนี้แล้ว` : `เชิญ ${student.displayName} เข้าห้องแล้ว ระบบกำลังซิงค์รายชื่อ`);
+      } else {
+        await repository.enrollStudent(student.studentId, classId, term.id);
+        setMessage(`เพิ่ม ${student.displayName} เข้าห้องแล้ว`);
+      }
+      setSearchResults((items) => items.map((item) => item.studentId === student.studentId ? { ...item, currentClassId: classId, currentClassName: classes.find((entry) => entry.id === classId)?.name ?? null } : item));
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'เชิญนักเรียนไม่สำเร็จ');
     }
   }
 
@@ -185,6 +267,26 @@ export function ClassesPage() {
           })}
         </ul>
       </section>
+
+      {canEdit && classes.some((item) => item.status === 'active') && (
+        <section className="panel roster-invite-panel">
+          <div className="panel-heading">
+            <div><span className="eyebrow">Invite แบบเกมออนไลน์</span><h2>ค้นหาและดึงนักเรียนเข้าห้อง</h2></div>
+            <p>ค้นหาเฉพาะนักเรียนในโรงเรียนเดียวกัน ระบบตรวจสิทธิ์และความจุห้องที่เซิร์ฟเวอร์</p>
+          </div>
+          <form className="roster-search" onSubmit={(event) => void searchStudents(event)}>
+            <label>ห้องเรียน<select value={rosterClassId} onChange={(event) => { setRosterClassId(event.target.value); setSearchResults([]); }} required><option value="">เลือกห้อง</option>{classes.filter((item) => item.status === 'active').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+            <label>ค้นหาชื่อนักเรียน<input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} minLength={2} placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร" required /></label>
+            <button className="secondary-button" disabled={searching}>{searching ? 'กำลังค้นหา...' : 'ค้นหา'}</button>
+          </form>
+          {searchResults.length > 0 && <ul className="invite-result-list">{searchResults.map((student) => {
+            const targetId = rosterClassId;
+            const alreadyHere = Boolean(targetId && student.currentClassId === targetId);
+            return <li key={student.studentId}><div><strong>{student.displayName}</strong><span>รหัส {student.studentCode}{student.currentClassName ? ` · อยู่ ${student.currentClassName}` : ' · ยังไม่มีห้องในเทอมนี้'}</span></div><button className={alreadyHere ? 'secondary-button' : 'primary-button'} disabled={alreadyHere} onClick={() => void inviteStudent(student)}>{alreadyHere ? 'อยู่ในห้องแล้ว' : '+ INV เข้าห้อง'}</button></li>;
+          })}</ul>}
+          {searchQuery.length >= 2 && !searching && searchResults.length === 0 && <p className="empty-inline">ยังไม่พบรายชื่อ ลองตรวจการสะกดหรือใช้ชื่อบางส่วน</p>}
+        </section>
+      )}
 
       {isOperator && (
         <section className="panel data-panel">

@@ -35,7 +35,18 @@ input:focus,select:focus,textarea:focus { border-color:var(--brand-500); }
 .auth-card { display:flex; flex-direction:column; gap:1.1rem; }.auth-card p { margin-bottom:.4rem; }.auth-card .fine-print { font-size:.76rem; text-align:center; margin:0; }
 .auth-page.compact { grid-template-columns:1fr; place-items:center; }.auth-page.compact .auth-card { max-width:560px; }
 .auth-links { display:flex; justify-content:center; gap:1.25rem; flex-wrap:wrap; font-size:.88rem; }.auth-links a { color:var(--brand-700); font-weight:700; }
-.role-choice { border:1px solid var(--line); border-radius:var(--radius-md); padding:.8rem 1rem 1rem; display:grid; grid-template-columns:repeat(3,1fr); gap:.6rem; }.role-choice legend { padding:0 .4rem; color:var(--ink-500); font-size:.82rem; }.role-choice label { min-height:48px; display:flex; align-items:center; justify-content:center; gap:.5rem; border:1px solid var(--line); border-radius:var(--radius-sm); cursor:pointer; }.role-choice input { width:auto; }
+.role-choice { border:1px solid var(--line); border-radius:var(--radius-md); padding:.8rem 1rem 1rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:.6rem; }
+.role-hint { text-align:center; font-size:.88rem; color:var(--ink-500); }.role-hint a { color:var(--brand-700); font-weight:700; }
+/* The student entrance is the same shell as the adult one, opened up: fewer fields, bigger targets,
+   and a warmer hero, because the people using it are children on shared tablets. */
+.student-auth .student-art { background:radial-gradient(circle at 12% 18%,#ffb020 0,transparent 34%),radial-gradient(circle at 88% 85%,#3ecfb2 0,transparent 30%),#1d2b6b; }
+.student-auth .student-art h1 { white-space:pre-line; }
+.student-card { gap:1.4rem; }
+.student-card label { font-size:1.02rem; }
+.student-card input,.student-card select { min-height:58px; font-size:1.12rem; }
+.big-button { min-height:60px; font-size:1.12rem; }
+.school-suggestions { list-style:none; margin:0; padding:.3rem; border:1px solid var(--line); border-radius:var(--radius-md); display:grid; gap:.15rem; max-height:220px; overflow-y:auto; }
+.school-suggestions button { width:100%; text-align:left; min-height:46px; padding:0 .6rem; }.role-choice legend { padding:0 .4rem; color:var(--ink-500); font-size:.82rem; }.role-choice label { min-height:48px; display:flex; align-items:center; justify-content:center; gap:.5rem; border:1px solid var(--line); border-radius:var(--radius-sm); cursor:pointer; }.role-choice input { width:auto; }
 .account-state { max-width:650px; margin:auto; padding:2rem; gap:1rem; }.account-state .brand-mark { margin:0 auto; }.account-state .text-button { margin-top:.5rem; }
 .invite-code-form { width:min(420px,100%); margin:.5rem auto; display:grid; grid-template-columns:1fr auto; align-items:end; gap:.75rem; }.checkbox-field { flex-direction:row; align-items:center; align-self:end; min-height:50px; }.checkbox-field input { width:20px; min-height:20px; }
 .primary-button,.secondary-button { min-height:52px; border:0; border-radius:var(--radius-sm); padding:.7rem 1.25rem; font-weight:800; }

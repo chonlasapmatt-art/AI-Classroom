@@ -32,7 +32,14 @@ Set-Location $repoRoot
 
 function Invoke-Supabase {
   param([Parameter(Mandatory = $true)][string[]]$Arguments)
-  Write-Host "supabase $($Arguments -join ' ')" -ForegroundColor DarkGray
+  $displayArguments = $Arguments | ForEach-Object {
+    if ($_ -match '^(PARENT_LINK_HMAC_SECRET|MEMBER_INVITATION_HMAC_SECRET|ADMIN_ACCESS_CODE_HASH|LINE_CHANNEL_ACCESS_TOKEN|LINE_CHANNEL_SECRET|SUPABASE_SERVICE_ROLE_KEY)=') {
+      "$($Matches[1])=***"
+    } else {
+      $_
+    }
+  }
+  Write-Host "supabase $($displayArguments -join ' ')" -ForegroundColor DarkGray
   & npx --yes supabase@latest @Arguments
   if ($LASTEXITCODE -ne 0) { throw "supabase $($Arguments -join ' ') failed with exit code $LASTEXITCODE" }
 }
@@ -67,10 +74,13 @@ Invoke-Supabase @('db', 'push')
 # 3. Edge Functions. line-notify is the only public webhook, so it verifies LINE's own signature
 #    instead of a Supabase JWT.
 Write-Host 'Step 3/4  Deploying Edge Functions' -ForegroundColor Cyan
-foreach ($fn in @('sync-push', 'admin-access', 'member-invitation', 'parent-link', 'first-school-setup')) {
+foreach ($fn in @('sync-push', 'admin-access', 'member-invitation', 'account-onboarding', 'parent-link', 'first-school-setup')) {
   Invoke-Supabase @('functions', 'deploy', $fn)
 }
 Invoke-Supabase @('functions', 'deploy', 'line-notify', '--no-verify-jwt')
+# A student has no account until this call succeeds, so it cannot require a Supabase JWT. Its own
+# rate limiting, lockout and opaque failures are what stand in for one.
+Invoke-Supabase @('functions', 'deploy', 'student-access', '--no-verify-jwt')
 
 if ($SkipSecrets) {
   Write-Host 'Step 4/4  Skipped (-SkipSecrets)' -ForegroundColor Yellow
@@ -80,6 +90,7 @@ if ($SkipSecrets) {
 
   $parentSecret = New-RandomSecret
   $memberSecret = New-RandomSecret
+  $studentSecret = New-RandomSecret
 
   $ownerCode = Read-Secret 'Owner access code (choose a long one; you will need it to create the first school)'
   if ([string]::IsNullOrWhiteSpace($ownerCode) -or $ownerCode.Length -lt 12) {
@@ -95,6 +106,7 @@ if ($SkipSecrets) {
   Invoke-Supabase @('secrets', 'set', "PARENT_LINK_HMAC_SECRET=$parentSecret")
   Invoke-Supabase @('secrets', 'set', "MEMBER_INVITATION_HMAC_SECRET=$memberSecret")
   Invoke-Supabase @('secrets', 'set', "ADMIN_ACCESS_CODE_HASH=$ownerHash")
+  Invoke-Supabase @('secrets', 'set', "STUDENT_ACCESS_HMAC_SECRET=$studentSecret")
   Invoke-Supabase @('secrets', 'set', "ALLOWED_ORIGINS=$allowedOrigins")
 
   Write-Host ''
