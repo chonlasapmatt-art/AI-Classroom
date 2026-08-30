@@ -4,10 +4,10 @@ import { attachmentKindFor } from './attachmentKind';
 import { commitLocalMutation, softDeleteLocal } from '../db/localMutation';
 import { isCloudConfigured, requireSupabase, supabase } from '../services/supabase';
 import type {
-  AcademicAuditAction, AcademicAuditEntry, Activity, ActivityScore, Announcement, Assignment, Attachment,
+  AcademicAuditAction, AcademicAuditEntry, AcademicTerm, Activity, ActivityScore, Announcement, Assignment, Attachment,
   AttachmentOwner, Attendance, AvatarConfig, ClassTeacher, Classroom, ClassroomNotification, DeadlineExtension,
-  Enrollment, NotificationPreference, ParentLink, Rubric, Setting, Student, Subject, Submission, SyncRecord, Teacher,
-  TestRecord, TestScore
+  Enrollment, NotificationPreference, ParentLink, Rubric, Setting, Student, StudentAchievement, Subject, Submission,
+  SyncRecord, Teacher, TestRecord, TestScore, TimetableEntry
 } from '../domain/types';
 import { auditEntry, planCancellation, planPublish, planScoring, planSubmission, planWorkUpdate } from './academicOps';
 import { defaultReminderOffsets, dueReminders } from '../academic/reminderEngine';
@@ -16,11 +16,13 @@ import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
 import {
-  emptySnapshot, MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, newId, nowIso,
-  type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput, type ClassInput, type NotificationInput,
-  type AnnouncementInput, type NotificationPreferenceInput, type ParentLinkInput, type RubricInput,
-  type SchoolRepository, type SchoolSnapshot, type ScoreInput, type ScoreSubmissionInput, type StudentInput,
-  type SubjectInput, type SubmissionInput, type TeacherInput, type TestInput
+  DEVELOPMENT_SEED_SETTING_KEY, emptySnapshot, MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, newId, nowIso,
+  type AcademicTermInput, type AchievementInput, type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput,
+  type ClassInput, type DevelopmentClearResult, type DevelopmentSeedInput, type DevelopmentSeedResult,
+  type NotificationInput, type AnnouncementInput, type NotificationPreferenceInput, type ParentAccountInput, type ParentLinkInput,
+  type PromotionInput, type PromotionResult, type RubricInput, type SchoolRepository, type SchoolSnapshot,
+  type ScoreInput, type ScoreSubmissionInput, type StudentInput, type SubjectInput, type SubmissionInput,
+  type TeacherInput, type TestInput, type TimetableInput
 } from './schoolRepository';
 
 /** Shared bucket every classroom file lives in. */
@@ -46,6 +48,19 @@ function alive<T extends { deletedAt: string | null }>(rows: T[]): T[] {
   return rows.filter((row) => !row.deletedAt);
 }
 
+/** What the development seeder created, so clearing removes exactly that and nothing else. */
+interface SeedLedger {
+  classes: string[]; students: string[]; teachers: string[];
+  assignments: string[]; parentLinks: string[]; seededAt: string;
+}
+
+const SEED_SUBJECTS = ['คณิตศาสตร์', 'ภาษาไทย', 'วิทยาศาสตร์และเทคโนโลยี', 'ภาษาต่างประเทศ'];
+const SEED_FIRST_NAMES = ['ปกรณ์', 'ชนากานต์', 'ธีรภัทร', 'พิมพ์ชนก', 'ณัฐวุฒิ', 'กันติชา', 'อรรถพล', 'ศิรินทิพย์'];
+const SEED_LAST_NAMES = ['ทดสอบ', 'ตัวอย่าง', 'สาธิต', 'จำลอง', 'ทวีสุข', 'ศรีสมบัติ'];
+
+/** Picks from a fixed sample list, wrapping around so any number of seeded rows stays labelled. */
+function cycle(list: readonly string[], index: number): string { return list[index % list.length] ?? ''; }
+
 /**
  * Local-first implementation. Reads come from the authorized Dexie projection, and writes go through
  * commitLocalMutation (queued for the trusted server mutation boundary) for every entity the sync
@@ -65,7 +80,7 @@ export class DexieSchoolRepository implements SchoolRepository {
     const [terms, classes, subjects, teachers, classTeachers, students, enrollments, assignments, submissions,
       activities, activityScores, tests, testScores, attendance, parentLinks, attachments, notifications,
       rubrics, rubricScores, submissionVersions, deadlineExtensions, announcements, notificationPreferences,
-      academicAudit, settings, pendingSync, blockedSync] = await Promise.all([
+      academicAudit, timetable, achievements, settings, pendingSync, blockedSync] = await Promise.all([
       db.academicTerms.where(inSchool).toArray(),
       db.classes.where(inSchool).toArray(),
       db.subjects.where(inSchool).toArray(),
@@ -90,6 +105,8 @@ export class DexieSchoolRepository implements SchoolRepository {
       db.announcements.where(inSchool).toArray(),
       db.notificationPreferences.where(inSchool).toArray(),
       db.academicAudit.where(inSchool).toArray(),
+      db.timetable.where(inSchool).toArray(),
+      db.achievements.where(inSchool).toArray(),
       db.settings.where(inSchool).toArray(),
       db.syncQueue.where({ schoolId, status: 'pending' }).count(),
       db.syncQueue.where({ schoolId, status: 'blocked' }).count()
@@ -106,6 +123,7 @@ export class DexieSchoolRepository implements SchoolRepository {
       rubrics: alive(rubrics), rubricScores: alive(rubricScores), submissionVersions,
       deadlineExtensions: alive(deadlineExtensions), announcements: alive(announcements),
       notificationPreferences, academicAudit,
+      timetable: alive(timetable), achievements: alive(achievements),
       settings: alive(settings), pendingSync, blockedSync
     };
   }
@@ -167,12 +185,41 @@ export class DexieSchoolRepository implements SchoolRepository {
     }
   }
 
+  async saveAcademicTerm(input: AcademicTermInput): Promise<void> {
+    const id = input.id ?? newId();
+    if (input.endsOn < input.startsOn) throw new Error('วันสิ้นสุดต้องไม่ก่อนวันเริ่มภาคเรียน');
+    await this.rpc('upsert_academic_term', {
+      p_school_id: this.schoolId, p_term_id: id, p_academic_year: input.academicYear.trim(),
+      p_term: input.term.trim(), p_starts_on: input.startsOn, p_ends_on: input.endsOn, p_status: input.status
+    });
+    const existing = await db.academicTerms.get(id);
+    const record: AcademicTerm = {
+      ...(existing ?? base(this.schoolId, id)),
+      academicYear: input.academicYear.trim(), term: input.term.trim(),
+      startsOn: input.startsOn, endsOn: input.endsOn, status: input.status, updatedAt: nowIso()
+    };
+    await db.academicTerms.put(record);
+    if (input.status === 'active') {
+      // Mirror what the server just did, so the local projection cannot show two active terms.
+      const others = await db.academicTerms.where({ schoolId: this.schoolId }).toArray();
+      for (const term of others) {
+        if (term.id === id || term.status !== 'active') continue;
+        await db.academicTerms.put({ ...term, status: 'closed', updatedAt: nowIso() });
+      }
+    }
+  }
+
   async saveClass(input: ClassInput): Promise<void> {
     const id = input.id ?? newId();
     await this.rpc('upsert_class', {
       p_school_id: this.schoolId, p_class_id: id, p_academic_term_id: input.academicTermId,
       p_name: input.name, p_grade_level: input.gradeLevel
     });
+    if (input.capacity !== undefined) {
+      await this.rpc('set_class_capacity', {
+        p_school_id: this.schoolId, p_class_id: id, p_capacity: input.capacity
+      });
+    }
     const existing = await db.classes.get(id);
     const record: Classroom = {
       ...(existing ?? base(this.schoolId, id)),
@@ -238,9 +285,25 @@ export class DexieSchoolRepository implements SchoolRepository {
       profileId: existing?.profileId ?? null, avatarId: existing?.avatarId ?? null,
       avatarPhotoId: existing?.avatarPhotoId ?? null,
       teacherCode: input.teacherCode, displayName: input.displayName,
-      email: input.email, subject: input.subject, status: existing?.status ?? 'active', updatedAt: nowIso()
+      email: input.email, subject: input.subject,
+      // A teacher the school typed in itself is already known to the school. The server applies the
+      // same rule in upsert_teacher, so the local projection must not claim something stricter.
+      verificationStatus: existing?.verificationStatus ?? 'verified_teacher',
+      status: existing?.status ?? 'active', updatedAt: nowIso()
     };
     await db.teachers.put(record);
+  }
+
+  async verifyTeacher(teacherId: string, reason: string): Promise<void> {
+    const trimmed = reason.trim();
+    if (trimmed.length < 4) throw new Error('ต้องระบุเหตุผลอย่างน้อย 4 ตัวอักษร');
+    // The server decides whether this caller may verify. Only after it accepts does the local
+    // projection move, so a refused attempt leaves nothing behind that looks approved.
+    await this.rpc('verify_teacher', { p_school_id: this.schoolId, p_teacher_id: teacherId, p_reason: trimmed });
+    const existing = await db.teachers.get(teacherId);
+    if (existing) {
+      await db.teachers.put({ ...existing, verificationStatus: 'verified_teacher', status: 'active', updatedAt: nowIso() });
+    }
   }
 
   async assignTeacher(classId: string, teacherId: string, role: ClassTeacher['role']): Promise<void> {
@@ -272,6 +335,76 @@ export class DexieSchoolRepository implements SchoolRepository {
       await commitLocalMutation('enrollment', { ...current, status: 'transferred', leftAt: nowIso(), updatedAt: nowIso() });
     }
     await this.enrollStudent(studentId, toClassId, academicTermId);
+  }
+
+  async promoteStudents(input: PromotionInput): Promise<PromotionResult> {
+    if (input.fromTermId === input.toTermId) throw new Error('ปีการศึกษาต้นทางและปลายทางต้องต่างกัน');
+    const targetClasses = await db.classes.where({ schoolId: this.schoolId, academicTermId: input.toTermId }).toArray();
+    const targetIds = new Set(alive(targetClasses).map((row) => row.id));
+    const result: PromotionResult = { promoted: 0, graduated: 0, skipped: 0 };
+    for (const move of input.moves) {
+      if (move.toClassId && !targetIds.has(move.toClassId)) throw new Error('ห้องปลายทางไม่ได้อยู่ในปีการศึกษาที่เลือก');
+      const current = await db.enrollments
+        .where({ schoolId: this.schoolId, studentId: move.studentId, academicTermId: input.fromTermId })
+        .filter((row) => row.status === 'active' && !row.deletedAt)
+        .first();
+      if (!current) { result.skipped += 1; continue; }
+      // History is closed, never rewritten: the old row keeps its class and term and only records
+      // how the student left it.
+      await commitLocalMutation('enrollment', {
+        ...current, status: move.toClassId ? 'promoted' : 'graduated', leftAt: nowIso(), updatedAt: nowIso()
+      });
+      if (!move.toClassId) { result.graduated += 1; continue; }
+      await commitLocalMutation('enrollment', {
+        ...base(this.schoolId), studentId: move.studentId, classId: move.toClassId,
+        academicTermId: input.toTermId, status: 'active', enrolledAt: nowIso(), leftAt: null
+      } satisfies Enrollment);
+      result.promoted += 1;
+    }
+    return result;
+  }
+
+  async saveTimetableEntry(input: TimetableInput): Promise<void> {
+    if (input.dayOfWeek < 1 || input.dayOfWeek > 7) throw new Error('วันในสัปดาห์ต้องอยู่ระหว่าง 1 ถึง 7');
+    if (input.period < 1) throw new Error('คาบเรียนต้องเริ่มที่ 1');
+    if (input.endTime <= input.startTime) throw new Error('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม');
+    const existing = input.id ? await db.timetable.get(input.id) : undefined;
+    const slots = alive(await db.timetable.where({ schoolId: this.schoolId, academicTermId: input.academicTermId }).toArray())
+      .filter((row) => row.status === 'active' && row.id !== existing?.id && row.dayOfWeek === input.dayOfWeek);
+    if (slots.some((row) => row.classId === input.classId && row.period === input.period)) {
+      throw new Error('ห้องนี้มีคาบเรียนในช่วงเวลานี้แล้ว');
+    }
+    if (input.teacherId && slots.some((row) => row.teacherId === input.teacherId && row.period === input.period)) {
+      throw new Error('ครูคนนี้ถูกจัดสอนคาบนี้ในห้องอื่นแล้ว');
+    }
+    const record: TimetableEntry = {
+      ...(existing ?? base(this.schoolId, input.id)),
+      classId: input.classId, subjectId: input.subjectId, teacherId: input.teacherId,
+      academicTermId: input.academicTermId, dayOfWeek: input.dayOfWeek, period: input.period,
+      startTime: input.startTime, endTime: input.endTime, room: input.room ?? '',
+      status: 'active', updatedAt: nowIso()
+    };
+    await commitLocalMutation('timetable_entry', record);
+  }
+
+  async removeTimetableEntry(entryId: string): Promise<void> {
+    const existing = await db.timetable.get(entryId);
+    if (!existing) return;
+    await softDeleteLocal('timetable_entry', existing);
+  }
+
+  async awardAchievement(input: AchievementInput): Promise<void> {
+    const dedupeKey = input.dedupeKey ?? `${input.studentId}:${input.achievementKey}`;
+    const already = await db.achievements.where({ schoolId: this.schoolId, dedupeKey }).first();
+    // Re-awarding is a no-op rather than an error: an award pass can run as often as it likes.
+    if (already && !already.deletedAt) return;
+    const record: StudentAchievement = {
+      ...(already ?? base(this.schoolId)),
+      studentId: input.studentId, achievementKey: input.achievementKey, dedupeKey,
+      note: input.note ?? '', awardedBy: input.awardedBy, awardedAt: nowIso(),
+      deletedAt: null, updatedAt: nowIso()
+    };
+    await commitLocalMutation('achievement', record);
   }
 
   async saveAssignment(input: AssignmentInput): Promise<void> {
@@ -900,6 +1033,27 @@ export class DexieSchoolRepository implements SchoolRepository {
     await db.parentLinks.put(record);
   }
 
+  async saveParentAccount(input: ParentAccountInput): Promise<{ parentId: string }> {
+    const parentId = input.id ?? newId();
+    const displayName = input.displayName.trim();
+    if (displayName.length < 2) throw new Error('กรุณาระบุชื่อผู้ปกครองอย่างน้อย 2 ตัวอักษร');
+    await this.rpc('upsert_parent', {
+      p_school_id: this.schoolId, p_parent_id: parentId, p_display_name: displayName,
+      p_phone: input.phone ?? '', p_student_id: input.studentId, p_relationship: input.relationship
+    });
+    const existing = await db.parentLinks.get(parentId);
+    await db.parentLinks.put({
+      ...(existing ?? base(this.schoolId, parentId)),
+      studentId: input.studentId, avatarId: existing?.avatarId ?? null, avatarPhotoId: existing?.avatarPhotoId ?? null,
+      parentName: displayName, relationship: input.relationship, contact: input.phone ?? existing?.contact ?? '',
+      lineUserId: existing?.lineUserId ?? null, status: existing?.status ?? 'invited',
+      invitationCode: existing?.invitationCode ?? null,
+      consentVersion: existing?.consentVersion ?? null, consentGrantedAt: existing?.consentGrantedAt ?? null,
+      updatedAt: nowIso()
+    });
+    return { parentId };
+  }
+
   async setParentConsent(parentLinkId: string, granted: boolean, policyVersion: string): Promise<void> {
     await this.rpc('set_parent_consent', {
       p_school_id: this.schoolId, p_parent_link_id: parentLinkId, p_granted: granted, p_policy_version: policyVersion
@@ -928,6 +1082,137 @@ export class DexieSchoolRepository implements SchoolRepository {
       scopeType: 'school', scopeId: null, key, valueJson, updatedAt: nowIso()
     };
     await commitLocalMutation('setting', record);
+  }
+
+  private async seedLedger(): Promise<SeedLedger> {
+    const row = await db.settings.where({ schoolId: this.schoolId, scopeType: 'school', key: DEVELOPMENT_SEED_SETTING_KEY }).first();
+    const value = row?.valueJson as Partial<SeedLedger> | undefined;
+    return {
+      classes: value?.classes ?? [], students: value?.students ?? [], teachers: value?.teachers ?? [],
+      assignments: value?.assignments ?? [], parentLinks: value?.parentLinks ?? [], seededAt: value?.seededAt ?? ''
+    };
+  }
+
+  async seedDevelopmentData(input: DevelopmentSeedInput): Promise<DevelopmentSeedResult> {
+    if (!this.canManageStructure) throw new Error('ต้องเชื่อมต่อ Supabase ก่อนจึงจะสร้างข้อมูลตัวอย่างได้');
+    if (input.classCount < 1 || input.studentsPerClass < 1) throw new Error('ต้องมีอย่างน้อย 1 ห้องและ 1 นักเรียนต่อห้อง');
+    const term = await db.academicTerms.get(input.academicTermId);
+    if (!term) throw new Error('ไม่พบปีการศึกษาที่เลือก');
+    const ledger = await this.seedLedger();
+    const stamp = Date.now().toString().slice(-6);
+    const result: DevelopmentSeedResult = { classes: 0, students: 0, teachers: 0, parents: 0, assignments: 0, attendance: 0 };
+
+    for (let index = 0; index < input.teacherCount; index += 1) {
+      const id = newId();
+      await this.saveTeacher({
+        id, teacherCode: `DEV-T${stamp}-${index + 1}`, displayName: `ครูตัวอย่าง ${index + 1}`,
+        email: `dev.teacher.${stamp}.${index + 1}@example.invalid`, subject: cycle(SEED_SUBJECTS, index)
+      });
+      ledger.teachers.push(id); result.teachers += 1;
+    }
+
+    for (let classIndex = 0; classIndex < input.classCount; classIndex += 1) {
+      const classId = newId();
+      await this.saveClass({
+        id: classId, name: `ตัวอย่าง ${stamp}/${classIndex + 1}`, gradeLevel: `ป.${(classIndex % 6) + 1}`,
+        academicTermId: input.academicTermId, capacity: Math.max(input.studentsPerClass, 30)
+      });
+      ledger.classes.push(classId); result.classes += 1;
+      const primaryTeacher = ledger.teachers.length > 0 ? ledger.teachers[classIndex % ledger.teachers.length] : undefined;
+      if (primaryTeacher) await this.assignTeacher(classId, primaryTeacher, 'primary');
+
+      const roster: string[] = [];
+      for (let studentIndex = 0; studentIndex < input.studentsPerClass; studentIndex += 1) {
+        const studentId = newId();
+        await this.saveStudent({
+          id: studentId, studentCode: `DEV-S${stamp}-${classIndex + 1}${String(studentIndex + 1).padStart(2, '0')}`,
+          displayName: `${cycle(SEED_FIRST_NAMES, studentIndex)} ${cycle(SEED_LAST_NAMES, classIndex)}`,
+          avatarIndex: studentIndex % 12
+        });
+        await this.enrollStudent(studentId, classId, input.academicTermId);
+        ledger.students.push(studentId); roster.push(studentId); result.students += 1;
+      }
+
+      if (!input.includeActivity) continue;
+
+      const assignmentId = newId();
+      const dueAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      await this.saveAssignment({
+        id: assignmentId, classId, subjectId: null, workType: 'homework', title: 'ใบงานตัวอย่าง',
+        description: 'ข้อมูลตัวอย่างสำหรับการทดสอบระบบ', dueAt, maxScore: 10, status: 'draft'
+      });
+      await this.publishAssignment(assignmentId, roster);
+      ledger.assignments.push(assignmentId); result.assignments += 1;
+
+      const today = new Date().toISOString().slice(0, 10);
+      await this.setAttendanceForStudents(classId, today, 'present', roster);
+      result.attendance += roster.length;
+
+      const firstStudent = roster[0];
+      if (firstStudent) {
+        const parentLinkId = newId();
+        await this.saveParentLink({
+          id: parentLinkId, studentId: firstStudent, parentName: `ผู้ปกครองตัวอย่าง ${classIndex + 1}`,
+          relationship: 'ผู้ปกครอง', contact: `08000${stamp}`
+        });
+        ledger.parentLinks.push(parentLinkId); result.parents += 1;
+      }
+    }
+
+    await this.saveSetting(DEVELOPMENT_SEED_SETTING_KEY, { ...ledger, seededAt: nowIso() });
+    return result;
+  }
+
+  async clearDevelopmentData(): Promise<DevelopmentClearResult> {
+    const ledger = await this.seedLedger();
+    const students = new Set(ledger.students);
+    const classes = new Set(ledger.classes);
+    let removed = 0;
+
+    for (const row of await db.submissions.where({ schoolId: this.schoolId }).toArray()) {
+      if (!ledger.assignments.includes(row.assignmentId) || row.deletedAt) continue;
+      await softDeleteLocal('submission', row); removed += 1;
+    }
+    for (const row of await db.attendance.where({ schoolId: this.schoolId }).toArray()) {
+      if (!classes.has(row.classId) || row.deletedAt) continue;
+      await softDeleteLocal('attendance', row); removed += 1;
+    }
+    for (const assignmentId of ledger.assignments) {
+      const row = await db.assignments.get(assignmentId);
+      if (!row || row.deletedAt) continue;
+      await softDeleteLocal('assignment', row); removed += 1;
+    }
+    for (const row of await db.enrollments.where({ schoolId: this.schoolId }).toArray()) {
+      if (!students.has(row.studentId) || row.deletedAt) continue;
+      await softDeleteLocal('enrollment', row); removed += 1;
+    }
+    for (const parentLinkId of ledger.parentLinks) {
+      const row = await db.parentLinks.get(parentLinkId);
+      if (!row || row.status === 'revoked') continue;
+      await this.revokeParentLink(parentLinkId); removed += 1;
+    }
+    for (const studentId of ledger.students) {
+      const row = await db.students.get(studentId);
+      if (!row || row.deletedAt) continue;
+      await this.removeStudent(studentId); removed += 1;
+    }
+    // Structural records are the server's to remove, so each one goes through its own RPC. Anything
+    // the server refuses stays visible instead of being hidden locally.
+    for (const classId of ledger.classes) {
+      const row = await db.classes.get(classId);
+      if (!row || row.deletedAt) continue;
+      await this.deleteClass(classId); removed += 1;
+    }
+    for (const teacherId of ledger.teachers) {
+      const row = await db.teachers.get(teacherId);
+      if (!row || row.deletedAt) continue;
+      await this.rpc('delete_teacher', { p_school_id: this.schoolId, p_teacher_id: teacherId });
+      await db.teachers.put({ ...row, deletedAt: nowIso(), updatedAt: nowIso() });
+      removed += 1;
+    }
+
+    await this.saveSetting(DEVELOPMENT_SEED_SETTING_KEY, { classes: [], students: [], teachers: [], assignments: [], parentLinks: [], seededAt: '' });
+    return { removed };
   }
 }
 

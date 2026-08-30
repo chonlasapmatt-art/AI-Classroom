@@ -8,6 +8,8 @@ Repository implementation complete to a deployable, credential-ready baseline. P
 
 React/TypeScript/Vite PWA, Thai responsive design system, four role contexts, Supabase Auth, 28 cloud entities, forward-only migrations, RLS helpers/policies, trusted mutation RPC, monotonic sync journal, persistent idempotency, conflict records, tombstones, Dexie projection/queue, retry/backoff, storage diagnostics, offline PIN verifier and safe-update-compatible PWA shell are present.
 
+Forward migrations `202608300009`–`010` now add public Teacher/Student/Parent registration metadata, account states, Auth profile trigger, teacher verification, operational Teacher authorization, private Owner bootstrap, rate-limited access audit and HMAC member invitations. The legacy authenticated bootstrap path is revoked.
+
 ## 19–22. Parent, LINE, reports and recovery
 
 Parent HMAC invitation boundary, consent/link schema, notification preferences/outbox/log, verified LINE webhook boundary, report surfaces and encrypted AES-GCM local backup are present. Live provider verification and full restore write-back require staging credentials and operator confirmation.

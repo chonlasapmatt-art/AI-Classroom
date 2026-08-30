@@ -1,8 +1,8 @@
 import type {
-  AcademicAuditAction, AcademicAuditEntry, Activity, ActivityScore, Announcement, Assignment, Attachment,
+  AcademicAuditAction, AcademicAuditEntry, AcademicTerm, Activity, ActivityScore, Announcement, Assignment, Attachment,
   AttachmentOwner, Attendance, AttendanceStatus, AvatarConfig, ClassTeacher, Classroom, ClassroomNotification,
-  DeadlineExtension, Enrollment, NotificationPreference, ParentLink, Rubric, Setting, Student, Subject,
-  Submission, SyncRecord, Teacher, TestRecord, TestScore
+  DeadlineExtension, Enrollment, NotificationPreference, ParentLink, Rubric, Setting, Student, StudentAchievement,
+  Subject, Submission, SyncRecord, Teacher, TestRecord, TestScore, TimetableEntry
 } from '../domain/types';
 import { auditEntry, planCancellation, planPublish, planScoring, planSubmission, planWorkUpdate } from './academicOps';
 import { defaultReminderOffsets, dueReminders } from '../academic/reminderEngine';
@@ -14,10 +14,12 @@ import { attachmentKindFor } from './attachmentKind';
 import { buildFixtureData, FIXTURE_SCHOOL_ID, type FixtureData } from './fixtures/schoolFixture';
 import {
   MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, newId, nowIso,
-  type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput, type ClassInput, type NotificationInput,
-  type AnnouncementInput, type NotificationPreferenceInput, type ParentLinkInput, type RubricInput,
-  type SchoolRepository, type SchoolSnapshot, type ScoreInput, type ScoreSubmissionInput, type StudentInput,
-  type SubjectInput, type SubmissionInput, type TeacherInput, type TestInput
+  type AcademicTermInput, type AchievementInput, type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput,
+  type ClassInput, type DevelopmentClearResult, type DevelopmentSeedInput, type DevelopmentSeedResult, type NotificationInput,
+  type AnnouncementInput, type NotificationPreferenceInput, type ParentAccountInput, type ParentLinkInput, type PromotionInput,
+  type PromotionResult, type RubricInput, type SchoolRepository, type SchoolSnapshot, type ScoreInput,
+  type ScoreSubmissionInput, type StudentInput, type SubjectInput, type SubmissionInput, type TeacherInput,
+  type TestInput, type TimetableInput
 } from './schoolRepository';
 
 /**
@@ -52,7 +54,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
       notifications: data.notifications, rubrics: data.rubrics, rubricScores: data.rubricScores,
       submissionVersions: data.submissionVersions, deadlineExtensions: data.deadlineExtensions,
       announcements: data.announcements, notificationPreferences: data.notificationPreferences,
-      academicAudit: data.academicAudit,
+      academicAudit: data.academicAudit, timetable: data.timetable, achievements: data.achievements,
       settings: data.settings, pendingSync: data.pendingSync, blockedSync: data.blockedSync
     });
   }
@@ -189,6 +191,22 @@ export class FixtureSchoolRepository implements SchoolRepository {
     this.emit();
   }
 
+  async saveAcademicTerm(input: AcademicTermInput): Promise<void> {
+    if (input.endsOn < input.startsOn) throw new Error('วันสิ้นสุดต้องไม่ก่อนวันเริ่มภาคเรียน');
+    const existing = this.data.terms.find((item) => item.id === input.id);
+    const next: AcademicTerm = {
+      ...(existing ?? this.base(input.id)),
+      academicYear: input.academicYear.trim(), term: input.term.trim(),
+      startsOn: input.startsOn, endsOn: input.endsOn, status: input.status, updatedAt: nowIso()
+    };
+    if (input.status === 'active') {
+      this.data.terms = this.data.terms.map((term) => term.id === next.id || term.status !== 'active'
+        ? term : { ...term, status: 'closed', updatedAt: nowIso() });
+    }
+    this.data.terms = this.upsert(this.data.terms, next);
+    this.emit();
+  }
+
   async saveTeacher(input: TeacherInput): Promise<void> {
     const existing = this.data.teachers.find((item) => item.id === input.id);
     const next: Teacher = {
@@ -196,9 +214,21 @@ export class FixtureSchoolRepository implements SchoolRepository {
       profileId: existing?.profileId ?? null, avatarId: existing?.avatarId ?? null,
       avatarPhotoId: existing?.avatarPhotoId ?? null,
       teacherCode: input.teacherCode, displayName: input.displayName,
-      email: input.email, subject: input.subject, status: existing?.status ?? 'active', updatedAt: nowIso()
+      email: input.email, subject: input.subject,
+      verificationStatus: existing?.verificationStatus ?? 'verified_teacher',
+      status: existing?.status ?? 'active', updatedAt: nowIso()
     };
     this.data.teachers = this.upsert(this.data.teachers, next);
+    this.emit();
+  }
+
+  async verifyTeacher(teacherId: string, reason: string): Promise<void> {
+    if (reason.trim().length < 4) throw new Error('ต้องระบุเหตุผลอย่างน้อย 4 ตัวอักษร');
+    const existing = this.data.teachers.find((item) => item.id === teacherId);
+    if (!existing) throw new Error('ไม่พบครูคนนี้');
+    this.data.teachers = this.upsert(this.data.teachers, {
+      ...existing, verificationStatus: 'verified_teacher', status: 'active', updatedAt: nowIso()
+    });
     this.emit();
   }
 
@@ -812,6 +842,24 @@ export class FixtureSchoolRepository implements SchoolRepository {
     this.emit();
   }
 
+  async saveParentAccount(input: ParentAccountInput): Promise<{ parentId: string }> {
+    const displayName = input.displayName.trim();
+    if (displayName.length < 2) throw new Error('กรุณาระบุชื่อผู้ปกครองอย่างน้อย 2 ตัวอักษร');
+    const existing = this.data.parentLinks.find((item) => item.id === input.id);
+    const next: ParentLink = {
+      ...(existing ?? this.base(input.id)),
+      studentId: input.studentId, avatarId: existing?.avatarId ?? null, avatarPhotoId: existing?.avatarPhotoId ?? null,
+      parentName: displayName, relationship: input.relationship, contact: input.phone ?? existing?.contact ?? '',
+      lineUserId: existing?.lineUserId ?? null, status: existing?.status ?? 'invited',
+      invitationCode: existing?.invitationCode ?? null,
+      consentVersion: existing?.consentVersion ?? null, consentGrantedAt: existing?.consentGrantedAt ?? null,
+      updatedAt: nowIso()
+    };
+    this.data.parentLinks = this.upsert(this.data.parentLinks, next);
+    this.emit();
+    return { parentId: next.id };
+  }
+
   async setParentConsent(parentLinkId: string, granted: boolean, policyVersion: string): Promise<void> {
     const existing = this.data.parentLinks.find((item) => item.id === parentLinkId);
     if (!existing) return;
@@ -840,6 +888,81 @@ export class FixtureSchoolRepository implements SchoolRepository {
     };
     this.data.settings = this.upsert(this.data.settings, next);
     this.emit();
+  }
+
+  async promoteStudents(input: PromotionInput): Promise<PromotionResult> {
+    if (input.fromTermId === input.toTermId) throw new Error('ปีการศึกษาต้นทางและปลายทางต้องต่างกัน');
+    const result: PromotionResult = { promoted: 0, graduated: 0, skipped: 0 };
+    for (const move of input.moves) {
+      if (move.toClassId && !this.data.classes.some((row) => row.id === move.toClassId && row.academicTermId === input.toTermId)) {
+        throw new Error('ห้องปลายทางไม่ได้อยู่ในปีการศึกษาที่เลือก');
+      }
+      const current = this.data.enrollments.find((row) =>
+        row.studentId === move.studentId && row.academicTermId === input.fromTermId && row.status === 'active' && !row.deletedAt);
+      if (!current) { result.skipped += 1; continue; }
+      this.data.enrollments = this.upsert(this.data.enrollments, {
+        ...current, status: move.toClassId ? 'promoted' : 'graduated', leftAt: nowIso(), updatedAt: nowIso()
+      });
+      if (!move.toClassId) { result.graduated += 1; continue; }
+      this.data.enrollments = this.upsert(this.data.enrollments, {
+        ...this.base(), studentId: move.studentId, classId: move.toClassId, academicTermId: input.toTermId,
+        status: 'active', enrolledAt: nowIso(), leftAt: null
+      } satisfies Enrollment);
+      result.promoted += 1;
+    }
+    this.emit();
+    return result;
+  }
+
+  async saveTimetableEntry(input: TimetableInput): Promise<void> {
+    if (input.dayOfWeek < 1 || input.dayOfWeek > 7) throw new Error('วันในสัปดาห์ต้องอยู่ระหว่าง 1 ถึง 7');
+    if (input.period < 1) throw new Error('คาบเรียนต้องเริ่มที่ 1');
+    if (input.endTime <= input.startTime) throw new Error('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม');
+    const existing = this.data.timetable.find((item) => item.id === input.id);
+    const clashes = this.data.timetable.filter((row) =>
+      row.id !== existing?.id && !row.deletedAt && row.status === 'active' &&
+      row.academicTermId === input.academicTermId && row.dayOfWeek === input.dayOfWeek && row.period === input.period);
+    if (clashes.some((row) => row.classId === input.classId)) throw new Error('ห้องนี้มีคาบเรียนในช่วงเวลานี้แล้ว');
+    if (input.teacherId && clashes.some((row) => row.teacherId === input.teacherId)) {
+      throw new Error('ครูคนนี้ถูกจัดสอนคาบนี้ในห้องอื่นแล้ว');
+    }
+    const next: TimetableEntry = {
+      ...(existing ?? this.base(input.id)),
+      classId: input.classId, subjectId: input.subjectId, teacherId: input.teacherId,
+      academicTermId: input.academicTermId, dayOfWeek: input.dayOfWeek, period: input.period,
+      startTime: input.startTime, endTime: input.endTime, room: input.room ?? '',
+      status: 'active', updatedAt: nowIso()
+    };
+    this.data.timetable = this.upsert(this.data.timetable, next);
+    this.emit();
+  }
+
+  async removeTimetableEntry(entryId: string): Promise<void> {
+    this.data.timetable = this.data.timetable.filter((item) => item.id !== entryId);
+    this.emit();
+  }
+
+  async awardAchievement(input: AchievementInput): Promise<void> {
+    const dedupeKey = input.dedupeKey ?? `${input.studentId}:${input.achievementKey}`;
+    if (this.data.achievements.some((item) => item.dedupeKey === dedupeKey && !item.deletedAt)) return;
+    const next: StudentAchievement = {
+      ...this.base(),
+      studentId: input.studentId, achievementKey: input.achievementKey, dedupeKey,
+      note: input.note ?? '', awardedBy: input.awardedBy, awardedAt: nowIso()
+    };
+    this.data.achievements = this.upsert(this.data.achievements, next);
+    this.emit();
+  }
+
+  // Preview already runs on fixtures, so seeding into it would only duplicate what is on screen.
+  // Refusing here keeps the seeder's promise — that it writes through the real path — honest.
+  async seedDevelopmentData(input: DevelopmentSeedInput): Promise<DevelopmentSeedResult> {
+    void input;
+    throw new Error('โหมด Preview ใช้ข้อมูลตัวอย่างอยู่แล้ว จึงไม่สร้างข้อมูลซ้ำ');
+  }
+
+  async clearDevelopmentData(): Promise<DevelopmentClearResult> {
+    throw new Error('โหมด Preview ไม่มีข้อมูลที่ถูกสร้างโดย seeder ให้ลบ');
   }
 }
 

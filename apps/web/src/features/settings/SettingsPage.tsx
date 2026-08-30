@@ -5,12 +5,15 @@ import { privacyPolicyFrom, scorePolicyFrom } from '../../data/selectors';
 import { isCloudConfigured } from '../../services/supabase';
 import { APP_VERSION, checkForUpdateNow, formatBuildTime, readLastCheckedAt } from '../../app/appUpdate';
 import { AcademicSettingsPanel } from './AcademicSettingsPanel';
+import { useTheme } from '../../app/ThemeContext';
+import { themeModes, themePresets } from '../../app/theme';
 
 export function SettingsPage() {
   const { membership, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
   const [message, setMessage] = useState<string | null>(null);
+  const theme = useTheme();
   const policy = scorePolicyFrom(snapshot.settings);
   const privacy = privacyPolicyFrom(snapshot.settings);
   const isAdmin = membership.role === 'admin';
@@ -54,6 +57,34 @@ export function SettingsPage() {
           <h1>การตั้งค่าโรงเรียน</h1>
           <p>นโยบายคะแนน ความเป็นส่วนตัว และสถานะ environment</p>
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <h2>ธีมและการแสดงผล</h2>
+          <p>ตั้งค่าเฉพาะเครื่องนี้ ไม่กระทบผู้ใช้คนอื่นและไม่ถูกส่งขึ้นเซิร์ฟเวอร์</p>
+        </div>
+        <fieldset className="theme-choice">
+          <legend>โหมดสี</legend>
+          {themeModes.map((item) => (
+            <label key={item.value}>
+              <input type="radio" name="theme-mode" checked={theme.mode === item.value}
+                onChange={() => theme.setMode(item.value)} />
+              {item.label}
+            </label>
+          ))}
+        </fieldset>
+        <fieldset className="theme-choice presets">
+          <legend>ชุดสี</legend>
+          {themePresets.map((item) => (
+            <label key={item.value} className={theme.preset === item.value ? 'selected' : ''}>
+              <input type="radio" name="theme-preset" checked={theme.preset === item.value}
+                onChange={() => theme.setPreset(item.value)} />
+              <span className="theme-swatch" style={{ background: item.swatch }} aria-hidden="true" />
+              {item.label}
+            </label>
+          ))}
+        </fieldset>
       </section>
 
       <section className="dashboard-grid">

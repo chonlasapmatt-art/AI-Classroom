@@ -14,7 +14,7 @@ export function SubjectsPage() {
   const [openForm, setOpenForm] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const canEdit = membership.role === 'admin' && repository.canManageStructure;
+  const canEdit = (membership.role === 'admin' || membership.role === 'teacher') && repository.canManageStructure;
   const classes = activeClasses(snapshot);
   const subjects = [...snapshot.subjects].sort((a, b) => a.sortOrder - b.sortOrder);
   const missingStandard = standardSubjects.filter((seed) => !subjects.some((subject) => subject.code === seed.code));
@@ -103,7 +103,7 @@ export function SubjectsPage() {
         </form>
       )}
 
-      {!repository.canManageStructure && membership.role === 'admin' && (
+      {!repository.canManageStructure && (membership.role === 'admin' || membership.role === 'teacher') && (
         <div className="alert">ต้องเชื่อมต่อ Supabase ก่อนจึงจะเพิ่มหรือแก้ไขรายวิชาได้ (รายวิชาเป็นข้อมูลฝั่งเซิร์ฟเวอร์)</div>
       )}
 

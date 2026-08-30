@@ -1,2 +1,8 @@
-import { corsHeaders, json } from '../_shared/http.ts'; import { clients } from '../_shared/clients.ts';
-Deno.serve(async(request)=>{const headers=corsHeaders(request.headers.get('Origin'));if(request.method==='OPTIONS')return new Response(null,{status:204,headers});try{const{user}=clients(request);const body=await request.json();const{data,error}=await user.rpc('bootstrap_school',{p_school_name:body.schoolName,p_school_code:body.schoolCode,p_academic_year:body.academicYear,p_term:body.term});if(error)return json({code:'SETUP_FAILED',message:error.message},400,headers);return json({schoolId:data},201,headers);}catch(error){return json({code:'INTERNAL_ERROR',message:error instanceof Error?error.message:'Unknown'},500,headers);}});
+import { corsHeaders, json } from '../_shared/http.ts';
+
+/** Deprecated: owner setup moved to the rate-limited admin-access boundary. */
+Deno.serve((request) => {
+  const headers = corsHeaders(request.headers.get('Origin'));
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
+  return json({ code: 'OWNER_AUTHORIZATION_REQUIRED' }, 410, headers);
+});

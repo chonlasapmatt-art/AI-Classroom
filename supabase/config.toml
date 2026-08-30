@@ -20,11 +20,15 @@ enabled = true
 site_url = "http://localhost:5173"
 additional_redirect_urls = ["http://localhost:4173"]
 jwt_expiry = 3600
-enable_signup = false
+enable_signup = true
 
 [functions.sync-push]
 verify_jwt = true
 [functions.first-school-setup]
+verify_jwt = true
+[functions.admin-access]
+verify_jwt = true
+[functions.member-invitation]
 verify_jwt = true
 [functions.parent-link]
 verify_jwt = true

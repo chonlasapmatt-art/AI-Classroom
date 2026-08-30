@@ -1,8 +1,9 @@
 import type {
-  AcademicAuditEntry, AcademicTerm, Activity, ActivityScore, Announcement, Assignment, Attachment, AttachmentOwner,
-  Attendance, AttendanceStatus, AvatarConfig, ClassTeacher, Classroom, ClassroomNotification, ClassroomNotificationKind,
-  DeadlineExtension, Enrollment, NotificationPreference, ParentLink, Rubric, RubricCriterion, RubricScore, Setting,
-  Student, Subject, Submission, SubmissionStatus, SubmissionVersion, Teacher, TestRecord, TestScore, WorkType
+  AcademicAuditEntry, AcademicTerm, AchievementKey, Activity, ActivityScore, Announcement, Assignment, Attachment,
+  AttachmentOwner, Attendance, AttendanceStatus, AvatarConfig, ClassTeacher, Classroom, ClassroomNotification,
+  ClassroomNotificationKind, DeadlineExtension, Enrollment, NotificationPreference, ParentLink, Rubric,
+  RubricCriterion, RubricScore, Setting, Student, StudentAchievement, Subject, Submission, SubmissionStatus,
+  SubmissionVersion, Teacher, TestRecord, TestScore, TimetableEntry, WorkType
 } from '../domain/types';
 
 /**
@@ -40,6 +41,8 @@ export interface SchoolSnapshot {
   announcements: Announcement[];
   notificationPreferences: NotificationPreference[];
   academicAudit: AcademicAuditEntry[];
+  timetable: TimetableEntry[];
+  achievements: StudentAchievement[];
   settings: Setting[];
   pendingSync: number;
   blockedSync: number;
@@ -50,6 +53,7 @@ export const emptySnapshot: SchoolSnapshot = {
   assignments: [], submissions: [], activities: [], activityScores: [], tests: [], testScores: [],
   attendance: [], parentLinks: [], attachments: [], notifications: [], rubrics: [], rubricScores: [],
   submissionVersions: [], deadlineExtensions: [], announcements: [], notificationPreferences: [], academicAudit: [],
+  timetable: [], achievements: [],
   settings: [], pendingSync: 0, blockedSync: 0
 };
 
@@ -58,10 +62,36 @@ export interface StudentInput {
   avatarConfig?: AvatarConfig | null; status?: Student['status'];
 }
 export interface ClassInput { id?: string; name: string; gradeLevel: string; academicTermId: string; capacity?: number }
+export interface AcademicTermInput {
+  id?: string; academicYear: string; term: string; startsOn: string; endsOn: string; status: AcademicTerm['status'];
+}
 export interface SubjectInput {
   id?: string; code: string; name: string; nameEn?: string; colorIndex: number; iconKey: string; sortOrder?: number;
 }
 export interface TeacherInput { id?: string; teacherCode: string; displayName: string; email: string; subject: string }
+
+export interface TimetableInput {
+  id?: string; classId: string; subjectId: string | null; teacherId: string | null; academicTermId: string;
+  dayOfWeek: number; period: number; startTime: string; endTime: string; room?: string;
+}
+
+export interface AchievementInput {
+  studentId: string; achievementKey: AchievementKey; note?: string; awardedBy: string | null;
+  /** Stable identity; generated from student + badge when omitted so re-awarding is a no-op. */
+  dedupeKey?: string;
+}
+
+/** One student's move into the next academic year, or out of the school. */
+export interface PromotionMove { studentId: string; toClassId: string | null }
+
+export interface PromotionInput {
+  fromTermId: string;
+  toTermId: string;
+  moves: PromotionMove[];
+  actorProfileId: string;
+}
+
+export interface PromotionResult { promoted: number; graduated: number; skipped: number }
 export interface AttendanceInput { classId: string; studentId: string; attendanceDate: string; status: AttendanceStatus; note?: string }
 export interface AssignmentInput {
   id?: string;
@@ -105,6 +135,10 @@ export interface ParentLinkInput {
   id?: string; studentId: string; parentName: string; relationship: string; contact: string;
   status?: ParentLink['status'];
 }
+export interface ParentAccountInput {
+  id?: string; studentId: string; displayName: string; relationship: string; phone?: string;
+}
+
 export interface AttachmentInput {
   ownerType: AttachmentOwner;
   ownerId: string;
@@ -130,6 +164,29 @@ export interface NotificationInput {
   dedupeKey?: string;
 }
 
+/**
+ * Synthetic records for a development or staging school.
+ *
+ * The seed writes through the same real path every screen uses — validation, local transaction,
+ * sync queue — so what is exercised is the real application, not a fixture. Every id it creates is
+ * recorded, which is what lets `clearDevelopmentData` remove exactly the seeded rows and nothing a
+ * person entered by hand. Production starts clean because nothing calls this on its own.
+ */
+export interface DevelopmentSeedInput {
+  academicTermId: string;
+  classCount: number;
+  studentsPerClass: number;
+  teacherCount: number;
+  /** Also create parent invitations, attendance history, work and scores. */
+  includeActivity: boolean;
+}
+
+export interface DevelopmentSeedResult { classes: number; students: number; teachers: number; parents: number; assignments: number; attendance: number }
+export interface DevelopmentClearResult { removed: number }
+
+/** Key of the settings row that records what the seeder created. */
+export const DEVELOPMENT_SEED_SETTING_KEY = 'development_seed';
+
 export interface SchoolRepository {
   readonly kind: RepositoryKind;
   readonly schoolId: string;
@@ -153,6 +210,11 @@ export interface SchoolRepository {
   setAttendance(input: AttendanceInput): Promise<void>;
   setAttendanceForStudents(classId: string, attendanceDate: string, status: AttendanceStatus, studentIds: string[]): Promise<void>;
 
+  /**
+   * Opens or edits an academic year/term. Making one active closes the previous active term, so
+   * "the current term" always means exactly one thing to every screen.
+   */
+  saveAcademicTerm(input: AcademicTermInput): Promise<void>;
   saveClass(input: ClassInput): Promise<void>;
   archiveClass(classId: string): Promise<void>;
   /** Brings an archived class back into use. */
@@ -162,11 +224,27 @@ export interface SchoolRepository {
   saveSubject(input: SubjectInput): Promise<void>;
   archiveSubject(subjectId: string): Promise<void>;
   saveTeacher(input: TeacherInput): Promise<void>;
+  /**
+   * Moves a teacher to `verified_teacher`. The server decides whether the caller may do this —
+   * an admin always may, a verified peer only when the school switched that policy on — so a
+   * rejection here is authoritative and must not be worked around in the UI.
+   */
+  verifyTeacher(teacherId: string, reason: string): Promise<void>;
   assignTeacher(classId: string, teacherId: string, role: ClassTeacher['role']): Promise<void>;
   unassignTeacher(classTeacherId: string): Promise<void>;
 
   enrollStudent(studentId: string, classId: string, academicTermId: string): Promise<void>;
   transferStudent(studentId: string, toClassId: string, academicTermId: string): Promise<void>;
+  /**
+   * Moves a whole cohort into the next academic year. Previous enrollments are closed as
+   * `promoted` or `graduated`; nothing that already happened is rewritten.
+   */
+  promoteStudents(input: PromotionInput): Promise<PromotionResult>;
+
+  saveTimetableEntry(input: TimetableInput): Promise<void>;
+  removeTimetableEntry(entryId: string): Promise<void>;
+
+  awardAchievement(input: AchievementInput): Promise<void>;
 
   saveAssignment(input: AssignmentInput): Promise<void>;
   setAssignmentStatus(assignmentId: string, status: Assignment['status']): Promise<void>;
@@ -210,10 +288,21 @@ export interface SchoolRepository {
   markNotificationRead(notificationId: string): Promise<void>;
 
   saveParentLink(input: ParentLinkInput): Promise<void>;
+  /**
+   * A guardian the school enters itself, with the student they are guardian for. Returns the parent
+   * record id so an account invitation can be addressed to it — activating a login links an Auth
+   * user to this record instead of creating a second guardian.
+   */
+  saveParentAccount(input: ParentAccountInput): Promise<{ parentId: string }>;
   setParentConsent(parentLinkId: string, granted: boolean, policyVersion: string): Promise<void>;
   revokeParentLink(parentLinkId: string): Promise<void>;
 
   saveSetting(key: string, valueJson: Record<string, unknown>): Promise<void>;
+
+  /** Development/staging only. Writes synthetic records through the normal path. */
+  seedDevelopmentData(input: DevelopmentSeedInput): Promise<DevelopmentSeedResult>;
+  /** Removes exactly what the seeder created, leaving hand-entered records untouched. */
+  clearDevelopmentData(): Promise<DevelopmentClearResult>;
 }
 
 export function nowIso(): string { return new Date().toISOString(); }
