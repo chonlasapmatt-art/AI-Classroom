@@ -322,3 +322,27 @@ export interface AcademicAuditEntry extends SyncRecord {
   reason: string;
   occurredAt: string;
 }
+
+/**
+ * The receipt for one roster import.
+ *
+ * It stays on the device that ran the import: the students it created travel through the ordinary
+ * sync queue like any other write, and this row only records what that run did — who ran it, from
+ * what file, and how many rows ended up created, updated or held back.
+ */
+export interface ImportRun {
+  id: string;
+  schoolId: string;
+  target: 'student' | 'teacher' | 'parent';
+  actorProfileId: string;
+  fileName: string;
+  fileKind: string;
+  startedAt: string;
+  finishedAt: string;
+  rowsDetected: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  notes: string;
+}

@@ -6,7 +6,7 @@ import { isCloudConfigured, requireSupabase, supabase } from '../services/supaba
 import type {
   AcademicAuditAction, AcademicAuditEntry, AcademicTerm, Activity, ActivityScore, Announcement, Assignment, Attachment,
   AttachmentOwner, Attendance, AvatarConfig, ClassTeacher, Classroom, ClassroomNotification, DeadlineExtension,
-  Enrollment, NotificationPreference, ParentLink, Rubric, Setting, Student, StudentAchievement, Subject, Submission,
+  Enrollment, ImportRun, NotificationPreference, ParentLink, Rubric, Setting, Student, StudentAchievement, Subject, Submission,
   SyncRecord, Teacher, TestRecord, TestScore, TimetableEntry
 } from '../domain/types';
 import { auditEntry, planCancellation, planPublish, planScoring, planSubmission, planWorkUpdate } from './academicOps';
@@ -17,7 +17,7 @@ import { effectiveDueAt } from '../academic/workStatus';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
 import {
   DEVELOPMENT_SEED_SETTING_KEY, emptySnapshot, MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, newId, nowIso,
-  type AcademicTermInput, type AchievementInput, type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput,
+  type AcademicTermInput, type AchievementInput, type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput, type ImportRunInput,
   type ClassInput, type DevelopmentClearResult, type DevelopmentSeedInput, type DevelopmentSeedResult,
   type NotificationInput, type AnnouncementInput, type NotificationPreferenceInput, type ParentAccountInput, type ParentLinkInput,
   type PromotionInput, type PromotionResult, type RubricInput, type SchoolRepository, type SchoolSnapshot,
@@ -172,6 +172,20 @@ export class DexieSchoolRepository implements SchoolRepository {
     const record = await db.students.get(studentId);
     if (!record) throw new Error('ไม่พบนักเรียนในเครื่อง');
     await softDeleteLocal('student', record);
+  }
+
+  async recordImportRun(input: ImportRunInput): Promise<void> {
+    await db.importRuns.put({
+      id: newId(), schoolId: this.schoolId, target: input.target, actorProfileId: input.actorProfileId,
+      fileName: input.fileName, fileKind: input.fileKind, startedAt: input.startedAt,
+      finishedAt: nowIso(), rowsDetected: input.rowsDetected, created: input.created,
+      updated: input.updated, skipped: input.skipped, failed: input.failed, notes: input.notes ?? ''
+    });
+  }
+
+  async listImportRuns(limit = 20): Promise<ImportRun[]> {
+    const runs = await db.importRuns.where('schoolId').equals(this.schoolId).toArray();
+    return runs.sort((left, right) => right.startedAt.localeCompare(left.startedAt)).slice(0, limit);
   }
 
   async setAttendance(input: AttendanceInput): Promise<void> {

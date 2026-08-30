@@ -1,8 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { AcademicTerm, AcademicAuditEntry, Announcement, Attachment, Activity, ActivityScore, Assignment, Attendance, ClassTeacher, ClassroomNotification, Classroom, DeviceMetadata, Enrollment, LocalSessionMetadata, ParentLink, DeadlineExtension, NotificationPreference, Rubric, RubricScore, Setting, Student, StudentAchievement, Subject, Submission, SubmissionVersion,
-  SyncQueueItem, SyncState, Teacher, TestRecord, TestScore, TimetableEntry } from '../domain/types';
+  ImportRun, SyncQueueItem, SyncState, Teacher, TestRecord, TestScore, TimetableEntry } from '../domain/types';
 
-export const LOCAL_SCHEMA_VERSION = 8;
+export const LOCAL_SCHEMA_VERSION = 9;
 
 /**
  * Attachment row as stored locally: metadata plus the file bytes when this device has them.
@@ -28,6 +28,7 @@ export class SmartClassroomDatabase extends Dexie {
   academicAudit!: EntityTable<AcademicAuditEntry, 'id'>;
   timetable!: EntityTable<TimetableEntry, 'id'>;
   achievements!: EntityTable<StudentAchievement, 'id'>;
+  importRuns!: EntityTable<ImportRun, 'id'>;
   students!: EntityTable<Student, 'id'>;
   enrollments!: EntityTable<Enrollment, 'id'>;
   assignments!: EntityTable<Assignment, 'id'>;
@@ -140,9 +141,14 @@ export class SmartClassroomDatabase extends Dexie {
     });
     // v8 indexes the two lookups the timetable and the award pass do on every write: one class's
     // week within a term, and one badge's dedupe key. Dexie adds indexes in place; no row moves.
-    this.version(LOCAL_SCHEMA_VERSION).stores({
+    this.version(8).stores({
       timetable: 'id, schoolId, classId, teacherId, academicTermId, dayOfWeek, [classId+dayOfWeek], [academicTermId+classId], [schoolId+academicTermId], status, deletedAt',
       achievements: 'id, schoolId, studentId, achievementKey, dedupeKey, [schoolId+dedupeKey], awardedAt, deletedAt'
+    });
+    // v9 records what each roster import did. It stays on the device that ran it: the students it
+    // created travel through the ordinary sync queue, and this is only the receipt for them.
+    this.version(LOCAL_SCHEMA_VERSION).stores({
+      importRuns: 'id, schoolId, startedAt, target'
     });
   }
 }

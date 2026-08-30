@@ -1,10 +1,25 @@
 import type {
   AcademicAuditEntry, AcademicTerm, AchievementKey, Activity, ActivityScore, Announcement, Assignment, Attachment,
   AttachmentOwner, Attendance, AttendanceStatus, AvatarConfig, ClassTeacher, Classroom, ClassroomNotification,
-  ClassroomNotificationKind, DeadlineExtension, Enrollment, NotificationPreference, ParentLink, Rubric,
+  ClassroomNotificationKind, DeadlineExtension, Enrollment, ImportRun, NotificationPreference, ParentLink, Rubric,
   RubricCriterion, RubricScore, Setting, Student, StudentAchievement, Subject, Submission, SubmissionStatus,
   SubmissionVersion, Teacher, TestRecord, TestScore, TimetableEntry, WorkType
 } from '../domain/types';
+
+/** What a screen reports after an import run; the repository stamps the identity and the clock. */
+export interface ImportRunInput {
+  target: ImportRun['target'];
+  actorProfileId: string;
+  fileName: string;
+  fileKind: string;
+  startedAt: string;
+  rowsDetected: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  notes?: string;
+}
 
 /**
  * The single data-access boundary used by every screen.
@@ -206,6 +221,13 @@ export interface SchoolRepository {
   /** Goes back to the drawn avatar and deletes the stored photo. */
   clearOwnAvatarPhoto(actorProfileId: string, role: 'teacher' | 'student' | 'parent'): Promise<void>;
   removeStudent(studentId: string): Promise<void>;
+
+  /**
+   * Records what one roster import did. The students it created are ordinary writes that already
+   * went through saveStudent; this is only the receipt, so it never leaves the device that ran it.
+   */
+  recordImportRun(input: ImportRunInput): Promise<void>;
+  listImportRuns(limit?: number): Promise<ImportRun[]>;
 
   setAttendance(input: AttendanceInput): Promise<void>;
   setAttendanceForStudents(classId: string, attendanceDate: string, status: AttendanceStatus, studentIds: string[]): Promise<void>;

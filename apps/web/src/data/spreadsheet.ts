@@ -36,7 +36,7 @@ export function parseDelimited(input: string, delimiter = ','): SheetTable {
   return { columns: header, rows: body };
 }
 
-function detectDelimiter(text: string): string {
+export function detectDelimiter(text: string): string {
   const firstLine = text.split(/\r?\n/, 1)[0] ?? '';
   const tabs = (firstLine.match(/\t/g) ?? []).length;
   const semicolons = (firstLine.match(/;/g) ?? []).length;
@@ -46,7 +46,7 @@ function detectDelimiter(text: string): string {
   return ',';
 }
 
-interface ZipEntry { name: string; data: Uint8Array }
+export interface ZipEntry { name: string; data: Uint8Array }
 
 function readUint16(view: DataView, offset: number): number { return view.getUint16(offset, true); }
 function readUint32(view: DataView, offset: number): number { return view.getUint32(offset, true); }
@@ -57,7 +57,7 @@ async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {
 }
 
 /** Minimal ZIP reader: enough of the format to open an .xlsx workbook. */
-async function readZip(buffer: ArrayBuffer): Promise<ZipEntry[]> {
+export async function readZip(buffer: ArrayBuffer): Promise<ZipEntry[]> {
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
   let endOffset = -1;

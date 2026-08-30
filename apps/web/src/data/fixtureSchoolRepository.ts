@@ -1,7 +1,7 @@
 import type {
   AcademicAuditAction, AcademicAuditEntry, AcademicTerm, Activity, ActivityScore, Announcement, Assignment, Attachment,
   AttachmentOwner, Attendance, AttendanceStatus, AvatarConfig, ClassTeacher, Classroom, ClassroomNotification,
-  DeadlineExtension, Enrollment, NotificationPreference, ParentLink, Rubric, Setting, Student, StudentAchievement,
+  DeadlineExtension, Enrollment, ImportRun, NotificationPreference, ParentLink, Rubric, Setting, Student, StudentAchievement,
   Subject, Submission, SyncRecord, Teacher, TestRecord, TestScore, TimetableEntry
 } from '../domain/types';
 import { auditEntry, planCancellation, planPublish, planScoring, planSubmission, planWorkUpdate } from './academicOps';
@@ -14,7 +14,7 @@ import { attachmentKindFor } from './attachmentKind';
 import { buildFixtureData, FIXTURE_SCHOOL_ID, type FixtureData } from './fixtures/schoolFixture';
 import {
   MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, newId, nowIso,
-  type AcademicTermInput, type AchievementInput, type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput,
+  type AcademicTermInput, type AchievementInput, type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput, type ImportRunInput,
   type ClassInput, type DevelopmentClearResult, type DevelopmentSeedInput, type DevelopmentSeedResult, type NotificationInput,
   type AnnouncementInput, type NotificationPreferenceInput, type ParentAccountInput, type ParentLinkInput, type PromotionInput,
   type PromotionResult, type RubricInput, type SchoolRepository, type SchoolSnapshot, type ScoreInput,
@@ -35,6 +35,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
   private data: FixtureData;
   private listeners = new Set<(snapshot: SchoolSnapshot) => void>();
   private blobs = new Map<string, Blob>();
+  private importRuns: ImportRun[] = [];
 
   constructor(data: FixtureData = buildFixtureData()) {
     this.data = data;
@@ -110,6 +111,20 @@ export class FixtureSchoolRepository implements SchoolRepository {
     this.data.students = this.data.students.filter((item) => item.id !== studentId);
     this.data.enrollments = this.data.enrollments.filter((item) => item.studentId !== studentId);
     this.emit();
+  }
+
+  async recordImportRun(input: ImportRunInput): Promise<void> {
+    this.importRuns.unshift({
+      id: crypto.randomUUID(), schoolId: this.schoolId, target: input.target,
+      actorProfileId: input.actorProfileId, fileName: input.fileName, fileKind: input.fileKind,
+      startedAt: input.startedAt, finishedAt: new Date().toISOString(), rowsDetected: input.rowsDetected,
+      created: input.created, updated: input.updated, skipped: input.skipped, failed: input.failed,
+      notes: input.notes ?? ''
+    });
+  }
+
+  async listImportRuns(limit = 20): Promise<ImportRun[]> {
+    return this.importRuns.slice(0, limit);
   }
 
   async setAttendance(input: AttendanceInput): Promise<void> {
