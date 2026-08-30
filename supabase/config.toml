@@ -34,7 +34,7 @@ double_confirm_changes = true
 enable_confirmations = true
 secure_password_change = false
 max_frequency = "1m"
-otp_length = 8
+otp_length = 6
 otp_expiry = 3600
 
 [auth.email.template.confirmation]
@@ -42,8 +42,12 @@ subject = "ยืนยันอีเมล Smart Classroom"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.magic_link]
-subject = "ลิงก์และรหัสเข้าสู่ Smart Classroom"
+subject = "ลิงก์เข้าสู่ Smart Classroom"
 content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.recovery]
+subject = "รหัส OTP สำหรับตั้งรหัสผ่าน Smart Classroom"
+content_path = "./supabase/templates/recovery.html"
 
 [auth.mfa]
 max_enrolled_factors = 10
@@ -69,4 +73,6 @@ verify_jwt = false
 # Students have no account to hold a JWT before they sign in, so this endpoint is reached
 # unauthenticated and does its own rate limiting, lockout and opaque-failure handling instead.
 [functions.student-access]
+verify_jwt = false
+[functions.member-access]
 verify_jwt = false

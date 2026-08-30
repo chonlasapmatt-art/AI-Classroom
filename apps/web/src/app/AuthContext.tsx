@@ -9,13 +9,10 @@ interface AuthState {
   memberships: MembershipContext[];
   active: MembershipContext | null;
   error: string | null;
-  signIn(email: string, password: string): Promise<void>;
-  sendEmailOtp(email: string): Promise<void>;
-  verifyEmailOtp(email: string, token: string): Promise<void>;
-  signUp(input: RegistrationInput): Promise<{ emailConfirmationRequired: boolean }>;
   applySession(tokens: { accessToken: string; refreshToken: string }): Promise<void>;
   applyStudentSession(tokens: { accessToken: string; refreshToken: string }): Promise<void>;
   requestPasswordReset(email: string): Promise<void>;
+  verifyPasswordResetOtp(email: string, token: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
   signOut(): Promise<void>;
   refreshMemberships(): Promise<void>;
@@ -23,13 +20,6 @@ interface AuthState {
 }
 
 export type PublicRegistrationRole = 'teacher' | 'student' | 'parent';
-
-export interface RegistrationInput {
-  displayName: string;
-  email: string;
-  password: string;
-  role: PublicRegistrationRole;
-}
 
 const AuthContext = createContext<AuthState | null>(null);
 
@@ -73,60 +63,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe();
   }, [loadMemberships]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
-    setError(null); setLoading(true);
-    try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) throw signInError;
-      setSession(data.session); await loadMemberships(data.session);
-    } finally { setLoading(false); }
-  }, [loadMemberships]);
-
-  const sendEmailOtp = useCallback(async (email: string) => {
-    if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: `${window.location.origin}/auth/callback`
-      }
-    });
-    if (otpError) throw otpError;
-  }, []);
-
-  const verifyEmailOtp = useCallback(async (email: string, token: string) => {
+  const verifyPasswordResetOtp = useCallback(async (email: string, token: string) => {
     if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
     if (!/^\d{6}$/.test(token)) throw new Error('กรุณากรอกรหัสยืนยัน 6 หลัก');
     setLoading(true); setError(null);
     try {
       const { data, error: otpError } = await supabase.auth.verifyOtp({
-        email: email.trim(), token, type: 'email'
+        email: email.trim(), token, type: 'recovery'
       });
       if (otpError) throw otpError;
       setSession(data.session);
       await loadMemberships(data.session);
-    } finally { setLoading(false); }
-  }, [loadMemberships]);
-
-  const signUp = useCallback(async (input: RegistrationInput) => {
-    if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
-    const displayName = input.displayName.trim();
-    if (displayName.length < 2) throw new Error('กรุณาระบุชื่ออย่างน้อย 2 ตัวอักษร');
-    if (input.password.length < 8) throw new Error('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
-    setError(null); setLoading(true);
-    try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: input.email.trim(), password: input.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          data: { display_name: displayName, requested_role: input.role }
-        }
-      });
-      if (signUpError) throw signUpError;
-      setSession(data.session);
-      if (data.session) await loadMemberships(data.session);
-      return { emailConfirmationRequired: data.session === null };
     } finally { setLoading(false); }
   }, [loadMemberships]);
 
@@ -172,10 +119,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const selectMembership = useCallback((id: string) => { setActiveId(id); localStorage.setItem('active-membership', id); }, []);
   const active = memberships.find((item) => item.membershipId === activeId) ?? memberships[0] ?? null;
   const value = useMemo(() => ({
-    loading, session, memberships, active, error, signIn, sendEmailOtp, verifyEmailOtp, signUp,
-    applySession, applyStudentSession, requestPasswordReset, updatePassword, signOut, refreshMemberships,
+    loading, session, memberships, active, error,
+    applySession, applyStudentSession, requestPasswordReset, verifyPasswordResetOtp, updatePassword, signOut, refreshMemberships,
     selectMembership
-  }), [active, applySession, applyStudentSession, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, sendEmailOtp, session, signIn, signOut, signUp, updatePassword, verifyEmailOtp]);
+  }), [active, applySession, applyStudentSession, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, session, signOut, updatePassword, verifyPasswordResetOtp]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

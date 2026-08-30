@@ -144,10 +144,13 @@ Deno.serve(async (request) => {
     const firstName = text(body, 'firstName', 100);
     const lastName = text(body, 'lastName', 100);
     const password = String(body.password ?? '');
+    const recoveryEmail = text(body, 'recoveryEmail', 320).toLowerCase();
     const schoolId = role === 'teacher' ? String(body.schoolId ?? '') : null;
     const identityHash = await hmac(`register|${role}|${normalizeName(`${firstName} ${lastName}`)}`, secret);
+    const recoveryEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail);
 
-    if (!firstName || !lastName || password.length < MINIMUM_PASSWORD_LENGTH || (role === 'teacher' && !schoolId)) {
+    if (!firstName || !lastName || password.length < MINIMUM_PASSWORD_LENGTH
+      || (role === 'teacher' && !schoolId) || (role !== 'admin' && !recoveryEmailValid)) {
       await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'validation' });
       return json({ code: 'MEMBER_REGISTRATION_INVALID' }, 400, headers);
     }
@@ -158,13 +161,18 @@ Deno.serve(async (request) => {
       return json({ code: 'MEMBER_ACCESS_LOCKED', retryAfterMinutes: IDENTITY_WINDOW_MINUTES }, 429, headers);
     }
 
-    // The address is generated, never typed and never shown. It exists only so that GoTrue has
-    // something unique to hang a password on, which is what lets two people share a display name.
-    const email = `${role}.${crypto.randomUUID()}@${emailDomain}`;
+    // Teacher and parent accounts use the recovery address as GoTrue's identifier, but the normal
+    // entrance never asks for it: the name directory resolves it only inside this trusted gateway.
+    // Owner bootstrap keeps its private generated address because recovery email is not part of the
+    // public Teacher/Parent requirement and changing that flow would broaden this change needlessly.
+    const email = role === 'admin' ? `${role}.${crypto.randomUUID()}@${emailDomain}` : recoveryEmail;
     const { data: created, error: createError } = await service.auth.admin.createUser({
       email, password, email_confirm: true,
-      user_metadata: { display_name: `${firstName} ${lastName}`, requested_role: role },
-      app_metadata: { access_model: 'name_password', member_role: role }
+      user_metadata: {
+        display_name: `${firstName} ${lastName}`, requested_role: role,
+        ...(role === 'admin' ? {} : { recovery_email: recoveryEmail })
+      },
+      app_metadata: { access_model: 'name_password', member_role: role, has_recovery_email: role !== 'admin' }
     });
     if (createError || !created.user) {
       await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'create_failed' });

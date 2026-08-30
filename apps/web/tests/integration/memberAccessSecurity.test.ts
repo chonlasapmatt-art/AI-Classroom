@@ -10,6 +10,11 @@ const gateway = read('supabase/functions/member-access/index.ts');
 const memberClient = read('apps/web/src/features/auth/memberAccess.ts');
 const loginPage = read('apps/web/src/features/auth/LoginPage.tsx');
 const accountPages = read('apps/web/src/features/auth/AccountPages.tsx');
+const authContext = read('apps/web/src/app/AuthContext.tsx');
+const supabaseConfig = read('supabase/config.toml');
+const recoveryTemplate = read('supabase/templates/recovery.html');
+const confirmationTemplate = read('supabase/templates/confirmation.html');
+const magicLinkTemplate = read('supabase/templates/magic_link.html');
 const childPanel = read('apps/web/src/features/parents/ChildLinkPanel.tsx');
 const appSource = read('apps/web/src/app/App.tsx');
 
@@ -116,6 +121,13 @@ describe('name and password access — abuse resistance', () => {
   it('removes an account it could not finish registering rather than leaving it able to sign in', () => {
     expect(gateway).toMatch(/registerError[\s\S]{0,400}auth\.admin\.deleteUser/);
   });
+
+  it('stores the teacher or parent recovery address in the existing GoTrue identity', () => {
+    expect(gateway).toContain("const recoveryEmail = text(body, 'recoveryEmail', 320).toLowerCase()");
+    expect(gateway).toContain("role === 'admin' ? `${role}.${crypto.randomUUID()}@${emailDomain}` : recoveryEmail");
+    expect(gateway).toContain('p_auth_email: email');
+    expect(gateway).toContain('has_recovery_email: role !== \'admin\'');
+  });
 });
 
 describe('linking a child by name alone', () => {
@@ -161,13 +173,28 @@ describe('the screens a teacher and a parent see', () => {
     expect(loginPage).not.toMatch(/<label>[\s\S]{0,60}(อีเมล|รหัสโรงเรียน|รหัสคำเชิญ)/);
   });
 
-  it('signs a teacher up with a name, a school and a password, and a parent without a school', () => {
+  it('signs up with a recovery email but keeps it out of normal login', () => {
     expect(accountPages).toContain('ชื่อจริง');
     expect(accountPages).toContain('นามสกุล');
     expect(accountPages).toContain('ยืนยันรหัสผ่าน');
-    expect(accountPages).not.toMatch(/type="email"/);
+    expect(accountPages).toContain('name="recoveryEmail" type="email"');
+    expect(accountPages).toContain('ไม่ใช้เข้าสู่ระบบปกติ');
     expect(accountPages).toContain('registerParent');
     expect(accountPages).toContain('registerTeacher');
+  });
+
+  it('uses a six-digit OTP only for password recovery', () => {
+    expect(authContext).not.toContain('signInWithOtp');
+    expect(authContext).not.toContain('auth.signUp');
+    expect(authContext).not.toContain('signInWithPassword');
+    expect(authContext).toContain("token, type: 'recovery'");
+    expect(authContext).toContain('/^\\d{6}$/');
+    expect(supabaseConfig).toContain('otp_length = 6');
+    expect(supabaseConfig).toContain('[auth.email.template.recovery]');
+    expect(recoveryTemplate).toContain('{{ .Token }}');
+    expect(recoveryTemplate).toContain('OTP 6 หลัก');
+    expect(confirmationTemplate).not.toContain('{{ .Token }}');
+    expect(magicLinkTemplate).not.toContain('{{ .Token }}');
   });
 
   it('states one wrong-credentials message on screen', () => {

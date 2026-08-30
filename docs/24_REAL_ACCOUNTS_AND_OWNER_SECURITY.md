@@ -1,5 +1,8 @@
 # Real Accounts, Teacher Verification and Private Owner Access
 
+> Historical design record. The current public Teacher/Parent/Student access and recovery behavior
+> is defined by `27_SIMPLE_NAME_PASSWORD_ACCESS.md`; where this document conflicts, document 27 wins.
+
 ## Implemented boundary
 
 - Public Supabase registration supports Teacher, Student and Parent requests only.

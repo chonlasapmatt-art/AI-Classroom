@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 // The teacher and parent half of the public entrances. Like the student suite, this build talks to
 // a placeholder project, so what is proved here is what the screens ask for and what they say when
-// the answer is refused — the part that must never regress back into asking for an email address.
+// the answer is refused. Recovery email appears only during sign-up and password recovery.
 
 test.describe('choosing who you are', () => {
   test('asks who you are before it asks for anything else', async ({ page }) => {
@@ -70,7 +70,7 @@ test.describe('teacher and parent sign-in', () => {
 });
 
 test.describe('signing up', () => {
-  test('asks a teacher for a name, a school and a password — never an email', async ({ page }) => {
+  test('asks a teacher for a name, school, recovery email and password', async ({ page }) => {
     await page.goto('/register');
     await page.getByRole('button', { name: 'ครู', exact: true }).click();
     await expect(page.getByLabel('ชื่อจริง')).toBeVisible();
@@ -78,17 +78,18 @@ test.describe('signing up', () => {
     await expect(page.getByLabel('โรงเรียน')).toBeVisible();
     await expect(page.getByLabel('รหัสผ่าน', { exact: true })).toBeVisible();
     await expect(page.getByLabel('ยืนยันรหัสผ่าน')).toBeVisible();
-    await expect(page.locator('input[type="email"]')).toHaveCount(0);
+    await expect(page.getByLabel('อีเมลกู้คืนบัญชี')).toBeVisible();
+    await expect(page.getByText('ไม่ใช้เข้าสู่ระบบปกติ')).toBeVisible();
   });
 
-  test('asks a parent for a name and a password and never for a school or a child', async ({ page }) => {
+  test('asks a parent for a name, recovery email and password, but never a school or child', async ({ page }) => {
     await page.goto('/register');
     await page.getByRole('button', { name: 'ผู้ปกครอง', exact: true }).click();
     await expect(page.getByLabel('ชื่อจริง')).toBeVisible();
     await expect(page.getByLabel('นามสกุล')).toBeVisible();
     await expect(page.getByLabel('รหัสผ่าน', { exact: true })).toBeVisible();
     await expect(page.getByLabel('โรงเรียน')).toHaveCount(0);
-    await expect(page.locator('input[type="email"]')).toHaveCount(0);
+    await expect(page.getByLabel('อีเมลกู้คืนบัญชี')).toBeVisible();
   });
 
   test('gives an example for every field a teacher has to fill in', async ({ page }) => {
@@ -96,6 +97,7 @@ test.describe('signing up', () => {
     await page.getByRole('button', { name: 'ครู', exact: true }).click();
     await expect(page.locator('input[name="firstName"]')).toHaveAttribute('placeholder', /สมชาย/);
     await expect(page.locator('input[name="lastName"]')).toHaveAttribute('placeholder', /ใจดี/);
+    await expect(page.locator('input[name="recoveryEmail"]')).toHaveAttribute('placeholder', /example\.com/);
     await expect(page.locator('input[name="school"]')).toHaveAttribute('placeholder', /โรงเรียน/);
     await expect(page.locator('input[name="password"]')).toHaveAttribute('placeholder', /8 ตัวอักษร/);
     await expect(page.locator('input[name="confirmPassword"]')).toHaveAttribute('placeholder', /อีกครั้ง/);
@@ -108,6 +110,7 @@ test.describe('signing up', () => {
     const submit = page.getByRole('button', { name: 'สร้างบัญชีและเข้าใช้งาน' });
     await page.getByLabel('ชื่อจริง').fill('สมหญิง');
     await page.getByLabel('นามสกุล').fill('ใจดี');
+    await page.getByLabel('อีเมลกู้คืนบัญชี').fill('guardian@example.com');
     await page.getByLabel('รหัสผ่าน', { exact: true }).fill('password123');
     await page.getByLabel('ยืนยันรหัสผ่าน').fill('password124');
     await expect(submit).toBeDisabled();
@@ -116,16 +119,17 @@ test.describe('signing up', () => {
   });
 });
 
-test.describe('recovering a password without an inbox', () => {
-  test('asks who you are and your name, and never reveals whether it exists', async ({ page }) => {
+test.describe('recovering a password with a six-digit OTP', () => {
+  test('asks for recovery email only here and never reveals whether it exists', async ({ page }) => {
     await page.goto('/forgot-password');
     await expect(page.getByRole('heading', { name: 'ขอตั้งรหัสผ่านใหม่' })).toBeVisible();
-    await expect(page.locator('input[type="email"]')).toHaveCount(0);
-    await page.getByLabel('ชื่อ', { exact: true }).fill('สมชาย ใจดี');
-    await page.getByRole('button', { name: 'ส่งคำขอ' }).click();
-    // The service worker's own offline banner is also a status region, so this asks the form's.
-    const status = page.getByRole('status').filter({ hasText: 'ส่งคำขอ' });
-    await expect(status).toContainText('ส่งคำขอตั้งรหัสผ่านใหม่แล้ว');
+    await page.getByLabel('อีเมลกู้คืนบัญชี').fill('somchai@example.com');
+    await page.getByRole('button', { name: 'ส่ง OTP' }).click();
+    const status = page.getByRole('status').filter({ hasText: 'หากอีเมลนี้ผูกกับบัญชี' });
+    await expect(status).toContainText('OTP 6 หลัก');
     await expect(status).not.toContainText('ไม่พบ');
+    const otp = page.getByLabel('รหัส OTP 6 หลัก');
+    await expect(otp).toHaveAttribute('maxlength', '6');
+    await expect(otp).toHaveAttribute('autocomplete', 'one-time-code');
   });
 });

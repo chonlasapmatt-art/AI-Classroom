@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth, type PublicRegistrationRole } from '../../app/AuthContext';
 import { requireSupabase } from '../../services/supabase';
 import { ChildLinkPanel } from '../parents/ChildLinkPanel';
 import { searchSchools, type SchoolChoice } from './studentAccess';
 import {
   isCompleteMemberRegistration, MEMBER_PASSWORD_MINIMUM, registerParent, registerTeacher,
-  requestMemberPasswordReset, type MemberRole
+  type MemberRole
 } from './memberAccess';
 
 const roleLabels: Record<PublicRegistrationRole, string> = {
@@ -24,6 +24,7 @@ export function RegisterPage() {
   const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
   const [schoolQuery, setSchoolQuery] = useState('');
   const [schoolId, setSchoolId] = useState('');
   const [options, setOptions] = useState<SchoolChoice[]>([]);
@@ -47,8 +48,8 @@ export function RegisterPage() {
     setBusy(true); setError(null);
     try {
       const result = role === 'teacher'
-        ? await registerTeacher({ firstName, lastName, schoolId, password })
-        : await registerParent({ firstName, lastName, password });
+        ? await registerTeacher({ firstName, lastName, schoolId, password, recoveryEmail })
+        : await registerParent({ firstName, lastName, password, recoveryEmail });
       if (result.outcome === 'session') { await auth.applySession(result.session); return; }
       if (result.outcome === 'account-required') { setError('มีบัญชีชื่อนี้อยู่แล้ว กรุณาเข้าสู่ระบบแทน'); return; }
       setError(result.message);
@@ -56,7 +57,7 @@ export function RegisterPage() {
   }
 
   const complete = role !== null && isCompleteMemberRegistration({
-    firstName, lastName, password, confirmPassword,
+    firstName, lastName, password, confirmPassword, recoveryEmail,
     ...(role === 'teacher' ? { schoolId } : {})
   });
 
@@ -66,7 +67,7 @@ export function RegisterPage() {
         <div className="brand-mark">SC</div>
         <span className="eyebrow">เริ่มต้นใช้งาน</span>
         <h1>สมัครใช้งาน<br/>Smart Classroom</h1>
-        <p>ใช้ชื่อจริงกับรหัสผ่าน ไม่ต้องใช้อีเมล ไม่ต้องรออนุมัติ</p>
+        <p>เข้าสู่ระบบด้วยชื่อจริงกับรหัสผ่าน อีเมลใช้เฉพาะเมื่อลืมรหัสผ่าน</p>
       </section>
 
       {role === null ? (
@@ -95,6 +96,11 @@ export function RegisterPage() {
             <label>ชื่อจริง<input name="firstName" value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="เช่น สมชาย" minLength={1} required /></label>
             <label>นามสกุล<input name="lastName" value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="เช่น ใจดี" minLength={1} required /></label>
           </div>
+          <label>
+            อีเมลกู้คืนบัญชี
+            <input name="recoveryEmail" type="email" autoComplete="email" value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} placeholder="เช่น somchai@example.com" aria-describedby="recovery-email-hint" required />
+          </label>
+          <p className="field-hint" id="recovery-email-hint">ใช้ส่งรหัส OTP 6 หลักเมื่อลืมรหัสผ่านเท่านั้น ไม่ใช้เข้าสู่ระบบปกติ</p>
           {role === 'teacher' && (
             <>
               <label>
@@ -124,7 +130,7 @@ export function RegisterPage() {
             รหัสผ่าน
             <input name="password" type="password" autoComplete="new-password" minLength={MEMBER_PASSWORD_MINIMUM} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={`อย่างน้อย ${MEMBER_PASSWORD_MINIMUM} ตัวอักษร`} aria-describedby="register-password-hint" required />
           </label>
-          <p className="field-hint" id="register-password-hint">ตั้งเองได้ตามใจ จำให้ได้ ถ้าลืมต้องให้ทางโรงเรียนตั้งรหัสใหม่ให้</p>
+          <p className="field-hint" id="register-password-hint">ตั้งเองได้ตามใจ หากลืม ระบบจะส่ง OTP 6 หลักไปยังอีเมลกู้คืนบัญชี</p>
           <label>ยืนยันรหัสผ่าน<input name="confirmPassword" type="password" autoComplete="new-password" minLength={MEMBER_PASSWORD_MINIMUM} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="พิมพ์รหัสผ่านเดิมอีกครั้ง" required /></label>
           {error && <div className="alert error" role="alert">{error}</div>}
           <button className="primary-button big-button" disabled={busy || !complete}>
@@ -145,46 +151,54 @@ export function AuthCallbackPage() {
   return <main className="center-state account-state"><div className="brand-mark">SC</div><h1>ลิงก์ไม่พร้อมใช้งาน</h1><p>ลิงก์อาจหมดอายุหรือถูกใช้แล้ว กรุณากลับไปหน้าเข้าสู่ระบบ</p><Link className="primary-button" to="/login">กลับไปเข้าสู่ระบบ</Link></main>;
 }
 
-/**
- * Recovery without an inbox. The person says who they are, and the request goes to the school staff
- * who already run that school; they set a new password. The old one is never read back, and this
- * screen answers the same way whether or not that name has an account.
- */
+/** Recovery email exists only on this route; normal sign-in remains name + password. */
 export function ForgotPasswordPage() {
-  const [role, setRole] = useState<MemberRole>('teacher');
-  const [displayName, setDisplayName] = useState('');
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [sent, setSent] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true);
+  async function sendOtp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(null);
     try {
-      await requestMemberPasswordReset({ role, displayName });
-      setMessage('ส่งคำขอตั้งรหัสผ่านใหม่แล้ว กรุณาติดต่อคุณครูหรือเจ้าหน้าที่ของโรงเรียนเพื่อรับรหัสผ่านใหม่');
+      await auth.requestPasswordReset(recoveryEmail);
+      setSent(true);
+      setMessage('หากอีเมลนี้ผูกกับบัญชี ระบบจะส่งรหัส OTP 6 หลักให้ กรุณาตรวจกล่องจดหมายและโฟลเดอร์สแปม');
+    } catch {
+      // Keep the response opaque so this page cannot enumerate recovery addresses.
+      setSent(true);
+      setMessage('หากอีเมลนี้ผูกกับบัญชี ระบบจะส่งรหัส OTP 6 หลักให้ กรุณาตรวจกล่องจดหมายและโฟลเดอร์สแปม');
+    } finally { setBusy(false); }
+  }
+
+  async function verifyOtp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(null);
+    try {
+      await auth.verifyPasswordResetOtp(recoveryEmail, otp);
+      navigate('/reset-password', { replace: true });
+    } catch {
+      setError('รหัส OTP ไม่ถูกต้องหรือหมดอายุ กรุณาขอรหัสใหม่');
     } finally { setBusy(false); }
   }
 
   return (
     <main className="auth-page compact">
-      <form className="auth-card" onSubmit={(event) => void submit(event)}>
+      <form className="auth-card" onSubmit={(event) => void (sent ? verifyOtp(event) : sendOtp(event))}>
         <h1>ขอตั้งรหัสผ่านใหม่</h1>
-        <p>ระบบจะไม่บอกรหัสผ่านเดิม แต่จะให้โรงเรียนตั้งรหัสผ่านใหม่ให้</p>
-        <fieldset className="role-choice">
-          <legend>ฉันเป็น</legend>
-          {(['teacher', 'parent'] as MemberRole[]).map((value) => (
-            <label key={value}>
-              <input type="radio" name="role" checked={role === value} onChange={() => setRole(value)} />
-              {roleLabels[value]}
-            </label>
-          ))}
-        </fieldset>
+        <p>สำหรับครูและผู้ปกครอง ระบบจะส่ง OTP 6 หลักไปยังอีเมลกู้คืนที่บันทึกไว้ตอนสมัคร</p>
         <label>
-          ชื่อ
-          <input name="displayName" autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="เช่น สมชาย ใจดี" aria-describedby="reset-name-hint" minLength={2} required />
+          อีเมลกู้คืนบัญชี
+          <input name="recoveryEmail" type="email" autoComplete="email" value={recoveryEmail} onChange={(event) => { setRecoveryEmail(event.target.value); setSent(false); setOtp(''); setMessage(null); setError(null); }} placeholder="เช่น somchai@example.com" required readOnly={busy} />
         </label>
-        <p className="field-hint" id="reset-name-hint">ชื่อจริงและนามสกุลที่ใช้ตอนสมัคร</p>
+        {sent && <label>รหัส OTP 6 หลัก<input name="otp" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ''))} placeholder="000000" required /></label>}
         {message && <div className="alert success" role="status">{message}</div>}
-        <button className="primary-button" disabled={busy || displayName.trim().length < 2}>{busy ? 'กำลังส่ง...' : 'ส่งคำขอ'}</button>
+        {error && <div className="alert error" role="alert">{error}</div>}
+        <button className="primary-button" disabled={busy || !recoveryEmail.trim() || (sent && otp.length !== 6)}>{busy ? 'กำลังตรวจสอบ...' : sent ? 'ตรวจสอบ OTP' : 'ส่ง OTP'}</button>
+        {sent && <button type="button" className="text-button" onClick={() => { setSent(false); setOtp(''); setMessage(null); setError(null); }}>ขอรหัสใหม่</button>}
         <div className="auth-links"><Link to="/login">กลับไปเข้าสู่ระบบ</Link></div>
       </form>
     </main>

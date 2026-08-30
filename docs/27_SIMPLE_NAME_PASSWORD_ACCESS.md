@@ -10,12 +10,13 @@ The interface is the simple part. This document is about where the complexity we
 
 | Role | Sign in | Sign up |
 | --- | --- | --- |
-| Teacher | name, password | first name, last name, school, password — active immediately |
-| Parent | name, password | first name, last name, password — no school, no child |
+| Teacher | name, password | first name, last name, school, recovery email, password — active immediately |
+| Parent | name, password | first name, last name, recovery email, password — no school, no child |
 | Student | name, student number | first name, last name, student number, school |
 | Owner | name, password | first name, last name, password at `/owner/access`, then the owner code |
 
-No email address, no OTP, no school code and no invitation code appears in any of these paths.
+No email address, OTP, school code or invitation code appears in normal sign-in. Recovery email is
+collected only during Teacher/Parent registration, and its six-digit OTP appears only in Forgot Password.
 
 ## The problem a name creates
 
@@ -24,8 +25,9 @@ share a name; so can two parents, and two children in the same school year.
 
 The gateway resolves this without ever deciding anything about a password itself:
 
-1. Every account gets one internal address at registration — `teacher.<uuid>@members.smart-classroom.invalid` —
-   generated, stored in `member_login_identities.auth_email`, never shown and never typed.
+1. A Teacher or Parent's recovery address is stored as the Supabase Auth email and in
+   `member_login_identities.auth_email`. The normal screen never asks for it; only the trusted gateway
+   resolves name to this address. Existing accounts with generated internal addresses remain valid.
 2. `resolve_member_login(role, name)` returns **every** account whose normalized name matches, up to five.
 3. The gateway calls `signInWithPassword` once per candidate. GoTrue does the verification with its
    own hashing; the gateway learns only whether each attempt succeeded.
@@ -72,18 +74,20 @@ school's own records cannot vouch for waits for a teacher.
 `set_parent_link_state` handles approve, revoke and restore. Staff may do all three for anyone in
 their school; a parent may only revoke their own link, never approve one.
 
-## Recovery without an inbox
+## Recovery email and six-digit OTP
 
-Normal login never touches email, so a reset link cannot be the recovery path.
+Normal login never touches email. Recovery uses the existing Supabase Auth account instead of a
+second password or OTP system:
 
-1. The person asks at `/forgot-password` with their role and name.
-2. `request_member_password_reset` records the request when that name exists, and the endpoint
-   answers `202` either way — whether a name has an account is not this endpoint's to tell.
-3. Staff see the queue on `/parents`, and setting a new password calls
-   `authorize_member_password_reset` (which checks that the actor administers that school and marks
-   the request done) followed by `auth.admin.updateUserById`.
+1. The person opens `/forgot-password` and enters the recovery email saved during registration.
+2. `resetPasswordForEmail` sends the recovery template. The template contains only `{{ .Token }}`
+   so mail prefetchers cannot consume a reset link.
+3. The page accepts exactly six digits and calls `verifyOtp` with `type: 'recovery'`.
+4. The resulting ordinary Supabase recovery session may call `updateUser` once to set a new password.
 
-The old password is never read, retrieved or shown. Only a new one is ever set.
+The request screen gives the same answer for an unknown address, OTP is absent from normal sign-in,
+and the old password is never read or shown. The former staff-assisted reset boundary is preserved
+for backward compatibility with accounts created before recovery email became mandatory.
 
 ## Abuse resistance
 
@@ -101,6 +105,7 @@ Identical in shape to the student entrance, because the credential is similarly 
 ## What was deliberately not done
 
 - No password hash of our own, no password column, no comparison in SQL or in React.
+- No email field in normal Teacher/Parent login and no OTP outside Forgot Password.
 - No relaxed RLS. A session minted here is an ordinary Supabase session; `auth.uid()` works and every
   existing policy applies unchanged.
 - No service-role key in the browser. Every lookup that can turn a name into an account is
@@ -116,6 +121,7 @@ Identical in shape to the student entrance, because the credential is similarly 
 | Gateway | `supabase/functions/member-access/index.ts` |
 | Client | `apps/web/src/features/auth/memberAccess.ts` |
 | Screens | `LoginPage.tsx`, `AccountPages.tsx`, `OwnerAccessPage.tsx`, `parents/ChildLinkPanel.tsx`, `parents/MyChildrenPage.tsx`, `parents/ParentRequestsPanel.tsx` |
+| Recovery template/config | `supabase/templates/recovery.html`, `supabase/config.toml` |
 | Tests | `tests/unit/memberAccess.test.ts`, `tests/integration/memberAccessSecurity.test.ts`, `tests/e2e-student/memberAccess.spec.ts` |
 
 Tester walkthrough: [`26_TESTER_QUICKSTART_TH.md`](26_TESTER_QUICKSTART_TH.md).

@@ -17,13 +17,18 @@
 .PARAMETER SkipSecrets
   Deploy schema and functions only, leaving existing secrets untouched.
 
+.PARAMETER PushAuthConfig
+  Push the six-digit recovery OTP and email-template configuration. Hosted Free tier projects using
+  the default email provider reject custom templates; configure custom SMTP before using this flag.
+
 .EXAMPLE
   ./scripts/setup-supabase.ps1 -ProjectRef abcdefghijklmnopqrst
 #>
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)][string]$ProjectRef,
-  [switch]$SkipSecrets
+  [switch]$SkipSecrets,
+  [switch]$PushAuthConfig
 )
 
 $ErrorActionPreference = 'Stop'
@@ -66,6 +71,13 @@ Write-Host ''
 # 1. Link. The CLI asks for the database password of this project.
 Write-Host 'Step 1/4  Linking the project (the CLI will ask for the database password)' -ForegroundColor Cyan
 Invoke-Supabase @('link', '--project-ref', $ProjectRef)
+
+if ($PushAuthConfig) {
+  Write-Host 'Applying hosted Auth configuration (custom SMTP required for custom templates)' -ForegroundColor Cyan
+  Invoke-Supabase @('config', 'push')
+} else {
+  Write-Host 'Auth config not pushed. Use -PushAuthConfig after custom SMTP is configured.' -ForegroundColor Yellow
+}
 
 # 2. Schema. Migrations are immutable and applied in filename order.
 Write-Host 'Step 2/4  Applying migrations' -ForegroundColor Cyan

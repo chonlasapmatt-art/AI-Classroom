@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   interpretMemberAccessResponse, isCompleteMemberLogin, isCompleteMemberRegistration,
-  MEMBER_ACCESS_GENERIC_MESSAGE, MEMBER_PASSWORD_MINIMUM, normalizeMemberName
+  isValidRecoveryEmail, MEMBER_ACCESS_GENERIC_MESSAGE, MEMBER_PASSWORD_MINIMUM, normalizeMemberName
 } from '../../src/features/auth/memberAccess';
 
 describe('name and password access — shaping the request', () => {
@@ -18,14 +18,14 @@ describe('name and password access — shaping the request', () => {
   });
 
   it('holds registration closed until the two passwords match and are long enough', () => {
-    const base = { firstName: 'สมชาย', lastName: 'ใจดี' };
+    const base = { firstName: 'สมชาย', lastName: 'ใจดี', recoveryEmail: 'somchai@example.com' };
     expect(isCompleteMemberRegistration({ ...base, password: 'short', confirmPassword: 'short' })).toBe(false);
     expect(isCompleteMemberRegistration({ ...base, password: 'password123', confirmPassword: 'password124' })).toBe(false);
     expect(isCompleteMemberRegistration({ ...base, password: 'password123', confirmPassword: 'password123' })).toBe(true);
   });
 
   it('requires a school from a teacher and never from a parent', () => {
-    const credentials = { password: 'password123', confirmPassword: 'password123' };
+    const credentials = { password: 'password123', confirmPassword: 'password123', recoveryEmail: 'somchai@example.com' };
     expect(isCompleteMemberRegistration({ firstName: 'ก', lastName: 'ข', ...credentials, schoolId: '' })).toBe(false);
     expect(isCompleteMemberRegistration({ firstName: 'ก', lastName: 'ข', ...credentials, schoolId: 'school-1' })).toBe(true);
     expect(isCompleteMemberRegistration({ firstName: 'ก', lastName: 'ข', ...credentials })).toBe(true);
@@ -34,8 +34,16 @@ describe('name and password access — shaping the request', () => {
   it('accepts a password at exactly the minimum length', () => {
     const password = 'x'.repeat(MEMBER_PASSWORD_MINIMUM);
     expect(isCompleteMemberRegistration({
-      firstName: 'ก', lastName: 'ข', password, confirmPassword: password
+      firstName: 'ก', lastName: 'ข', password, confirmPassword: password, recoveryEmail: 'guardian@example.com'
     })).toBe(true);
+  });
+
+  it('requires a valid recovery email when the registration flow supplies that field', () => {
+    const credentials = { firstName: 'ก', lastName: 'ข', password: 'password123', confirmPassword: 'password123' };
+    expect(isValidRecoveryEmail('guardian@example.com')).toBe(true);
+    expect(isValidRecoveryEmail('not-an-email')).toBe(false);
+    expect(isCompleteMemberRegistration({ ...credentials, recoveryEmail: '' })).toBe(false);
+    expect(isCompleteMemberRegistration({ ...credentials, recoveryEmail: 'guardian@example.com' })).toBe(true);
   });
 });
 

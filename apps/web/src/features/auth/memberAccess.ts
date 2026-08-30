@@ -10,6 +10,11 @@ import { requireSupabase } from '../../services/supabase';
 export const MEMBER_ACCESS_GENERIC_MESSAGE = 'ชื่อหรือรหัสผ่านไม่ถูกต้อง';
 export const MEMBER_PASSWORD_MINIMUM = 8;
 
+export function isValidRecoveryEmail(value: string): boolean {
+  const email = value.trim();
+  return email.length <= 320 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export type MemberRole = 'teacher' | 'parent';
 
 export interface MemberSessionTokens {
@@ -64,12 +69,14 @@ export function isCompleteMemberLogin(displayName: string, password: string): bo
 }
 
 export function isCompleteMemberRegistration(input: {
-  firstName: string; lastName: string; password: string; confirmPassword: string; schoolId?: string;
+  firstName: string; lastName: string; password: string; confirmPassword: string;
+  schoolId?: string; recoveryEmail?: string;
 }): boolean {
   return normalizeMemberName(input.firstName).length >= 1
     && normalizeMemberName(input.lastName).length >= 1
     && input.password.length >= MEMBER_PASSWORD_MINIMUM
     && input.password === input.confirmPassword
+    && (input.recoveryEmail === undefined || isValidRecoveryEmail(input.recoveryEmail))
     && (input.schoolId === undefined || input.schoolId.trim().length > 0);
 }
 
@@ -91,7 +98,7 @@ export function interpretMemberAccessResponse(payload: unknown, status: number):
     return { outcome: 'error', locked: true, message: `พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารออีก ${minutes} นาที` };
   }
   if (code === 'MEMBER_REGISTRATION_INVALID') {
-    return { outcome: 'error', message: `กรุณากรอกชื่อ นามสกุล และรหัสผ่านอย่างน้อย ${MEMBER_PASSWORD_MINIMUM} ตัวอักษร` };
+    return { outcome: 'error', message: `กรุณากรอกชื่อ นามสกุล อีเมลกู้คืน และรหัสผ่านอย่างน้อย ${MEMBER_PASSWORD_MINIMUM} ตัวอักษร` };
   }
   if (code === 'SCHOOL_NOT_AVAILABLE') {
     return { outcome: 'error', message: 'ไม่พบโรงเรียนที่เลือก กรุณาเลือกใหม่อีกครั้ง' };
@@ -145,22 +152,22 @@ export async function memberLogin(input: {
 }
 
 export async function registerTeacher(input: {
-  firstName: string; lastName: string; schoolId: string; password: string;
+  firstName: string; lastName: string; schoolId: string; password: string; recoveryEmail: string;
 }): Promise<MemberAccessResult> {
   return accessCall({
     action: 'register-teacher',
     firstName: normalizeMemberName(input.firstName), lastName: normalizeMemberName(input.lastName),
-    schoolId: input.schoolId, password: input.password
+    schoolId: input.schoolId, password: input.password, recoveryEmail: input.recoveryEmail.trim().toLowerCase()
   });
 }
 
 export async function registerParent(input: {
-  firstName: string; lastName: string; password: string;
+  firstName: string; lastName: string; password: string; recoveryEmail: string;
 }): Promise<MemberAccessResult> {
   return accessCall({
     action: 'register-parent',
     firstName: normalizeMemberName(input.firstName), lastName: normalizeMemberName(input.lastName),
-    password: input.password
+    password: input.password, recoveryEmail: input.recoveryEmail.trim().toLowerCase()
   });
 }
 
