@@ -11,7 +11,7 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run --configLoader runner",
     "test:coverage": "vitest run --configLoader runner --coverage",
-    "test:security": "vitest run --configLoader runner tests/integration/schemaSecurity.test.ts tests/integration/realAuthSecurity.test.ts tests/integration/studentAccessSecurity.test.ts",
+    "test:security": "vitest run --configLoader runner tests/integration/schemaSecurity.test.ts tests/integration/realAuthSecurity.test.ts tests/integration/studentAccessSecurity.test.ts tests/integration/memberAccessSecurity.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:student": "playwright test --config playwright.student.config.ts"
   },

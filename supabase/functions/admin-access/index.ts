@@ -34,7 +34,11 @@ Deno.serve(async (request) => {
     if (authError || !authData.user) return json({ code: 'AUTH_REQUIRED' }, 401, headers);
 
     const body = await request.json() as Record<string, unknown>;
-    const accessCode = String(body.accessCode ?? '');
+    // The code is pasted far more often than it is typed, and a pasted line usually carries a
+    // trailing space or newline. Comparing that byte for byte spends one of five attempts on a
+    // character nobody can see, so the surrounding whitespace is removed before the check. What is
+    // inside the code still has to match exactly.
+    const accessCode = String(body.accessCode ?? '').trim();
     const actorId = authData.user.id;
     const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
     const fingerprintHash = await sha256(`${forwarded}|${request.headers.get('user-agent') ?? 'unknown'}`);

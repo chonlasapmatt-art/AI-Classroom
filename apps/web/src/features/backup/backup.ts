@@ -108,13 +108,17 @@ export async function restoreBackup(
     let written = 0; let skipped = 0; let touched = 0;
     for (const name of backedUpTables) {
       const rows = contents[name];
-      if (!rows || rows.length === 0) continue;
-      touched += 1;
       const table = tableOf(name);
-      const keyPath = name === 'syncQueue' ? 'queueId' : name === 'syncState' ? 'key' : 'id';
+      // Replace clears the table whether or not the backup has anything to put back. A table that
+      // was empty when the snapshot was taken has to end up empty here too — skipping the delete for
+      // those would leave exactly the rows the operator asked to be rid of, and a stale sync queue
+      // is the one most likely to matter.
       if (mode === 'replace') {
         await table.where('schoolId').equals(expectedSchoolId).delete();
       }
+      if (!rows || rows.length === 0) continue;
+      touched += 1;
+      const keyPath = name === 'syncQueue' ? 'queueId' : name === 'syncState' ? 'key' : 'id';
       for (const row of rows) {
         if (row.schoolId !== expectedSchoolId) { skipped += 1; continue; }
         const key = row[keyPath];

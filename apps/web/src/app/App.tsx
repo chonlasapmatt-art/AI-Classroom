@@ -26,6 +26,7 @@ import { AssignmentsPage } from '../features/assignments/AssignmentsPage';
 import { ScoresPage } from '../features/scores/ScoresPage';
 import { LeaderboardPage } from '../features/leaderboard/LeaderboardPage';
 import { ParentsPage } from '../features/parents/ParentsPage';
+import { MyChildrenPage } from '../features/parents/MyChildrenPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { OperationsPage } from '../features/operations/OperationsPage';
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route path="scores" element={<ScoresPage />} />
         <Route path="leaderboard" element={<LeaderboardPage />} />
         <Route path="parents" element={<ParentsPage />} />
+        <Route path="my-children" element={<MyChildrenPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="operations" element={<OperationsPage />} />
         <Route path="settings" element={<SettingsPage />} />

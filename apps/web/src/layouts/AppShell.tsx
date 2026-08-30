@@ -32,6 +32,7 @@ const navigation: NavItem[] = [
   { to: '/grade-editor', label: 'แก้ไขคะแนน', icon: '✎', roles: ['admin', 'teacher'] },
   { to: '/leaderboard', label: 'Leaderboard', icon: '♕', roles: ['admin', 'teacher', 'student'] },
   { to: '/achievements', label: 'เหรียญรางวัล', icon: '✦', roles: ['admin', 'teacher', 'student', 'parent'] },
+  { to: '/my-children', label: 'ลูกของฉัน', icon: '♡', roles: ['parent'] },
   { to: '/parents', label: 'ผู้ปกครอง', icon: '♧', roles: ['admin', 'teacher', 'parent'] },
   { to: '/reports', label: 'รายงาน', icon: '▥', roles: ['admin', 'teacher'] },
   { to: '/import', label: 'นำเข้ารายชื่อ', icon: '↥', roles: ['admin', 'teacher'] },

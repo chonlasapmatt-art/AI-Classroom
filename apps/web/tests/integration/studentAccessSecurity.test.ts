@@ -6,6 +6,7 @@ const repositoryRoot = resolve(process.cwd(), '../..');
 const read = (path: string) => readFileSync(join(repositoryRoot, path), 'utf8');
 
 const migration = read('supabase/migrations/202608300015_student_passwordless_access.sql');
+const codeMatching = read('supabase/migrations/202608300017_student_code_matching.sql');
 const accessFunction = read('supabase/functions/student-access/index.ts');
 const studentPages = read('apps/web/src/features/auth/StudentAccessPages.tsx');
 const studentClient = read('apps/web/src/features/auth/studentAccess.ts');
@@ -130,13 +131,42 @@ describe('passwordless student access — the screen a student sees', () => {
     expect(appSource).toContain('<Route path="/student" element={<StudentLoginPage />} />');
     expect(appSource).toContain('<Route path="/student/first-time" element={<StudentFirstTimePage />} />');
     expect(loginPage).toContain('to="/student"');
-    expect(registerPage).toContain("const emailRegistrationRoles: PublicRegistrationRole[] = ['teacher', 'parent']");
+    // Signing up now asks for a name and a password, which a student holds neither of, so the
+    // screen offers the two roles that do and sends students to their own entrance.
+    expect(registerPage).toContain("const passwordRegistrationRoles: MemberRole[] = ['teacher', 'parent']");
     expect(registerPage).toContain('to="/student/first-time"');
   });
 
   it('carries no service role key or privileged client into the browser bundle', () => {
     for (const source of [studentPages, studentClient, loginPage, registerPage]) {
       expect(source).not.toMatch(/SERVICE_ROLE|service_role/);
+    }
+  });
+});
+
+describe('a student number matches the way it is read', () => {
+  it('normalizes both sides of the comparison, not just what the child typed', () => {
+    // The client strips spaces and hyphens before it calls. Comparing that against the stored value
+    // byte for byte locked out every school whose numbers carry a separator — "ป.6/1-15" typed
+    // exactly as printed could never match the "ป.6/1-15" the teacher entered.
+    expect(codeMatching).toContain('create or replace function public.normalize_student_code(p_code text)');
+    expect(codeMatching).toContain("regexp_replace(coalesce(p_code,''),'[\\s-]','','g')");
+    expect(codeMatching).toMatch(/resolve_student_access[\s\S]{0,1200}public\.normalize_student_code\(s\.student_code\) = wanted_code/);
+    expect(codeMatching).toMatch(/register_student_access[\s\S]{0,2000}public\.normalize_student_code\(student_code\) = match_code/);
+  });
+
+  it('keeps the school formatting it stored and only relaxes the comparison', () => {
+    expect(codeMatching).toContain("clean_code text := upper(trim(coalesce(p_student_code,'')));");
+    expect(codeMatching).toContain('values(new_id,target_school.id,clean_code');
+  });
+
+  it('keeps the lookups service_role only after replacing them', () => {
+    for (const signature of [
+      'public.resolve_student_access(text,text,uuid)',
+      'public.register_student_access(text,text,text,uuid)'
+    ]) {
+      expect(codeMatching).toContain(`revoke all on function ${signature} from public,anon,authenticated`);
+      expect(codeMatching).toContain(`grant execute on function ${signature} to service_role`);
     }
   });
 });

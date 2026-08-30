@@ -13,6 +13,7 @@ interface AuthState {
   sendEmailOtp(email: string): Promise<void>;
   verifyEmailOtp(email: string, token: string): Promise<void>;
   signUp(input: RegistrationInput): Promise<{ emailConfirmationRequired: boolean }>;
+  applySession(tokens: { accessToken: string; refreshToken: string }): Promise<void>;
   applyStudentSession(tokens: { accessToken: string; refreshToken: string }): Promise<void>;
   requestPasswordReset(email: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
@@ -130,11 +131,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadMemberships]);
 
   /**
-   * Adopts a session the student-access Edge Function minted. The student typed a name and a
-   * student number rather than a password, but what arrives here is an ordinary Supabase session,
-   * so the rest of the app — memberships, RLS, sync — sees a normal signed-in student.
+   * Adopts a session one of the trusted access gateways minted. The person typed a name plus a
+   * student number or a password rather than an email address, but what arrives here is an ordinary
+   * Supabase session, so the rest of the app — memberships, RLS, sync — sees a normal sign-in.
    */
-  const applyStudentSession = useCallback(async (tokens: { accessToken: string; refreshToken: string }) => {
+  const applySession = useCallback(async (tokens: { accessToken: string; refreshToken: string }) => {
     if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
     setError(null); setLoading(true);
     try {
@@ -146,6 +147,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await loadMemberships(data.session);
     } finally { setLoading(false); }
   }, [loadMemberships]);
+
+  // The student entrance kept its own name for this from the day it shipped; both entrances adopt a
+  // session exactly the same way, so the two names stay one function.
+  const applyStudentSession = applySession;
 
   const requestPasswordReset = useCallback(async (email: string) => {
     if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
@@ -167,9 +172,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const selectMembership = useCallback((id: string) => { setActiveId(id); localStorage.setItem('active-membership', id); }, []);
   const active = memberships.find((item) => item.membershipId === activeId) ?? memberships[0] ?? null;
   const value = useMemo(() => ({
-    loading, session, memberships, active, error, signIn, sendEmailOtp, verifyEmailOtp, signUp, applyStudentSession,
-    requestPasswordReset, updatePassword, signOut, refreshMemberships, selectMembership
-  }), [active, applyStudentSession, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, sendEmailOtp, session, signIn, signOut, signUp, updatePassword, verifyEmailOtp]);
+    loading, session, memberships, active, error, signIn, sendEmailOtp, verifyEmailOtp, signUp,
+    applySession, applyStudentSession, requestPasswordReset, updatePassword, signOut, refreshMemberships,
+    selectMembership
+  }), [active, applySession, applyStudentSession, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, sendEmailOtp, session, signIn, signOut, signUp, updatePassword, verifyEmailOtp]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

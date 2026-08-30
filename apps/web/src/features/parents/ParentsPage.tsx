@@ -4,6 +4,7 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { attendanceSummary, classIdOfStudent, consentedStudents, privacyPolicyFrom, standingsFor } from '../../data/selectors';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { requireSupabase } from '../../services/supabase';
+import { ParentRequestsPanel } from './ParentRequestsPanel';
 
 const statusLabels = { invited: 'ส่งคำเชิญแล้ว', linked: 'เชื่อมบัญชีแล้ว', revoked: 'ยกเลิกแล้ว' } as const;
 
@@ -120,6 +121,8 @@ export function ParentsPage() {
           <p>{snapshot.parentLinks.filter((item) => item.status === 'linked').length} บัญชีเชื่อมแล้ว จากทั้งหมด {snapshot.parentLinks.length} รายการ</p>
         </div>
       </section>
+
+      {isStaff && mode === 'cloud' && <ParentRequestsPanel schoolId={membership.schoolId} />}
 
       {isStaff && (
         <form className="panel inline-form" onSubmit={(event) => void invite(event)}>

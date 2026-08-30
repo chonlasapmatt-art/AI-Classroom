@@ -29,3 +29,6 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      # The public entrances — student, teacher and parent — are what a stranger can reach, so they
+      # are checked on every push rather than by hand before a release.
+      - run: npm run test:e2e:student

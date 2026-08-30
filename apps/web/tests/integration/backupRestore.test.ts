@@ -78,6 +78,26 @@ describe('encrypted backup and restore', () => {
     expect(await db.students.count()).toBe(2);
   });
 
+  it('clears a table the backup has nothing for, which is the whole point of replacing', async () => {
+    // The snapshot is taken while these tables are empty; rows arrive afterwards. Replace exists to
+    // get back to the snapshot, so leaving them behind would return the opposite of what was asked —
+    // and a surviving sync queue would keep replaying against the server after a supposed reset.
+    await db.announcements.clear();
+    const envelope = await createEncryptedBackup(schoolId, 'device-1', password);
+    await db.announcements.put({ ...record('note-1', '2026-08-25T00:00:00.000Z'), classId: 'class-1', subjectId: null, title: 'ประกาศ', body: '', studentIds: [], createdBy: 'teacher-1' });
+    await db.syncQueue.put({
+      queueId: 'queue-1', schoolId, entityType: 'student', entityId: 'student-1', operation: 'upsert',
+      payload: {}, baseVersion: 1, idempotencyKey: 'key-1', requestHash: 'hash-1', status: 'pending',
+      attemptCount: 0, nextRetryAt: '2026-08-25T00:00:00.000Z', lastError: null,
+      createdAt: '2026-08-25T00:00:00.000Z'
+    });
+
+    await restoreBackup(envelope, password, schoolId, 'replace');
+
+    expect(await db.announcements.count()).toBe(0);
+    expect(await db.syncQueue.count()).toBe(0);
+  });
+
   it('never writes rows belonging to a different school', async () => {
     const envelope = await createEncryptedBackup(schoolId, 'device-1', password);
     const contents = await decryptBackup(envelope, password, schoolId);

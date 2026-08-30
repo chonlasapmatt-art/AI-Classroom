@@ -1,9 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// The student entrance only exists once the app believes it has a cloud to talk to, so this suite
-// builds with placeholder credentials. Nothing here reaches a real Supabase project: the point is
-// to prove what the screen asks for and what it says when the answer is refused, which is exactly
-// the part that must never regress into asking a child for an email address.
+// The public entrances — student, teacher and parent — only exist once the app believes it has a
+// cloud to talk to, so this suite builds with placeholder credentials. Nothing here reaches a real
+// Supabase project: the point is to prove what each screen asks for and what it says when the answer
+// is refused, which is exactly the part that must never regress into asking for an email address.
 export default defineConfig({
   testDir: './tests/e2e-student',
   fullyParallel: true,

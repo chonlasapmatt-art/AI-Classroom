@@ -48,10 +48,10 @@ test.describe('student entrance', () => {
     await expect(page.getByRole('button', { name: 'เริ่มใช้งาน' })).toBeDisabled();
   });
 
-  test('sends teachers and parents to the email sign-in and never the reverse', async ({ page }) => {
+  test('sends teachers and parents to their own sign-in and never the reverse', async ({ page }) => {
     await page.goto('/student');
     await page.getByRole('link', { name: 'ฉันเป็นครูหรือผู้ปกครอง' }).click();
-    await expect(page.getByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'คุณคือใคร?' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'นักเรียนกดที่นี่' })).toBeVisible();
   });
 

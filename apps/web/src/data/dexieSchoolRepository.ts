@@ -138,6 +138,13 @@ export class DexieSchoolRepository implements SchoolRepository {
     if (error) throw new Error(error.message);
   }
 
+  /** The same call for the trusted functions whose answer the local projection has to keep. */
+  private async rpcResult<T>(name: string, params: Record<string, unknown>): Promise<T> {
+    const { data, error } = await requireSupabase().rpc(name, params);
+    if (error) throw new Error(error.message);
+    return data as T;
+  }
+
   async saveStudent(input: StudentInput): Promise<void> {
     const existing = input.id ? await db.students.get(input.id) : undefined;
     const record: Student = {
@@ -286,9 +293,10 @@ export class DexieSchoolRepository implements SchoolRepository {
       avatarPhotoId: existing?.avatarPhotoId ?? null,
       teacherCode: input.teacherCode, displayName: input.displayName,
       email: input.email, subject: input.subject,
-      // A teacher the school typed in itself is already known to the school. The server applies the
-      // same rule in upsert_teacher, so the local projection must not claim something stricter.
-      verificationStatus: existing?.verificationStatus ?? 'verified_teacher',
+      // upsert_teacher creates the server row as verification_pending, so the local projection says
+      // the same. Claiming verified here showed a green chip and hid the verify button until the
+      // next pull corrected it, which read as the status changing on its own.
+      verificationStatus: existing?.verificationStatus ?? 'verification_pending',
       status: existing?.status ?? 'active', updatedAt: nowIso()
     };
     await db.teachers.put(record);
@@ -1037,13 +1045,17 @@ export class DexieSchoolRepository implements SchoolRepository {
     const parentId = input.id ?? newId();
     const displayName = input.displayName.trim();
     if (displayName.length < 2) throw new Error('กรุณาระบุชื่อผู้ปกครองอย่างน้อย 2 ตัวอักษร');
-    await this.rpc('upsert_parent', {
+    // upsert_parent creates two records with two ids: the guardian identity and the link to this
+    // student. Sync mirrors parent_student_links keyed by the link id, so the local row has to use
+    // that one — keying it by the guardian id left a second, unreachable copy behind on every pull,
+    // and one guardian with two children would overwrite their own first row.
+    const { linkId } = await this.rpcResult<{ parentId: string; linkId: string }>('upsert_parent', {
       p_school_id: this.schoolId, p_parent_id: parentId, p_display_name: displayName,
       p_phone: input.phone ?? '', p_student_id: input.studentId, p_relationship: input.relationship
     });
-    const existing = await db.parentLinks.get(parentId);
+    const existing = await db.parentLinks.get(linkId);
     await db.parentLinks.put({
-      ...(existing ?? base(this.schoolId, parentId)),
+      ...(existing ?? base(this.schoolId, linkId)),
       studentId: input.studentId, avatarId: existing?.avatarId ?? null, avatarPhotoId: existing?.avatarPhotoId ?? null,
       parentName: displayName, relationship: input.relationship, contact: input.phone ?? existing?.contact ?? '',
       lineUserId: existing?.lineUserId ?? null, status: existing?.status ?? 'invited',

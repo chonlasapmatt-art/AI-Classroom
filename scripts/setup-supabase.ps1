@@ -33,7 +33,7 @@ Set-Location $repoRoot
 function Invoke-Supabase {
   param([Parameter(Mandatory = $true)][string[]]$Arguments)
   $displayArguments = $Arguments | ForEach-Object {
-    if ($_ -match '^(PARENT_LINK_HMAC_SECRET|MEMBER_INVITATION_HMAC_SECRET|ADMIN_ACCESS_CODE_HASH|LINE_CHANNEL_ACCESS_TOKEN|LINE_CHANNEL_SECRET|SUPABASE_SERVICE_ROLE_KEY)=') {
+    if ($_ -match '^(PARENT_LINK_HMAC_SECRET|MEMBER_INVITATION_HMAC_SECRET|MEMBER_ACCESS_HMAC_SECRET|STUDENT_ACCESS_HMAC_SECRET|ADMIN_ACCESS_CODE_HASH|LINE_CHANNEL_ACCESS_TOKEN|LINE_CHANNEL_SECRET|SUPABASE_SERVICE_ROLE_KEY)=') {
       "$($Matches[1])=***"
     } else {
       $_
@@ -81,6 +81,9 @@ Invoke-Supabase @('functions', 'deploy', 'line-notify', '--no-verify-jwt')
 # A student has no account until this call succeeds, so it cannot require a Supabase JWT. Its own
 # rate limiting, lockout and opaque failures are what stand in for one.
 Invoke-Supabase @('functions', 'deploy', 'student-access', '--no-verify-jwt')
+# Same reason for teachers and parents: signing in and signing up happen before there is a session,
+# and the function checks the caller's own JWT for the actions that act on an existing account.
+Invoke-Supabase @('functions', 'deploy', 'member-access', '--no-verify-jwt')
 
 if ($SkipSecrets) {
   Write-Host 'Step 4/4  Skipped (-SkipSecrets)' -ForegroundColor Yellow
@@ -91,6 +94,7 @@ if ($SkipSecrets) {
   $parentSecret = New-RandomSecret
   $memberSecret = New-RandomSecret
   $studentSecret = New-RandomSecret
+  $memberAccessSecret = New-RandomSecret
 
   $ownerCode = Read-Secret 'Owner access code (choose a long one; you will need it to create the first school)'
   if ([string]::IsNullOrWhiteSpace($ownerCode) -or $ownerCode.Length -lt 12) {
@@ -107,6 +111,7 @@ if ($SkipSecrets) {
   Invoke-Supabase @('secrets', 'set', "MEMBER_INVITATION_HMAC_SECRET=$memberSecret")
   Invoke-Supabase @('secrets', 'set', "ADMIN_ACCESS_CODE_HASH=$ownerHash")
   Invoke-Supabase @('secrets', 'set', "STUDENT_ACCESS_HMAC_SECRET=$studentSecret")
+  Invoke-Supabase @('secrets', 'set', "MEMBER_ACCESS_HMAC_SECRET=$memberAccessSecret")
   Invoke-Supabase @('secrets', 'set', "ALLOWED_ORIGINS=$allowedOrigins")
 
   Write-Host ''
