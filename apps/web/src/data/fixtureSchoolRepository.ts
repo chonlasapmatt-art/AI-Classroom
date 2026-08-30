@@ -17,7 +17,7 @@ import {
   type AcademicTermInput, type AchievementInput, type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput, type ImportRunInput,
   type ClassInput, type DevelopmentClearResult, type DevelopmentSeedInput, type DevelopmentSeedResult, type NotificationInput,
   type AnnouncementInput, type NotificationPreferenceInput, type ParentAccountInput, type ParentLinkInput, type PromotionInput,
-  type PromotionResult, type RubricInput, type SchoolRepository, type SchoolSnapshot, type ScoreInput,
+  type PromotionResult, type RubricInput, type SchoolRepository, type SchoolSnapshot, type ScoreEventInput, type ScoreInput,
   type ScoreSubmissionInput, type StudentInput, type SubjectInput, type SubmissionInput, type TeacherInput,
   type TestInput, type TimetableInput
 } from './schoolRepository';
@@ -56,6 +56,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
       submissionVersions: data.submissionVersions, deadlineExtensions: data.deadlineExtensions,
       announcements: data.announcements, notificationPreferences: data.notificationPreferences,
       academicAudit: data.academicAudit, timetable: data.timetable, achievements: data.achievements,
+      scoreEvents: data.scoreEvents,
       settings: data.settings, pendingSync: data.pendingSync, blockedSync: data.blockedSync
     });
   }
@@ -110,6 +111,19 @@ export class FixtureSchoolRepository implements SchoolRepository {
   async removeStudent(studentId: string): Promise<void> {
     this.data.students = this.data.students.filter((item) => item.id !== studentId);
     this.data.enrollments = this.data.enrollments.filter((item) => item.studentId !== studentId);
+    this.emit();
+  }
+
+  async awardScoreEvent(input: ScoreEventInput): Promise<void> {
+    const points = Number(input.points);
+    if (!Number.isFinite(points) || points === 0) throw new Error('คะแนนต้องเป็นตัวเลขและไม่เป็นศูนย์');
+    this.data.scoreEvents = [...this.data.scoreEvents, {
+      ...this.base(),
+      studentId: input.studentId, classId: input.classId ?? null, subjectId: input.subjectId ?? null,
+      category: input.category, points: Math.round(points * 100) / 100, reason: input.reason?.trim() ?? '',
+      sourceType: input.sourceType ?? 'manual', sourceId: input.sourceId ?? null,
+      awardedBy: input.awardedBy, occurredAt: nowIso()
+    }];
     this.emit();
   }
 

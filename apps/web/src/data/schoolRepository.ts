@@ -2,7 +2,7 @@ import type {
   AcademicAuditEntry, AcademicTerm, AchievementKey, Activity, ActivityScore, Announcement, Assignment, Attachment,
   AttachmentOwner, Attendance, AttendanceStatus, AvatarConfig, ClassTeacher, Classroom, ClassroomNotification,
   ClassroomNotificationKind, DeadlineExtension, Enrollment, ImportRun, NotificationPreference, ParentLink, Rubric,
-  RubricCriterion, RubricScore, Setting, Student, StudentAchievement, Subject, Submission, SubmissionStatus,
+  RubricCriterion, RubricScore, ScoreCategory, ScoreEvent, Setting, Student, StudentAchievement, Subject, Submission, SubmissionStatus,
   SubmissionVersion, Teacher, TestRecord, TestScore, TimetableEntry, WorkType
 } from '../domain/types';
 
@@ -58,6 +58,7 @@ export interface SchoolSnapshot {
   academicAudit: AcademicAuditEntry[];
   timetable: TimetableEntry[];
   achievements: StudentAchievement[];
+  scoreEvents: ScoreEvent[];
   settings: Setting[];
   pendingSync: number;
   blockedSync: number;
@@ -68,7 +69,7 @@ export const emptySnapshot: SchoolSnapshot = {
   assignments: [], submissions: [], activities: [], activityScores: [], tests: [], testScores: [],
   attendance: [], parentLinks: [], attachments: [], notifications: [], rubrics: [], rubricScores: [],
   submissionVersions: [], deadlineExtensions: [], announcements: [], notificationPreferences: [], academicAudit: [],
-  timetable: [], achievements: [],
+  timetable: [], achievements: [], scoreEvents: [],
   settings: [], pendingSync: 0, blockedSync: 0
 };
 
@@ -146,6 +147,25 @@ export interface SubmissionInput {
 export interface ActivityInput { id?: string; classId: string; subjectId: string | null; title: string; activityDate: string; maxScore: number; status: Activity['status'] }
 export interface TestInput { id?: string; classId: string; subjectId: string | null; title: string; testDate: string; maxScore: number; status: TestRecord['status'] }
 export interface ScoreInput { studentId: string; score: number | null; note?: string }
+
+/**
+ * One award of points. Points may be negative — a correction is an award of the opposite sign — but
+ * the repository refuses anything that is not a real number, because one NaN poisons every total.
+ */
+export interface ScoreEventInput {
+  studentId: string;
+  classId?: string | null;
+  subjectId?: string | null;
+  category: ScoreCategory;
+  points: number;
+  reason?: string;
+  sourceType?: ScoreEvent['sourceType'];
+  sourceId?: string | null;
+  awardedBy: string | null;
+}
+
+/** The largest single award the product allows, in either direction. */
+export const MAX_SCORE_EVENT_POINTS = 1000;
 export interface ParentLinkInput {
   id?: string; studentId: string; parentName: string; relationship: string; contact: string;
   status?: ParentLink['status'];
@@ -226,6 +246,12 @@ export interface SchoolRepository {
    * Records what one roster import did. The students it created are ordinary writes that already
    * went through saveStudent; this is only the receipt, so it never leaves the device that ran it.
    */
+  /**
+   * Awards points to one student. Every award is a new row: correcting a score adds an opposite or
+   * replacement event rather than rewriting one, so the trail stays complete.
+   */
+  awardScoreEvent(input: ScoreEventInput): Promise<void>;
+
   recordImportRun(input: ImportRunInput): Promise<void>;
   listImportRuns(limit?: number): Promise<ImportRun[]>;
 

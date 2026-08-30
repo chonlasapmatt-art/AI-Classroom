@@ -418,3 +418,57 @@ p.field-hint { margin: calc(var(--space-1) * -1) 0 0; }
 .result-list { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: grid; gap: var(--space-1);
   font-size: var(--text-md); }
 tr.row-warning td { background: var(--warning-soft); }
+
+/* Board mode: the class on screen, one tap from a score. Cards are large because the teacher is
+   standing at an interactive board, not sitting at a laptop. */
+.board-grid { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.board-card { display: grid; gap: var(--space-1); place-items: center; padding: var(--space-4) var(--space-2);
+  min-height: 168px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface);
+  cursor: pointer; text-align: center; }
+.board-card:hover { border-color: var(--brand-600); box-shadow: var(--shadow-md); }
+.board-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.board-card strong { font-size: var(--text-sm); overflow-wrap: anywhere; }
+.board-score { font-size: var(--text-lg); font-weight: var(--weight-heavy); color: var(--brand-700); }
+.board-bonus { font-size: var(--text-xs); font-weight: var(--weight-heavy); padding: 2px var(--space-2);
+  border-radius: var(--radius-pill); }
+.board-bonus.up { color: var(--success); background: var(--success-soft); }
+.board-bonus.down { color: var(--danger); background: var(--danger-soft); }
+.award-strip { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+.award-chip { font-size: var(--text-xs); font-weight: var(--weight-heavy); padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill); background: var(--surface-muted); color: var(--ink-600); }
+.award-chip.up { color: var(--success); background: var(--success-soft); }
+.award-chip.down { color: var(--ink-600); background: var(--surface-muted); }
+
+/* The quick score panel. It sits over the board rather than replacing it, so the class never loses
+   sight of where they are while a teacher gives somebody points. */
+.quick-score { position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: 30;
+  width: min(380px, calc(100vw - 2rem)); max-height: min(80vh, 720px); overflow-y: auto;
+  display: grid; gap: var(--space-3); padding: var(--space-4);
+  border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface);
+  box-shadow: var(--shadow-lg, 0 24px 60px rgba(20, 12, 60, .22)); }
+.quick-score-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+.quick-score-header strong { display: block; font-size: var(--text-md); }
+.quick-score-header span { font-size: var(--text-xs); color: var(--ink-500); }
+.quick-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); }
+.amount-button { min-height: 56px; border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: var(--brand-50); color: var(--brand-700); font-size: var(--text-md);
+  font-weight: var(--weight-heavy); cursor: pointer; }
+.amount-button:hover { background: var(--brand-100); }
+.amount-button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.reason-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.chip { padding: var(--space-1) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-pill);
+  background: var(--surface); font-size: var(--text-xs); cursor: pointer; }
+.chip.active { border-color: var(--brand-600); background: var(--brand-50); color: var(--brand-700); }
+.custom-score { display: grid; grid-template-columns: 1fr auto; gap: var(--space-2); align-items: end; }
+.score-flash { justify-self: center; font-size: 2.4rem; font-weight: var(--weight-heavy); color: var(--success);
+  animation: score-rise .9s var(--ease-out) both; }
+@keyframes score-rise { from { opacity: 0; transform: translateY(10px); } 40% { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) { .score-flash { animation: none; } }
+.score-history h3 { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
+.score-history ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.score-history li { display: grid; grid-template-columns: 46px 1fr; gap: var(--space-2); align-items: baseline;
+  font-size: var(--text-xs); color: var(--ink-600); }
+.score-history .points { font-weight: var(--weight-heavy); }
+.score-history .points.up { color: var(--success); }
+.score-history .points.down { color: var(--danger); }
+.score-history .when { grid-column: 2; color: var(--ink-500); }

@@ -2,7 +2,7 @@ import type {
   AcademicAuditEntry, AcademicTerm, AchievementKey, Activity, ActivityScore, Announcement, Assignment, Attendance,
   AttendanceStatus, ClassTeacher, Classroom, ClassroomNotification, DeadlineExtension, Enrollment, MembershipContext,
   NotificationPreference, ParentLink, Rubric, RubricScore, Setting, Student, StudentAchievement, Subject, Submission,
-  SubmissionVersion, SyncRecord, Teacher, TestRecord, TestScore, TimetableEntry
+  SubmissionVersion, SyncRecord, Teacher, TestRecord, TestScore, TimetableEntry, ScoreEvent
 } from '../../domain/types';
 import { standardSubjects } from '../subjectCatalog';
 import type { SchoolSnapshot } from '../schoolRepository';
@@ -433,6 +433,16 @@ export function buildFixtureData(): FixtureData {
     }];
   });
 
+  const scoreEvents: ScoreEvent[] = students.slice(0, 6).map((student, index) => ({
+    ...record(`fixture-score-event-${index + 1}`),
+    studentId: student.id, classId: primaryClassId, subjectId: null,
+    category: (index % 2 === 0 ? 'bonus' : 'participation') as ScoreEvent['category'],
+    points: index % 2 === 0 ? 5 : 1,
+    reason: index % 2 === 0 ? 'ช่วยงานห้องเรียน' : 'ตอบคำถามในชั้นเรียน',
+    sourceType: 'board' as const, sourceId: null, awardedBy: 'preview-teacher',
+    occurredAt: new Date(Date.now() - index * 3_600_000).toISOString()
+  }));
+
   const memberships: MembershipContext[] = [
     { membershipId: 'preview-admin', schoolId: FIXTURE_SCHOOL_ID, schoolName: FIXTURE_SCHOOL_NAME, profileId: 'preview-admin', displayName: 'ผู้ดูแลระบบ (Preview)', role: 'admin', status: 'active' },
     { membershipId: 'preview-teacher', schoolId: FIXTURE_SCHOOL_ID, schoolName: FIXTURE_SCHOOL_NAME, profileId: 'preview-teacher', displayName: teachers[0]!.displayName, role: 'teacher', status: 'active' },
@@ -444,7 +454,7 @@ export function buildFixtureData(): FixtureData {
     ready: true, terms, classes, subjects, teachers, classTeachers, students, enrollments, assignments, submissions,
     activities, activityScores, tests, testScores, attendance, parentLinks, attachments: [], notifications,
     rubrics, rubricScores, submissionVersions, deadlineExtensions, announcements, notificationPreferences,
-    academicAudit, timetable, achievements, settings,
+    academicAudit, timetable, achievements, scoreEvents, settings,
     pendingSync: 0, blockedSync: 0, memberships, primaryClassId
   };
 }

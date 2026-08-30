@@ -1,8 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { AcademicTerm, AcademicAuditEntry, Announcement, Attachment, Activity, ActivityScore, Assignment, Attendance, ClassTeacher, ClassroomNotification, Classroom, DeviceMetadata, Enrollment, LocalSessionMetadata, ParentLink, DeadlineExtension, NotificationPreference, Rubric, RubricScore, Setting, Student, StudentAchievement, Subject, Submission, SubmissionVersion,
-  ImportRun, SyncQueueItem, SyncState, Teacher, TestRecord, TestScore, TimetableEntry } from '../domain/types';
+  ImportRun, ScoreEvent, SyncQueueItem, SyncState, Teacher, TestRecord, TestScore, TimetableEntry } from '../domain/types';
 
-export const LOCAL_SCHEMA_VERSION = 9;
+export const LOCAL_SCHEMA_VERSION = 10;
 
 /**
  * Attachment row as stored locally: metadata plus the file bytes when this device has them.
@@ -29,6 +29,7 @@ export class SmartClassroomDatabase extends Dexie {
   timetable!: EntityTable<TimetableEntry, 'id'>;
   achievements!: EntityTable<StudentAchievement, 'id'>;
   importRuns!: EntityTable<ImportRun, 'id'>;
+  scoreEvents!: EntityTable<ScoreEvent, 'id'>;
   students!: EntityTable<Student, 'id'>;
   enrollments!: EntityTable<Enrollment, 'id'>;
   assignments!: EntityTable<Assignment, 'id'>;
@@ -147,8 +148,13 @@ export class SmartClassroomDatabase extends Dexie {
     });
     // v9 records what each roster import did. It stays on the device that ran it: the students it
     // created travel through the ordinary sync queue, and this is only the receipt for them.
-    this.version(LOCAL_SCHEMA_VERSION).stores({
+    this.version(9).stores({
       importRuns: 'id, schoolId, startedAt, target'
+    });
+    // v10 stores individual and bonus score awards. One award is one row, so this table is
+    // append-mostly and doubles as the history a teacher inspects.
+    this.version(LOCAL_SCHEMA_VERSION).stores({
+      scoreEvents: 'id, schoolId, studentId, classId, subjectId, category, occurredAt, [schoolId+studentId], [schoolId+classId], deletedAt'
     });
   }
 }

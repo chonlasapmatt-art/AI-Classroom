@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
-import { activeClasses, activeSubjects, classIdOfStudent, privacyPolicyFrom, rosterFor } from '../../data/selectors';
+import { activeClasses, activeSubjects, bonusTotalFor, classIdOfStudent, privacyPolicyFrom, recentScoreEvents, rosterFor } from '../../data/selectors';
 import { buildGradebook, categoryWeightsFrom } from '../../academic/gradebook';
 import { gradeSchemeFrom } from '../../academic/gradeScheme';
 import { Badge, Card, EmptyState, Field, PageHeader, ProgressBar, Segmented, Toolbar } from '../../ui/components';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
-import type { AvatarAnimation } from '../../domain/types';
+import type { AvatarAnimation, Student } from '../../domain/types';
+import { QuickScorePanel } from './QuickScorePanel';
 
-type Scope = 'overall' | 'progress';
+type Scope = 'overall' | 'progress' | 'board';
 
 const medals = ['ทอง', 'เงิน', 'ทองแดง'];
 
@@ -37,6 +38,7 @@ export function LeaderboardPage() {
   const [classId, setClassId] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [scope, setScope] = useState<Scope>('overall');
+  const [scoringStudent, setScoringStudent] = useState<Student | null>(null);
 
   const student = snapshot.students.find((item) => item.profileId === membership.profileId);
   const ownClassId = membership.role === 'student' ? classIdOfStudent(snapshot, student?.id ?? '') : null;
@@ -81,6 +83,9 @@ export function LeaderboardPage() {
     previousRanks.current = next;
   }, [ranked]);
 
+  // Only school staff may write a score, so only they are offered the board that writes them.
+  const isStaff = membership.role === 'admin' || membership.role === 'teacher';
+  const recentAwards = recentScoreEvents(snapshot, effectiveClassId, 6);
   const highlight = student?.id ?? null;
   const podium = ranked.slice(0, 3);
   const rest = ranked.slice(3);
@@ -127,11 +132,57 @@ export function LeaderboardPage() {
           ariaLabel="มุมมองอันดับ"
           value={scope}
           onChange={setScope}
-          options={[{ value: 'overall', label: 'คะแนนรวม' }, { value: 'progress', label: 'ความก้าวหน้า' }]}
+          options={isStaff
+            ? [{ value: 'overall', label: 'คะแนนรวม' }, { value: 'progress', label: 'ความก้าวหน้า' }, { value: 'board', label: 'โหมดกระดาน' }]
+            : [{ value: 'overall', label: 'คะแนนรวม' }, { value: 'progress', label: 'ความก้าวหน้า' }]}
         />
       </Toolbar>
 
-      {ranked.length === 0 ? (
+      {scope === 'board' && isStaff ? (
+        <>
+          {recentAwards.length > 0 && (
+            <div className="award-strip" aria-live="polite">
+              {recentAwards.map((event) => {
+                const person = roster.find((item) => item.id === event.studentId);
+                return (
+                  <span key={event.id} className={`award-chip ${event.points > 0 ? 'up' : 'down'}`}>
+                    {event.points > 0 ? `+${event.points}` : event.points} · {person?.displayName ?? 'นักเรียน'}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          <section className="board-grid">
+            {roster.map((person) => {
+              const bonus = bonusTotalFor(snapshot, person.id, subjectId || null);
+              const standing = ranked.find((row) => row.student.id === person.id);
+              return (
+                <button
+                  key={person.id} type="button" className="board-card"
+                  onClick={() => setScoringStudent(person)}
+                >
+                  <ProfileAvatar
+                    displayName={person.displayName} avatarId={person.avatarId}
+                    avatarIndex={person.avatarIndex} avatarConfig={person.avatarConfig} size={72}
+                  />
+                  <strong>{person.displayName}</strong>
+                  <span className="board-score">{standing?.percentage != null ? `${standing.percentage.toFixed(0)}%` : '—'}</span>
+                  {bonus !== 0 && <span className={`board-bonus ${bonus > 0 ? 'up' : 'down'}`}>{bonus > 0 ? `+${bonus}` : bonus}</span>}
+                </button>
+              );
+            })}
+          </section>
+          {scoringStudent && (
+            <QuickScorePanel
+              student={scoringStudent}
+              classId={effectiveClassId}
+              subjectId={subjectId || null}
+              actorProfileId={membership.profileId}
+              onClose={() => setScoringStudent(null)}
+            />
+          )}
+        </>
+      ) : ranked.length === 0 ? (
         <Card>
           <EmptyState icon="♕" title="ยังไม่มีข้อมูลจัดอันดับ" description="คะแนนที่เผยแพร่แล้วจะถูกคำนวณอย่างคงที่" />
         </Card>

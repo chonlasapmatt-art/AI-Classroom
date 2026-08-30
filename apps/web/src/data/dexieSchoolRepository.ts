@@ -6,7 +6,7 @@ import { isCloudConfigured, requireSupabase, supabase } from '../services/supaba
 import type {
   AcademicAuditAction, AcademicAuditEntry, AcademicTerm, Activity, ActivityScore, Announcement, Assignment, Attachment,
   AttachmentOwner, Attendance, AvatarConfig, ClassTeacher, Classroom, ClassroomNotification, DeadlineExtension,
-  Enrollment, ImportRun, NotificationPreference, ParentLink, Rubric, Setting, Student, StudentAchievement, Subject, Submission,
+  Enrollment, ImportRun, NotificationPreference, ParentLink, Rubric, ScoreEvent, Setting, Student, StudentAchievement, Subject, Submission,
   SyncRecord, Teacher, TestRecord, TestScore, TimetableEntry
 } from '../domain/types';
 import { auditEntry, planCancellation, planPublish, planScoring, planSubmission, planWorkUpdate } from './academicOps';
@@ -17,11 +17,12 @@ import { effectiveDueAt } from '../academic/workStatus';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
 import {
   DEVELOPMENT_SEED_SETTING_KEY, emptySnapshot, MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, newId, nowIso,
+  MAX_SCORE_EVENT_POINTS,
   type AcademicTermInput, type AchievementInput, type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput, type ImportRunInput,
   type ClassInput, type DevelopmentClearResult, type DevelopmentSeedInput, type DevelopmentSeedResult,
   type NotificationInput, type AnnouncementInput, type NotificationPreferenceInput, type ParentAccountInput, type ParentLinkInput,
   type PromotionInput, type PromotionResult, type RubricInput, type SchoolRepository, type SchoolSnapshot,
-  type ScoreInput, type ScoreSubmissionInput, type StudentInput, type SubjectInput, type SubmissionInput,
+  type ScoreEventInput, type ScoreInput, type ScoreSubmissionInput, type StudentInput, type SubjectInput, type SubmissionInput,
   type TeacherInput, type TestInput, type TimetableInput
 } from './schoolRepository';
 
@@ -80,7 +81,7 @@ export class DexieSchoolRepository implements SchoolRepository {
     const [terms, classes, subjects, teachers, classTeachers, students, enrollments, assignments, submissions,
       activities, activityScores, tests, testScores, attendance, parentLinks, attachments, notifications,
       rubrics, rubricScores, submissionVersions, deadlineExtensions, announcements, notificationPreferences,
-      academicAudit, timetable, achievements, settings, pendingSync, blockedSync] = await Promise.all([
+      academicAudit, timetable, achievements, scoreEvents, settings, pendingSync, blockedSync] = await Promise.all([
       db.academicTerms.where(inSchool).toArray(),
       db.classes.where(inSchool).toArray(),
       db.subjects.where(inSchool).toArray(),
@@ -107,6 +108,7 @@ export class DexieSchoolRepository implements SchoolRepository {
       db.academicAudit.where(inSchool).toArray(),
       db.timetable.where(inSchool).toArray(),
       db.achievements.where(inSchool).toArray(),
+      db.scoreEvents.where(inSchool).toArray(),
       db.settings.where(inSchool).toArray(),
       db.syncQueue.where({ schoolId, status: 'pending' }).count(),
       db.syncQueue.where({ schoolId, status: 'blocked' }).count()
@@ -123,7 +125,7 @@ export class DexieSchoolRepository implements SchoolRepository {
       rubrics: alive(rubrics), rubricScores: alive(rubricScores), submissionVersions,
       deadlineExtensions: alive(deadlineExtensions), announcements: alive(announcements),
       notificationPreferences, academicAudit,
-      timetable: alive(timetable), achievements: alive(achievements),
+      timetable: alive(timetable), achievements: alive(achievements), scoreEvents: alive(scoreEvents),
       settings: alive(settings), pendingSync, blockedSync
     };
   }
@@ -172,6 +174,21 @@ export class DexieSchoolRepository implements SchoolRepository {
     const record = await db.students.get(studentId);
     if (!record) throw new Error('ไม่พบนักเรียนในเครื่อง');
     await softDeleteLocal('student', record);
+  }
+
+  async awardScoreEvent(input: ScoreEventInput): Promise<void> {
+    const points = Number(input.points);
+    if (!Number.isFinite(points)) throw new Error('คะแนนต้องเป็นตัวเลข');
+    if (Math.abs(points) > MAX_SCORE_EVENT_POINTS) throw new Error(`คะแนนต้องอยู่ระหว่าง -${MAX_SCORE_EVENT_POINTS} ถึง ${MAX_SCORE_EVENT_POINTS}`);
+    if (points === 0) throw new Error('คะแนนต้องไม่เป็นศูนย์');
+    const record: ScoreEvent = {
+      ...base(this.schoolId),
+      studentId: input.studentId, classId: input.classId ?? null, subjectId: input.subjectId ?? null,
+      category: input.category, points: Math.round(points * 100) / 100, reason: input.reason?.trim() ?? '',
+      sourceType: input.sourceType ?? 'manual', sourceId: input.sourceId ?? null,
+      awardedBy: input.awardedBy, occurredAt: nowIso()
+    };
+    await commitLocalMutation('score_event', record);
   }
 
   async recordImportRun(input: ImportRunInput): Promise<void> {

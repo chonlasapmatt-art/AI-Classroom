@@ -34,8 +34,8 @@ export async function pushPending(schoolId: string, deviceId: string): Promise<{
   return { accepted, blocked: blockedCount };
 }
 
-const cloudTables: Record<string, string> = { student:'students', enrollment:'student_class_enrollments', assignment:'assignments', submission:'submissions', activity:'activities', activity_score:'activity_scores', test:'tests', test_score:'test_scores', attendance:'attendance', setting:'settings', timetable_entry:'timetable_entries', achievement:'student_achievements' };
-const localTables: Record<string, string> = { student:'students', enrollment:'enrollments', assignment:'assignments', submission:'submissions', activity:'activities', activity_score:'activityScores', test:'tests', test_score:'testScores', attendance:'attendance', setting:'settings', timetable_entry:'timetable', achievement:'achievements' };
+const cloudTables: Record<string, string> = { student:'students', enrollment:'student_class_enrollments', assignment:'assignments', submission:'submissions', activity:'activities', activity_score:'activity_scores', test:'tests', test_score:'test_scores', attendance:'attendance', setting:'settings', timetable_entry:'timetable_entries', achievement:'student_achievements', score_event:'score_events' };
+const localTables: Record<string, string> = { student:'students', enrollment:'enrollments', assignment:'assignments', submission:'submissions', activity:'activities', activity_score:'activityScores', test:'tests', test_score:'testScores', attendance:'attendance', setting:'settings', timetable_entry:'timetable', achievement:'achievements', score_event:'scoreEvents' };
 function camel(key: string): string { return key.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase()); }
 function fromCloud(row: Record<string, unknown>): Record<string, unknown> { return Object.fromEntries(Object.entries(row).map(([key,value])=>[camel(key),value])); }
 

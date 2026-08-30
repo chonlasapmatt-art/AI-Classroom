@@ -13,7 +13,7 @@ function tableFor<T extends SyncRecord>(entityType: SyncEntityType): Table<T, st
   const names: Record<SyncEntityType, string> = {
     student: 'students', enrollment: 'enrollments', assignment: 'assignments', submission: 'submissions',
     activity: 'activities', activity_score: 'activityScores', test: 'tests', test_score: 'testScores', attendance: 'attendance', setting: 'settings',
-    timetable_entry: 'timetable', achievement: 'achievements'
+    timetable_entry: 'timetable', achievement: 'achievements', score_event: 'scoreEvents'
   };
   return db.table<T, string>(names[entityType]);
 }

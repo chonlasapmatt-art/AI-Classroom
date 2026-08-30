@@ -1,6 +1,6 @@
 export type Role = 'admin' | 'teacher' | 'student' | 'parent';
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave';
-export type SyncEntityType = 'student' | 'enrollment' | 'assignment' | 'submission' | 'activity' | 'activity_score' | 'test' | 'test_score' | 'attendance' | 'setting' | 'timetable_entry' | 'achievement';
+export type SyncEntityType = 'student' | 'enrollment' | 'assignment' | 'submission' | 'activity' | 'activity_score' | 'test' | 'test_score' | 'attendance' | 'setting' | 'timetable_entry' | 'achievement' | 'score_event';
 export type SyncOperation = 'upsert' | 'delete';
 
 export interface SyncRecord {
@@ -345,4 +345,28 @@ export interface ImportRun {
   skipped: number;
   failed: number;
   notes: string;
+}
+
+export type ScoreCategory =
+  | 'bonus' | 'participation' | 'assignment' | 'activity' | 'project' | 'test' | 'exam' | 'manual' | 'other';
+
+/**
+ * One award of points to one student.
+ *
+ * Scores are kept as events rather than as a running total so that every point can be explained
+ * afterwards: who gave it, for what, in which subject, and when. A correction is another event, so
+ * the list of events for a student is the complete history and nothing is ever overwritten.
+ */
+export interface ScoreEvent extends SyncRecord {
+  studentId: string;
+  classId: string | null;
+  subjectId: string | null;
+  category: ScoreCategory;
+  points: number;
+  reason: string;
+  /** Where the award came from — the board, a piece of work, a correction typed on the scores page. */
+  sourceType: 'manual' | 'board' | 'assignment' | 'activity' | 'test' | 'exam' | 'import' | 'system';
+  sourceId: string | null;
+  awardedBy: string | null;
+  occurredAt: string;
 }

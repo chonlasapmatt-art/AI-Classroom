@@ -1,4 +1,4 @@
-import type { AttendanceStatus, Classroom, ClassroomNotification, Setting, Student, Subject } from '../domain/types';
+import type { AttendanceStatus, Classroom, ClassroomNotification, ScoreEvent, Setting, Student, Subject } from '../domain/types';
 import { calculateTotal, defaultScorePolicy, gradeFor, type Category, type ScoreItem, type ScorePolicy } from '../features/scores/scoreEngine';
 import type { SchoolSnapshot } from './schoolRepository';
 
@@ -223,4 +223,32 @@ export function missingSubmitters(snapshot: SchoolSnapshot, assignmentId: string
     const submission = snapshot.submissions.find((item) => item.assignmentId === assignmentId && item.studentId === student.id);
     return !submission || ['not_started', 'in_progress', 'assigned', 'draft', 'overdue'].includes(submission.status);
   });
+}
+
+/**
+ * Awards for one student, newest first.
+ *
+ * Scores are stored as events, so this list is both what the board shows and the history a teacher
+ * inspects — there is no separate audit table to fall out of step with the numbers.
+ */
+export function scoreEventsFor(snapshot: SchoolSnapshot, studentId: string, subjectId: string | null = null): ScoreEvent[] {
+  return snapshot.scoreEvents
+    .filter((event) => event.studentId === studentId && !event.deletedAt)
+    .filter((event) => (subjectId ? event.subjectId === subjectId : true))
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt));
+}
+
+/** Everything a student has been awarded outside marked work, which is what the board adds on top. */
+export function bonusTotalFor(snapshot: SchoolSnapshot, studentId: string, subjectId: string | null = null): number {
+  const total = scoreEventsFor(snapshot, studentId, subjectId).reduce((sum, event) => sum + event.points, 0);
+  return Math.round(total * 100) / 100;
+}
+
+/** The last few awards in a class, for the running strip along the top of the board. */
+export function recentScoreEvents(snapshot: SchoolSnapshot, classId: string, limit = 8): ScoreEvent[] {
+  const roster = new Set(rosterFor(snapshot, classId).map((student) => student.id));
+  return snapshot.scoreEvents
+    .filter((event) => !event.deletedAt && (event.classId === classId || roster.has(event.studentId)))
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+    .slice(0, limit);
 }
