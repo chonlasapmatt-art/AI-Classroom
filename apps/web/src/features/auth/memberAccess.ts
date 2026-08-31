@@ -68,16 +68,28 @@ export function isCompleteMemberLogin(displayName: string, password: string): bo
   return normalizeMemberName(displayName).length >= 2 && password.length >= 1;
 }
 
+/**
+ * Reduces a teacher code to what it means, exactly as the server does.
+ *
+ * The code is copied out of a chat message or read off a whiteboard, so the dash, the case and the
+ * spaces around it are noise; the digits are the code. Normalising on both sides means a teacher who
+ * types `sc 482917` is not told their school's code is wrong.
+ */
+export function normalizeAccessCode(value: string): string {
+  return value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+}
+
 export function isCompleteMemberRegistration(input: {
   firstName: string; lastName: string; password: string; confirmPassword: string;
-  schoolId?: string; recoveryEmail?: string;
+  schoolId?: string; recoveryEmail?: string; accessCode?: string;
 }): boolean {
   return normalizeMemberName(input.firstName).length >= 1
     && normalizeMemberName(input.lastName).length >= 1
     && input.password.length >= MEMBER_PASSWORD_MINIMUM
     && input.password === input.confirmPassword
     && (input.recoveryEmail === undefined || isValidRecoveryEmail(input.recoveryEmail))
-    && (input.schoolId === undefined || input.schoolId.trim().length > 0);
+    && (input.schoolId === undefined || input.schoolId.trim().length > 0)
+    && (input.accessCode === undefined || normalizeAccessCode(input.accessCode).length >= 4);
 }
 
 /**
@@ -102,6 +114,14 @@ export function interpretMemberAccessResponse(payload: unknown, status: number):
   }
   if (code === 'SCHOOL_NOT_AVAILABLE') {
     return { outcome: 'error', message: 'ไม่พบโรงเรียนที่เลือก กรุณาเลือกใหม่อีกครั้ง' };
+  }
+  if (code === 'TEACHER_CODE_REQUIRED') {
+    return { outcome: 'error', message: 'กรุณากรอกรหัสสำหรับครูที่ได้รับจากผู้ดูแลโรงเรียน' };
+  }
+  // Wrong, revoked, expired and used-up codes arrive here as one answer, because the server does not
+  // say which. The message names the person who can fix any of them.
+  if (code === 'TEACHER_CODE_INVALID') {
+    return { outcome: 'error', message: 'รหัสสำหรับครูใช้ไม่ได้กับโรงเรียนนี้ อาจหมดอายุหรือถูกยกเลิกแล้ว กรุณาขอรหัสใหม่จากผู้ดูแลโรงเรียน' };
   }
 
   const session = body.session as { accessToken?: string; refreshToken?: string } | undefined;
@@ -151,13 +171,19 @@ export async function memberLogin(input: {
   });
 }
 
+/**
+ * First registration for a teacher. The school's own access code is what authorises it — this call
+ * carries the code, and the server, not this screen, decides whether it is a real one.
+ */
 export async function registerTeacher(input: {
   firstName: string; lastName: string; schoolId: string; password: string; recoveryEmail: string;
+  accessCode: string;
 }): Promise<MemberAccessResult> {
   return accessCall({
     action: 'register-teacher',
     firstName: normalizeMemberName(input.firstName), lastName: normalizeMemberName(input.lastName),
-    schoolId: input.schoolId, password: input.password, recoveryEmail: input.recoveryEmail.trim().toLowerCase()
+    schoolId: input.schoolId, password: input.password, recoveryEmail: input.recoveryEmail.trim().toLowerCase(),
+    accessCode: normalizeAccessCode(input.accessCode)
   });
 }
 

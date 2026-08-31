@@ -472,3 +472,18 @@ tr.row-warning td { background: var(--warning-soft); }
 .score-history .points.up { color: var(--success); }
 .score-history .points.down { color: var(--danger); }
 .score-history .when { grid-column: 2; color: var(--ink-500); }
+
+/* Teacher access code ------------------------------------------------------
+   The code is the whole point of these surfaces, so it is set large, in a
+   monospaced face and with generous letter spacing: it is read aloud, copied
+   by hand and typed into a phone at least as often as it is pasted. */
+.access-code-display { display: grid; gap: var(--space-2); justify-items: center; text-align: center;
+  padding: var(--space-4); background: var(--brand-50); border-radius: var(--radius-md); }
+.access-code-value { font-family: var(--font-mono, ui-monospace, SFMono-Regular, "Cascadia Mono", monospace);
+  font-size: clamp(1.8rem, 6vw, 2.6rem); font-weight: var(--weight-heavy); letter-spacing: .12em;
+  color: var(--brand-700); }
+.access-code-summary { display: grid; gap: var(--space-2); justify-items: start; }
+.access-code-summary .access-code-value { font-size: clamp(1.4rem, 4vw, 1.9rem); }
+.access-code-options { margin-top: var(--space-3); }
+.access-code-options summary { cursor: pointer; font-size: var(--text-sm); color: var(--ink-600); }
+.access-code-options[open] summary { margin-bottom: var(--space-3); }

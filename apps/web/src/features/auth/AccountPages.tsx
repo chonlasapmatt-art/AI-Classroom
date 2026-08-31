@@ -27,6 +27,7 @@ export function RegisterPage() {
   const [recoveryEmail, setRecoveryEmail] = useState('');
   const [schoolQuery, setSchoolQuery] = useState('');
   const [schoolId, setSchoolId] = useState('');
+  const [accessCode, setAccessCode] = useState('');
   const [options, setOptions] = useState<SchoolChoice[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,7 +49,7 @@ export function RegisterPage() {
     setBusy(true); setError(null);
     try {
       const result = role === 'teacher'
-        ? await registerTeacher({ firstName, lastName, schoolId, password, recoveryEmail })
+        ? await registerTeacher({ firstName, lastName, schoolId, password, recoveryEmail, accessCode })
         : await registerParent({ firstName, lastName, password, recoveryEmail });
       if (result.outcome === 'session') { await auth.applySession(result.session); return; }
       if (result.outcome === 'account-required') { setError('มีบัญชีชื่อนี้อยู่แล้ว กรุณาเข้าสู่ระบบแทน'); return; }
@@ -58,7 +59,7 @@ export function RegisterPage() {
 
   const complete = role !== null && isCompleteMemberRegistration({
     firstName, lastName, password, confirmPassword, recoveryEmail,
-    ...(role === 'teacher' ? { schoolId } : {})
+    ...(role === 'teacher' ? { schoolId, accessCode } : {})
   });
 
   return (
@@ -89,7 +90,7 @@ export function RegisterPage() {
           <h2>สมัครใช้งาน{roleLabels[role]}</h2>
           <p className="field-hint">
             {role === 'teacher'
-              ? 'ชื่อกับรหัสผ่านนี้คือสิ่งที่ใช้เข้าสู่ระบบครั้งต่อไป เลือกโรงเรียนแล้วเริ่มสอนได้ทันที ไม่ต้องรออนุมัติ'
+              ? 'ชื่อกับรหัสผ่านนี้คือสิ่งที่ใช้เข้าสู่ระบบครั้งต่อไป เลือกโรงเรียนแล้วกรอกรหัสสำหรับครูที่ผู้ดูแลโรงเรียนส่งให้ ใช้เฉพาะครั้งแรกครั้งเดียว'
               : 'ชื่อกับรหัสผ่านนี้คือสิ่งที่ใช้เข้าสู่ระบบครั้งต่อไป เพิ่มลูกได้หลังเข้าระบบ โดยกรอกแค่ชื่อจริงของลูก'}
           </p>
           <div className="form-grid">
@@ -123,7 +124,19 @@ export function RegisterPage() {
                   ))}
                 </ul>
               )}
-              {schoolId && <p className="fine-print">เลือกโรงเรียนแล้ว · เริ่มใช้งานได้ทันทีหลังสมัคร</p>}
+              {schoolId && <p className="fine-print">เลือกโรงเรียนแล้ว · กรอกรหัสสำหรับครูของโรงเรียนนี้ในช่องถัดไป</p>}
+              <label>
+                รหัสสำหรับครู
+                <input
+                  name="accessCode" value={accessCode} onChange={(event) => setAccessCode(event.target.value)}
+                  placeholder="เช่น SC-482917" autoComplete="one-time-code" inputMode="text"
+                  maxLength={40} aria-describedby="register-code-hint" required
+                />
+              </label>
+              <p className="field-hint" id="register-code-hint">
+                รหัสที่ผู้ดูแลโรงเรียนสร้างและส่งให้ครูที่ได้รับอนุญาต ใช้เฉพาะตอนสมัครครั้งแรก
+                ครั้งต่อไปเข้าสู่ระบบด้วยชื่อกับรหัสผ่านเท่านั้น
+              </p>
             </>
           )}
           <label>

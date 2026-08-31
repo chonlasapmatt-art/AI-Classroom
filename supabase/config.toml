@@ -76,3 +76,7 @@ verify_jwt = false
 verify_jwt = false
 [functions.member-access]
 verify_jwt = false
+# Issuing, reading and revoking a school's teacher code are all acts of a signed-in administrator,
+# so the platform verifies the JWT before the function runs and the function checks the school.
+[functions.teacher-code]
+verify_jwt = true

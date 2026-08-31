@@ -4,6 +4,7 @@ import { useSession } from '../app/SessionContext';
 import { useSchoolSnapshot } from '../data/RepositoryContext';
 import { unreadCount } from '../academic/views';
 import { isPreviewModeAvailable } from '../preview/previewMode';
+import { TeacherCodeFirstRun } from '../features/teachers/TeacherCodeFirstRun';
 import { useSyncStatus } from '../sync/SyncStatusContext';
 import type { Role } from '../domain/types';
 
@@ -116,6 +117,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main className="page-content">{children}</main>
+        <TeacherCodeFirstRun />
       </div>
     </div>
   );

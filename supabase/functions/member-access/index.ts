@@ -12,6 +12,7 @@
 // client are rate limited before any lookup runs.
 
 import { corsHeaders, json } from '../_shared/http.ts';
+import { hashAccessCode, normalizeAccessCode } from '../_shared/teacherCode.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const IDENTITY_WINDOW_MINUTES = 15;
@@ -146,6 +147,7 @@ Deno.serve(async (request) => {
     const password = String(body.password ?? '');
     const recoveryEmail = text(body, 'recoveryEmail', 320).toLowerCase();
     const schoolId = role === 'teacher' ? String(body.schoolId ?? '') : null;
+    const accessCode = role === 'teacher' ? normalizeAccessCode(String(body.accessCode ?? '')) : '';
     const identityHash = await hmac(`register|${role}|${normalizeName(`${firstName} ${lastName}`)}`, secret);
     const recoveryEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail);
 
@@ -159,6 +161,32 @@ Deno.serve(async (request) => {
     if (isLockedOut(counts.identity, counts.client)) {
       await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'locked_out' });
       return json({ code: 'MEMBER_ACCESS_LOCKED', retryAfterMinutes: IDENTITY_WINDOW_MINUTES }, 429, headers);
+    }
+
+    // A teacher becomes a teacher because their school said so. The code is checked and one use of
+    // it is claimed here, before any account exists: claiming afterwards would let two people race
+    // for the last use of a limited code and both win. A wrong, revoked, expired or used-up code all
+    // answer the same way, so nothing can be learned by trying.
+    let claimedCodeId: string | null = null;
+    if (role === 'teacher') {
+      if (accessCode.length < 4) {
+        await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'code_missing' });
+        return json({ code: 'TEACHER_CODE_REQUIRED' }, 400, headers);
+      }
+      const { data: claim, error: claimError } = await service.rpc('claim_teacher_access_code', {
+        p_school_id: schoolId, p_code_hash: await hashAccessCode(schoolId!, accessCode, secret)
+      });
+      const claimed = claim as { valid?: boolean; codeId?: string } | null;
+      if (claimError || !claimed?.valid) {
+        await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'code_rejected' });
+        return json({ code: 'TEACHER_CODE_INVALID' }, 403, headers);
+      }
+      claimedCodeId = claimed.codeId ?? null;
+    }
+
+    /** Hands a claimed use back when the registration that took it did not finish. */
+    async function releaseClaim(): Promise<void> {
+      if (claimedCodeId) await service.rpc('release_teacher_access_code', { p_code_id: claimedCodeId });
     }
 
     // Teacher and parent accounts use the recovery address as GoTrue's identifier, but the normal
@@ -175,6 +203,7 @@ Deno.serve(async (request) => {
       app_metadata: { access_model: 'name_password', member_role: role, has_recovery_email: role !== 'admin' }
     });
     if (createError || !created.user) {
+      await releaseClaim();
       await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'create_failed' });
       return json({ code: GENERIC_FAILURE }, 400, headers);
     }
@@ -182,15 +211,18 @@ Deno.serve(async (request) => {
 
     const { data: registered, error: registerError } = await service.rpc('register_member_identity', {
       p_actor: profileId, p_role: role, p_first_name: firstName, p_last_name: lastName,
-      p_auth_email: email, p_school_id: schoolId, p_source: 'self_registration'
+      p_auth_email: email, p_school_id: schoolId, p_source: 'self_registration',
+      p_access_code_id: claimedCodeId
     });
     if (registerError) {
       // The account exists but carries no records, so it would be an orphan able to sign in with no
       // identity behind it. Remove it rather than leave that lying around.
       await service.auth.admin.deleteUser(profileId).catch(() => undefined);
+      await releaseClaim();
       await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'rejected' });
       const message = String(registerError.message ?? '');
       if (message.includes('SCHOOL_NOT_AVAILABLE')) return json({ code: 'SCHOOL_NOT_AVAILABLE' }, 400, headers);
+      if (message.includes('TEACHER_CODE_REQUIRED')) return json({ code: 'TEACHER_CODE_INVALID' }, 403, headers);
       return json({ code: GENERIC_FAILURE }, 400, headers);
     }
 

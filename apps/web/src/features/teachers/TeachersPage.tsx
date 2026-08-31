@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { requireSupabase } from '../../services/supabase';
+import { TeacherAccessCodePanel } from './TeacherAccessCodePanel';
 import type { TeacherVerificationStatus } from '../../domain/types';
 
 const verificationLabels: Record<TeacherVerificationStatus, string> = {
@@ -81,6 +82,8 @@ export function TeachersPage() {
           <p>{snapshot.teachers.length} คน · {snapshot.classTeachers.length} การมอบหมายห้องเรียน</p>
         </div>
       </section>
+
+      <TeacherAccessCodePanel />
 
       {canEdit && (
         <form className="panel inline-form" onSubmit={(event) => void createTeacher(event)}>
