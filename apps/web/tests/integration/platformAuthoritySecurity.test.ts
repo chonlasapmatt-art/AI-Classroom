@@ -185,6 +185,15 @@ describe('the console is not part of the customer product', () => {
     expect(viteConfig).toContain("'assets/platform-*.js'");
   });
 
+  it('routes by hash so a deep link never falls back to the customer app', () => {
+    // A static host asked for /platform/schools serves the single-page fallback, which is the
+    // customer application. A hash never reaches the host, so every console route resolves here.
+    const entry = read('apps/web/src/platform/main.tsx');
+    expect(entry).toContain('HashRouter');
+    expect(entry).not.toContain('BrowserRouter');
+    expect(entry).not.toContain('basename');
+  });
+
   it('offers no preview or fixture mode of its own', () => {
     expect(consoleApp).not.toContain('previewMode');
     expect(consoleApp).toContain('isCloudConfigured');
