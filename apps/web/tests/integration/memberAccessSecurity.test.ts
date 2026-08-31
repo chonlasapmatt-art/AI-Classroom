@@ -11,6 +11,7 @@ const memberClient = read('apps/web/src/features/auth/memberAccess.ts');
 const loginPage = read('apps/web/src/features/auth/LoginPage.tsx');
 const accountPages = read('apps/web/src/features/auth/AccountPages.tsx');
 const authContext = read('apps/web/src/app/AuthContext.tsx');
+const studentPages = read('apps/web/src/features/auth/StudentAccessPages.tsx');
 const supabaseConfig = read('supabase/config.toml');
 const recoveryTemplate = read('supabase/templates/recovery.html');
 const confirmationTemplate = read('supabase/templates/confirmation.html');
@@ -186,7 +187,16 @@ describe('the screens a teacher and a parent see', () => {
   it('uses a six-digit OTP only for password recovery', () => {
     expect(authContext).not.toContain('signInWithOtp');
     expect(authContext).not.toContain('auth.signUp');
-    expect(authContext).not.toContain('signInWithPassword');
+    // An email-and-password sign-in exists in the shared context for the operations console, whose
+    // operators hold an ordinary account and have no name-directory entry to resolve. What must stay
+    // true is that no screen a teacher, parent or student reaches ever calls it: their entrances go
+    // through the trusted gateway, which is where the rate limiting and the namesake handling live.
+    expect(authContext.match(/signInWithPassword/g) ?? []).toHaveLength(1);
+    expect(authContext).toContain('const signInWithEmail');
+    for (const screen of [loginPage, accountPages, studentPages]) {
+      expect(screen).not.toContain('signInWithPassword');
+      expect(screen).not.toContain('signInWithEmail');
+    }
     expect(authContext).toContain("token, type: 'recovery'");
     expect(authContext).toContain('/^\\d{6}$/');
     expect(supabaseConfig).toContain('otp_length = 6');

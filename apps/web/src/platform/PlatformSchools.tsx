@@ -1,0 +1,344 @@
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Badge, Button, Card, CardHeader, DataTable, EmptyState, ErrorState, Field, Modal, Skeleton, Stat, Toolbar
+} from '../ui/components';
+import { formatMoment, useDangerousAction } from './consoleHelpers';
+import { DangerousActionDialog } from './ReauthGate';
+import {
+  forceSchoolLogout, healthLabel, healthTone, platformSchoolDetail, platformSchools,
+  setSchoolStatus, startSupportSession,
+  type SchoolDetail, type SchoolSummary
+} from './platformClient';
+
+const SUPPORT_DURATIONS = [15, 30, 60, 120, 240];
+
+/**
+ * Starting a support session.
+ *
+ * The reason and the duration are asked for together and neither has a default that lets an operator
+ * skip thinking about it. A session is not a login: it is a statement, recorded in the school's own
+ * audit log, that somebody from the platform was inside this school between these two times and why.
+ */
+function StartSupportDialog({ school, onClose, onStarted }: {
+  school: SchoolSummary | SchoolDetail; onClose(): void; onStarted(message: string): void;
+}) {
+  const [reason, setReason] = useState('');
+  const [minutes, setMinutes] = useState(60);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function start() {
+    setBusy(true); setError(null);
+    try {
+      await startSupportSession(school.schoolId, reason.trim(), minutes);
+      onStarted(`เข้าสู่ Support Mode ของ ${school.name} แล้ว · หมดอายุใน ${minutes} นาที`);
+      onClose();
+    } catch (reason2) {
+      setError(reason2 instanceof Error ? reason2.message : 'เริ่ม Support Mode ไม่สำเร็จ');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <Modal
+      title={`เข้าดูแลโรงเรียน ${school.name}`}
+      description="ระบบจะบันทึกเหตุผลนี้ไว้ในบันทึกตรวจสอบของโรงเรียน และโรงเรียนเปิดดูได้"
+      onClose={onClose}
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose}>ยกเลิก</Button>
+          <Button variant="primary" onClick={() => void start()} loading={busy} disabled={reason.trim().length < 8}>
+            เริ่ม Support Mode
+          </Button>
+        </>
+      }
+    >
+      <div className="alert warning" role="alert">
+        ระหว่าง Support Mode คุณจะทำงานในโรงเรียนนี้ได้เท่ากับผู้ดูแลโรงเรียน
+        ทุกการกระทำจะถูกบันทึกพร้อมรหัส Session นี้
+      </div>
+      <Field label="เหตุผล" hint="อย่างน้อย 8 ตัวอักษร เช่น “โรงเรียนแจ้งว่าคะแนนไม่ซิงก์ ขอให้ตรวจสอบ”">
+        <textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} required />
+      </Field>
+      <Field label="ระยะเวลา" hint="หมดเวลาแล้วสิทธิ์จะหยุดเองทันที ไม่ต้องมีใครมากดปิด">
+        <select value={minutes} onChange={(event) => setMinutes(Number(event.target.value))}>
+          {SUPPORT_DURATIONS.map((value) => <option key={value} value={value}>{value} นาที</option>)}
+        </select>
+      </Field>
+      {error && <div className="alert error" role="alert">{error}</div>}
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+export function SchoolsPage() {
+  const [schools, setSchools] = useState<SchoolSummary[] | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [supporting, setSupporting] = useState<SchoolSummary | SchoolDetail | null>(null);
+  const [query, setQuery] = useState('');
+  const [onlyUnhealthy, setOnlyUnhealthy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setError(null);
+    try { setSchools(await platformSchools()); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'โหลดรายชื่อโรงเรียนไม่สำเร็จ'); }
+  }, []);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  if (selected) {
+    return (
+      <SchoolDetailPanel
+        schoolId={selected}
+        onBack={() => { setSelected(null); void refresh(); }}
+        onSupport={(school) => setSupporting(school)}
+      />
+    );
+  }
+
+  const visible = (schools ?? []).filter((school) => {
+    if (onlyUnhealthy && school.health.status === 'healthy') return false;
+    if (!query.trim()) return true;
+    const needle = query.trim().toLowerCase();
+    return school.name.toLowerCase().includes(needle) || school.code.toLowerCase().includes(needle);
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="โรงเรียนทั้งหมด"
+        description="สถานะสุขภาพคำนวณสดทุกครั้งที่ถาม ไม่ได้เก็บค่าไว้ให้ค้าง"
+        action={<Button onClick={() => void refresh()}>รีเฟรช</Button>}
+      />
+      {message && <div className="alert success" role="status">{message}</div>}
+      {error && <ErrorState message={error} onRetry={() => void refresh()} />}
+
+      <Toolbar>
+        <Field label="ค้นหา">
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ชื่อหรือรหัสโรงเรียน" />
+        </Field>
+        <label className="checkbox-field">
+          <input type="checkbox" checked={onlyUnhealthy} onChange={(event) => setOnlyUnhealthy(event.target.checked)} />
+          แสดงเฉพาะที่ต้องดูแล
+        </label>
+      </Toolbar>
+
+      {!schools ? <Skeleton lines={5} /> : (visible.length > 0 ? (
+        <DataTable head={<tr><th>โรงเรียน</th><th>สถานะ</th><th>สุขภาพ</th><th>ครู</th><th>นักเรียน</th><th>ซิงก์ล่าสุด</th><th /></tr>}>
+          {visible.map((school) => (
+            <tr key={school.schoolId}>
+              <td>{school.name}<span className="fine-print"> · {school.code}</span></td>
+              <td><Badge tone={school.status === 'active' ? 'success' : 'danger'}>{school.status === 'active' ? 'ใช้งาน' : 'ระงับ'}</Badge></td>
+              <td>
+                <Badge tone={healthTone(school.health.status)}>{healthLabel(school.health.status)}</Badge>
+                {school.health.reasons.length > 0 && <span className="fine-print"> · {school.health.reasons[0]}</span>}
+              </td>
+              <td>{school.teachers}</td>
+              <td>{school.students}</td>
+              <td>{formatMoment(school.health.lastSuccessfulSyncAt)}</td>
+              <td>
+                <Button size="sm" onClick={() => setSelected(school.schoolId)}>รายละเอียด</Button>
+                <Button size="sm" variant="primary" onClick={() => setSupporting(school)}>เข้าดูแลโรงเรียน</Button>
+              </td>
+            </tr>
+          ))}
+        </DataTable>
+      ) : <EmptyState title="ไม่พบโรงเรียนที่ตรงกับเงื่อนไข" />)}
+
+      {supporting && (
+        <StartSupportDialog
+          school={supporting}
+          onClose={() => setSupporting(null)}
+          onStarted={(text) => { setMessage(text); void refresh(); }}
+        />
+      )}
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function SchoolDetailPanel({ schoolId, onBack, onSupport }: {
+  schoolId: string; onBack(): void; onSupport(school: SchoolDetail): void;
+}) {
+  const [detail, setDetail] = useState<SchoolDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const { pending, request, dismiss } = useDangerousAction();
+
+  const refresh = useCallback(async () => {
+    setError(null);
+    try { setDetail(await platformSchoolDetail(schoolId)); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'โหลดข้อมูลโรงเรียนไม่สำเร็จ'); }
+  }, [schoolId]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  if (error) return <ErrorState message={error} onRetry={() => void refresh()} />;
+  if (!detail) return <Skeleton lines={8} />;
+
+  const suspended = detail.status !== 'active';
+
+  return (
+    <>
+      <Card>
+        <CardHeader
+          title={detail.name}
+          description={`${detail.code} · เขตเวลา ${detail.timezone} · สร้างเมื่อ ${formatMoment(detail.createdAt)}`}
+          action={
+            <>
+              <Button onClick={onBack}>ย้อนกลับ</Button>
+              <Button variant="primary" onClick={() => onSupport(detail)}>เข้าดูแลโรงเรียน</Button>
+            </>
+          }
+        />
+        {message && <div className="alert success" role="status">{message}</div>}
+
+        <div className="stat-row">
+          <Stat label="สุขภาพ" value={healthLabel(detail.health.status)} tone={healthTone(detail.health.status)}
+            hint={detail.health.reasons.join(' · ') || 'ไม่พบสัญญาณผิดปกติ'} />
+          <Stat label="ครู" value={detail.counts.teachers ?? 0} />
+          <Stat label="นักเรียน" value={detail.counts.students ?? 0} />
+          <Stat label="ผู้ปกครอง" value={detail.counts.parents ?? 0} />
+          <Stat label="ห้องเรียน" value={detail.counts.classes ?? 0} />
+          <Stat label="ผู้ดูแลโรงเรียน" value={detail.counts.admins ?? 0} tone={detail.counts.admins ? 'neutral' : 'warning'} />
+        </div>
+        <div className="stat-row">
+          <Stat label="คลังข้อสอบ" value={detail.counts.questions ?? 0} />
+          <Stat label="ข้อสอบ" value={detail.counts.exams ?? 0} />
+          <Stat label="งานที่มอบหมาย" value={detail.counts.assignments ?? 0} />
+          <Stat label="รายวิชา" value={detail.counts.subjects ?? 0} />
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="การดำเนินการที่ย้อนกลับยาก" description="ทุกอย่างต้องยืนยันรหัสผ่านและระบุเหตุผล" />
+        <Toolbar>
+          <Button
+            variant={suspended ? 'primary' : 'danger'}
+            onClick={() => request({
+              summary: suspended ? `คืนสิทธิ์ใช้งานให้ ${detail.name}` : `ระงับการใช้งานของ ${detail.name}`,
+              consequence: suspended
+                ? 'ทุกคนในโรงเรียนนี้จะกลับมาใช้งานได้ตามสิทธิ์เดิม'
+                : 'ทุกคนในโรงเรียนนี้จะเข้าใช้งานไม่ได้จนกว่าจะคืนสิทธิ์ ข้อมูลทั้งหมดยังอยู่ครบและไม่ถูกลบ',
+              confirmLabel: suspended ? 'คืนสิทธิ์โรงเรียน' : 'ระงับโรงเรียน',
+              run: async (reason) => {
+                await setSchoolStatus(detail.schoolId, suspended ? 'active' : 'suspended', reason);
+                await refresh();
+              }
+            })}
+          >
+            {suspended ? 'คืนสิทธิ์โรงเรียน' : 'ระงับโรงเรียน'}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => request({
+              summary: `บังคับออกจากระบบทุกบัญชีของ ${detail.name}`,
+              consequence: 'ทุกเครื่องจะถูกให้ออกจากระบบเมื่อเปิดแอปหรือซิงก์ครั้งถัดไป โทเคนที่ออกไปแล้วยังใช้ได้จนหมดอายุ ถ้าต้องการหยุดการเข้าถึงจริง ๆ ให้ใช้การระงับโรงเรียนแทน',
+              confirmLabel: 'บังคับออกจากระบบ',
+              run: async (reason) => {
+                const result = await forceSchoolLogout(detail.schoolId, reason);
+                setMessage(`สั่งออกจากระบบแล้ว ${result.accounts} บัญชี`);
+              }
+            })}
+          >
+            บังคับออกจากระบบทั้งโรงเรียน
+          </Button>
+        </Toolbar>
+      </Card>
+
+      <Card>
+        <CardHeader title="อุปกรณ์ของโรงเรียนนี้" />
+        {detail.devices.length > 0 ? (
+          <DataTable head={<tr><th>อุปกรณ์</th><th>เวอร์ชัน</th><th>เห็นล่าสุด</th><th>ซิงก์ล่าสุด</th><th>สถานะ</th></tr>}>
+            {detail.devices.map((device) => (
+              <tr key={device.deviceId}>
+                <td>{device.name}<span className="fine-print"> · {device.type}</span></td>
+                <td>{device.clientVersion || '—'}</td>
+                <td>{formatMoment(device.lastSeenAt)}</td>
+                <td>{formatMoment(device.lastSyncAt)}</td>
+                <td>{device.revokedAt ? <Badge tone="danger">เพิกถอนแล้ว</Badge> : <Badge tone="success">ใช้งานอยู่</Badge>}</td>
+              </tr>
+            ))}
+          </DataTable>
+        ) : <EmptyState title="ยังไม่มีอุปกรณ์ลงทะเบียน" />}
+      </Card>
+
+      <Card>
+        <CardHeader title="ประวัติ Support Mode" description="ใครเข้ามาดูแลโรงเรียนนี้ เมื่อไหร่ และเพราะอะไร" />
+        {detail.supportSessions.length > 0 ? (
+          <DataTable head={<tr><th>เริ่ม</th><th>หมดอายุ</th><th>สิ้นสุดจริง</th><th>เหตุผล</th><th>จำนวนการกระทำ</th></tr>}>
+            {detail.supportSessions.map((session) => (
+              <tr key={session.sessionId}>
+                <td>{formatMoment(session.startedAt)}</td>
+                <td>{formatMoment(session.expiresAt)}</td>
+                <td>{formatMoment(session.endedAt)}</td>
+                <td>{session.reason}</td>
+                <td>{session.actionsRecorded}</td>
+              </tr>
+            ))}
+          </DataTable>
+        ) : <EmptyState title="ยังไม่เคยมีการเข้าดูแลโรงเรียนนี้" />}
+      </Card>
+
+      <Card>
+        <CardHeader title="บันทึกตรวจสอบล่าสุด" />
+        {detail.recentAudit.length > 0 ? (
+          <DataTable head={<tr><th>เมื่อ</th><th>การกระทำ</th><th>ประเภท</th><th>Support</th></tr>}>
+            {detail.recentAudit.map((row, index) => (
+              <tr key={`${row.occurredAt}-${index}`}>
+                <td>{formatMoment(row.occurredAt)}</td>
+                <td>{row.action}</td>
+                <td>{row.entityType}</td>
+                <td>{row.supportSessionId ? <Badge tone="warning">Support Mode</Badge> : '—'}</td>
+              </tr>
+            ))}
+          </DataTable>
+        ) : <EmptyState title="ยังไม่มีบันทึก" />}
+      </Card>
+
+      {pending && (
+        <DangerousActionDialog action={pending} onClose={dismiss} onDone={(text) => setMessage(text)} />
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * The banner an operator sees for as long as they are inside a school.
+ *
+ * It counts down rather than showing an expiry time, because "18:42 left" is something a person acts
+ * on and "ends at 14:07" is something they have to work out. When it reaches zero the authority is
+ * already gone on the server, so the banner says so rather than waiting to be told.
+ */
+export function SupportModeBanner({ session, onLeave }: {
+  session: { schoolName: string; reason: string; expiresAt: string; actionsRecorded: number };
+  onLeave(): void;
+}) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const remaining = new Date(session.expiresAt).getTime() - now;
+  const expired = remaining <= 0;
+  const minutes = Math.max(0, Math.floor(remaining / 60_000));
+  const seconds = Math.max(0, Math.floor((remaining % 60_000) / 1000));
+
+  return (
+    <div className={`support-banner ${expired ? 'expired' : ''}`.trim()} role="status">
+      <strong>SUPER ADMIN SUPPORT MODE</strong>
+      <span>กำลังดูแล: {session.schoolName}</span>
+      <span className="support-reason">เหตุผล: {session.reason}</span>
+      <span className="support-timer">
+        {expired ? 'หมดเวลาแล้ว — สิทธิ์ถูกยกเลิกโดยอัตโนมัติ' : `เหลือเวลา ${minutes}:${String(seconds).padStart(2, '0')}`}
+      </span>
+      <button type="button" onClick={onLeave}>ออกจาก Support Mode</button>
+    </div>
+  );
+}

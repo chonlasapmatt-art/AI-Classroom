@@ -80,3 +80,7 @@ verify_jwt = false
 # so the platform verifies the JWT before the function runs and the function checks the school.
 [functions.teacher-code]
 verify_jwt = true
+# Enrolling a platform operator and proving their password again are both acts of a signed-in
+# account, so the platform verifies the JWT before the function runs.
+[functions.platform-access]
+verify_jwt = true

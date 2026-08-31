@@ -116,6 +116,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
         </header>
+        {/* An operator working inside a school through the ordinary screens must never be mistaken
+            for the school's own administrator — by the school, or by themselves. */}
+        {membership.membershipId.startsWith('support:') && (
+          <div className="support-banner" role="status">
+            <strong>SUPER ADMIN SUPPORT MODE</strong>
+            <span>กำลังดูแล: {membership.schoolName}</span>
+            <span className="support-reason">ทุกการกระทำถูกบันทึกในบันทึกตรวจสอบของโรงเรียนนี้</span>
+          </div>
+        )}
         <main className="page-content">{children}</main>
         <TeacherCodeFirstRun />
       </div>

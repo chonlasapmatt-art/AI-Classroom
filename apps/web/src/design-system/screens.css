@@ -487,3 +487,37 @@ tr.row-warning td { background: var(--warning-soft); }
 .access-code-options { margin-top: var(--space-3); }
 .access-code-options summary { cursor: pointer; font-size: var(--text-sm); color: var(--ink-600); }
 .access-code-options[open] summary { margin-bottom: var(--space-3); }
+
+/* Operations console -------------------------------------------------------
+   Deliberately plain. This is a tool for reading numbers under pressure, so
+   density and legibility win over decoration everywhere they conflict. */
+.platform-frame { min-height: 100vh; background: var(--app-bg, var(--surface-muted, #f5f6fb)); }
+.platform-topbar { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+  padding: var(--space-3) var(--space-5); background: var(--nav-surface); color: var(--nav-ink); }
+.platform-brand { display: flex; align-items: center; gap: var(--space-3); margin-right: auto; }
+.platform-brand div { display: grid; }
+.platform-brand span { font-size: var(--text-xs); opacity: .75; }
+.platform-topbar nav { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+.platform-topbar nav a { padding: var(--space-2) var(--space-3); border-radius: var(--radius-pill);
+  color: inherit; text-decoration: none; font-size: var(--text-sm); }
+.platform-topbar nav a:hover { background: #ffffff1f; }
+.platform-topbar nav a.active { background: #ffffff2e; font-weight: var(--weight-heavy); }
+.platform-topbar .text-button { color: inherit; }
+.platform-content { display: grid; gap: var(--space-4); padding: var(--space-5);
+  max-width: 1400px; margin: 0 auto; }
+.stat-row { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+/* Support mode banner ------------------------------------------------------
+   Loud on purpose, and identical in both applications. Somebody operating a
+   school that is not theirs should not be able to forget it, and a screenshot
+   of that work should say so on its face. */
+.support-banner { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  padding: var(--space-3) var(--space-5); background: var(--warning-soft); color: var(--warning);
+  border-bottom: 2px solid var(--warning-line); font-size: var(--text-sm); }
+.support-banner strong { letter-spacing: .08em; }
+.support-banner .support-reason { opacity: .85; }
+.support-banner .support-timer { margin-left: auto; font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-heavy); }
+.support-banner button { border: 1px solid currentColor; background: transparent; color: inherit;
+  border-radius: var(--radius-pill); padding: var(--space-1) var(--space-3); cursor: pointer; }
+.support-banner.expired { background: var(--danger-soft); color: var(--danger); border-bottom-color: var(--danger); }

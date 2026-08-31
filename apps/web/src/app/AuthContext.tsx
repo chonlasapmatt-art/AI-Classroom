@@ -11,6 +11,7 @@ interface AuthState {
   error: string | null;
   applySession(tokens: { accessToken: string; refreshToken: string }): Promise<void>;
   applyStudentSession(tokens: { accessToken: string; refreshToken: string }): Promise<void>;
+  signInWithEmail(email: string, password: string): Promise<void>;
   requestPasswordReset(email: string): Promise<void>;
   verifyPasswordResetOtp(email: string, token: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
@@ -46,14 +47,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('id, school_id, profile_id, role, status, active_from, active_until, schools(name), user_profiles(display_name)')
       .eq('profile_id', next.user.id).eq('status', 'active');
     if (queryError) throw queryError;
-    setMemberships((data ?? []).map((row) => mapMembership(row as unknown as Record<string, unknown>)));
+    const real = (data ?? []).map((row) => mapMembership(row as unknown as Record<string, unknown>));
+
+    // A platform operator inside a live support session belongs to no school, so no membership row
+    // exists for them and none is invented in the database. This is the screen's copy of what the
+    // authority functions already grant: it lets the ordinary school pages render, and it is marked
+    // as support so the shell can say so rather than passing the operator off as an administrator.
+    const { data: supportData } = await supabase.rpc('current_support_session');
+    const support = supportData as Record<string, unknown> | null;
+    if (support?.active === true) {
+      real.push({
+        membershipId: `support:${String(support.sessionId)}`,
+        schoolId: String(support.schoolId),
+        schoolName: String(support.schoolName ?? 'โรงเรียน'),
+        profileId: next.user.id,
+        displayName: String(next.user.user_metadata?.display_name ?? 'ผู้ดูแลแพลตฟอร์ม'),
+        role: 'admin',
+        status: 'active'
+      });
+    }
+    setMemberships(real);
+  }, []);
+
+  /**
+   * Honours a sign-out ordered from the outside.
+   *
+   * An access token already issued stays cryptographically valid until it expires, so nothing can
+   * reach into this device and tear up a live session. What the server can say is "every session
+   * older than this moment is finished", and this is the client keeping its side of that: a logout
+   * stamped after this session began ends it here. Stopping somebody outright is suspension's job,
+   * which every policy checks rather than the client.
+   */
+  const honourForcedLogout = useCallback(async (next: Session | null): Promise<boolean> => {
+    if (!supabase || !next) return false;
+    const { data, error: rpcError } = await supabase.rpc('session_revoked_at');
+    if (rpcError || !data) return false;
+    const signedInAt = next.user.last_sign_in_at ? Date.parse(next.user.last_sign_in_at) : 0;
+    if (Date.parse(String(data)) <= signedInAt) return false;
+    await supabase.auth.signOut();
+    setSession(null); setMemberships([]);
+    setError('บัญชีนี้ถูกให้ออกจากระบบโดยผู้ดูแล กรุณาเข้าสู่ระบบใหม่');
+    return true;
   }, []);
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
     void supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
-      try { await loadMemberships(data.session); } catch (reason) { setError(reason instanceof Error ? reason.message : 'โหลดสิทธิ์ไม่สำเร็จ'); }
+      try {
+        if (await honourForcedLogout(data.session)) { setLoading(false); return; }
+        await loadMemberships(data.session);
+      } catch (reason) { setError(reason instanceof Error ? reason.message : 'โหลดสิทธิ์ไม่สำเร็จ'); }
       setLoading(false);
     });
     const { data } = supabase.auth.onAuthStateChange((_event, next) => {
@@ -61,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void loadMemberships(next).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'โหลดสิทธิ์ไม่สำเร็จ'));
     });
     return () => data.subscription.unsubscribe();
-  }, [loadMemberships]);
+  }, [honourForcedLogout, loadMemberships]);
 
   const verifyPasswordResetOtp = useCallback(async (email: string, token: string) => {
     if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
@@ -99,6 +143,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // session exactly the same way, so the two names stay one function.
   const applyStudentSession = applySession;
 
+  /**
+   * The plain email and password sign-in.
+   *
+   * Teachers, parents and students never see this — they sign in by name — but the operations
+   * console does, because a platform operator holds an ordinary account and no name directory
+   * entry to resolve.
+   */
+  const signInWithEmail = useCallback(async (email: string, password: string) => {
+    if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
+    setError(null); setLoading(true);
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
+      setSession(data.session);
+      await loadMemberships(data.session);
+    } finally { setLoading(false); }
+  }, [loadMemberships]);
+
   const requestPasswordReset = useCallback(async (email: string) => {
     if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -120,9 +182,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const active = memberships.find((item) => item.membershipId === activeId) ?? memberships[0] ?? null;
   const value = useMemo(() => ({
     loading, session, memberships, active, error,
-    applySession, applyStudentSession, requestPasswordReset, verifyPasswordResetOtp, updatePassword, signOut, refreshMemberships,
+    applySession, applyStudentSession, signInWithEmail, requestPasswordReset, verifyPasswordResetOtp, updatePassword, signOut, refreshMemberships,
     selectMembership
-  }), [active, applySession, applyStudentSession, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, session, signOut, updatePassword, verifyPasswordResetOtp]);
+  }), [active, applySession, applyStudentSession, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, session, signInWithEmail, signOut, updatePassword, verifyPasswordResetOtp]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
