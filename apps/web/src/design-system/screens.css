@@ -589,3 +589,16 @@ tr.row-warning td { background: var(--warning-soft); }
 .quiz-answer:disabled { opacity: .75; cursor: default; }
 .quiz-answer:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .quiz-short-answer { min-height: 56px; font-size: var(--text-md); }
+
+/* Sync conflicts ------------------------------------------------------------
+   Two versions side by side, only the fields that differ. The decision is the
+   difference; everything else is noise. */
+.conflict-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.conflict-list li { padding: var(--space-4); border: 1px solid var(--warning-line);
+  border-radius: var(--radius-md); background: var(--surface); display: grid; gap: var(--space-3); }
+.conflict-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.conflict-table th, .conflict-table td { text-align: left; padding: var(--space-2);
+  border-bottom: 1px solid var(--line); vertical-align: top; }
+.conflict-table th { font-size: var(--text-xs); color: var(--ink-500); font-weight: var(--weight-heavy); }
+.conflict-mine { background: var(--brand-50); }
+.conflict-theirs { background: var(--success-soft); }

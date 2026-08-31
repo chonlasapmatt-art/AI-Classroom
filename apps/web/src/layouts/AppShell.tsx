@@ -33,6 +33,8 @@ const navigation: NavItem[] = [
   { to: '/gradebook', label: 'สมุดเกรด', icon: '▩', roles: ['admin', 'teacher', 'student'] },
   { to: '/question-bank', label: 'คลังข้อสอบ', icon: '✎', roles: ['admin', 'teacher'] },
   { to: '/quiz', label: 'Quiz Challenge', icon: '◈', roles: ['admin', 'teacher'] },
+  { to: '/exams', label: 'ข้อสอบ', icon: '▤', roles: ['admin', 'teacher'] },
+  { to: '/sit-exam', label: 'สอบ', icon: '✐', roles: ['student'] },
   { to: '/grade-editor', label: 'แก้ไขคะแนน', icon: '✎', roles: ['admin', 'teacher'] },
   { to: '/leaderboard', label: 'Leaderboard', icon: '♕', roles: ['admin', 'teacher', 'student'] },
   { to: '/achievements', label: 'เหรียญรางวัล', icon: '✦', roles: ['admin', 'teacher', 'student', 'parent'] },

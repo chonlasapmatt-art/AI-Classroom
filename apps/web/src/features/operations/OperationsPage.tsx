@@ -3,6 +3,7 @@ import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { createEncryptedBackup, downloadBackup, inspectBackup, readBackupFile, restoreBackup, type BackupEnvelope, type BackupSummary } from '../backup/backup';
 import { registerAndSync } from '../../sync/engine';
+import { ConflictPanel } from './ConflictPanel';
 
 export function OperationsPage() {
   const { membership, mode } = useSession();
@@ -115,6 +116,10 @@ export function OperationsPage() {
           <p>ตรวจสอบข้อมูลที่รอส่ง พื้นที่จัดเก็บ และสร้างไฟล์สำรองเข้ารหัส</p>
         </div>
       </section>
+
+      {/* Conflicts come first: a queue that will not drain is usually a decision nobody has been
+          asked to make, and every other number on this page is a symptom of it. */}
+      <ConflictPanel />
 
       <section className="metric-grid">
         <article className="metric-card violet"><span>รอซิงก์</span><strong>{snapshot.pendingSync}</strong><small>ไม่ถูกลบอัตโนมัติ</small></article>

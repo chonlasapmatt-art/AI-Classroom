@@ -26,6 +26,8 @@ import { AssignmentsPage } from '../features/assignments/AssignmentsPage';
 import { ScoresPage } from '../features/scores/ScoresPage';
 import { LeaderboardPage } from '../features/leaderboard/LeaderboardPage';
 import { QuestionBankPage } from '../features/questions/QuestionBankPage';
+import { ExamsPage } from '../features/exams/ExamsPage';
+import { StudentExamPage } from '../features/exams/StudentExamPage';
 import { QuizChallengePage } from '../features/quiz/QuizChallengePage';
 import { ParentsPage } from '../features/parents/ParentsPage';
 import { MyChildrenPage } from '../features/parents/MyChildrenPage';
@@ -67,6 +69,8 @@ function AppRoutes() {
         <Route path="leaderboard" element={<LeaderboardPage />} />
         <Route path="question-bank" element={<QuestionBankPage />} />
         <Route path="quiz" element={<QuizChallengePage />} />
+        <Route path="exams" element={<ExamsPage />} />
+        <Route path="sit-exam" element={<StudentExamPage />} />
         <Route path="parents" element={<ParentsPage />} />
         <Route path="my-children" element={<MyChildrenPage />} />
         <Route path="reports" element={<ReportsPage />} />
