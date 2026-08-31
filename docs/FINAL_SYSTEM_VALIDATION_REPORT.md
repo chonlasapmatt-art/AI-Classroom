@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-31
 **Branch:** `continuation/claude-completion` (merged to `main`)
-**Supabase project:** `kcwpkxcvhewmovpazrsp` — Ai Smart Classroom, ap-southeast-1
+**Supabase project:** the deployment this branch is linked to (see `supabase/.temp/project-ref`, which is not committed)
 
 ## How this pass was validated
 
@@ -105,8 +105,11 @@ theirs back months later. A use is claimed under a row lock before the account e
 teachers racing for the last use of a limited code cannot both win, and the claim is returned when
 registration fails. Wrong, revoked, expired and used-up codes all answer identically.
 
-Verified live: `SC-001` registered a teacher at the issuing school; a wrong code and a missing code
-were both refused; the same code was refused at another school.
+Verified live: a school-chosen code registered a teacher at the issuing school; a wrong code and a
+missing code were both refused; the same code was refused at another school.
+
+This repository is public, so no live code, key or identifier belongs in it — including in a report
+about how well they are protected.
 
 ## STUDENT — PASS
 
