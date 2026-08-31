@@ -1,0 +1,187 @@
+# Working on Smart Classroom
+
+A multi-school education platform: web and installable PWA, local-first with a persistent sync queue,
+Supabase behind it. Thai is the product language; every user-facing string is Thai.
+
+This file is the handoff. Read it before changing anything.
+
+---
+
+## Run it
+
+```bash
+npm ci
+npm run dev        # http://localhost:5173
+npm run build && npm run preview   # http://localhost:4173
+```
+
+Two entry points, and they are separate builds:
+
+| | Where | Who |
+| --- | --- | --- |
+| School app | `/` | school administrator, teacher, student, parent |
+| Operations console | `/platform/` | platform operator |
+
+`INCLUDE_PLATFORM_CONSOLE=false npm run build` omits the console entirely — that is how the customer
+build stays free of developer tooling. Not by hiding a menu; by not shipping the code.
+
+## Gates
+
+```bash
+npm run typecheck   # tsc -b
+npm run lint        # eslint --max-warnings 0
+npm run test        # vitest, 489 tests
+npm run build
+```
+
+All four must pass. `--max-warnings 0` is deliberate; do not relax it.
+
+**A green suite does not mean it works.** See the next section.
+
+---
+
+## How to verify server-side work
+
+Six defects in the last pass passed every gate above and were caught only by running against the live
+database. They are listed with their symptoms in `scripts/probes/README.md`. Four were PL/pgSQL
+variables named after a column, which is valid SQL and fails at runtime with `42702`.
+
+So: **when you change a migration, an RPC or an Edge Function, write or run a probe.**
+`scripts/probes/` holds one per feature and a README explaining how to run them. They take everything
+from the environment and hardcode nothing.
+
+Probes write into a real school. Remove everything they create and confirm the tables are empty
+afterwards.
+
+---
+
+## Invariants — do not break these
+
+These are not style preferences. Each one is load-bearing and several have already been broken once.
+
+**Authority is decided by the database, never by the client.** A screen may hide a button; that is a
+convenience. The refusal that matters is a grant or a security-definer function.
+
+**Tables holding answer keys or credentials are revoked from `authenticated` entirely.**
+`question_bank`, `question_categories`, `quiz_*`, `teacher_access_codes`, `platform_admins`,
+`support_sessions`, `platform_error_events`, `member_login_identities`. A direct API call is refused
+by privilege rather than by a policy somebody has to keep writing correctly. Do not add a `grant
+select` to any of them.
+
+**No entrance asks for an email address.** Teachers, parents and administrators sign in with a name
+and a password; students with a name and a student number. Accounts created through the private owner
+entry carry a generated internal address nobody is ever shown, so a screen asking for an email is
+asking for something that does not exist. Email is for password recovery only. The suite asserts that
+no screen calls `signInWithPassword`.
+
+**Time belongs to the server.** Exam windows, quiz countdowns and attempt expiry are all read from
+`now()` on the server. A client may render a countdown; it may not decide one. When you need a
+countdown, take the offset when the payload arrives and apply it to every tick — see
+`secondsRemaining` in `quizChallenge.ts`.
+
+**Platform authority is not a school membership.** It lives in `platform_admins`. Inventing a
+membership in every school would make a platform operator indistinguishable from a school
+administrator in exactly the records meant to tell them apart.
+
+**Support mode is not impersonation.** It names one school, carries a reason, expires on the clock,
+grants administrator authority only, and is stamped onto every audit record by a trigger rather than
+by a parameter each function could forget to pass.
+
+**Nothing is deleted that can be archived or suspended.** Schools, accounts, questions, categories,
+teacher codes: all have a status. History stays readable.
+
+**Migrations are immutable.** Never edit one that has been applied. Every repair is a new migration.
+There are 29; the last is `202608310029`.
+
+**Snapshots, not pointers.** Exams and quiz rounds copy each question they use. Editing the bank next
+term must not change what a class already sat.
+
+**One score ledger.** Everything that awards points writes to `score_events` with a reason, an author
+and a source. Do not build a second one.
+
+---
+
+## Secrets
+
+None are in this repository, and this repository is **public**. Check before you commit.
+
+Server secrets live in Supabase project secrets (`npx supabase secrets set`). `.env.example` lists
+every name with empty values. `apps/web/.env.local` holds the browser-safe values and is gitignored.
+
+Do not put a project reference, a key, a password or an access code in a file, a comment, a commit
+message or a document — including a document about how well those things are protected. That mistake
+has already been made once here.
+
+`scripts/new-access-code.ps1` generates an access code and prints only the hash to set on the server.
+
+---
+
+## Where things are
+
+```
+apps/web/src/
+  app/            App shell, routing, AuthContext, theme
+  data/           repository interface, Dexie and fixture implementations, import parsing
+  db/             Dexie schema, local mutation journal
+  domain/         shared types
+  features/       one directory per feature; the screens live here
+  platform/       the operations console — its own entry, its own routes
+  sync/           push, pull, retry, protocol contracts
+  ui/             the shared component set every screen composes
+supabase/
+  migrations/     29 immutable migrations
+  functions/      12 Edge Functions; _shared holds the crypto and client helpers
+scripts/probes/   live verification scripts — read the README
+docs/             specification and the validation report
+```
+
+`docs/FINAL_SYSTEM_VALIDATION_REPORT.md` is the current state of the system, feature by feature, with
+failures named as failures.
+
+---
+
+## What is done
+
+Teacher access codes · platform authority and support mode · the operations console (overview,
+schools with derived health, errors, devices, changelog, security log, flags and releases) · question
+bank with categories · Quiz Challenge · formal exams · sync conflict resolution · name-and-password
+access for staff and parents · passwordless student access · attendance, assignments, scores,
+gradebook, leaderboard, achievements, timetable, promotion, reports, roster import, backup.
+
+## What is not
+
+In the order they matter:
+
+1. **The notification sender.** `notification_outbox` is written to and no Edge Function reads it.
+   Messages queue and stay queued, so a school believes a parent was told something that was never
+   sent. This is the most consequential gap in the system.
+2. **A tested restore.** Backups are produced and have never been restored. The specification says
+   plainly that a backup without a tested restore is insufficient, and it is right.
+3. **Android.** No Capacitor configuration, no application id, no version code, no signing strategy.
+   The specification names Android as part of the product.
+4. **Realtime.** Not used anywhere; live surfaces poll every two seconds. Correct for one classroom,
+   will not hold across many schools.
+5. **MFA for platform operators.** Re-authentication is a password within a fifteen-minute window,
+   not a second factor. The account that can suspend any school deserves better.
+6. **Question bank import.** Every question is typed one at a time. `data/spreadsheet.ts` already
+   parses CSV, TSV and XLSX for the roster importer and can be reused.
+7. **OCR import.** Images and scanned PDFs are refused with a clear message rather than attempted.
+8. **Practice mode**, and the question types beyond the four implemented (matching, ordering, fill in
+   the blank, image, audio, essay). The specification says not to overengineer unfinished types.
+
+Readiness: **CONDITIONALLY READY**. Not ready for production while items 1 and 2 stand.
+
+---
+
+## House style
+
+Comments explain why, not what. A comment that restates the line above it is noise; a comment that
+says which failure a line prevents is worth more than the line. Match the density around you.
+
+Tests describe behaviour in a sentence a person would say. Assertions carry the reason where the
+reason is not obvious.
+
+Thai for anything a user reads. English for code, comments, commits and documentation.
+
+Never weaken or delete a test to get a pass. If a test is wrong, tighten it into a correct one and
+say why in the commit.
