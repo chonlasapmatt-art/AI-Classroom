@@ -11,7 +11,6 @@ interface AuthState {
   error: string | null;
   applySession(tokens: { accessToken: string; refreshToken: string }): Promise<void>;
   applyStudentSession(tokens: { accessToken: string; refreshToken: string }): Promise<void>;
-  signInWithEmail(email: string, password: string): Promise<void>;
   requestPasswordReset(email: string): Promise<void>;
   verifyPasswordResetOtp(email: string, token: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
@@ -143,24 +142,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // session exactly the same way, so the two names stay one function.
   const applyStudentSession = applySession;
 
-  /**
-   * The plain email and password sign-in.
-   *
-   * Teachers, parents and students never see this — they sign in by name — but the operations
-   * console does, because a platform operator holds an ordinary account and no name directory
-   * entry to resolve.
-   */
-  const signInWithEmail = useCallback(async (email: string, password: string) => {
-    if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
-    setError(null); setLoading(true);
-    try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) throw signInError;
-      setSession(data.session);
-      await loadMemberships(data.session);
-    } finally { setLoading(false); }
-  }, [loadMemberships]);
-
   const requestPasswordReset = useCallback(async (email: string) => {
     if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -182,9 +163,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const active = memberships.find((item) => item.membershipId === activeId) ?? memberships[0] ?? null;
   const value = useMemo(() => ({
     loading, session, memberships, active, error,
-    applySession, applyStudentSession, signInWithEmail, requestPasswordReset, verifyPasswordResetOtp, updatePassword, signOut, refreshMemberships,
+    applySession, applyStudentSession, requestPasswordReset, verifyPasswordResetOtp, updatePassword, signOut, refreshMemberships,
     selectMembership
-  }), [active, applySession, applyStudentSession, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, session, signInWithEmail, signOut, updatePassword, verifyPasswordResetOtp]);
+  }), [active, applySession, applyStudentSession, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, session, signOut, updatePassword, verifyPasswordResetOtp]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

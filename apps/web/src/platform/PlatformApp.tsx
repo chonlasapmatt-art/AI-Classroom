@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../app/AuthContext';
+import {
+  isCompleteMemberLogin, memberLogin, type MemberAccountChoice
+} from '../features/auth/memberAccess';
 import { isCloudConfigured } from '../services/supabase';
 import { Button, Card, CardHeader, Field } from '../ui/components';
 import { DevicesPage, ErrorsPage, OverviewPage, PlatformSettingsPage, SecurityPage } from './PlatformPages';
@@ -22,25 +25,39 @@ const sections: { to: string; label: string; end: boolean }[] = [
 /**
  * Sign-in for the console.
  *
- * There is no separate credential here on purpose. A platform operator signs in with the account
- * they already have; what makes them an operator is a row in `platform_admins`, which this screen
- * cannot create and the server will not infer from an email address.
+ * Name and password, through the same gateway as every other entrance in the product — not because
+ * the console needs to look consistent, but because an email address is not something an operator
+ * has. Accounts created through the private owner entry carry a generated internal address that
+ * nobody is ever shown, so a screen asking for an email would be asking for something that does not
+ * exist. The name directory already resolves an `admin` identity under the staff role, so this
+ * reuses that rather than opening a second way in.
+ *
+ * Signing in successfully grants nothing here. What makes somebody an operator is a row in
+ * `platform_admins`, which this screen cannot create and the server will not infer from a name.
  */
 function OperatorSignIn() {
   const auth = useAuth();
-  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
+  const [accounts, setAccounts] = useState<MemberAccountChoice[]>([]);
+  const [profileId, setProfileId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(null);
     try {
-      await auth.signInWithEmail(email.trim(), password);
-    } catch {
-      // One answer for a wrong address and a wrong password: this screen is reachable from the
-      // internet and must not confirm which accounts exist.
-      setError('เข้าสู่ระบบไม่สำเร็จ');
+      const result = await memberLogin({
+        role: 'teacher', displayName, password, ...(profileId ? { profileId } : {})
+      });
+      if (result.outcome === 'session') { await auth.applySession(result.session); return; }
+      if (result.outcome === 'account-required') {
+        // Two people share a name and chose the same password. The gateway refuses to guess.
+        setAccounts(result.accounts);
+        setError('มีบัญชีชื่อนี้มากกว่าหนึ่งบัญชี กรุณาเลือกให้ถูกต้อง');
+        return;
+      }
+      setError(result.message);
     } finally { setBusy(false); }
   }
 
@@ -49,15 +66,34 @@ function OperatorSignIn() {
       <form className="configuration-card" onSubmit={(event) => void submit(event)}>
         <span className="eyebrow">PLATFORM OPERATIONS</span>
         <h1>เข้าสู่ศูนย์ปฏิบัติการ</h1>
-        <p>ใช้บัญชีผู้ดูแลแพลตฟอร์มของคุณ · สิทธิ์ตัดสินที่เซิร์ฟเวอร์ ไม่ใช่ที่หน้าจอนี้</p>
-        <Field label="อีเมล">
-          <input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
+        <p>ใช้ชื่อกับรหัสผ่านของบัญชีคุณ ไม่ต้องใช้อีเมล · สิทธิ์ตัดสินที่เซิร์ฟเวอร์ ไม่ใช่ที่หน้าจอนี้</p>
+        <Field label="ชื่อ" hint="ชื่อจริงและนามสกุล แบบเดียวกับตอนสมัคร">
+          <input
+            autoComplete="name" value={displayName} placeholder="เช่น สมชาย ใจดี"
+            onChange={(event) => setDisplayName(event.target.value)} required
+          />
         </Field>
         <Field label="รหัสผ่าน">
-          <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+          <input
+            type="password" autoComplete="current-password" value={password}
+            placeholder="รหัสผ่านที่ตั้งไว้ตอนสมัคร"
+            onChange={(event) => setPassword(event.target.value)} required
+          />
         </Field>
+        {accounts.length > 0 && (
+          <Field label="บัญชี">
+            <select value={profileId} onChange={(event) => setProfileId(event.target.value)} required>
+              <option value="">เลือกบัญชี</option>
+              {accounts.map((account) => (
+                <option key={account.profileId} value={account.profileId}>{account.schoolName}</option>
+              ))}
+            </select>
+          </Field>
+        )}
         {error && <div className="alert error" role="alert">{error}</div>}
-        <Button variant="primary" loading={busy}>เข้าสู่ระบบ</Button>
+        <Button variant="primary" loading={busy} disabled={!isCompleteMemberLogin(displayName, password)}>
+          เข้าสู่ระบบ
+        </Button>
       </form>
     </main>
   );
