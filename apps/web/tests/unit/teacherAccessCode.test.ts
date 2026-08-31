@@ -91,3 +91,41 @@ describe('teacher access code', () => {
     });
   });
 });
+
+// The shared cryptography module is Deno-flavoured, so its pure formatting helpers are exercised
+// here through a small transcription rather than by importing the Edge Function source.
+describe('how a code is displayed', () => {
+  const CODE_PREFIX = 'SC-';
+  const normalize = (value: string) => value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const format = (value: string) => {
+    const normalized = normalize(value);
+    return /^SC\d+$/.test(normalized) ? `${CODE_PREFIX}${normalized.slice(2)}` : normalized;
+  };
+  const hint = (value: string) => {
+    const formatted = format(value);
+    const prefix = formatted.startsWith(CODE_PREFIX) ? CODE_PREFIX : '';
+    const body = formatted.slice(prefix.length);
+    if (body.length <= 2) return `${prefix}${'•'.repeat(body.length)}`;
+    return `${prefix}${'•'.repeat(body.length - 2)}${body.slice(-2)}`;
+  };
+
+  it('writes a generated code with its prefix', () => {
+    expect(format('SC482917')).toBe('SC-482917');
+    expect(format('sc-482917')).toBe('SC-482917');
+  });
+
+  it('leaves a school-chosen code as the school wrote it', () => {
+    // Dressing TIGER2569 up as SC-TIGER2569 would print something nobody typed.
+    expect(format('TIGER2569')).toBe('TIGER2569');
+    expect(format('tiger-2569')).toBe('TIGER2569');
+  });
+
+  it('treats SC-001 as the generated shape, because that is what it looks like', () => {
+    expect(format('SC-001')).toBe('SC-001');
+  });
+
+  it('masks all but the last two characters, whatever shape the code has', () => {
+    expect(hint('SC-482917')).toBe('SC-••••17');
+    expect(hint('TIGER2569')).toBe('•••••••69');
+  });
+});

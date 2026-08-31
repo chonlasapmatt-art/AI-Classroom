@@ -92,6 +92,7 @@ export function TeacherAccessCodePanel() {
   const [expiresAt, setExpiresAt] = useState('');
   const [maxUses, setMaxUses] = useState('');
   const [label, setLabel] = useState('');
+  const [customCode, setCustomCode] = useState('');
 
   const load = useCallback(async () => {
     if (mode !== 'cloud' || !isAdmin) return;
@@ -115,9 +116,10 @@ export function TeacherAccessCodePanel() {
       const issued = await issueTeacherAccessCode({
         schoolId, label: label.trim(),
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-        maxUses: limit
+        maxUses: limit,
+        ...(customCode.trim() ? { code: customCode.trim() } : {})
       });
-      setCode(issued); setDialog(issued);
+      setCode(issued); setDialog(issued); setCustomCode('');
       setMessage(code ? 'สร้างรหัสใหม่แล้ว รหัสเดิมถูกยกเลิกทันที' : 'สร้างรหัสสำหรับครูแล้ว');
       await load();
     } catch (reason) {
@@ -210,6 +212,12 @@ export function TeacherAccessCodePanel() {
 
       <details className="access-code-options">
         <summary>ตั้งค่าเพิ่มเติมก่อนสร้างรหัสใหม่</summary>
+        <Field
+          label="ตั้งรหัสเอง"
+          hint="เว้นว่างไว้ = ให้ระบบสุ่มให้ ซึ่งเดายากกว่ามาก · ถ้าตั้งเองแล้วสั้นหรือเดาง่าย ควรจำกัดจำนวนครั้งที่ใช้ได้ด้วย"
+        >
+          <input value={customCode} onChange={(event) => setCustomCode(event.target.value)} maxLength={24} placeholder="เช่น SC-001" />
+        </Field>
         <Field label="ชื่อกำกับรหัส" hint="ไว้จำว่ารหัสนี้ออกให้ใคร เช่น “ครูใหม่ภาคเรียนที่ 1”">
           <input value={label} onChange={(event) => setLabel(event.target.value)} maxLength={120} placeholder="เช่น ครูใหม่ภาคเรียนที่ 1" />
         </Field>

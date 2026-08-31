@@ -26,19 +26,26 @@ export function normalizeAccessCode(value: string): string {
   return value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 }
 
-/** The form a person sees and copies. */
+/**
+ * The form a person sees and copies.
+ *
+ * A generated code is `SC-` plus digits and is shown that way. A code the school chose is shown as
+ * they wrote it, minus the punctuation that carries no meaning: dressing `TIGER2569` up as
+ * `SC-TIGER2569` would print something nobody typed and nobody would recognise.
+ */
 export function formatAccessCode(value: string): string {
   const normalized = normalizeAccessCode(value);
-  const digits = normalized.startsWith('SC') ? normalized.slice(2) : normalized;
-  return `${CODE_PREFIX}${digits}`;
+  const generated = /^SC\d+$/.test(normalized);
+  return generated ? `${CODE_PREFIX}${normalized.slice(2)}` : normalized;
 }
 
 /** Enough of a code to tell two of them apart in a list, and not enough to use either. */
 export function accessCodeHint(value: string): string {
   const formatted = formatAccessCode(value);
-  const digits = formatted.slice(CODE_PREFIX.length);
-  if (digits.length <= 2) return `${CODE_PREFIX}${'•'.repeat(digits.length)}`;
-  return `${CODE_PREFIX}${'•'.repeat(digits.length - 2)}${digits.slice(-2)}`;
+  const prefix = formatted.startsWith(CODE_PREFIX) ? CODE_PREFIX : '';
+  const body = formatted.slice(prefix.length);
+  if (body.length <= 2) return `${prefix}${'•'.repeat(body.length)}`;
+  return `${prefix}${'•'.repeat(body.length - 2)}${body.slice(-2)}`;
 }
 
 /** A fresh code. The digits come from the platform's cryptographic generator, not from Math.random. */

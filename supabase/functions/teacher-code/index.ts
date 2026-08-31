@@ -13,7 +13,8 @@
 import { corsHeaders, json } from '../_shared/http.ts';
 import { clients } from '../_shared/clients.ts';
 import {
-  accessCodeHint, formatAccessCode, generateAccessCode, hashAccessCode, openAccessCode, sealAccessCode
+  accessCodeHint, formatAccessCode, generateAccessCode, hashAccessCode, normalizeAccessCode, openAccessCode,
+  sealAccessCode
 } from '../_shared/teacherCode.ts';
 
 const WINDOW_MINUTES = 15;
@@ -90,10 +91,18 @@ Deno.serve(async (request) => {
         return json({ code: 'TEACHER_CODE_INVALID_LIMIT' }, 400, headers);
       }
 
-      // A six-digit code can collide with one another school already holds; the unique index on
-      // active hashes is what says so, and the answer is to draw again rather than to fail.
-      for (let attempt = 0; attempt < MAX_ISSUE_ATTEMPTS; attempt += 1) {
-        const code = generateAccessCode();
+      // A school may choose its own code rather than take a generated one — a code that is said
+      // aloud in a staff room is easier to say when somebody picked it. A chosen code cannot be
+      // re-drawn on collision, and it is only as hard to guess as the person made it, so the
+      // school's own use limit and expiry are what bound the risk they accepted.
+      const chosen = normalizeAccessCode(String(body.code ?? ''));
+      if (chosen && (chosen.length < 4 || chosen.length > 24)) {
+        return json({ code: 'TEACHER_CODE_INVALID_FORMAT' }, 400, headers);
+      }
+      const attempts = chosen ? 1 : MAX_ISSUE_ATTEMPTS;
+
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        const code = chosen || generateAccessCode();
         const { data, error } = await service.rpc('issue_teacher_access_code', {
           p_actor: actor, p_school_id: schoolId,
           p_code_hash: await hashAccessCode(schoolId, code, secret),
@@ -109,6 +118,11 @@ Deno.serve(async (request) => {
         if (message.includes('FORBIDDEN')) {
           await record('issue', false, 'forbidden');
           return json({ code: 'TEACHER_CODE_FORBIDDEN' }, 403, headers);
+        }
+        // A chosen code that collides cannot be re-drawn: the school has to pick another one.
+        if (chosen && message.includes('teacher_access_code_active_hash')) {
+          await record('issue', false, 'collision');
+          return json({ code: 'TEACHER_CODE_TAKEN' }, 409, headers);
         }
         if (!message.includes('teacher_access_code_active_hash')) {
           await record('issue', false, 'rejected');

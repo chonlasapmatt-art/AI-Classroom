@@ -59,6 +59,8 @@ const messages: Record<string, string> = {
   TEACHER_CODE_FORBIDDEN: 'เฉพาะผู้ดูแลโรงเรียนเท่านั้นที่จัดการรหัสสำหรับครูได้',
   TEACHER_CODE_LOCKED: 'ดำเนินการหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่',
   TEACHER_CODE_INVALID_LIMIT: 'จำนวนครั้งที่ใช้ได้ต้องอยู่ระหว่าง 1 ถึง 10000',
+  TEACHER_CODE_INVALID_FORMAT: 'รหัสที่ตั้งเองต้องยาว 4 ถึง 24 ตัวอักษรหรือตัวเลข',
+  TEACHER_CODE_TAKEN: 'รหัสนี้ถูกใช้อยู่แล้ว กรุณาตั้งรหัสอื่น',
   TEACHER_CODE_DENIED: 'ดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'
 };
 
@@ -101,10 +103,13 @@ function toCode(row: Record<string, unknown>): TeacherAccessCode {
  */
 export async function issueTeacherAccessCode(input: {
   schoolId: string; label?: string; expiresAt?: string | null; maxUses?: number | null;
+  /** A code the school chose. Leave it out to have the server draw one. */
+  code?: string;
 }): Promise<TeacherAccessCode> {
   const data = await call({
     action: 'issue', schoolId: input.schoolId, label: input.label ?? '',
-    expiresAt: input.expiresAt ?? null, maxUses: input.maxUses ?? null
+    expiresAt: input.expiresAt ?? null, maxUses: input.maxUses ?? null,
+    ...(input.code && input.code.trim() ? { code: input.code.trim() } : {})
   });
   return toCode({ ...data, useCount: 0, expired: false, exhausted: false });
 }
