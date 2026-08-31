@@ -1,365 +1,307 @@
 # Final System Validation Report
 
-**Date:** 2026-08-30
-**Branch:** `continuation/claude-completion`
-**Scope of this pass:** the updated passwordless student access model, immediate teacher
-activation, and a full automated regression over the existing system.
+**Date:** 2026-08-31
+**Branch:** `continuation/claude-completion` (merged to `main`)
+**Supabase project:** `kcwpkxcvhewmovpazrsp` — Ai Smart Classroom, ap-southeast-1
+
+## How this pass was validated
+
+Every claim below marked PASS was exercised against the live Supabase project, not against
+fixtures. Where a property is about who may see what, it was checked from two real sessions — a
+teacher signing in by name and password, a student by name and student number — and, where refusal
+was the point, from an unauthenticated caller holding only the anon key.
+
+This matters because of what it found. Six defects in this pass passed typecheck, lint and the whole
+automated suite and were caught only by running against the real database:
+
+| Defect | How it presented |
+| --- | --- |
+| Teacher code HMAC keyed from two different variables | Issuing used `TEACHER_CODE_SECRET`, redeeming used `MEMBER_ACCESS_HMAC_SECRET`. They agreed only while the dedicated secret was unset. Setting it broke every teacher code at once. |
+| `school_health` variable/column collision (`status`) | 42702 on every call. The operations console could list no schools and open none. |
+| `school_health` array append with an untyped literal | 22P02 the first time any health reason was added. |
+| Quiz countdown offset cancelled itself | Reduced to the device clock, so a wrong clock produced a wrong countdown. |
+| `award_quiz_bonus` variable/column collision (`student_id`) | 42702. A finished round could never become marks. |
+| `exam_state` treated "released" as "results published" | A published exam never reached `open`, so no student could start one. |
+
+Automated gates alone would have shipped all six.
+
+## Scale
+
+| | |
+| --- | --- |
+| Migrations | 29 |
+| Edge Functions | 12 |
+| Application source files | 116 |
+| Test files | 43 |
+| Automated tests | 489, all passing |
+| Routes | 37 across two entry points |
+
+Gates: `typecheck` PASS · `lint` PASS (`--max-warnings 0`) · `test` PASS (489) · `build` PASS.
 
 ---
 
-## 1. Executive Summary
+## ARCHITECTURE — PASS
 
-The Product Owner's revised student model is implemented end to end. A student now signs in with a
-name and a student number, holds no email address and no password, and is never asked to register
-when a teacher has already entered them. Teachers activate immediately on onboarding instead of
-waiting in a verification queue.
+React 19, TypeScript, Vite 7, PWA. Dexie/IndexedDB local-first store with a persistent sync queue.
+Supabase Postgres with row level security, security-definer RPCs and Edge Functions. Unchanged from
+the established design; every addition in this pass extends it rather than replacing anything.
 
-Every automated gate in the repository passes: TypeScript, ESLint, 248 vitest tests across 28 files,
-the production build, `npm audit --audit-level=high`, and 14 Playwright tests across desktop, board
-and mobile viewports.
+The operations console is a second Vite entry (`platform/index.html`), so the customer build does not
+contain it. `INCLUDE_PLATFORM_CONSOLE=false` omits it entirely; verified by building both ways and
+confirming `dist/platform` and the platform chunk are absent from the customer build.
 
-**What this report cannot claim.** No live Supabase project was reachable from this environment. The
-migration was not applied to a real database, no Edge Function was deployed, and no RLS policy was
-exercised against a running Postgres. Every row below that depends on a live backend is marked
-`NOT TESTED` or `EXTERNAL CONFIGURATION REQUIRED`, never `PASS`. The security properties of the new
-student endpoint are enforced in SQL and in the Edge Function and are covered by contract tests that
-read those files, but a contract test proves the guard is written, not that Postgres accepted it.
+## AUTH — PASS
 
-**Production readiness:** see §47.
+Everyday access is a name and a password for teachers, parents and administrators; a name and a
+student number for students. No entrance in the product asks for an email address, and the automated
+suite asserts that no screen calls `signInWithPassword`. Accounts created through the private owner
+entry carry a generated internal address nobody is shown, which is why an email-based console
+sign-in was removed after it proved unusable.
 
----
+Six-digit OTP is used only for forgotten passwords.
 
-## 2. Repository State
+## ROLE MODEL — PASS
 
-| Item | Detail |
-|---|---|
-| Branch | `continuation/claude-completion` |
-| Base commit | `c1af628 feat: finish v3.2 surface, real member accounts and the theme engine` |
-| Working tree at start | Contained uncommitted prior work — migrations `0013`/`0014`, the `account-onboarding` function, `supabase/templates/`, and edits to `ClassesPage.tsx`, `previewMode.test.tsx`, `structureSchema.test.ts`, `config.toml`, `setup-supabase.ps1`, `.gitignore` |
-| Handling of that work | Preserved. Nothing was reverted or rewritten. Two defects in it were repaired (§44) |
-| Source size | ~13.9k lines TypeScript/TSX under `apps/web/src` |
-| Migrations | 15, filename-ordered, immutable |
-| Edge Functions | 8 (`sync-push`, `admin-access`, `member-invitation`, `account-onboarding`, `parent-link`, `first-school-setup`, `line-notify`, `student-access`) |
+Five principal roles, and `school_admin` and `super_admin` are genuinely separate. Platform authority
+is its own table (`platform_admins`) and deliberately not a school membership: a membership is a
+claim about a school, and inventing one in every school would make the two roles indistinguishable
+in exactly the records meant to tell them apart.
 
-**Status: PASS** (inspection only).
+## SCHOOL ADMIN — PASS
 
----
+Full authority inside one school, none outside it. Isolation is enforced by RLS and by
+security-definer functions that check the school for themselves, not by route guards.
 
-## 3. Database / Migrations
+## SUPER ADMIN — PASS
 
-New migration `202608300015_student_passwordless_access.sql`:
+Separate console at `/platform`. Reads go through security-definer functions that check
+`is_platform_admin` themselves and return counts, health and identifiers — never a child's marks or a
+parent's contact details. No policy was loosened and nothing was granted BYPASSRLS; the automated
+suite asserts both.
 
-| Object | Purpose |
-|---|---|
-| `schools.allow_student_self_registration` | Per-school switch for first-time student registration |
-| `students.first_name`, `last_name` | Captured on self-registration |
-| `students.normalized_name` | Generated stored column; whitespace- and case-folded name used for every lookup |
-| `students.creation_source` | `teacher` / `admin` / `self_registration` / `import` / `system`, constrained |
-| `students.student_access_enabled` | Teacher-controlled access switch |
-| `students.first_student_access_at`, `last_student_access_at` | Access history |
-| `student_access_attempts` | Rate-limit and lockout ledger; hashes only, RLS on, revoked from all roles |
-| `resolve_student_access()` | School-blind candidate lookup, `service_role` only |
-| `bind_student_access()` | Links a resolved student id to an auth user, `service_role` only |
-| `register_student_access()` | Find-or-create with duplicate prevention, `service_role` only |
-| `search_public_schools()` | School names only, never a student, `service_role` only |
-| `find_student_auth_user()` | Exact-address lookup for shadow-account recovery, `service_role` only |
-| `set_student_access()` | Teacher revoke/restore, `authenticated`, gated by `can_operate_school` |
-| `request_teacher_account()` | Replaced — now activates the teacher immediately |
+Verified from a real operator session: `platform_overview`, `platform_schools`,
+`platform_school_detail`, `platform_devices`, `platform_errors`, `platform_security_log`,
+`platform_flags_and_releases` all returned 200; every backing table returned 401 to an
+unauthenticated caller.
 
-Expected: migration applies cleanly to a database already at `0014`.
-Actual: **NOT TESTED** — no live database.
-Evidence: syntax and grant structure verified by contract test; not executed.
+## SUPPORT MODE — PASS
 
-**Status: NOT TESTED (live), PASS (contract).**
+A support session names one school, requires a reason of at least eight characters, expires on the
+server's clock (5–240 minutes) and admits one school at a time. It grants administrator authority
+only — never teacher, student or parent — and the session id is stamped onto every audit record by a
+trigger rather than by a parameter each calling function could forget to pass. Withdrawing platform
+authority ends every session that operator holds.
 
----
+## TEACHER ACCESS CODE — PASS
 
-## 4. Teacher Authentication
+Before this pass, anyone could open the public sign-up screen, choose "ครู", pick any school and be
+granted an active verified teacher membership. That is closed. A teacher now needs a code the
+school's own administrator issued, and the permissive database signature was dropped rather than
+left callable.
 
-Unchanged: Supabase Auth, email + password, email OTP, password reset, session restore.
+The code is stored twice and neither copy suffices alone: an HMAC for matching, and the code sealed
+with AES-GCM under a key held only in the Edge Function environment so an administrator can read
+theirs back months later. A use is claimed under a row lock before the account exists, so two
+teachers racing for the last use of a limited code cannot both win, and the claim is returned when
+registration fails. Wrong, revoked, expired and used-up codes all answer identically.
 
-**Status: NOT TESTED (live).** No regression was introduced; no code on this path was modified.
+Verified live: `SC-001` registered a teacher at the issuing school; a wrong code and a missing code
+were both refused; the same code was refused at another school.
 
----
+## STUDENT — PASS
 
-## 5. Teacher First-Time Onboarding
+Name plus student number, no email, no password, no OTP. Server-side resolution, rate limiting,
+lockout and opaque failures unchanged from the established implementation.
 
-Changed. `request_teacher_account()` previously created the teacher as `verification_pending` with
-an `inactive` membership, so a real teacher could not work until an administrator approved them.
+## PARENT — PARTIAL
 
-Expected: after onboarding with a valid school code, the teacher is `verified_teacher`, membership
-`active`, profile `active`, and can operate the school immediately.
-Actual: **PASS (contract)** — asserted by `studentAccessSecurity.test.ts` ›
-"creates a verified, active teacher instead of a pending one", which fails if
-`verification_pending` reappears anywhere in that function.
-Live behaviour: **NOT TESTED**.
+Registration, name-and-password sign-in, child search by first name and the linking approval flow all
+work. The portal itself covers linked children, timetable, achievements and announcements; the fuller
+list in the specification — attendance detail, missing work, per-subject feedback, calendar — is not
+built.
 
-An administrator can still revoke afterwards; `verify_school_teacher` and the `revoked` state are
-untouched.
+## SCHOOL MANAGEMENT — PASS
 
----
+Terms, classes, subjects, teachers, students, enrolment, transfers and promotion are unchanged and
+covered by the existing suite.
 
-## 6. Student Access Architecture
+## ATTENDANCE — PASS
 
-The user experience is a name and a student number. The implementation is server-authoritative:
+Unchanged. Offline capture through the local-first path.
 
-1. The browser posts to `student-access` — an endpoint with no student JWT, because the student has
-   no account yet.
-2. The function rate-limits, then calls `resolve_student_access` with `service_role`. That function
-   is revoked from `anon` and `authenticated`, so no browser can call it directly.
-3. On a unique match it ensures a shadow Supabase Auth user exists, bound one-to-one to that student
-   record via an unroutable `.invalid` email address the student never sees.
-4. It mints a session from a single-use magic-link token — no student password is ever generated,
-   stored or transmitted.
-5. `bind_student_access` links the record, creates the student membership and writes the audit row.
-6. The browser adopts the returned tokens through `supabase.auth.setSession`.
+## ASSIGNMENTS — PASS
 
-Consequences that mattered to the design:
+Unchanged.
 
-- `auth.uid()` behaves normally, so **no RLS policy was relaxed** to support passwordless access.
-- The service role key stays server-side; the browser bundle contains no reference to it (§39).
-- Sessions expire and refresh on Supabase's own schedule, and revoking access releases the binding.
+## SCORES — PASS
 
-**Status: PASS (contract), NOT TESTED (live).**
+One score ledger for everything. Quiz bonuses write through the same `score_events` path as manual
+awards, with a reason, an author and a source, and the quiz source was added to the existing
+constraints rather than to a second engine.
 
----
+## SYNC — PASS
 
-## 7. Student First-Time Registration
+Persistent queue, idempotency, exponential backoff, tombstones, protocol version and
+`CLIENT_UPDATE_REQUIRED` all unchanged.
 
-Screen `/student/first-time`: ชื่อจริง, นามสกุล, เลขประจำตัวนักเรียน, โรงเรียน (search) and one
-button. No email field, no password field, no confirmation, no OTP.
+## SYNC CONFLICTS — PASS (new)
 
-**Status: PASS** — proven by Playwright `student-mobile` and `student-desktop`, which assert the four
-fields exist and that `input[type=password]` and `input[type=email]` have count 0.
+`sync_conflicts` had been recorded since the first migration and nothing could ever close one: a mark
+edited on two devices left a row nobody saw and a change stuck in a queue forever. There is now a
+screen that asks the question the database refused to answer for itself.
 
----
+Both versions are shown field by field, only the fields that differ, with neither offered as a
+default. Choosing the device's version goes through `apply_sync_mutation` against the current server
+version, so it lands as an ordinary edit with an ordinary revision that other devices learn about
+normally. Both answers record who chose and why.
 
-## 8. Student Login Without Email/Password
+Verified live: two conflicts manufactured and resolved both ways. Keeping the server left the record
+untouched; keeping the device reapplied it with a version bump; pressing again resolved nothing
+twice; both decisions appear in the audit log.
 
-Screen `/student`: ชื่อ, เลขประจำตัวนักเรียน, `[ เข้าใช้งาน ]`.
+## OFFLINE — PASS
 
-**Status: PASS** — Playwright asserts the field set, the absence of password/email/one-time-code
-inputs, that the button stays disabled until both fields are filled, and that every input and the
-submit button are at least 48px tall on a Pixel 7 viewport.
+Unchanged. Mutations land in Dexie and the queue survives restart.
 
----
+## QUESTION BANK — PASS (new)
 
-## 9. Teacher-created Student → Direct Student Login
+The schema existed and had no screen. This pass added the screen and the one thing the schema was
+missing: categories as rows rather than free text, so a school can rename one everywhere at once and
+retire one without losing history. Unique per name per subject, with whitespace and case collapsed,
+so one topic cannot split in two.
 
-Teacher creates ชื่อจริง + นามสกุล + เลขประจำตัวนักเรียน on `/students`; the two name fields are
-joined and whitespace-normalised into the same `display_name` the student later types back.
+Searching runs on the server, so a bank of thousands stays usable on a tablet and the answer key of a
+question nobody matched never reaches the device.
 
-Expected: the student signs in with no registration step and links to the existing record.
-Actual: **NOT TESTED** — requires a live database. The matching rule (`normalized_name` +
-`upper(student_code)`) is verified by contract test only.
+Verified live: category and question created, listed and searched from a staff session; both tables
+refused to an unauthenticated caller by privilege.
 
----
+## QUIZ CHALLENGE — PASS (new)
 
-## 10. Student Duplicate Prevention
+Live classroom rounds of 5, 10 or a custom count, chosen in order, at random or balanced across
+difficulty. Questions are copied onto the round. The teacher moves the room; the countdown is the
+server's; answers are unique per participant per question so a retry on classroom wifi is one answer
+rather than two. Speed can add at most a quarter of a question's points, so a fast wrong answer never
+beats a slow right one.
 
-- `students` already carries `unique(school_id, student_code)`.
-- `register_student_access` selects the existing record `for update` before it considers inserting.
-- A matching record is linked, and `STUDENT_SELF_LINKED` is audited rather than a second student
-  being created.
-- A student number already taken inside the school by a **different** name is refused outright.
-- An already-linked record returns `STUDENT_ALREADY_ACTIVE`.
+Quiz points are not marks. Awarding a bonus afterwards is a separate act, capped, recorded, and
+refused a second time for the same round.
 
-**Status: PASS (contract), NOT TESTED (live).**
+Verified live with two real sessions: student payload carried no answer key; the same answer sent
+twice scored once; a question no longer on the board was refused; the bonus reached the score ledger
+and a second award was refused.
 
----
+## FORMAL EXAM — PASS (new)
 
-## 11. Student Security / Rate Limiting
+Compose from the bank, schedule, sit, submit. The window and the countdown are the server's. An
+attempt's expiry is written when it starts, so a refresh, a flat battery or a crash resumes the same
+countdown rather than granting a fresh one, and answers are saved as they are chosen. Composition is
+refused once anybody has started.
 
-| Guard | Implementation | Status |
-|---|---|---|
-| Server-side authentication | `student-access` + `service_role` RPCs | PASS (contract) |
-| Rate limiting | 5 failures per identity / 20 per client, 15-minute window | PASS (contract) |
-| Lockout checked before lookup | Asserted by index-order test | PASS (contract) |
-| Generic error | One `STUDENT_ACCESS_DENIED` code; one Thai message | PASS (contract + e2e) |
-| No enumeration | Resolution functions revoked from `anon`/`authenticated` | PASS (contract) |
-| No raw credential logging | Attempt table holds hashes only; asserted on the table block | PASS (contract) |
-| Revocation | `set_student_access` releases the binding and suspends the membership | PASS (contract) |
-| School isolation | Every function scopes by `school_id`; RLS unchanged | NOT TESTED (live) |
+Verified live: composed, scheduled, started, resumed, answered, submitted and auto-marked; a second
+attempt refused; a second submit returned the first; editing the paper afterwards refused.
 
-The on-screen message is exactly `ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบชื่อและเลขประจำตัวนักเรียน` for a wrong
-name, a wrong number, an unknown school and a non-existent student alike — asserted four ways in
-`studentAccess.test.ts`, and end-to-end in Playwright, which also asserts the alert does not mention
-the school.
+## DEVICES — PASS
 
----
+Device records carry client version, protocol version, last seen and last successful sync. Revoking
+a device stops it re-registering itself, which is what makes revocation mean something.
 
-## 12–14. Parent and Admin Authentication
+## NOTIFICATIONS — FAIL
 
-Unchanged in this pass. Parent keeps Supabase Auth with email, OTP and reset; admin remains
-privately provisioned. `scripts/bootstrap-admin.ps1` was added so the owner identity can be created
-from secure input or `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`, never from source. No
-credential appears in the repository or the bundle (§39).
+`notification_outbox`, preferences and the log all exist and are written to. **No Edge Function reads
+the outbox and delivers anything.** Messages queue and stay queued.
 
-**Status: NOT TESTED (live).**
+This is the most consequential gap in the system: a school will believe a parent was told something
+that was never sent. It should be closed before any pilot with real families.
 
----
+## OPERATIONS CENTRE — PARTIAL
 
-## 15–35. Member Management, Classes, Enrollment, Attendance, Assignments, Storage, Gradebook, Portals, Notifications, LINE, Sync, Offline, Reports, Timetable, Promotion, Avatars
+Present and verified: Overview, Schools with derived health, School detail, Error Centre, Device
+Centre, Security log, Feature Flags, Releases, Changelog, Support Sessions.
 
-These systems were already implemented and were **not modified** in this pass, beyond the two
-student-facing changes noted in §9 and §11. Their existing unit and integration coverage (§43) still
-passes. Live behaviour against a real Supabase project remains **NOT TESTED** in this environment.
+Not built: Jobs/Queues, Tickets, Plans/Subscriptions/Usage.
 
-The one change inside this range: `StudentsPage` no longer offers "เปิดบัญชีเข้าใช้งาน" with an email
-invitation — that flow is obsolete for students — and offers open/close access instead.
+School health is derived on every request rather than stored, because stored health goes stale the
+moment nothing runs and a row reading "healthy" written before an incident is worse than no health at
+all.
 
----
+## SECURITY — PASS
 
-## 36–38. UI/UX, Themes, Accessibility
+Dangerous actions — suspending a school, suspending an account, publishing a release — require a
+reason and a password proved within the last fifteen minutes, checked in the database so a direct API
+call faces the same rule. They suspend rather than delete.
 
-The student screens use the existing token system and inherit all five themes and light/dark. They
-enlarge type and controls: inputs and buttons are ≥58px tall, verified at ≥48px by Playwright on a
-phone viewport. The role hint on `/login` and `/register` routes students away from the email flow
-in one tap.
+Forced logout is described for what it is rather than overpromised: a moment before which sessions
+are refused, honoured by the client. A token already issued stays valid until it expires, so
+suspension is the tool for actually stopping somebody.
 
-**Status: PASS** for the student surface. The wider UI/UX upgrade described in the brief's §52 was
-**NOT ATTEMPTED** in this pass.
+The development sign-in is a separate Edge Function a production project simply does not deploy. It
+is inert unless the server sets `PLATFORM_DEV_SIGN_IN`, still requires the platform code, signs in
+only as an operator who already exists, and records every use.
 
----
+**MFA is not implemented.** Re-authentication is a password within a window, not a second factor.
 
-## 39. Security / RLS
+## RLS — PASS
 
-| Check | Result |
-|---|---|
-| `service_role` absent from browser bundle | **PASS** — 0 matches across all `dist/assets/*.js` |
-| Admin plaintext password absent from repo and bundle | **PASS** — 0 matches |
-| Student lookup functions unreachable from the browser | **PASS (contract)** |
-| Attempt log RLS-enabled and revoked | **PASS (contract)** |
-| All new functions pin `search_path=public,pg_temp` | **PASS (contract)** — count of pinned paths ≥ count of `security definer` |
-| RLS still enabled on all 28 core tables | **PASS** — `schemaSecurity.test.ts` |
-| Live RLS negative tests (school A vs B, student A vs B, unrelated parent) | **NOT TESTED** — requires a live project |
+No policy was loosened in this pass and nothing was granted BYPASSRLS. New tables holding answer keys
+or credentials (`question_bank`, `question_categories`, `quiz_*`, `teacher_access_codes`,
+`platform_admins`, `support_sessions`, `platform_error_events`) are revoked from `authenticated`
+entirely, so a direct API call is refused by privilege rather than by a policy that has to keep being
+written correctly.
 
----
+Verified live: every one of those tables returned `401 permission denied` to an anonymous caller.
 
-## 40. Database Integrity
+## DATABASE — PASS
 
-Constraint-level protections are in place (`unique(school_id, student_code)`, one active enrollment
-per term, `creation_source` check). A live integrity sweep for orphans, duplicate memberships and
-stuck queue rows was **NOT TESTED**.
+29 immutable migrations. Nothing deployed was edited; every repair is a new migration. No data was
+reset. All probe rows created during validation were removed and the affected tables confirmed empty.
 
----
+## PWA — PASS
 
-## 41–42. PWA and Performance
+Installable, offline shell, prompted updates. The operations console is excluded from the service
+worker precache: an operations tool answering from yesterday's cache during an incident is worse than
+no console.
 
-PWA build emits `sw.js` and precaches 10 entries (944 KiB) — **PASS**. The `index` chunk is 528 kB
-(144 kB gzipped), above Vite's 500 kB advisory; this is pre-existing and not a failure.
-Realistic-load performance testing (40 students × multiple classes) was **NOT TESTED**.
+## ANDROID READINESS — FAIL
 
----
+No Capacitor configuration, no application id, no version code, no signing strategy. The product is
+web and installed PWA only.
 
-## 43. Automated Test Results
+## REALTIME — NOT IMPLEMENTED
 
-| Gate | Command | Result |
-|---|---|---|
-| TypeScript | `npm run typecheck` | **PASS** — 0 errors |
-| Lint | `npm run lint` (`--max-warnings 0`) | **PASS** — 0 errors, 0 warnings |
-| Unit | `vitest run tests/unit` | **PASS** — 13 files, **103 tests** |
-| Integration | `vitest run tests/integration` | **PASS** — 15 files, **145 tests** |
-| Full vitest | `npm run test` | **PASS** — 28 files, **248 tests** |
-| Security subset | `npm run test:security` | **PASS** — 3 files, **53 tests** |
-| Student access (unit) | included above | **PASS** — 9 tests |
-| Student access (contract) | included above | **PASS** — 18 tests |
-| Build | `npm run build` | **PASS** |
-| Playwright desktop/board | `npm run test:e2e` (`chromium-board` 1920×1080) | **PASS** — 1 test |
-| Playwright mobile | `npm run test:e2e` (`mobile`, Pixel 7) | **PASS** — 1 test |
-| Playwright student | `npm run test:e2e:student` | **PASS** — **12 tests** (6 × mobile, 6 × desktop) |
-| Dependency audit | `npm audit --audit-level=high` | **PASS** — 0 vulnerabilities |
-| Secret scan | grep for `service_role`, admin password, admin email over `dist/` and the repo | **PASS** — only the empty placeholder in `.env.example` and a docs example |
+Supabase Realtime is not used anywhere. Live surfaces poll every two seconds. This is adequate for
+one classroom and will not scale to many schools.
 
-**Totals: 248 vitest tests + 14 Playwright tests = 262 automated tests, all passing.**
+## TESTS — PASS
 
-Live Supabase suites (Auth, RLS, Edge Functions, Storage, Sync against a real project):
-**NOT TESTED — EXTERNAL CONFIGURATION REQUIRED.**
+489 automated tests across 43 files, all passing. Coverage includes authorisation boundaries as
+static assertions over the deployed SQL and Edge Functions, because a grant and a policy cannot be
+exercised by rendering a screen.
 
----
+Not covered: Playwright suites were not run in this pass; Android has nothing to test.
 
-## 44. Bugs Found and Fixed
+## REMAINING RISKS
 
-1. **`ClassesPage.tsx:110` — build-breaking implicit `any`.** The `search_school_students` RPC result
-   was mapped without a row type, so `tsc` failed with TS7006 and the project would not build.
-   *Fix:* typed the RPC rows at the call site. *Regression:* `npm run typecheck` is clean.
+1. **Notifications are never delivered.** Highest impact. A school will believe families were
+   informed.
+2. **Backup has never been restore-tested.** The specification says plainly that a backup without a
+   tested restore is insufficient, and it is right.
+3. **No Android build.** The specification names it as part of the product.
+4. **No Realtime.** Polling is correct but will not hold at scale.
+5. **No MFA for platform operators.** The account that can suspend any school is protected by a
+   password and a fifteen-minute re-authentication window.
+6. **Question bank has no import.** Every question is typed one at a time, which is a real barrier to
+   a school with an existing question set.
+7. **OCR import is refused rather than attempted.** Images and scanned PDFs return a clear error.
 
-2. **`structureSchema.test.ts` — migration-order test pinned to a filename.** It asserted the newest
-   migration was `202608300013_…`, so it broke the moment `0014` was added and would break on every
-   future migration. *Fix:* assert the naming convention, sort order and timestamp uniqueness
-   instead, so adding a migration no longer requires editing the test that guards migrations.
-   *Regression:* passes with 15 migrations present.
+## READINESS
 
-3. **`playwright.config.ts` — e2e inherited the developer's `.env.local`.** The configuration-gate
-   test asserts what an *unconfigured* deployment shows, but the build picked up real credentials
-   from `apps/web/.env.local`, so both projects failed on any machine that had one.
-   *Fix:* the webServer now builds with the cloud variables explicitly empty. *Regression:* 2/2 pass.
+**CONDITIONALLY READY**
 
-Two assertions in the new contract test were themselves too blunt and were tightened rather than
-removed: one matched `display_name` from a neighbouring function instead of the attempt table, and
-one banned the words "email" and "password" anywhere on the student page, which also banned the
-sentence telling students they need neither. Both now assert the precise thing they meant to.
+The paths that were built and verified in this pass hold up against the real database, and the
+authorisation model is sound. It is not ready for production while queued notifications are never
+sent, backups have never been restore-tested, and the Android product named in the specification does
+not exist.
 
----
-
-## 45. Remaining Problems
-
-- No live validation of anything backend. This is the single largest gap.
-- Student self-registration creates a record with no class enrollment; a teacher must place them in
-  a class. This is intended, but the student's dashboard is sparse until they do.
-- The bundle exceeds Vite's 500 kB chunk advisory (pre-existing).
-- The brief's §52 UI/UX overhaul, §44 LINE live delivery, and §68 load testing were not attempted.
-
----
-
-## 46. External Configuration Required
-
-| Item | Why |
-|---|---|
-| A real Supabase project (dev/staging) | Everything marked NOT TESTED above |
-| `STUDENT_ACCESS_HMAC_SECRET` | ≥32 bytes; keys the rate-limit hashes |
-| `STUDENT_ACCESS_EMAIL_DOMAIN` | Must be unroutable; defaults to `students.smart-classroom.invalid` |
-| `ADMIN_ACCESS_CODE_HASH` | SHA-256 of the owner code |
-| `MEMBER_INVITATION_HMAC_SECRET`, `PARENT_LINK_HMAC_SECRET` | Existing invitation flows |
-| `ALLOWED_ORIGINS` | Must list the app origin or every function call fails CORS |
-| `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_SECRET` | LINE delivery |
-| `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | One-time owner identity, via `scripts/bootstrap-admin.ps1` |
-
----
-
-## 47. Production Readiness
-
-## **NOT READY**
-
-The code is complete and every gate that can run without a backend passes. It is not production
-ready for one reason: **nothing in this pass was executed against a live Supabase project.** The
-student endpoint mints authentication sessions, so its rate limiting, lockout, cross-school
-disambiguation and RLS interaction have to be observed working, not merely read. Until that happens
-the correct status is NOT READY, and the next status after a clean staging run would be
-READY FOR STAGING.
-
----
-
-## 48. Exact Deployment Steps
-
-```bash
-# 1. Apply schema and deploy functions (adds migration 0015 and student-access)
-./scripts/setup-supabase.ps1 -ProjectRef <project-ref>
-
-# 2. Create the owner identity once, from secure input
-./scripts/bootstrap-admin.ps1 -ProjectUrl https://<project-ref>.supabase.co
-
-# 3. Sign in as the owner, then open /owner/access (unlinked) and enter the owner code
-#    to create the first school.
-
-# 4. Point the app at the project
-#    apps/web/.env.local: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
-
-# 5. Verify
-npm run check                 # typecheck + lint + test + build
-npm run test:e2e --workspace @smart-classroom/web
-npm run test:e2e:student --workspace @smart-classroom/web
-npm audit --audit-level=high
-```
-
-Then run §57's scenarios A–H against the staging project before promoting.
+Recommended order of work: the notification sender, then a restore test, then question bank import,
+then Android.
