@@ -7,11 +7,27 @@ This file is the handoff. Read it before changing anything.
 
 ---
 
-## Run it
+## Start here — no credentials needed
 
 ```bash
 npm ci
-npm run dev        # http://localhost:5173
+npm run dev          # http://localhost:5173
+```
+
+With no `.env.local` at all, the app offers **Preview Mode** on the configuration screen: the whole
+product rendered from a 460-line fixture, with working role switching between administrator, teacher,
+student and parent. No Supabase project, no account, no keys.
+
+That is enough to build screens, change behaviour, run all 489 tests and see the result. Most work on
+this codebase needs nothing more.
+
+You need a real project only to push migrations, deploy Edge Functions, or run anything in
+`scripts/probes/`. When you do, copy `apps/web/.env.local.example` to `apps/web/.env.local` and fill
+in the two browser-safe values; server secrets never go in a file (see **Secrets** below).
+
+## Run it
+
+```bash
 npm run build && npm run preview   # http://localhost:4173
 ```
 
