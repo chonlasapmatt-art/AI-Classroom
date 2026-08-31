@@ -30,6 +30,7 @@ const navigation: NavItem[] = [
   { to: '/assignments', label: 'งานและกิจกรรม', icon: '▤', roles: ['admin', 'teacher', 'student'] },
   { to: '/scores', label: 'คะแนนและเกรด', icon: '☆', roles: ['admin', 'teacher', 'student'] },
   { to: '/gradebook', label: 'สมุดเกรด', icon: '▩', roles: ['admin', 'teacher', 'student'] },
+  { to: '/question-bank', label: 'คลังข้อสอบ', icon: '✎', roles: ['admin', 'teacher'] },
   { to: '/grade-editor', label: 'แก้ไขคะแนน', icon: '✎', roles: ['admin', 'teacher'] },
   { to: '/leaderboard', label: 'Leaderboard', icon: '♕', roles: ['admin', 'teacher', 'student'] },
   { to: '/achievements', label: 'เหรียญรางวัล', icon: '✦', roles: ['admin', 'teacher', 'student', 'parent'] },

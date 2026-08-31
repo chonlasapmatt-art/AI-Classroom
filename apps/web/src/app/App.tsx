@@ -25,6 +25,7 @@ import { TeachersPage } from '../features/teachers/TeachersPage';
 import { AssignmentsPage } from '../features/assignments/AssignmentsPage';
 import { ScoresPage } from '../features/scores/ScoresPage';
 import { LeaderboardPage } from '../features/leaderboard/LeaderboardPage';
+import { QuestionBankPage } from '../features/questions/QuestionBankPage';
 import { ParentsPage } from '../features/parents/ParentsPage';
 import { MyChildrenPage } from '../features/parents/MyChildrenPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="scores" element={<ScoresPage />} />
         <Route path="leaderboard" element={<LeaderboardPage />} />
+        <Route path="question-bank" element={<QuestionBankPage />} />
         <Route path="parents" element={<ParentsPage />} />
         <Route path="my-children" element={<MyChildrenPage />} />
         <Route path="reports" element={<ReportsPage />} />

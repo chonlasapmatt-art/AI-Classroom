@@ -533,3 +533,38 @@ tr.row-warning td { background: var(--warning-soft); }
 .changelog-notes { margin: var(--space-2) 0 0; white-space: pre-wrap; }
 .dev-sign-in { border: 1px dashed var(--warning-line); background: var(--warning-soft); }
 .dev-sign-in .eyebrow { color: var(--warning); letter-spacing: .1em; }
+
+/* Question bank -------------------------------------------------------------
+   A question is read before it is acted on, so the prompt is the largest thing
+   in the card and the metadata sits above it as chips rather than as a table
+   row that has to be scanned. */
+.question-list { display: grid; gap: var(--space-3); }
+.question-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  margin-bottom: var(--space-2); }
+.question-prompt { margin: 0 0 var(--space-3); font-size: var(--text-md); }
+.question-choices { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: grid; gap: var(--space-1); }
+.question-choices li { display: grid; grid-template-columns: 28px 1fr; gap: var(--space-2);
+  align-items: baseline; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); }
+.question-choices li.correct { background: var(--success-soft); color: var(--success); font-weight: var(--weight-heavy); }
+.question-choices .choice-id { font-weight: var(--weight-heavy); opacity: .7; }
+
+/* The answer key is set by pressing the letter, so the letter is the control
+   and its pressed state is what "correct" means. */
+.choice-editor { display: grid; gap: var(--space-2); margin: var(--space-3) 0; }
+.choice-editor-head { display: flex; justify-content: space-between; align-items: center;
+  gap: var(--space-3); font-size: var(--text-xs); color: var(--ink-600); }
+.choice-row { display: grid; grid-template-columns: 44px 1fr auto; gap: var(--space-2); align-items: center; }
+.choice-row.correct input { border-color: var(--success); }
+.choice-mark { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line);
+  background: var(--surface); font-weight: var(--weight-heavy); cursor: pointer; }
+.choice-row.correct .choice-mark { border-color: var(--success); background: var(--success-soft);
+  color: var(--success); }
+.choice-mark:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.category-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.category-list li { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);
+  flex-wrap: wrap; padding: var(--space-2) var(--space-3); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); }
+.category-list li.archived { opacity: .6; }
+.category-main { display: grid; }
+.category-actions { display: flex; gap: var(--space-1); flex-wrap: wrap; }
