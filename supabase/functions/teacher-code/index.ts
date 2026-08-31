@@ -14,7 +14,7 @@ import { corsHeaders, json } from '../_shared/http.ts';
 import { clients } from '../_shared/clients.ts';
 import {
   accessCodeHint, formatAccessCode, generateAccessCode, hashAccessCode, normalizeAccessCode, openAccessCode,
-  sealAccessCode
+  resolveTeacherCodeSecret, sealAccessCode
 } from '../_shared/teacherCode.ts';
 
 const WINDOW_MINUTES = 15;
@@ -41,8 +41,10 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
   if (request.method !== 'POST') return json({ code: 'METHOD_NOT_ALLOWED' }, 405, headers);
 
-  const secret = Deno.env.get('TEACHER_CODE_SECRET') ?? Deno.env.get('MEMBER_ACCESS_HMAC_SECRET');
-  if (!secret || secret.length < 32) return json({ code: 'SERVER_CONFIGURATION_ERROR' }, 503, headers);
+  // Resolved by the shared module, which is the only thing that decides which variable holds the
+  // key — the function that redeems a code asks the same question of the same code.
+  const secret = resolveTeacherCodeSecret((name) => Deno.env.get(name));
+  if (!secret) return json({ code: 'SERVER_CONFIGURATION_ERROR' }, 503, headers);
 
   let user: ReturnType<typeof clients>['user'];
   let service: ReturnType<typeof clients>['service'];

@@ -12,7 +12,7 @@
 // client are rate limited before any lookup runs.
 
 import { corsHeaders, json } from '../_shared/http.ts';
-import { hashAccessCode, normalizeAccessCode } from '../_shared/teacherCode.ts';
+import { hashAccessCode, normalizeAccessCode, resolveTeacherCodeSecret } from '../_shared/teacherCode.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const IDENTITY_WINDOW_MINUTES = 15;
@@ -173,8 +173,14 @@ Deno.serve(async (request) => {
         await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'code_missing' });
         return json({ code: 'TEACHER_CODE_REQUIRED' }, 400, headers);
       }
+      // Keyed with the teacher-code secret, not this function's own. They are usually the same
+      // value and were for a while the same variable, which is exactly why the resolution is asked
+      // for rather than assumed: the code was written by `teacher-code` under this key, and a hash
+      // computed under any other one matches nothing.
+      const codeSecret = resolveTeacherCodeSecret((name) => Deno.env.get(name));
+      if (!codeSecret) return json({ code: 'SERVER_CONFIGURATION_ERROR' }, 503, headers);
       const { data: claim, error: claimError } = await service.rpc('claim_teacher_access_code', {
-        p_school_id: schoolId, p_code_hash: await hashAccessCode(schoolId!, accessCode, secret)
+        p_school_id: schoolId, p_code_hash: await hashAccessCode(schoolId!, accessCode, codeSecret)
       });
       const claimed = claim as { valid?: boolean; codeId?: string } | null;
       if (claimError || !claimed?.valid) {

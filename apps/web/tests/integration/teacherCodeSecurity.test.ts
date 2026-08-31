@@ -136,6 +136,22 @@ describe('teacher access codes', () => {
       expect(sharedCrypto).toContain('teacher-code|${schoolId}|');
     });
 
+    it('keys both halves from one place, so issuing and redeeming cannot drift apart', () => {
+      // They did drift: issuing read TEACHER_CODE_SECRET and redeeming read
+      // MEMBER_ACCESS_HMAC_SECRET, which agreed only while the dedicated secret was unset. Setting
+      // it broke every code in the system. One resolver, asked by both.
+      expect(sharedCrypto).toContain('export function resolveTeacherCodeSecret');
+      for (const source of [codeFunction, memberFunction]) {
+        expect(source).toContain('resolveTeacherCodeSecret');
+      }
+      // Neither may reach for a code key by name on its own again.
+      for (const source of [codeFunction, memberFunction]) {
+        expect(source).not.toMatch(/Deno\.env\.get\('TEACHER_CODE_SECRET'\)/);
+      }
+      // The hash that redeems is computed with the resolved key, never with this gateway's own.
+      expect(memberFunction).toMatch(/hashAccessCode\(schoolId!, accessCode, codeSecret\)/);
+    });
+
     it('rate limits code operations and refuses an unauthenticated caller', () => {
       expect(codeFunction).toContain("json({ code: 'AUTH_REQUIRED' }, 401, headers)");
       expect(codeFunction).toContain('TEACHER_CODE_LOCKED');

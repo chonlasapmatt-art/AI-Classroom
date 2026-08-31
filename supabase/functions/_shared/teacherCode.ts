@@ -14,6 +14,23 @@
 
 const CODE_PREFIX = 'SC-';
 const CODE_DIGITS = 6;
+const MINIMUM_SECRET_LENGTH = 32;
+
+/**
+ * Which environment variable holds the key, and in what order.
+ *
+ * This exists because the two halves drifted apart once already. Issuing a code read
+ * `TEACHER_CODE_SECRET`; redeeming one read `MEMBER_ACCESS_HMAC_SECRET`. Both worked, and agreed,
+ * for exactly as long as the dedicated secret was unset and both fell through to the same value —
+ * and every teacher code in the system stopped verifying the moment a deployment set it.
+ *
+ * Two callers resolving the same key independently is the whole failure. There is one answer here,
+ * and the module still holds no key of its own: the caller passes the reader in.
+ */
+export function resolveTeacherCodeSecret(read: (name: string) => string | undefined): string | null {
+  const value = read('TEACHER_CODE_SECRET') ?? read('MEMBER_ACCESS_HMAC_SECRET');
+  return value && value.length >= MINIMUM_SECRET_LENGTH ? value : null;
+}
 
 /**
  * Reduces a typed code to what it means.
