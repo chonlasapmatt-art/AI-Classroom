@@ -170,6 +170,77 @@ describe('enrolment gateway', () => {
   });
 });
 
+describe('the development sign-in', () => {
+  const devGateway = read('supabase/functions/platform-dev-access/index.ts');
+  const config = read('supabase/config.toml');
+
+  it('is its own deployable, so a production project can simply not have it', () => {
+    // It is the only endpoint that mints a session without a password. Sharing a function with the
+    // endpoints production depends on would mean production had to switch it off rather than
+    // never deploy it.
+    expect(gateway).not.toContain('dev-sign-in');
+    expect(gateway).not.toContain('PLATFORM_DEV_SIGN_IN');
+    expect(gateway).toContain("json({ code: 'AUTH_REQUIRED' }, 401, headers)");
+    expect(config).toContain('[functions.platform-dev-access]');
+  });
+
+  it('refuses before reading the request unless the server opted in', () => {
+    const optIn = devGateway.indexOf("Deno.env.get('PLATFORM_DEV_SIGN_IN') !== 'true'");
+    expect(optIn).toBeGreaterThan(-1);
+    expect(optIn).toBeLessThan(devGateway.indexOf('request.json()'));
+  });
+
+  it('still requires the platform code, compared in constant time', () => {
+    expect(devGateway).toContain("Deno.env.get('PLATFORM_ADMIN_CODE_HASH')");
+    expect(devGateway).toContain('constantTimeEqual');
+    expect(devGateway).toContain('PLATFORM_ACCESS_LOCKED');
+  });
+
+  it('signs in as an operator who already exists and creates nobody', () => {
+    // It may write to the attempt ledger — that is how it rate limits itself — but it may not
+    // create an account or hand out authority.
+    expect(devGateway).not.toMatch(/grant_platform_admin|admin\.createUser/);
+    expect(devGateway).not.toMatch(/from\('platform_admins'\)\s*\.insert/);
+    expect(devGateway).toContain("from('platform_admins')");
+    expect(devGateway).toContain(".select('profile_id')");
+    // Choosing between several operators would record the session as somebody else.
+    expect(devGateway).toContain('PLATFORM_OPERATOR_AMBIGUOUS');
+    expect(devGateway).toContain('PLATFORM_NO_OPERATOR');
+  });
+
+  it('records every use in the platform security log', () => {
+    expect(devGateway).toContain('PLATFORM_DEV_SIGN_IN');
+    expect(devGateway).toContain('record_platform_event');
+  });
+
+  it('is offered by the console only in a development build', () => {
+    expect(client).toContain('export const isDevSignInAvailable');
+    expect(client).toContain('import.meta.env.DEV === true');
+    expect(consoleApp).toContain('{isDevSignInAvailable && <DevSignIn />}');
+  });
+});
+
+describe('the changelog', () => {
+  const changelog = read('apps/web/src/platform/ChangelogPage.tsx');
+
+  it('reads the releases the platform already records rather than a second history', () => {
+    expect(changelog).toContain('platformFlagsAndReleases');
+    expect(changelog).toContain('platformSecurityLog');
+    expect(changelog).not.toMatch(/from\('changelog|platform_changelog/);
+  });
+
+  it('shows the build the page is actually running', () => {
+    // A report that will not reproduce is usually a browser holding an older bundle.
+    expect(changelog).toContain('__APP_VERSION__');
+    expect(changelog).toContain('__BUILD_TIME__');
+  });
+
+  it('publishes through the guarded path, not around it', () => {
+    expect(changelog).toContain('publishRelease');
+    expect(changelog).toContain('DangerousActionDialog');
+  });
+});
+
 describe('the console is not part of the customer product', () => {
   it('is a separate page with its own entry', () => {
     expect(viteConfig).toContain("platform: entry('./platform/index.html')");

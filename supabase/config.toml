@@ -84,3 +84,8 @@ verify_jwt = true
 # account, so the platform verifies the JWT before the function runs.
 [functions.platform-access]
 verify_jwt = true
+# The console's one-field development sign-in. It mints a session without a password, so it is its
+# own deployable and a production project simply never deploys it. Where it is deployed it stays
+# inert unless PLATFORM_DEV_SIGN_IN=true is also set, and it has no session to verify by definition.
+[functions.platform-dev-access]
+verify_jwt = false

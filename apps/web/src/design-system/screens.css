@@ -521,3 +521,15 @@ tr.row-warning td { background: var(--warning-soft); }
 .support-banner button { border: 1px solid currentColor; background: transparent; color: inherit;
   border-radius: var(--radius-pill); padding: var(--space-1) var(--space-3); cursor: pointer; }
 .support-banner.expired { background: var(--danger-soft); color: var(--danger); border-bottom-color: var(--danger); }
+
+/* Changelog -----------------------------------------------------------------
+   A timeline read top to bottom during an incident, so the identifying facts —
+   version, channel, when — sit on one line and the prose sits under them. */
+.changelog { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.changelog.compact { gap: var(--space-3); }
+.changelog li { padding-left: var(--space-4); border-left: 2px solid var(--line); }
+.changelog-head { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
+.changelog-head strong { font-size: var(--text-md); }
+.changelog-notes { margin: var(--space-2) 0 0; white-space: pre-wrap; }
+.dev-sign-in { border: 1px dashed var(--warning-line); background: var(--warning-soft); }
+.dev-sign-in .eyebrow { color: var(--warning); letter-spacing: .1em; }

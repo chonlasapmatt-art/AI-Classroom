@@ -6,10 +6,12 @@ import {
 } from '../features/auth/memberAccess';
 import { isCloudConfigured } from '../services/supabase';
 import { Button, Card, CardHeader, Field } from '../ui/components';
+import { ChangelogPage } from './ChangelogPage';
 import { DevicesPage, ErrorsPage, OverviewPage, PlatformSettingsPage, SecurityPage } from './PlatformPages';
 import { SchoolsPage, SupportModeBanner } from './PlatformSchools';
 import {
-  currentSupportSession, endSupportSession, enrollPlatformAdmin, isPlatformAdmin, PlatformError,
+  currentSupportSession, devSignIn, endSupportSession, enrollPlatformAdmin, isDevSignInAvailable,
+  isPlatformAdmin, PlatformError,
   type ActiveSupportSession
 } from './platformClient';
 
@@ -18,9 +20,55 @@ const sections: { to: string; label: string; end: boolean }[] = [
   { to: '/schools', label: 'โรงเรียน', end: false },
   { to: '/errors', label: 'ศูนย์ข้อผิดพลาด', end: false },
   { to: '/devices', label: 'ศูนย์อุปกรณ์', end: false },
+  { to: '/changelog', label: 'บันทึกการเปลี่ยนแปลง', end: false },
   { to: '/security', label: 'ความปลอดภัยและบันทึก', end: false },
   { to: '/platform', label: 'Flags และ Releases', end: false }
 ];
+
+/**
+ * The development door: the platform code, and nothing else.
+ *
+ * It is shown only in a development build, and it only works against a server that was separately
+ * opted in — the endpoint behind it is its own deployable that a production project does not deploy.
+ * The card says all of that on its face, because a shortcut that looks like a normal way in is how
+ * a shortcut ends up in production.
+ */
+function DevSignIn() {
+  const auth = useAuth();
+  const [accessCode, setAccessCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(null);
+    try {
+      await auth.applySession(await devSignIn(accessCode));
+    } catch (reason) {
+      setError(reason instanceof PlatformError ? reason.message : 'เข้าสู่ระบบไม่สำเร็จ');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <form className="configuration-card dev-sign-in" onSubmit={(event) => void submit(event)}>
+      <span className="eyebrow">DEVELOPMENT ONLY</span>
+      <h2>เข้าด้วยรหัสสิทธิ์อย่างเดียว</h2>
+      <p className="field-hint">
+        ทางลัดสำหรับเครื่องนักพัฒนา ใช้ได้เฉพาะเซิร์ฟเวอร์ที่เปิด PLATFORM_DEV_SIGN_IN ไว้
+        และเข้าเป็นผู้ดูแลแพลตฟอร์มที่มีอยู่แล้วเท่านั้น ไม่สร้างบัญชีและไม่เพิ่มสิทธิ์ให้ใคร
+      </p>
+      <Field label="รหัสสิทธิ์">
+        <input
+          type="password" autoComplete="one-time-code" value={accessCode}
+          onChange={(event) => setAccessCode(event.target.value)}
+          placeholder="รหัสเดียวกับที่ใช้ยืนยันสิทธิ์แพลตฟอร์ม" required
+        />
+      </Field>
+      {error && <div className="alert error" role="alert">{error}</div>}
+      <Button variant="primary" loading={busy} disabled={accessCode.length < 4}>เข้าใช้งาน</Button>
+      <p className="fine-print">ทุกครั้งที่เข้าทางนี้จะถูกบันทึกไว้ในบันทึกความปลอดภัยของแพลตฟอร์ม</p>
+    </form>
+  );
+}
 
 /**
  * Sign-in for the console.
@@ -63,6 +111,7 @@ function OperatorSignIn() {
 
   return (
     <main className="setup-page">
+      {isDevSignInAvailable && <DevSignIn />}
       <form className="configuration-card" onSubmit={(event) => void submit(event)}>
         <span className="eyebrow">PLATFORM OPERATIONS</span>
         <h1>เข้าสู่ศูนย์ปฏิบัติการ</h1>
@@ -190,6 +239,7 @@ function OperationsShell() {
           <Route path="schools" element={<SchoolsPage />} />
           <Route path="errors" element={<ErrorsPage />} />
           <Route path="devices" element={<DevicesPage />} />
+          <Route path="changelog" element={<ChangelogPage />} />
           <Route path="security" element={<SecurityPage />} />
           <Route path="platform" element={<PlatformSettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -80,6 +80,7 @@ Deno.serve(async (request) => {
       return json({ code: 'PLATFORM_ACCESS_LOCKED', retryAfterMinutes: WINDOW_MINUTES }, 429, headers);
     }
 
+
     if (action === 'enroll') {
       const expected = Deno.env.get('PLATFORM_ADMIN_CODE_HASH')?.trim().toLowerCase();
       if (!expected || !/^[a-f0-9]{64}$/.test(expected)) {

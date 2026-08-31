@@ -224,6 +224,51 @@ export async function enrollPlatformAdmin(input: { accessCode: string; displayNa
   await gateway({ action: 'enroll', accessCode: input.accessCode, displayName: input.displayName });
 }
 
+/**
+ * Whether this build offers the one-field development sign-in.
+ *
+ * Mirrors how Preview Mode gates itself: a development build has it, and a production build has it
+ * only if somebody deliberately turned it on. The screen is the smaller half of the gate — the
+ * endpoint refuses unless the server was opted in too — but a production bundle should not carry a
+ * form for a door that is not there.
+ */
+export const isDevSignInAvailable: boolean =
+  import.meta.env.DEV === true || import.meta.env.VITE_PLATFORM_DEV_SIGN_IN === 'true';
+
+const devSignInMessages: Record<string, string> = {
+  PLATFORM_DEV_SIGN_IN_DISABLED: 'เซิร์ฟเวอร์นี้ปิดการเข้าสู่ระบบแบบนักพัฒนาไว้',
+  PLATFORM_NO_OPERATOR: 'ยังไม่มีผู้ดูแลแพลตฟอร์มในระบบ กรุณาเข้าด้วยชื่อกับรหัสผ่านแล้วยืนยันสิทธิ์ก่อน',
+  PLATFORM_OPERATOR_AMBIGUOUS: 'มีผู้ดูแลแพลตฟอร์มมากกว่าหนึ่งคน ต้องระบุ PLATFORM_DEV_OPERATOR ที่เซิร์ฟเวอร์',
+  PLATFORM_ACCESS_LOCKED: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที',
+  PLATFORM_ACCESS_DENIED: 'รหัสสิทธิ์ไม่ถูกต้อง'
+};
+
+/**
+ * Signs in with the platform code alone.
+ *
+ * Returns the session for the caller to adopt. The code is checked on the server against the same
+ * hash enrolment uses, so this screen decides nothing — it is a shortcut past typing a name and a
+ * password on a development machine, not a shortcut past authorisation.
+ */
+export async function devSignIn(accessCode: string): Promise<{ accessToken: string; refreshToken: string }> {
+  const { data, error } = await requireSupabase().functions.invoke('platform-dev-access', {
+    body: { accessCode }
+  });
+  if (error) {
+    const context = (error as { context?: Response }).context;
+    const parsed = context && typeof context.json === 'function'
+      ? await context.json().catch(() => null) as Record<string, unknown> | null
+      : null;
+    const code = typeof parsed?.code === 'string' ? parsed.code : 'PLATFORM_ACCESS_DENIED';
+    throw new PlatformError(code, devSignInMessages[code] ?? 'เข้าสู่ระบบไม่สำเร็จ');
+  }
+  const session = (data as { session?: { accessToken?: string; refreshToken?: string } } | null)?.session;
+  if (!session?.accessToken || !session.refreshToken) {
+    throw new PlatformError('PLATFORM_ACCESS_DENIED', 'เข้าสู่ระบบไม่สำเร็จ');
+  }
+  return { accessToken: session.accessToken, refreshToken: session.refreshToken };
+}
+
 export async function grantPlatformAdmin(input: { profileId: string; displayName?: string; notes?: string }) {
   await gateway({ action: 'grant', ...input });
 }
