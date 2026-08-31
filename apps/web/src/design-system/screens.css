@@ -568,3 +568,24 @@ tr.row-warning td { background: var(--warning-soft); }
 .category-list li.archived { opacity: .6; }
 .category-main { display: grid; }
 .category-actions { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+
+/* Quiz Challenge ------------------------------------------------------------
+   Read from the back of a classroom and answered on a phone held in one hand,
+   so the prompt is large and every answer is a full-width target well past the
+   44px minimum. */
+.quiz-prompt { font-size: clamp(1.2rem, 3.5vw, 1.9rem); font-weight: var(--weight-heavy);
+  margin: var(--space-3) 0; line-height: 1.35; }
+.quiz-board-question { padding: var(--space-4); background: var(--brand-50);
+  border-radius: var(--radius-md); margin: var(--space-3) 0; }
+.quiz-invite { border: 2px solid var(--brand-600); }
+.quiz-answers { display: grid; gap: var(--space-2); margin: var(--space-3) 0; }
+.quiz-answer { display: grid; grid-template-columns: 40px 1fr; gap: var(--space-3);
+  align-items: center; text-align: left; min-height: 64px; padding: var(--space-3);
+  border: 2px solid var(--line); border-radius: var(--radius-md); background: var(--surface);
+  font-size: var(--text-md); cursor: pointer; }
+.quiz-answer:hover:not(:disabled) { border-color: var(--brand-600); }
+.quiz-answer.chosen { border-color: var(--brand-600); background: var(--brand-50);
+  font-weight: var(--weight-heavy); }
+.quiz-answer:disabled { opacity: .75; cursor: default; }
+.quiz-answer:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.quiz-short-answer { min-height: 56px; font-size: var(--text-md); }

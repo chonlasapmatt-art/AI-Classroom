@@ -4,6 +4,7 @@ import { useSession } from '../app/SessionContext';
 import { useSchoolSnapshot } from '../data/RepositoryContext';
 import { unreadCount } from '../academic/views';
 import { isPreviewModeAvailable } from '../preview/previewMode';
+import { StudentQuizPanel } from '../features/quiz/StudentQuizPanel';
 import { TeacherCodeFirstRun } from '../features/teachers/TeacherCodeFirstRun';
 import { useSyncStatus } from '../sync/SyncStatusContext';
 import type { Role } from '../domain/types';
@@ -31,6 +32,7 @@ const navigation: NavItem[] = [
   { to: '/scores', label: 'คะแนนและเกรด', icon: '☆', roles: ['admin', 'teacher', 'student'] },
   { to: '/gradebook', label: 'สมุดเกรด', icon: '▩', roles: ['admin', 'teacher', 'student'] },
   { to: '/question-bank', label: 'คลังข้อสอบ', icon: '✎', roles: ['admin', 'teacher'] },
+  { to: '/quiz', label: 'Quiz Challenge', icon: '◈', roles: ['admin', 'teacher'] },
   { to: '/grade-editor', label: 'แก้ไขคะแนน', icon: '✎', roles: ['admin', 'teacher'] },
   { to: '/leaderboard', label: 'Leaderboard', icon: '♕', roles: ['admin', 'teacher', 'student'] },
   { to: '/achievements', label: 'เหรียญรางวัล', icon: '✦', roles: ['admin', 'teacher', 'student', 'parent'] },
@@ -126,7 +128,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="support-reason">ทุกการกระทำถูกบันทึกในบันทึกตรวจสอบของโรงเรียนนี้</span>
           </div>
         )}
-        <main className="page-content">{children}</main>
+        {/* A round running in this student's class reaches them wherever they are in the app: the
+            invitation is the enrolment, not a code somebody has to read off a board. */}
+        <main className="page-content"><StudentQuizPanel />{children}</main>
         <TeacherCodeFirstRun />
       </div>
     </div>
