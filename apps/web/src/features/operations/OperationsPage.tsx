@@ -5,6 +5,7 @@ import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { useSyncStatus } from '../../sync/SyncStatusContext';
 import { Badge, Card, EmptyState } from '../../ui/components';
 import { createEncryptedBackup, downloadBackup, inspectBackup, readBackupFile, restoreBackup, type BackupEnvelope, type BackupSummary } from '../backup/backup';
+import { BlockedMutationsPanel } from './BlockedMutationsPanel';
 import { ConflictPanel } from './ConflictPanel';
 
 export function OperationsPage() {
@@ -106,9 +107,13 @@ export function OperationsPage() {
           asked to make, and every other number on this page is a symptom of it. */}
       <ConflictPanel />
 
+      {/* And immediately after, the changes the server refused outright. The count below used to be
+          the only thing anybody was told about them. */}
+      <BlockedMutationsPanel />
+
       <section className="metric-grid">
         <article className="metric-card violet"><span>รอซิงก์</span><strong>{snapshot.pendingSync}</strong><small>ไม่ถูกลบอัตโนมัติ</small></article>
-        <article className="metric-card amber"><span>ต้องตรวจสอบ</span><strong>{snapshot.blockedSync}</strong><small>conflict / authorization</small></article>
+        <article className="metric-card amber"><span>ต้องตรวจสอบ</span><strong>{snapshot.blockedSync}</strong><small>ดูรายการและเหตุผลด้านบน</small></article>
         <article className="metric-card teal">
           <span>Persistence</span>
           <strong className="metric-word">{storage?.persisted ? 'ถาวร' : 'ยังไม่ถาวร'}</strong>
