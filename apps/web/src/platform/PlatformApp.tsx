@@ -85,7 +85,9 @@ function DevSignIn() {
  * whether that account is a platform operator. Authentication and platform authority are separate;
  * a successful password check alone never opens the console.
  */
-function OperatorSignIn() {
+// Kept exported for compatibility with older integration fixtures; PlatformGate intentionally never
+// renders this password-based entry anymore.
+export function OperatorSignIn() {
   const auth = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
@@ -250,7 +252,22 @@ function PlatformGate() {
   useEffect(() => { void check(); }, [check]);
 
   if (auth.loading) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบสิทธิ์...</p></main>;
-  if (!auth.session) return <OperatorSignIn />;
+  // The platform has one deliberate entry door: the server-checked platform access code. The
+  // ordinary school-admin password form remains an unreachable compatibility component for older
+  // tests/build references, but is no longer rendered or offered to users here.
+  if (!auth.session) {
+    if (!isDevSignInAvailable) {
+      return (
+        <main className="setup-page">
+          <Card>
+            <CardHeader title="ยังไม่เปิดทางเข้า Super Admin" description="ระบบนี้เปิดเฉพาะการเข้าสู่ระบบด้วยรหัสสิทธิ์จากเซิร์ฟเวอร์" />
+            <p className="field-hint">กรุณาเปิด PLATFORM_DEV_SIGN_IN และตั้งค่ารหัสสิทธิ์บน Supabase ก่อน</p>
+          </Card>
+        </main>
+      );
+    }
+    return <main className="setup-page"><DevSignIn /></main>;
+  }
   if (allowed === null) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบสิทธิ์...</p></main>;
   if (!allowed) return <EnrolmentScreen onEnrolled={() => void check()} />;
   return <OperationsShell />;
