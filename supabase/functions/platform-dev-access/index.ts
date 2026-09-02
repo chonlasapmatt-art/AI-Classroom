@@ -51,10 +51,16 @@ Deno.serve(async (request) => {
   const url = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  // Keep the operator code server-side. ADMIN_ACCESS_CODE_HASH is the production name used by
-  // the owner's deployment; the older name remains a compatibility fallback.
-  const expected = (Deno.env.get('ADMIN_ACCESS_CODE_HASH')?.trim()
-    || Deno.env.get('PLATFORM_ADMIN_CODE_HASH')?.trim()
+  // Keep the operator code server-side, and keep it separate from the customer's.
+  //
+  // This used to read `ADMIN_ACCESS_CODE_HASH` first — the code that activates a school. One value
+  // therefore opened two doors of very different consequence: a customer who was handed the
+  // activation code for their own server also held the code to the operations console for every
+  // school on the platform. `PLATFORM_ADMIN_CODE_HASH` is this door's own secret and is checked
+  // first; the activation code stays as a fallback so a deployment that has only ever set that one
+  // keeps working until its operator sets the dedicated value.
+  const expected = (Deno.env.get('PLATFORM_ADMIN_CODE_HASH')?.trim()
+    || Deno.env.get('ADMIN_ACCESS_CODE_HASH')?.trim()
     || '').toLowerCase();
   if (!url || !anonKey || !serviceKey || !expected || !/^[a-f0-9]{64}$/.test(expected)) {
     return json({ code: 'SERVER_CONFIGURATION_ERROR' }, 503, headers);
