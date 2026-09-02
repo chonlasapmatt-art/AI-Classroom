@@ -1,3 +1,4 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -245,5 +246,179 @@ export function Tooltip({ children, tip }: { children: ReactNode; tip: ReactNode
       {children}
       {typeof tip !== 'string' && <span className="ui-tooltip-bubble" role="tooltip">{tip}</span>}
     </span>
+  );
+}
+
+/* ---------- Toast / Snackbar ---------- */
+
+export type ToastTone = 'info' | 'success' | 'warning' | 'error';
+
+interface ToastItem {
+  id: number;
+  title: string;
+  message?: string;
+  tone: ToastTone;
+  duration: number;
+}
+
+interface ToastContextValue {
+  toast: (title: string, opts?: { message?: string; tone?: ToastTone; duration?: number }) => void;
+}
+
+const ToastContext = createContext<ToastContextValue | null>(null);
+
+export function useToast() {
+  const ctx = useContext(ToastContext);
+  if (!ctx) throw new Error('useToast must be used within a ToastProvider');
+  return ctx;
+}
+
+let toastId = 0;
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [items, setItems] = useState<ToastItem[]>([]);
+
+  const dismiss = useCallback((id: number) => {
+    setItems((prev) => prev.map((t) => (t.id === id ? { ...t, duration: 0 } : t)));
+  }, []);
+
+  const toast = useCallback(
+    (title: string, opts?: { message?: string; tone?: ToastTone; duration?: number }) => {
+      const id = ++toastId;
+      setItems((prev) => [...prev, { id, title, ...(opts?.message != null ? { message: opts.message } : {}), tone: opts?.tone ?? 'info', duration: opts?.duration ?? 4000 }]);
+    },
+    [],
+  );
+
+  const ctx = useMemo(() => ({ toast }), [toast]);
+
+  return (
+    <ToastContext.Provider value={ctx}>
+      {children}
+      <div className="ui-toast-container" aria-live="polite" aria-relevant="additions removals">
+        {items.map((item) => (
+          <ToastItemView key={item.id} item={item} onDismiss={dismiss} />
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+function ToastItemView({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) => void }) {
+  const [exiting, setExiting] = useState(false);
+  const ref = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    if (item.duration <= 0) {
+      setExiting(true);
+      const t = setTimeout(() => onDismiss(item.id), 200);
+      return () => clearTimeout(t);
+    }
+    ref.current = setTimeout(() => setExiting(true), item.duration);
+    return () => { if (ref.current) clearTimeout(ref.current); };
+  }, [item.duration, item.id, onDismiss]);
+
+  const icons: Record<ToastTone, string> = { info: 'ℹ', success: '✓', warning: '⚠', error: '✕' };
+
+  return (
+    <div className={`ui-toast ui-toast-${item.tone} ${exiting ? 'ui-toast-exiting' : ''}`} role="status">
+      <span className="ui-toast-icon" aria-hidden="true">{icons[item.tone]}</span>
+      <div className="ui-toast-content">
+        <div className="ui-toast-title">{item.title}</div>
+        {item.message && <div className="ui-toast-message">{item.message}</div>}
+      </div>
+      <button className="ui-toast-close" aria-label="ปิด" onClick={() => onDismiss(item.id)}>×</button>
+    </div>
+  );
+}
+
+/* ---------- Tabs ---------- */
+
+export function Tabs<T extends string>({ options, value, onChange, ariaLabel }: {
+  options: ReadonlyArray<{ value: T; label: ReactNode }>; value: T; onChange: (next: T) => void; ariaLabel: string;
+}) {
+  return (
+    <div className="ui-tabs" role="tablist" aria-label={ariaLabel}>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          role="tab"
+          aria-selected={option.value === value}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Drawer / Slide-over ---------- */
+
+export function Drawer({ title, onClose, children, footer }: {
+  title: ReactNode; onClose(): void; children?: ReactNode; footer?: ReactNode;
+}) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="ui-drawer-backdrop" ref={backdropRef} onClick={(e) => { if (e.target === backdropRef.current) onClose(); }} />
+      <aside className="ui-drawer" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
+        <header className="ui-drawer-header">
+          <h2>{title}</h2>
+          <IconButton label="ปิด" onClick={onClose}>×</IconButton>
+        </header>
+        {children && <div className="ui-drawer-body">{children}</div>}
+        {footer && <footer className="ui-drawer-footer">{footer}</footer>}
+      </aside>
+    </>
+  );
+}
+
+/* ---------- Pagination ---------- */
+
+export function Pagination({ page, totalPages, onChange }: {
+  page: number; totalPages: number; onChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  const pages: (number | '...')[] = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
+      pages.push(i);
+    } else if (pages[pages.length - 1] !== '...') {
+      pages.push('...');
+    }
+  }
+  return (
+    <nav className="ui-pagination" aria-label="หน้า">
+      <button disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label="ก่อนหน้า">‹</button>
+      {pages.map((p, idx) =>
+        p === '...' ? (
+          <span key={`e${idx}`} className="ui-pagination-info">…</span>
+        ) : (
+          <button key={p} aria-current={p === page ? 'page' : undefined} onClick={() => onChange(p)}>{p}</button>
+        )
+      )}
+      <button disabled={page >= totalPages} onClick={() => onChange(page + 1)} aria-label="ถัดไป">›</button>
+    </nav>
+  );
+}
+
+/* ---------- Search input ---------- */
+
+export function SearchInput({ value, onChange, placeholder = 'ค้นหา...', className = '' }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; className?: string;
+}) {
+  return (
+    <div className={`ui-search ${className}`.trim()}>
+      <span className="ui-search-icon" aria-hidden="true">🔍</span>
+      <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
   );
 }
