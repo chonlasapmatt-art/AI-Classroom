@@ -4,6 +4,8 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { attendanceDailySummary, classIdOfStudent, consentedStudents, privacyPolicyFrom, standingsFor } from '../../data/selectors';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { provisionManagedAccount, setManagedAccountPassword } from '../auth/adminAccount';
+import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
+import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 import { requireSupabase } from '../../services/supabase';
 import { ChildLinkPanel } from './ChildLinkPanel';
 
@@ -14,6 +16,12 @@ type PasswordTarget = {
   relationship: string;
   contact: string;
 };
+
+/** Two guardian names are the same person when only spacing and case separate them. */
+function sameName(left: string, right: string): boolean {
+  const reduce = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
+  return reduce(left) === reduce(right) && reduce(left).length > 0;
+}
 
 type ManagedParent = {
   id: string;
@@ -106,6 +114,17 @@ export function ParentsPage() {
     return Array.from(grouped.values());
   }, [canManageAccounts, managedParents, mode, snapshot]);
 
+  async function activate(parentId: string) {
+    try {
+      setMessage(describeActivatedLogin(await activateMemberLogin({
+        schoolId: membership.schoolId, role: 'parent', recordId: parentId
+      })));
+      setManagedParents(await loadManagedParents(membership.schoolId));
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ');
+    }
+  }
+
   async function addParentAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -118,7 +137,12 @@ export function ParentsPage() {
     try {
       if (password.length < 8) throw new Error('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
       if (mode === 'cloud') {
-        const provisioned = await provisionManagedAccount({ schoolId: membership.schoolId, role: 'parent', recordId: crypto.randomUUID(), ...(studentId ? { studentId } : {}), displayName, password, relationship: String(data.get('relationship') ?? '').trim(), phone: String(data.get('phone') ?? '').trim() });
+        // Minting a fresh id on every save is what produced five guardians with one name inside
+        // forty seconds: a second attempt on a form that looked like it had failed created a second
+        // person rather than correcting the first. A name already on the roster means this is that
+        // guardian, so the existing record is the one that gets updated.
+        const existing = managedParents.find((parent) => sameName(parent.parentName, displayName));
+        const provisioned = await provisionManagedAccount({ schoolId: membership.schoolId, role: 'parent', recordId: existing?.id ?? crypto.randomUUID(), ...(studentId ? { studentId } : {}), displayName, password, relationship: String(data.get('relationship') ?? '').trim(), phone: String(data.get('phone') ?? '').trim() });
         if (studentId && grantConsent && provisioned.linkId) await repository.setParentConsent(provisioned.linkId, true, privacy.policyVersion);
         setManagedParents(await loadManagedParents(membership.schoolId));
       }
@@ -240,6 +264,11 @@ export function ParentsPage() {
                     ? (row.status === 'active' || row.status === 'linked' ? 'พร้อมใช้งาน' : 'ปิดใช้งาน')
                     : 'เชื่อมแล้ว'}</span>
                 </div>
+                {canManageAccounts && mode === 'cloud' && (
+                  <div className="record-actions">
+                    <button className="secondary-button" onClick={() => void activate(row.key)}>ยืนยันไอดี</button>
+                  </div>
+                )}
                 {row.links.map((link) => canManageAccounts && link.status !== 'revoked' && (
                   <div className="record-actions" key={link.id}>
                     <span className="hint">{link.relationship} · {link.consentGrantedAt ? `ยินยอมแล้ว (${new Date(link.consentGrantedAt).toLocaleDateString('th-TH')})` : 'ยังไม่ยินยอม'}</span>
@@ -272,8 +301,7 @@ export function ParentsPage() {
           <section className="modal-card">
             <div className="panel-heading"><h2>{passwordParent.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · {passwordParent.parentName}</h2><button type="button" className="icon-button" onClick={() => setPasswordParent(null)} aria-label="ปิด">×</button></div>
             <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { setMessage(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } const action = passwordParent.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'parent', profileId: passwordParent.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'parent', recordId: crypto.randomUUID(), ...(passwordParent.studentId ? { studentId: passwordParent.studentId } : {}), displayName: passwordParent.parentName, password, relationship: passwordParent.relationship, phone: passwordParent.contact }); void action.then(() => { setPasswordParent(null); setMessage('บันทึกรหัสผ่านผู้ปกครองแล้ว'); }).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ')); }}>
-              <label>รหัสผ่านใหม่<input name="password" type="password" minLength={8} autoComplete="new-password" required /></label>
-              <label>ยืนยันรหัสผ่าน<input name="confirm" type="password" minLength={8} autoComplete="new-password" required /></label>
+              <ManagedPasswordFields />
               <div className="modal-actions"><button type="button" className="text-button" onClick={() => setPasswordParent(null)}>ยกเลิก</button><button className="primary-button">บันทึก</button></div>
             </form>
           </section>

@@ -4,6 +4,8 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { TeacherVerificationStatus } from '../../domain/types';
 import { responsibilityLabels, responsibilityOf, type TeacherResponsibility } from '../../data/teacherResponsibilities';
 import { provisionManagedAccount, setManagedAccountPassword } from '../auth/adminAccount';
+import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
+import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 
 const verificationLabels: Record<TeacherVerificationStatus, string> = {
   teacher_requested: 'ขอสิทธิ์ครู', verification_pending: 'รอตรวจสอบ',
@@ -69,6 +71,16 @@ export function TeachersPage() {
       form.reset();
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ');
+    }
+  }
+
+  async function activate(teacherId: string) {
+    try {
+      setMessage(describeActivatedLogin(await activateMemberLogin({
+        schoolId: membership.schoolId, role: 'teacher', recordId: teacherId
+      })));
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ');
     }
   }
 
@@ -158,13 +170,17 @@ export function TeachersPage() {
                     <span className="hint">ครูที่ยังไม่ยืนยันจะยังใช้งานข้อมูลห้องเรียนไม่ได้</span>
                   </div>
                 )}
-                {membership.role === 'admin' && teacher.verificationStatus === 'verified_teacher' && (
-                  <>
-                    <span className={`status-chip ${teacher.profileId ? 'success' : 'warning'}`}>
-                      {teacher.profileId ? 'บัญชีพร้อมเข้าใช้' : 'ยังไม่มีบัญชีเข้าใช้'}
-                    </span>
-                    {canEdit && <button className="text-button" onClick={() => setPasswordTeacher(teacher)}>{teacher.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชีเข้าใช้'}</button>}
-                  </>
+                {membership.role === 'admin' && teacher.verificationStatus === 'verified_teacher' && canEdit && (
+                  <div className="record-actions">
+                    {/* A teacher signs in with their name and code, and the gateway creates the Auth
+                        identity on first use — so there is nothing to report about "having" an
+                        account. What matters is whether the row is in a state the sign-in accepts,
+                        and this makes it so in one click. */}
+                    <button className="secondary-button" onClick={() => void activate(teacher.id)}>ยืนยันไอดี</button>
+                    <button className="text-button" onClick={() => setPasswordTeacher(teacher)}>
+                      {teacher.profileId ? 'เปลี่ยนรหัสผ่าน' : 'ตั้งรหัสผ่าน'}
+                    </button>
+                  </div>
                 )}
                 {links.length > 0 && (
                   <div className="record-actions">
@@ -237,8 +253,7 @@ export function TeachersPage() {
           <section className="modal-card">
             <div className="panel-heading"><h2>{passwordTeacher.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · {passwordTeacher.displayName}</h2><button type="button" className="icon-button" onClick={() => setPasswordTeacher(null)} aria-label="ปิด">×</button></div>
             <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { setMessage(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } void (passwordTeacher.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'teacher', profileId: passwordTeacher.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'teacher', recordId: passwordTeacher.id, displayName: passwordTeacher.displayName, password })).then(() => { setPasswordTeacher(null); setMessage('บันทึกรหัสผ่านครูแล้ว'); }).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ')); }}>
-              <label>รหัสผ่านใหม่<input name="password" type="password" minLength={8} autoComplete="new-password" required /></label>
-              <label>ยืนยันรหัสผ่าน<input name="confirm" type="password" minLength={8} autoComplete="new-password" required /></label>
+              <ManagedPasswordFields />
               <div className="modal-actions"><button type="button" className="text-button" onClick={() => setPasswordTeacher(null)}>ยกเลิก</button><button className="primary-button">บันทึก</button></div>
             </form>
           </section>

@@ -8,6 +8,8 @@ import type { Student } from '../../domain/types';
 import { previewStudentCsv } from './csvImport';
 import { requireSupabase } from '../../services/supabase';
 import { provisionManagedAccount, setManagedAccountPassword } from '../auth/adminAccount';
+import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
+import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 
 export function StudentsPage() {
   const { membership, mode } = useSession();
@@ -37,6 +39,22 @@ export function StudentsPage() {
    * is disputed or a device is lost. Turning access off also releases the account binding, which
    * ends any session already open against the record.
    */
+  /**
+   * Puts one student's record into every state the sign-in checks, and says what to type.
+   *
+   * "เปิดการเข้าใช้งาน" only flipped one switch; a record that was archived, soft-deleted or never
+   * marked active stayed unreachable and the screen said nothing about which. This sets all of them.
+   */
+  async function activate(studentId: string) {
+    try {
+      setMessage(describeActivatedLogin(await activateMemberLogin({
+        schoolId: membership.schoolId, role: 'student', recordId: studentId
+      })));
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ');
+    }
+  }
+
   async function setAccess(student: Student, enabled: boolean) {
     try {
       const { error } = await requireSupabase().rpc('set_student_access', {
@@ -154,12 +172,12 @@ export function StudentsPage() {
                   <div className="record-actions">
                     {!isStudentView && <button className="text-button" onClick={() => setStudioStudent(student)}>ปรับแต่งอวตาร</button>}
                     {canEdit && <button className="text-button" onClick={() => setRenaming(student)}>แก้ไข</button>}
-                    {canEdit && <button className="text-button" onClick={() => setPasswordStudent(student)}>{student.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชีเข้าใช้'}</button>}
+                    {canEdit && <button className="text-button" onClick={() => setPasswordStudent(student)}>{student.profileId ? 'เปลี่ยนรหัสผ่าน' : 'ตั้งรหัสผ่าน'}</button>}
                     {student.profileId && <span className="status-chip success">เคยเข้าใช้งานแล้ว</span>}
                     {canEdit && mode === 'cloud' && (
                       <>
+                        <button className="secondary-button" onClick={() => void activate(student.id)}>ยืนยันไอดี</button>
                         <button className="text-button" onClick={() => void setAccess(student, false)}>ปิดการเข้าใช้งาน</button>
-                        <button className="text-button" onClick={() => void setAccess(student, true)}>เปิดการเข้าใช้งาน</button>
                       </>
                     )}
                     {canEdit && (
@@ -212,8 +230,7 @@ export function StudentsPage() {
           <section className="modal-card">
             <div className="panel-heading"><h2>{passwordStudent.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · {passwordStudent.displayName}</h2><button type="button" className="icon-button" onClick={() => setPasswordStudent(null)} aria-label="ปิด">×</button></div>
             <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { setMessage(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } void (passwordStudent.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'student', profileId: passwordStudent.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'student', recordId: passwordStudent.id, displayName: passwordStudent.displayName, password })).then(() => { setPasswordStudent(null); setMessage('บันทึกรหัสผ่านนักเรียนแล้ว'); }).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ')); }}>
-              <label>รหัสผ่านใหม่<input name="password" type="password" minLength={8} autoComplete="new-password" required /></label>
-              <label>ยืนยันรหัสผ่าน<input name="confirm" type="password" minLength={8} autoComplete="new-password" required /></label>
+              <ManagedPasswordFields />
               <div className="modal-actions"><button type="button" className="text-button" onClick={() => setPasswordStudent(null)}>ยกเลิก</button><button className="primary-button">บันทึก</button></div>
             </form>
           </section>

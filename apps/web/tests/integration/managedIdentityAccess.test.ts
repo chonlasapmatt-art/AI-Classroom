@@ -66,7 +66,11 @@ describe('managed roster identity flows', () => {
   it('uses the saved teacher code for teacher login and keeps passwords for parents', () => {
     expect(teacherPage).toContain('รหัสครู');
     expect(teacherPage).toContain('ใช้เป็นรหัสประจำตัวครู ไม่ใช่รหัสผ่าน');
-    expect(teacherPage).toContain('สร้างบัญชีเข้าใช้');
+    // The button sets a password. It does not create the account — the sign-in gateway does that on
+    // first use from the name and code — and calling it "สร้างบัญชีเข้าใช้" made a teacher who had
+    // never pressed it look locked out when they were not.
+    expect(teacherPage).toContain('ตั้งรหัสผ่าน');
+    expect(teacherPage).toContain('ยืนยันไอดี');
     expect(loginPage).toContain('teacherLogin');
     expect(loginPage).toContain('teacherCode: password');
     expect(loginPage).toContain('ใช้ชื่อและรหัสครูที่แอดมินโรงเรียนบันทึกให้');

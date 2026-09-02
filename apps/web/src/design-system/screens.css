@@ -678,6 +678,16 @@ tr.row-warning td { background: var(--warning-soft); }
   color: var(--brand-700); }
 .access-code-summary { display: grid; gap: var(--space-2); justify-items: start; }
 .access-code-summary .access-code-value { font-size: clamp(1.4rem, 4vw, 1.9rem); }
+/* A drawn password is read off the screen and handed over, so it is shown in the same monospaced
+   face as an access code — never hidden behind dots, which is the one thing that would make it
+   useless to the administrator who just created it. */
+.managed-password-tools { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  margin: var(--space-2) 0; }
+.managed-password-value { font-family: var(--font-mono, ui-monospace, SFMono-Regular, "Cascadia Mono", monospace);
+  font-size: var(--text-md); font-weight: var(--weight-heavy); letter-spacing: .08em;
+  padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm);
+  background: var(--brand-50); color: var(--brand-700); user-select: all; }
+
 .access-code-options { margin-top: var(--space-3); }
 .access-code-options summary { cursor: pointer; font-size: var(--text-sm); color: var(--ink-600); }
 .access-code-options[open] summary { margin-bottom: var(--space-3); }
