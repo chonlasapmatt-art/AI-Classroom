@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session } from '@supabase/supabase-js';
 import type { MembershipContext, Role } from '../domain/types';
 import { isCloudConfigured, supabase } from '../services/supabase';
+import { forget, recall, remember } from './deviceMemory';
 
 interface AuthState {
   loading: boolean;
@@ -36,7 +37,7 @@ function mapMembership(row: Record<string, unknown>): MembershipContext {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [memberships, setMemberships] = useState<MembershipContext[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(localStorage.getItem('active-membership'));
+  const [activeId, setActiveId] = useState<string | null>(recall('active-membership'));
   const [loading, setLoading] = useState(isCloudConfigured);
   const [error, setError] = useState<string | null>(null);
 
@@ -148,9 +149,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (updateError) throw updateError;
   }, []);
 
-  const signOut = useCallback(async () => { if (supabase) await supabase.auth.signOut(); setSession(null); setMemberships([]); setActiveId(null); localStorage.removeItem('active-membership'); }, []);
+  const signOut = useCallback(async () => { if (supabase) await supabase.auth.signOut(); setSession(null); setMemberships([]); setActiveId(null); forget('active-membership'); }, []);
   const refreshMemberships = useCallback(async () => { await loadMemberships(session); }, [loadMemberships, session]);
-  const selectMembership = useCallback((id: string) => { setActiveId(id); localStorage.setItem('active-membership', id); }, []);
+  const selectMembership = useCallback((id: string) => { setActiveId(id); remember('active-membership', id); }, []);
   const active = memberships.find((item) => item.membershipId === activeId) ?? memberships[0] ?? null;
   const value = useMemo(() => ({
     loading, session, memberships, active, error,

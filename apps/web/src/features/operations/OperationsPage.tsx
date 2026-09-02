@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
+import { recall } from '../../app/deviceMemory';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { useSyncStatus } from '../../sync/SyncStatusContext';
 import { Badge, Card, EmptyState } from '../../ui/components';
@@ -71,7 +72,7 @@ export function OperationsPage() {
     const password = prompt('ตั้งรหัสเข้ารหัสไฟล์สำรอง (อย่างน้อย 12 ตัวอักษร)');
     if (!password) return;
     try {
-      const deviceId = localStorage.getItem('device-id') ?? crypto.randomUUID();
+      const deviceId = recall('device-id') ?? crypto.randomUUID();
       const envelope = await createEncryptedBackup(membership.schoolId, deviceId, password);
       downloadBackup(envelope);
       setMessage('สร้างไฟล์สำรองเข้ารหัสแล้ว');

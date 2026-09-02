@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
+import { recall, remember } from '../../app/deviceMemory';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { Badge, Button, Card, CardHeader, Field, FieldGroup, PageHeader } from '../../ui/components';
 import { AvatarPicker } from '../avatars/AvatarPicker';
@@ -19,10 +20,10 @@ export function ProfilePage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [localAvatarId, setLocalAvatarId] = useState(() => localStorage.getItem(avatarStorageKey(membership.profileId)));
+  const [localAvatarId, setLocalAvatarId] = useState(() => recall(avatarStorageKey(membership.profileId)));
 
   useEffect(() => {
-    setLocalAvatarId(localStorage.getItem(avatarStorageKey(membership.profileId)));
+    setLocalAvatarId(recall(avatarStorageKey(membership.profileId)));
   }, [membership.profileId]);
 
   const student = snapshot.students.find((item) => item.profileId === membership.profileId);
@@ -38,12 +39,12 @@ export function ProfilePage() {
 
   async function saveAvatar(nextAvatarId: string) {
     if (membership.role === 'admin') {
-      localStorage.setItem(avatarStorageKey(membership.profileId), nextAvatarId);
+      remember(avatarStorageKey(membership.profileId), nextAvatarId);
       setLocalAvatarId(nextAvatarId);
     } else {
       await repository.saveOwnAvatar(membership.profileId, membership.role, nextAvatarId);
     }
-    localStorage.setItem(avatarStorageKey(membership.profileId), nextAvatarId);
+    remember(avatarStorageKey(membership.profileId), nextAvatarId);
     setLocalAvatarId(nextAvatarId);
     window.dispatchEvent(new Event('smart-classroom:avatar-changed'));
     setMessage('บันทึก avatar แล้ว');

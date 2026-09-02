@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../app/AuthContext';
+import { recall, remember } from '../app/deviceMemory';
 import { isCompleteMemberLogin, memberLogin, type MemberAccountChoice } from '../features/auth/memberAccess';
 import { isCloudConfigured } from '../services/supabase';
 import { Button, Card, CardHeader, Field } from '../ui/components';
@@ -34,7 +35,7 @@ function DevSignIn() {
   const [accessCode, setAccessCode] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [needsDisplayName, setNeedsDisplayName] = useState(
-    () => localStorage.getItem(PLATFORM_OPERATOR_DEVICE_KEY) !== 'true'
+    () => recall(PLATFORM_OPERATOR_DEVICE_KEY) !== 'true'
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ function DevSignIn() {
     event.preventDefault(); setBusy(true); setError(null);
     try {
       await auth.applySession(await devSignIn(accessCode, needsDisplayName ? displayName : undefined));
-      localStorage.setItem(PLATFORM_OPERATOR_DEVICE_KEY, 'true');
+      remember(PLATFORM_OPERATOR_DEVICE_KEY, 'true');
     } catch (reason) {
       if (reason instanceof PlatformError && reason.code === 'PLATFORM_DISPLAY_NAME_REQUIRED') {
         setNeedsDisplayName(true);

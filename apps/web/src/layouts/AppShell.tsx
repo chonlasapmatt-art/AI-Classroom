@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../app/SessionContext';
+import { recall, recallRecord, rememberRecord } from '../app/deviceMemory';
 import { useSchoolSnapshot } from '../data/RepositoryContext';
 import { unreadCount } from '../academic/views';
 import { isPreviewModeAvailable } from '../preview/previewMode';
@@ -29,7 +30,7 @@ const navigationGroups: NavGroup[] = [
   { to: '/timetable', label: 'ตารางสอน', icon: '▤', roles: ['admin', 'teacher', 'student', 'parent'] },
   { to: '/notifications', label: 'การแจ้งเตือน', icon: '🔔', roles: ['student'] }] },
   { key: 'school', label: 'จัดการโรงเรียน', items: [
-  { to: '/students', label: 'นักเรียน / เพื่อนร่วมชั้น', icon: '◉', roles: ['admin', 'teacher', 'student'] },
+  { to: '/students', label: 'นักเรียน', icon: '◉', roles: ['admin', 'teacher', 'student'] },
   { to: '/classes', label: 'ห้องเรียน', icon: '▦', roles: ['admin', 'teacher'] },
   { to: '/subjects', label: 'รายวิชา', icon: '◆', roles: ['admin', 'teacher'] },
   { to: '/teachers', label: 'ครู', icon: '✎', roles: ['admin'] },
@@ -132,7 +133,7 @@ function SupportRoleSwitcher({ session, snapshot }: { session: SessionValue; sna
 
 function readExpandedGroups(role: Role, groups: NavGroup[], path: string): Record<string, boolean> {
   try {
-    const saved = JSON.parse(localStorage.getItem(sidebarStorageKey(role)) ?? '{}') as Record<string, unknown>;
+    const saved = recallRecord<Record<string, unknown>>(sidebarStorageKey(role), {});
     return Object.fromEntries(groups.map((group) => [
       group.key,
       group.items.some((item) => path === item.to || (item.to !== '/' && path.startsWith(`${item.to}/`)))
@@ -167,17 +168,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     return groups.filter((group) => group.items.length > 0);
   }, [membership.role, session.mode]);
   const [expandedGroups, setExpandedGroups] = useState(() => readExpandedGroups(membership.role, visibleGroups, location.pathname));
-  const [ownAvatarId, setOwnAvatarId] = useState(() => localStorage.getItem(avatarStorageKey(membership.profileId)));
+  const [ownAvatarId, setOwnAvatarId] = useState(() => recall(avatarStorageKey(membership.profileId)));
   const ownAvatarPhotoId = ownStudent?.avatarPhotoId ?? ownTeacher?.avatarPhotoId ?? ownParentLink?.avatarPhotoId ?? null;
   const visibleAvatarId = ownStudent?.avatarId ?? ownTeacher?.avatarId ?? ownParentLink?.avatarId ?? ownAvatarId;
 
   useEffect(() => {
     setExpandedGroups(readExpandedGroups(membership.role, visibleGroups, location.pathname));
-    setOwnAvatarId(localStorage.getItem(avatarStorageKey(membership.profileId)));
+    setOwnAvatarId(recall(avatarStorageKey(membership.profileId)));
   }, [location.pathname, membership.profileId, membership.role, visibleGroups]);
 
   useEffect(() => {
-    const refreshAvatar = () => setOwnAvatarId(localStorage.getItem(avatarStorageKey(membership.profileId)));
+    const refreshAvatar = () => setOwnAvatarId(recall(avatarStorageKey(membership.profileId)));
     window.addEventListener('smart-classroom:avatar-changed', refreshAvatar);
     return () => window.removeEventListener('smart-classroom:avatar-changed', refreshAvatar);
   }, [membership.profileId]);
@@ -185,7 +186,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   function toggleGroup(key: string) {
     setExpandedGroups((current) => {
       const next = { ...current, [key]: !current[key] };
-      localStorage.setItem(sidebarStorageKey(membership.role), JSON.stringify(next));
+      rememberRecord(sidebarStorageKey(membership.role), next);
       return next;
     });
   }

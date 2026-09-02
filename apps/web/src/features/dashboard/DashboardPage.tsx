@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
+import { recall } from '../../app/deviceMemory';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import {
   activeClasses, activeSubjects, attendanceDailySummary, classIdOfStudent, consentedStudents, rosterFor, subjectById
@@ -25,9 +26,9 @@ export function DashboardPage() {
   const scheme = gradeSchemeFrom(snapshot.settings);
 
   const student = snapshot.students.find((item) => item.profileId === membership.profileId);
-  const [localAvatarId, setLocalAvatarId] = useState(() => localStorage.getItem(avatarStorageKey(membership.profileId)));
+  const [localAvatarId, setLocalAvatarId] = useState(() => recall(avatarStorageKey(membership.profileId)));
   useEffect(() => {
-    const refreshAvatar = () => setLocalAvatarId(localStorage.getItem(avatarStorageKey(membership.profileId)));
+    const refreshAvatar = () => setLocalAvatarId(recall(avatarStorageKey(membership.profileId)));
     refreshAvatar();
     window.addEventListener('smart-classroom:avatar-changed', refreshAvatar);
     return () => window.removeEventListener('smart-classroom:avatar-changed', refreshAvatar);
