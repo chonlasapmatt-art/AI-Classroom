@@ -29,7 +29,7 @@ const navigationGroups: NavGroup[] = [
   { to: '/timetable', label: 'ตารางสอน', icon: '▤', roles: ['admin', 'teacher', 'student', 'parent'] },
   { to: '/notifications', label: 'การแจ้งเตือน', icon: '🔔', roles: ['student'] }] },
   { key: 'school', label: 'จัดการโรงเรียน', items: [
-  { to: '/students', label: 'นักเรียน', icon: '◉', roles: ['admin', 'teacher'] },
+  { to: '/students', label: 'นักเรียน / เพื่อนร่วมชั้น', icon: '◉', roles: ['admin', 'teacher', 'student'] },
   { to: '/classes', label: 'ห้องเรียน', icon: '▦', roles: ['admin', 'teacher'] },
   { to: '/subjects', label: 'รายวิชา', icon: '◆', roles: ['admin', 'teacher'] },
   { to: '/teachers', label: 'ครู', icon: '✎', roles: ['admin'] },

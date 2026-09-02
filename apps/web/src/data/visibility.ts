@@ -33,7 +33,7 @@ export function scopeSchoolSnapshot(snapshot: SchoolSnapshot, scope: VisibilityS
     : new Set(snapshot.enrollments
       .filter((enrollment) => ownStudentIds.has(enrollment.studentId) && enrollment.status === 'active')
       .map((enrollment) => enrollment.classId));
-  const allowedStudentIds = scope.role === 'teacher'
+  const rosterStudentIds = scope.role === 'teacher' || scope.role === 'student'
     ? new Set(snapshot.enrollments
       .filter((enrollment) => allowedClassIds.has(enrollment.classId) && enrollment.status === 'active')
       .map((enrollment) => enrollment.studentId))
@@ -66,7 +66,7 @@ export function scopeSchoolSnapshot(snapshot: SchoolSnapshot, scope: VisibilityS
     if (attachment.ownerType === 'assignment') return allowedAssignmentIds.has(attachment.ownerId);
     // Submission files use the stable `${assignmentId}:${studentId}` owner key.
     const [assignmentId, studentId] = attachment.ownerId.split(':');
-    return !!assignmentId && !!studentId && allowedAssignmentIds.has(assignmentId) && allowedStudentIds.has(studentId);
+    return !!assignmentId && !!studentId && allowedAssignmentIds.has(assignmentId) && ownStudentIds.has(studentId);
   });
 
   return {
@@ -75,27 +75,27 @@ export function scopeSchoolSnapshot(snapshot: SchoolSnapshot, scope: VisibilityS
     classes: snapshot.classes.filter((classroom) => allowedClassIds.has(classroom.id)),
     classTeachers: snapshot.classTeachers.filter((link) => allowedClassIds.has(link.classId)),
     teachers: snapshot.teachers.filter((teacher) => allowedClassTeacherIds.has(teacher.id)),
-    students: snapshot.students.filter((student) => allowedStudentIds.has(student.id)),
-    enrollments: snapshot.enrollments.filter((enrollment) => allowedStudentIds.has(enrollment.studentId) && allowedClassIds.has(enrollment.classId)),
+    students: snapshot.students.filter((student) => rosterStudentIds.has(student.id)),
+    enrollments: snapshot.enrollments.filter((enrollment) => rosterStudentIds.has(enrollment.studentId) && allowedClassIds.has(enrollment.classId)),
     assignments: snapshot.assignments.filter((assignment) => allowedAssignmentIds.has(assignment.id)),
-    submissions: snapshot.submissions.filter((submission) => allowedAssignmentIds.has(submission.assignmentId) && allowedStudentIds.has(submission.studentId)),
+    submissions: snapshot.submissions.filter((submission) => allowedAssignmentIds.has(submission.assignmentId) && ownStudentIds.has(submission.studentId)),
     activities: snapshot.activities.filter((activity) => allowedClassIds.has(activity.classId)),
-    activityScores: snapshot.activityScores.filter((score) => allowedActivityIds.has(score.activityId) && allowedStudentIds.has(score.studentId)),
+    activityScores: snapshot.activityScores.filter((score) => allowedActivityIds.has(score.activityId) && ownStudentIds.has(score.studentId)),
     tests: snapshot.tests.filter((test) => allowedClassIds.has(test.classId)),
-    testScores: snapshot.testScores.filter((score) => allowedTestIds.has(score.testId) && allowedStudentIds.has(score.studentId)),
-    attendance: snapshot.attendance.filter((record) => allowedClassIds.has(record.classId) && allowedStudentIds.has(record.studentId)),
-    parentLinks: snapshot.parentLinks.filter((link) => allowedStudentIds.has(link.studentId)),
+    testScores: snapshot.testScores.filter((score) => allowedTestIds.has(score.testId) && ownStudentIds.has(score.studentId)),
+    attendance: snapshot.attendance.filter((record) => allowedClassIds.has(record.classId) && (scope.role === 'teacher' ? rosterStudentIds.has(record.studentId) : ownStudentIds.has(record.studentId))),
+    parentLinks: snapshot.parentLinks.filter((link) => ownStudentIds.has(link.studentId)),
     attachments: visibleAttachments,
-    notifications: snapshot.notifications.filter((notification) => allowedStudentIds.has(notification.studentId) && allowedClassIds.has(notification.classId)),
+    notifications: snapshot.notifications.filter((notification) => ownStudentIds.has(notification.studentId) && allowedClassIds.has(notification.classId)),
     rubrics: scope.role === 'teacher' ? snapshot.rubrics : [],
-    rubricScores: snapshot.rubricScores.filter((score) => allowedAssignmentIds.has(score.assignmentId) && allowedStudentIds.has(score.studentId)),
-    submissionVersions: snapshot.submissionVersions.filter((version) => allowedAssignmentIds.has(version.assignmentId) && allowedStudentIds.has(version.studentId)),
-    deadlineExtensions: snapshot.deadlineExtensions.filter((extension) => allowedAssignmentIds.has(extension.assignmentId) && allowedStudentIds.has(extension.studentId)),
+    rubricScores: snapshot.rubricScores.filter((score) => allowedAssignmentIds.has(score.assignmentId) && ownStudentIds.has(score.studentId)),
+    submissionVersions: snapshot.submissionVersions.filter((version) => allowedAssignmentIds.has(version.assignmentId) && ownStudentIds.has(version.studentId)),
+    deadlineExtensions: snapshot.deadlineExtensions.filter((extension) => allowedAssignmentIds.has(extension.assignmentId) && ownStudentIds.has(extension.studentId)),
     announcements: snapshot.announcements.filter((announcement) => allowedClassIds.has(announcement.classId)),
     notificationPreferences: snapshot.notificationPreferences.filter((preference) => ownProfile(preference.profileId)),
     academicAudit: [],
     timetable: snapshot.timetable.filter((entry) => allowedClassIds.has(entry.classId)),
-    achievements: snapshot.achievements.filter((achievement) => allowedStudentIds.has(achievement.studentId)),
-    scoreEvents: snapshot.scoreEvents.filter((event) => allowedStudentIds.has(event.studentId) && (!event.classId || allowedClassIds.has(event.classId))),
+    achievements: snapshot.achievements.filter((achievement) => ownStudentIds.has(achievement.studentId)),
+    scoreEvents: snapshot.scoreEvents.filter((event) => ownStudentIds.has(event.studentId) && (!event.classId || allowedClassIds.has(event.classId))),
   };
 }

@@ -5,6 +5,7 @@ import { rosterFor } from '../../data/selectors';
 import { Field, ProgressBar } from '../../ui/components';
 import type { Classroom } from '../../domain/types';
 import { requireSupabase } from '../../services/supabase';
+import { useSyncStatus } from '../../sync/SyncStatusContext';
 
 interface StudentSearchResult {
   studentId: string;
@@ -18,6 +19,7 @@ export function ClassesPage() {
   const { membership, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
+  const sync = useSyncStatus();
   const [message, setMessage] = useState<string | null>(null);
   const [transfer, setTransfer] = useState<{ studentId: string; classId: string } | null>(null);
   const [editing, setEditing] = useState<Classroom | null>(null);
@@ -149,6 +151,10 @@ export function ClassesPage() {
           setMessage(`${student.displayName} อยู่ใน ${student.currentClassName ?? 'ห้องอื่น'} แล้ว กรุณาใช้เมนูย้ายห้อง`);
           return;
         }
+        // The RPC is authoritative, but it does not write the new row into this tab's Dexie
+        // projection. Pull immediately so the room count and roster change without waiting for
+        // the background interval (and without enqueueing the same enrollment a second time).
+        if (result?.status === 'joined') await sync?.syncNow();
         setMessage(result?.status === 'already_member' ? `${student.displayName} อยู่ในห้องนี้แล้ว` : `เชิญ ${student.displayName} เข้าห้องแล้ว ระบบกำลังซิงค์รายชื่อ`);
       } else {
         await repository.enrollStudent(student.studentId, classId, term.id);

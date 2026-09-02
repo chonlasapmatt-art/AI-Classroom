@@ -24,6 +24,7 @@ export function StudentsPage() {
 
   const selectedClassId = classId || classes[0]?.id || '';
   const canEdit = membership.role === 'admin';
+  const isStudentView = membership.role === 'student';
   const students = useMemo(
     () => (selectedClassId ? rosterFor(snapshot, selectedClassId) : snapshot.students),
     [snapshot, selectedClassId]
@@ -97,8 +98,8 @@ export function StudentsPage() {
       <section className="page-heading">
         <div>
           <span className="eyebrow">ข้อมูลตามสิทธิ์</span>
-          <h1>นักเรียน</h1>
-          <p>{students.length} คนในขอบเขตที่คุณเข้าถึงได้</p>
+          <h1>{isStudentView ? 'เพื่อนร่วมชั้น' : 'นักเรียน'}</h1>
+          <p>{isStudentView ? `${students.length} คนในห้องเรียนของคุณ` : `${students.length} คนในขอบเขตที่คุณเข้าถึงได้`}</p>
         </div>
         {canEdit && <button className="primary-button" onClick={() => setOpen((value) => !value)}>+ เพิ่มนักเรียน</button>}
       </section>
@@ -151,7 +152,7 @@ export function StudentsPage() {
                     {student.studentCode} · {classes.find((item) => item.id === classIdOfStudent(snapshot, student.id))?.name ?? 'ยังไม่มีห้อง'}
                   </span>
                   <div className="record-actions">
-                    <button className="text-button" onClick={() => setStudioStudent(student)}>ปรับแต่งอวตาร</button>
+                    {!isStudentView && <button className="text-button" onClick={() => setStudioStudent(student)}>ปรับแต่งอวตาร</button>}
                     {canEdit && <button className="text-button" onClick={() => setRenaming(student)}>แก้ไข</button>}
                     {canEdit && <button className="text-button" onClick={() => setPasswordStudent(student)}>{student.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชีเข้าใช้'}</button>}
                     {student.profileId && <span className="status-chip success">เคยเข้าใช้งานแล้ว</span>}
