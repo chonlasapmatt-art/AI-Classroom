@@ -1,28 +1,25 @@
 import { useState, type FormEvent } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
-import { requireSupabase } from '../../services/supabase';
 import { isCompleteMemberRegistration, registerOwner } from './memberAccess';
 import { AdminSchoolSetupPage } from './AdminSchoolSetupPage';
 
 /**
  * Private owner-only entry. No public screen links to this route.
  *
- * It carries the account step as well as the school step, because the first school is created before
- * any school exists to register a teacher against. Creating the account here grants nothing on its
- * own: the code below is checked on the server, rate limited and audited, and it is the only thing
- * that turns this person into an administrator.
+ * It carries the account step only. Creating the account here grants nothing: the school, and with
+ * it the administrator membership, comes from the same first-run wizard a customer sees, which is
+ * reused below rather than duplicated. One activation screen means one place where the product key
+ * is drawn and checked, and no second copy to drift out of step with the gateway.
  */
 export function OwnerAccessPage() {
   const auth = useAuth();
-  const [complete, setComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  if (complete) return <Navigate to="/" replace />;
 
   async function createAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(null);
@@ -31,24 +28,6 @@ export function OwnerAccessPage() {
       if (result.outcome === 'session') { await auth.applySession(result.session); return; }
       setError(result.outcome === 'error' ? result.message : 'สร้างบัญชีไม่สำเร็จ');
     } finally { setBusy(false); }
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError(null);
-    const values = Object.fromEntries(new FormData(event.currentTarget));
-    try {
-      const { data, error: invokeError } = await requireSupabase().functions.invoke('admin-access', {
-        body: {
-          accessCode: String(values.accessCode ?? ''), schoolName: String(values.schoolName ?? ''),
-          schoolCode: String(values.schoolCode ?? ''), academicYear: String(values.academicYear ?? ''),
-          term: String(values.term ?? '')
-        }
-      });
-      if (invokeError) throw invokeError;
-      if (!(data as { schoolId?: string } | null)?.schoolId) throw new Error('การยืนยันไม่สมบูรณ์');
-      await auth.refreshMemberships(); setComplete(true);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'ยืนยันสิทธิ์ไม่สำเร็จ'); }
-    finally { setBusy(false); }
   }
 
   if (!auth.session) {
@@ -77,31 +56,7 @@ export function OwnerAccessPage() {
     );
   }
 
-  // Reuse the same mobile-friendly wizard used by the normal no-membership gate. This keeps the
-  // private product entry and a packaged app's first launch on one predictable setup experience.
+  // The same mobile-friendly wizard used by the normal no-membership gate. It navigates away on its
+  // own once the school exists, so nothing here has to track completion a second time.
   return <AdminSchoolSetupPage />;
-
-  return (
-    <main className="setup-page">
-      <form className="configuration-card" onSubmit={(event) => void submit(event)}>
-        <span className="eyebrow">PRIVATE OWNER ENTRY</span>
-        <h1>ยืนยันเจ้าของและสร้างโรงเรียน</h1>
-        <p>ระบบจะตรวจรหัสที่ฝั่งเซิร์ฟเวอร์ พร้อมจำกัดความถี่และบันทึกเหตุการณ์ รหัสไม่ถูกเก็บในเบราว์เซอร์</p>
-        <label>
-          รหัสยืนยันเจ้าของ
-          <input name="accessCode" type="password" autoComplete="one-time-code" minLength={4} maxLength={128} aria-describedby="owner-code-hint" required />
-        </label>
-        <p className="field-hint" id="owner-code-hint">รหัสที่ตั้งไว้ฝั่งเซิร์ฟเวอร์ตอนติดตั้ง ไม่ใช่รหัสผ่านของบัญชีนี้</p>
-        <div className="form-grid">
-          <label>ชื่อโรงเรียน<input name="schoolName" placeholder="เช่น โรงเรียนสาธิตสมาร์ท" minLength={2} maxLength={200} required /></label>
-          <label>รหัสโรงเรียน<input name="schoolCode" placeholder="เช่น SC-01" pattern="[A-Za-z0-9-]{3,20}" required /></label>
-          <label>ปีการศึกษา<input name="academicYear" placeholder="เช่น 2569" minLength={2} maxLength={20} required /></label>
-          <label>ภาคเรียน<input name="term" placeholder="เช่น 1" minLength={1} maxLength={20} required /></label>
-        </div>
-        <p className="field-hint">รหัสโรงเรียนใช้ A-Z 0-9 และขีดกลาง 3–20 ตัว ห้ามซ้ำกับโรงเรียนอื่นในระบบ</p>
-        {error && <div className="alert error" role="alert">{error}</div>}
-        <button className="primary-button" disabled={busy}>{busy ? 'กำลังตรวจสอบ...' : 'ยืนยันและเริ่มตั้งค่าโรงเรียน'}</button>
-      </form>
-    </main>
-  );
 }

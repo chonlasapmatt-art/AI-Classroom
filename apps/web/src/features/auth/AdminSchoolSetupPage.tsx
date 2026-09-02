@@ -1,12 +1,24 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
-import { requireSupabase } from '../../services/supabase';
+import {
+  activateSchool, isCompleteSchoolIdentity, issueProductKey, SchoolSetupError, type ProductKey
+} from './schoolActivation';
 
 /**
- * First-run setup for a teacher who bought a standalone school server. It is deliberately shown
- * from the no-membership state: there is no half-configured school shell to get lost inside, and
- * the same route works after packaging the web app as a desktop/mobile application.
+ * First-run setup for a school that has just bought the product. It is deliberately shown from the
+ * no-membership state: there is no half-configured school shell to get lost inside, and the same
+ * route works after packaging the web app as a desktop/mobile application.
+ *
+ * The three steps are the three things the customer has to do, in the order they can do them:
+ *
+ *   1. Say who the first administrator is and what the school is called. Nothing is created yet.
+ *   2. Take the product key. The server draws it, shows it once and keeps only its digest.
+ *   3. Type the key back, with the academic year and term, and the school exists.
+ *
+ * Step 3 asking for the key again is what makes step 2 real. A customer who skipped past the key
+ * without saving it is stopped here, while drawing another is still one click away — rather than in
+ * six months when the key is the only thing that can reactivate their server.
  */
 export function AdminSchoolSetupPage() {
   const auth = useAuth();
@@ -15,63 +27,78 @@ export function AdminSchoolSetupPage() {
   const [displayName, setDisplayName] = useState(initialName);
   const [schoolName, setSchoolName] = useState('');
   const [schoolCode, setSchoolCode] = useState('');
-  const [academicYear] = useState(() => String(new Date().getFullYear() + 543));
-  const term = '1';
+  const [productKey, setProductKey] = useState<ProductKey | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [drawing, setDrawing] = useState(false);
+  const [academicYear, setAcademicYear] = useState(() => String(new Date().getFullYear() + 543));
+  const [term, setTerm] = useState('1');
   const [accessCode, setAccessCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const draw = useCallback(async () => {
+    setDrawing(true); setError(null); setCopied(false);
+    try {
+      setProductKey(await issueProductKey());
+    } catch (reason) {
+      setProductKey(null);
+      setError(reason instanceof SchoolSetupError ? reason.message : 'สร้างคีย์ผลิตภัณฑ์ไม่สำเร็จ');
+    } finally { setDrawing(false); }
+  }, []);
+
+  // Drawn on arrival at step 2 rather than on the button, so the key is on screen the moment the
+  // customer gets there. Going back to step 1 and forward again keeps the key already drawn: each
+  // draw retires the one before it, and silently swapping the key under somebody mid-copy is how a
+  // customer ends up holding a key the server no longer knows.
+  useEffect(() => {
+    if (step === 2 && !productKey && !drawing) void draw();
+  }, [draw, drawing, productKey, step]);
+
+  async function copyKey() {
+    if (!productKey) return;
+    try {
+      await navigator.clipboard.writeText(productKey.productKey);
+      setCopied(true);
+    } catch {
+      // Clipboard access is refused over plain HTTP and in some packaged shells. The key is on
+      // screen either way, so let the customer past — step 3 still makes them prove they have it.
+      setCopied(true);
+      setError('คัดลอกอัตโนมัติไม่ได้ กรุณาเลือกคีย์บนหน้าจอแล้วคัดลอกเอง');
+    }
+  }
+
   function next(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    if (step === 1 && displayName.trim().length < 2) { setError('กรุณาใส่ชื่อผู้ดูแลอย่างน้อย 2 ตัวอักษร'); return; }
-    if (step === 2 && (schoolName.trim().length < 2 || !/^[A-Za-z0-9-]{3,20}$/.test(schoolCode.trim()))) {
-      setError('กรุณาใส่ชื่อโรงเรียน และรหัสโรงเรียน A-Z, 0-9 หรือขีดกลาง 3–20 ตัว'); return;
+    if (step === 1 && !isCompleteSchoolIdentity({ displayName, schoolName, schoolCode })) {
+      setError('กรุณาใส่ชื่อผู้ดูแลอย่างน้อย 2 ตัวอักษร ชื่อโรงเรียน และรหัสโรงเรียน A-Z, 0-9 หรือขีดกลาง 3–20 ตัว');
+      return;
     }
+    if (step === 2 && !copied) { setError('กรุณาคัดลอกคีย์ผลิตภัณฑ์เก็บไว้ก่อน แล้วจึงไปขั้นถัดไป'); return; }
     setStep((current) => Math.min(3, current + 1));
   }
 
   async function finish(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (accessCode.trim().length < 4) {
-      setError('กรุณากรอกรหัสเปิดใช้งานสินค้าให้ครบ'); return;
+    if (accessCode.trim().length < 4) { setError('กรุณากรอกรหัสเปิดใช้งานสินค้าให้ครบ'); return; }
+    if (academicYear.trim().length < 2 || term.trim().length < 1) {
+      setError('กรุณาระบุปีการศึกษาและภาคเรียน'); return;
     }
     setBusy(true); setError(null);
     try {
-      const { data, error: invokeError } = await requireSupabase().functions.invoke('admin-access', {
-        body: {
-          accessCode: accessCode.trim(), displayName: displayName.trim(), schoolName: schoolName.trim(),
-          schoolCode: schoolCode.trim().toUpperCase(), academicYear: academicYear.trim(), term: term.trim()
-        }
-      });
-      if (invokeError) {
-        const context = (invokeError as { context?: Response }).context;
-        const body = context && typeof context.json === 'function' ? await context.json().catch(() => null) as { code?: string } | null : null;
-        const rawMessage = String((invokeError as { message?: string }).message ?? '');
-        const code = body?.code ?? ['SCHOOL_CODE_EXISTS', 'TEMPORARILY_LOCKED', 'ACCESS_DENIED', 'SERVER_CONFIGURATION_ERROR', 'ALREADY_HAS_MEMBERSHIP', 'AUTH_REQUIRED', 'VALIDATION_ERROR']
-          .find((knownCode) => rawMessage.includes(knownCode));
-        const message = code === 'SCHOOL_CODE_EXISTS' ? 'รหัสโรงเรียนนี้ถูกใช้แล้ว กรุณาใช้รหัสโรงเรียนใหม่ หรือกลับไปเข้าสู่ระบบของโรงเรียนเดิม' :
-          code === 'TEMPORARILY_LOCKED' ? 'ลองรหัสเปิดใช้งานหลายครั้งเกินไป กรุณารอประมาณ 30 นาทีแล้วลองใหม่' :
-          code === 'ACCESS_DENIED' ? 'รหัสเปิดใช้งานไม่ถูกต้อง กรุณาตรวจตัวพิมพ์เล็ก–ใหญ่และเว้นวรรคท้ายรหัส' :
-          code === 'SERVER_CONFIGURATION_ERROR' ? 'เซิร์ฟเวอร์ยังไม่ได้ตั้งค่ารหัสเปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ' :
-          code === 'ALREADY_HAS_MEMBERSHIP' ? 'บัญชีนี้ตั้งค่าโรงเรียนไว้แล้ว ให้กลับไปเข้าสู่ระบบแทนการสร้างโรงเรียนใหม่' :
-          code === 'AUTH_REQUIRED' ? 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง' :
-          code === 'VALIDATION_ERROR' ? 'ข้อมูลโรงเรียนไม่ครบหรือรูปแบบไม่ถูกต้อง กรุณาตรวจชื่อ รหัสโรงเรียน ปีการศึกษา และภาคเรียน' :
-          'ตั้งค่าโรงเรียนไม่สำเร็จ กรุณาตรวจข้อมูลและรหัสเปิดใช้งาน';
-        throw new Error(message);
-      }
-      if (!(data as { schoolId?: string } | null)?.schoolId) throw new Error('ตั้งค่าโรงเรียนไม่สมบูรณ์');
+      await activateSchool({ displayName, schoolName, schoolCode, academicYear, term, accessCode });
       await auth.refreshMemberships();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'ตั้งค่าโรงเรียนไม่สำเร็จ'); }
-    finally { setBusy(false); }
+    } catch (reason) {
+      setError(reason instanceof SchoolSetupError ? reason.message : 'ตั้งค่าโรงเรียนไม่สำเร็จ');
+    } finally { setBusy(false); }
   }
 
   if (auth.active) return <Navigate to="/" replace />;
 
   const steps = [
-    { number: 1, title: 'ผู้ดูแล', description: 'ชื่อที่ใช้แสดงในระบบ' },
-    { number: 2, title: 'โรงเรียน', description: 'ข้อมูลเซิร์ฟของคุณ' },
-    { number: 3, title: 'เปิดใช้งาน', description: 'ปีการศึกษาและรหัสสินค้า' }
+    { number: 1, title: 'ผู้ดูแลและโรงเรียน', description: 'ชื่อผู้ดูแลคนแรกและข้อมูลโรงเรียน' },
+    { number: 2, title: 'คีย์ผลิตภัณฑ์', description: 'คัดลอกเก็บไว้ แสดงครั้งเดียว' },
+    { number: 3, title: 'เปิดใช้งาน', description: 'ปีการศึกษา ภาคเรียน และรหัสสินค้า' }
   ];
 
   return (
@@ -87,32 +114,57 @@ export function AdminSchoolSetupPage() {
           {steps.map((item) => <li key={item.number} className={step === item.number ? 'current' : step > item.number ? 'done' : ''}><span>{step > item.number ? '✓' : item.number}</span><div><strong>{item.title}</strong><small>{item.description}</small></div></li>)}
         </ol>
 
-        {step < 3 ? (
+        {step === 1 && (
           <form onSubmit={next} className="admin-setup-form">
-            {step === 1 ? <>
-              <span className="ui-eyebrow">STEP 01 · ADMIN PROFILE</span>
-              <h2>คุณคือผู้ดูแลคนไหน?</h2>
-              <p className="form-intro">ชื่อนี้จะแสดงในเมนูผู้ดูแลและใช้ระบุตัวคุณในบันทึกกิจกรรม เปลี่ยนได้ภายหลังที่โปรไฟล์</p>
-              <label>ชื่อผู้ดูแลเว็บไซต์<input autoFocus value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="เช่น ครูสมชาย ใจดี" minLength={2} maxLength={200} required /></label>
-            </> : <>
-              <span className="ui-eyebrow">STEP 02 · SCHOOL IDENTITY</span>
-              <h2>ข้อมูลโรงเรียน</h2>
-              <p className="form-intro">ใช้ชื่อที่ครู นักเรียน และผู้ปกครองจะเห็นเมื่อเข้าสู่ระบบ</p>
-              <label>ชื่อโรงเรียน<input autoFocus value={schoolName} onChange={(event) => setSchoolName(event.target.value)} placeholder="เช่น โรงเรียนบ้านไทเกอร์" minLength={2} maxLength={200} required /></label>
-              <label>รหัสโรงเรียน<input value={schoolCode} onChange={(event) => setSchoolCode(event.target.value.toUpperCase())} placeholder="เช่น TIGER-01" pattern="[A-Za-z0-9-]{3,20}" maxLength={20} required /></label>
-              <p className="field-hint">รหัสนี้ใช้แยกเซิร์ฟของคุณจากโรงเรียนอื่น และเปลี่ยนภายหลังไม่ได้ง่าย ๆ</p>
-            </>}
+            <span className="ui-eyebrow">STEP 01 · ADMIN &amp; SCHOOL</span>
+            <h2>ผู้ดูแลคนแรกและโรงเรียนของคุณ</h2>
+            <p className="form-intro">ชื่อผู้ดูแลจะแสดงในเมนูและบันทึกกิจกรรม ส่วนชื่อโรงเรียนคือชื่อที่ครู นักเรียน และผู้ปกครองจะเห็น</p>
+            <label>ชื่อผู้ดูแลเว็บไซต์<input autoFocus value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="เช่น ครูสมชาย ใจดี" minLength={2} maxLength={200} required /></label>
+            <label>ชื่อโรงเรียน<input value={schoolName} onChange={(event) => setSchoolName(event.target.value)} placeholder="เช่น โรงเรียนบ้านไทเกอร์" minLength={2} maxLength={200} required /></label>
+            <label>รหัสโรงเรียน<input value={schoolCode} onChange={(event) => setSchoolCode(event.target.value.toUpperCase())} placeholder="เช่น TIGER-01" pattern="[A-Za-z0-9-]{3,20}" maxLength={20} required /></label>
+            <p className="field-hint">รหัสนี้ใช้แยกเซิร์ฟของคุณจากโรงเรียนอื่น และเปลี่ยนภายหลังไม่ได้ง่าย ๆ</p>
             {error && <div className="alert error" role="alert">{error}</div>}
             <div className="admin-setup-actions"><button type="submit" className="primary-button">ถัดไป <span aria-hidden="true">→</span></button></div>
           </form>
-        ) : (
+        )}
+
+        {step === 2 && (
+          <form onSubmit={next} className="admin-setup-form">
+            <span className="ui-eyebrow">STEP 02 · PRODUCT KEY</span>
+            <h2>คีย์ผลิตภัณฑ์ของคุณ</h2>
+            <p className="form-intro">
+              ระบบสุ่มคีย์นี้ให้เซิร์ฟของคุณโดยเฉพาะ แสดงครั้งเดียวเท่านั้น กรุณาคัดลอกเก็บไว้ในที่ปลอดภัย
+              แล้วนำไปกรอกในขั้นถัดไปเพื่อเปิดใช้งาน
+            </p>
+            <div className="access-code-display">
+              <strong className="access-code-value">{drawing ? 'กำลังสุ่มคีย์...' : productKey?.productKey ?? '—'}</strong>
+              {productKey && <p className="field-hint">เก็บคีย์นี้ไว้ใช้ยืนยันการเปิดใช้งาน · ระบบไม่เก็บคีย์ตัวเต็มไว้ที่ใด</p>}
+            </div>
+            <div className="admin-setup-actions">
+              <button type="button" className="primary-button" onClick={() => void copyKey()} disabled={!productKey || drawing}>
+                {copied ? 'คัดลอกแล้ว' : 'คัดลอกคีย์'}
+              </button>
+              <button type="button" className="text-button" onClick={() => void draw()} disabled={drawing}>สุ่มคีย์ใหม่</button>
+            </div>
+            <p className="fine-print">สุ่มคีย์ใหม่จะยกเลิกคีย์เดิมทันที คีย์เดิมที่คัดลอกไว้จะใช้ไม่ได้อีก</p>
+            {error && <div className="alert error" role="alert">{error}</div>}
+            <div className="admin-setup-actions">
+              <button type="button" className="text-button" onClick={() => { setError(null); setStep(1); }}>ย้อนกลับ</button>
+              <button type="submit" className="primary-button" disabled={!copied || drawing}>ถัดไป <span aria-hidden="true">→</span></button>
+            </div>
+          </form>
+        )}
+
+        {step === 3 && (
           <form onSubmit={(event) => void finish(event)} className="admin-setup-form">
             <span className="ui-eyebrow">STEP 03 · ACTIVATE SERVER</span>
             <h2>เปิดใช้งานเซิร์ฟโรงเรียน</h2>
-              <p className="form-intro">กรอกรหัสเปิดใช้งานสินค้าเพื่อยืนยันการใช้งาน ระบบจะพาไปหน้าหลักทันทีเมื่อสำเร็จ</p>
-            <div className="admin-setup-summary"><div><span>ผู้ดูแล</span><strong>{displayName}</strong></div><div><span>โรงเรียน</span><strong>{schoolName} · {schoolCode.toUpperCase()}</strong></div></div>
-            <p className="field-hint">ระบบตั้งปีการศึกษา {academicYear} และภาคเรียน 1 ให้โดยอัตโนมัติ คุณแก้ไขได้ภายหลังในเมนูตั้งค่าโรงเรียน</p>
-            <label>รหัสเปิดใช้งานสินค้า<input type="password" value={accessCode} onChange={(event) => setAccessCode(event.target.value)} placeholder="ใส่รหัสที่ได้รับตอนซื้อระบบ" minLength={4} maxLength={128} autoComplete="one-time-code" required /></label>
+            <p className="form-intro">ระบุปีการศึกษากับภาคเรียนที่จะเริ่มใช้ แล้วกรอกคีย์ผลิตภัณฑ์ที่คัดลอกไว้เพื่อยืนยัน</p>
+            <div className="admin-setup-summary"><div><span>ผู้ดูแล</span><strong>{displayName}</strong></div><div><span>โรงเรียน</span><strong>{schoolName} · {schoolCode.toUpperCase()}</strong></div>{productKey && <div><span>คีย์ผลิตภัณฑ์</span><strong>{productKey.hint}</strong></div>}</div>
+            <label>ปีการศึกษา<input value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} placeholder="เช่น 2569" minLength={2} maxLength={20} required /></label>
+            <label>ภาคเรียน<input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="เช่น 1" minLength={1} maxLength={20} required /></label>
+            <label>รหัสเปิดใช้งานสินค้า<input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} placeholder="วางคีย์ที่คัดลอกไว้" minLength={4} maxLength={128} autoComplete="one-time-code" required /></label>
+            <p className="field-hint">แก้ปีการศึกษาและภาคเรียนได้ภายหลังในเมนูตั้งค่าโรงเรียน</p>
             {error && <div className="alert error" role="alert">{error}</div>}
             <div className="admin-setup-actions"><button type="button" className="text-button" onClick={() => { setError(null); setStep(2); }}>ย้อนกลับ</button><button type="submit" className="primary-button" disabled={busy}>{busy ? 'กำลังเปิดใช้งาน...' : 'บันทึกและเข้าใช้งาน'}</button></div>
           </form>

@@ -57,6 +57,11 @@ Migrations are immutable after deployment. Apply corrective changes as a new mig
 5. Rotate or revoke Owner access by changing/removing `ADMIN_ACCESS_CODE_HASH`; never place the raw code in source, HTML, browser environment variables or logs.
 6. Register the board/device before the first critical sync.
 
+A server shipped to a customer does not need `ADMIN_ACCESS_CODE_HASH` at all: the setup wizard draws
+a product key for the customer's own account and activates against that. See
+`29_PRODUCT_ACTIVATION_KEY.md`. Setting the secret as well is supported, and gives the owner a second
+way in that does not depend on the customer's key.
+
 ## Passwordless student access
 
 Students hold no email address and no password. `student-access` is the only endpoint that can turn
