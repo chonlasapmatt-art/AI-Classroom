@@ -62,10 +62,13 @@ Deno.serve(async (request) => {
     if (attemptsError) throw attemptsError;
     const locked = (attempts ?? []).some((row) => row.locked_until && new Date(row.locked_until).getTime() > Date.now());
     const failureCount = (attempts ?? []).filter((row) => !row.succeeded).length;
-    if (locked || failureCount >= MAX_FAILURES) return json({ code: 'TEMPORARILY_LOCKED' }, 429, headers);
-
     const suppliedHash = await sha256(accessCode);
-    if (!constantTimeEqual(suppliedHash, expectedHash)) {
+    const accessCodeMatches = constantTimeEqual(suppliedHash, expectedHash);
+    // A correct server-side code is an intentional recovery path after a mistyped-code lock.
+    // Incorrect codes remain rate-limited exactly as before.
+    if ((locked || failureCount >= MAX_FAILURES) && !accessCodeMatches) return json({ code: 'TEMPORARILY_LOCKED' }, 429, headers);
+
+    if (!accessCodeMatches) {
       const lockNow = failureCount + 1 >= MAX_FAILURES;
       await service.from('admin_access_attempts').insert({
         actor_profile_id: actorId, fingerprint_hash: fingerprintHash, succeeded: false,
