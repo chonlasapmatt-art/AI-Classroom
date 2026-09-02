@@ -198,7 +198,7 @@ describe('the development sign-in', () => {
 
   it('saves the operator display name without using it as authority', () => {
     expect(devGateway).toContain('body.displayName');
-    expect(devGateway).toContain("from('user_profiles')");
+    expect(devGateway).toContain("from('platform_admins')");
     expect(devGateway).toContain('const displayName = suppliedDisplayName ||');
     expect(devGateway).toContain('display_name: suppliedDisplayName');
     expect(consoleApp).toContain('ชื่อผู้ดูแล');

@@ -107,18 +107,18 @@ Deno.serve(async (request) => {
     // The name is profile data, not authority. The code still has to match and the target must be
     // an active platform operator. The first device may provide a display name; later visits can
     // omit it and reuse the server-saved name. The local device flag is only a UI hint.
-    const { data: profile, error: profileReadError } = await service.from('user_profiles')
-      .select('display_name').eq('id', target).maybeSingle();
+    const { data: platformOperator, error: profileReadError } = await service.from('platform_admins')
+      .select('display_name').eq('profile_id', target).maybeSingle();
     if (profileReadError) return json({ code: GENERIC_FAILURE }, 400, headers);
-    const displayName = suppliedDisplayName || String(profile?.display_name ?? '').trim();
+    const displayName = suppliedDisplayName || String(platformOperator?.display_name ?? '').trim();
     if (!displayName) {
       await record(false);
       return json({ code: 'PLATFORM_DISPLAY_NAME_REQUIRED' }, 400, headers);
     }
     if (suppliedDisplayName) {
-      const { error: profileError } = await service.from('user_profiles')
-        .update({ display_name: suppliedDisplayName, updated_at: new Date().toISOString() })
-        .eq('id', target);
+      const { error: profileError } = await service.from('platform_admins')
+        .update({ display_name: suppliedDisplayName })
+        .eq('profile_id', target);
       if (profileError) return json({ code: GENERIC_FAILURE }, 400, headers);
     }
 
