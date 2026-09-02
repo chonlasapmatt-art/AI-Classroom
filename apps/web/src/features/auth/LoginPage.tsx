@@ -7,7 +7,7 @@
 // as a teacher or student; those accounts are prepared by the school.
 
 import { useState, type FormEvent, type PointerEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import { useTheme } from '../../app/ThemeContext';
 import { themeModes, themePresets, type ThemeMode, type ThemePreset } from '../../app/theme';
@@ -165,6 +165,7 @@ export function LoginPage() {
           </div>
           <p className="fine-print">บัญชีทั้งหมดสร้างและกำหนดรหัสผ่านโดยแอดมินโรงเรียน</p>
           <p className="fine-print">การเข้าใช้งานครั้งแรกต้องเชื่อมต่ออินเทอร์เน็ต</p>
+          <Link className="text-button login-admin-link" to="/admin-access">เข้าสู่ระบบผู้ดูแลโรงเรียน</Link>
           {isPreviewModeAvailable && <button type="button" className="text-button" onClick={() => { enablePreviewMode(); window.location.reload(); }}>เข้าสู่โหมด Preview (สำหรับการพัฒนาเท่านั้น — ไม่ใช่ข้อมูลจริง)</button>}
         </div>
       ) : (
