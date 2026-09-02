@@ -137,8 +137,13 @@ export class PlatformError extends Error {
 
 const messages: Record<string, string> = {
   FORBIDDEN: 'บัญชีนี้ไม่มีสิทธิ์ระดับแพลตฟอร์ม',
+  PLATFORM_FORBIDDEN: 'บัญชีนี้ไม่มีสิทธิ์ระดับแพลตฟอร์ม',
   REAUTHENTICATION_REQUIRED: 'ต้องยืนยันรหัสผ่านอีกครั้งก่อนทำรายการนี้',
   VALIDATION_ERROR: 'ข้อมูลไม่ครบหรือไม่ถูกต้อง',
+  SCHOOL_CODE_TAKEN: 'รหัสโรงเรียนนี้ถูกใช้แล้ว กรุณาใช้รหัสอื่น',
+  SCHOOL_NOT_FOUND: 'ไม่พบโรงเรียนที่เลือก หรือโรงเรียนถูกระงับแล้ว',
+  ROLE_CONFLICT: 'บัญชีนี้ถูกผูกกับบทบาทอื่นอยู่แล้ว',
+  ADMIN_ACCOUNT_FAILED: 'สร้างบัญชีแอดมินไม่สำเร็จ กรุณาลองใหม่',
   LAST_PLATFORM_ADMIN: 'เพิกถอนไม่ได้ เพราะจะไม่เหลือผู้ดูแลแพลตฟอร์มเลย',
   NOT_FOUND: 'ไม่พบรายการที่ต้องการ'
 };
@@ -313,6 +318,30 @@ export async function grantPlatformAdmin(input: { profileId: string; displayName
 
 export async function revokePlatformAdminAccount(input: { profileId: string; reason: string }) {
   await gateway({ action: 'revoke', ...input });
+}
+
+export interface ProvisionSchoolAdminInput {
+  schoolId?: string;
+  schoolName?: string;
+  schoolCode?: string;
+  academicYear?: string;
+  term?: string;
+  displayName: string;
+  password: string;
+  recordId: string;
+}
+
+export interface ProvisionSchoolAdminResult {
+  profileId: string;
+  schoolId: string;
+  schoolName: string;
+  schoolCode: string;
+  displayName: string;
+  createdSchool: boolean;
+}
+
+export async function provisionSchoolAdmin(input: ProvisionSchoolAdminInput): Promise<ProvisionSchoolAdminResult> {
+  return await gateway({ action: 'provision-school-admin', ...input }) as unknown as ProvisionSchoolAdminResult;
 }
 
 /** Minutes and seconds left on a support session, for a banner that has to be believed. */

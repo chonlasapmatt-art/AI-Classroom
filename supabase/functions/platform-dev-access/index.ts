@@ -143,6 +143,10 @@ Deno.serve(async (request) => {
       p_actor: target, p_action: 'PLATFORM_DEV_SIGN_IN', p_school_id: null, p_profile_id: null,
       p_reason: 'development sign-in with the platform code', p_metadata: { displayName }
     });
+    // The server-side access code is the re-authentication factor for this explicitly enabled
+    // development door. This lets a code-authenticated operator perform guarded console actions
+    // during the same short window as a password-authenticated operator.
+    await service.rpc('record_platform_reauth', { p_actor: target });
     await record(true);
     return json({
       session: {

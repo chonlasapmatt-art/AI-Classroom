@@ -5,6 +5,7 @@ import { isCompleteMemberLogin, memberLogin, type MemberAccountChoice } from '..
 import { isCloudConfigured } from '../services/supabase';
 import { Button, Card, CardHeader, Field } from '../ui/components';
 import { ChangelogPage } from './ChangelogPage';
+import { PlatformAdminAccountsPage } from './PlatformAdminAccounts';
 import { DevicesPage, ErrorsPage, NotificationsPage, OverviewPage, PlatformSettingsPage, SecurityPage } from './PlatformPages';
 import { SchoolsPage, SupportModeBanner } from './PlatformSchools';
 import {
@@ -16,6 +17,7 @@ import {
 const sections: { to: string; label: string; end: boolean }[] = [
   { to: '/', label: 'ภาพรวม', end: true },
   { to: '/schools', label: 'โรงเรียน', end: false },
+  { to: '/admins', label: 'สร้างแอดมิน', end: false },
   { to: '/errors', label: 'ศูนย์ข้อผิดพลาด', end: false },
   { to: '/notifications', label: 'ศูนย์แจ้งเตือน', end: false },
   { to: '/devices', label: 'ศูนย์อุปกรณ์', end: false },
@@ -222,6 +224,7 @@ function OperationsShell() {
         <Routes>
           <Route index element={<OverviewPage />} />
           <Route path="schools" element={<SchoolsPage />} />
+          <Route path="admins" element={<PlatformAdminAccountsPage />} />
           <Route path="errors" element={<ErrorsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="devices" element={<DevicesPage />} />
