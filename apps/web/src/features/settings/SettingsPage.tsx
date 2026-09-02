@@ -59,6 +59,13 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {!isAdmin && (
+        <div className="info-banner" role="status">
+          คุณกำลังดูการตั้งค่าในโหมดอ่านอย่างเดียว · นักเรียนและผู้ปกครองปรับได้เฉพาะธีมบนเครื่องนี้
+          ส่วนนโยบายของโรงเรียนแก้ไขได้โดยผู้ดูแลระบบเท่านั้น
+        </div>
+      )}
+
       <section className="panel theme-studio">
         <div className="panel-heading">
           <div><h2>ธีมและการแสดงผล</h2><p>ปรับหน้าตาให้เข้ากับสไตล์การทำงานของคุณ ค่านี้จำเฉพาะเครื่องนี้</p></div>

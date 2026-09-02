@@ -54,7 +54,7 @@ const navigationGroups: NavGroup[] = [
   { to: '/reports', label: 'รายงาน', icon: '▥', roles: ['admin', 'teacher'] },
   { to: '/operations', label: 'Sync & Backup', icon: '↻', roles: ['admin'] }] },
   { key: 'account', label: 'บัญชีและเครื่องมือ', items: [
-  { to: '/settings', label: 'ตั้งค่า', icon: '⚙', roles: ['admin', 'teacher'] },
+  { to: '/settings', label: 'ตั้งค่า', icon: '⚙', roles: ['admin', 'teacher', 'student', 'parent'] },
   { to: '/profile', label: 'โปรไฟล์ของฉัน', icon: '☺', roles: ['admin', 'teacher', 'student', 'parent'] }] }
 ];
 
