@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Modal } from '../ui/components';
 import type { DangerousAction } from './consoleHelpers';
-import { PlatformError, reauthenticate } from './platformClient';
+import { hasFreshPlatformReauthentication, PlatformError, reauthenticate } from './platformClient';
 
 /**
  * The gate in front of every action that is hard to take back.
@@ -19,14 +19,20 @@ export function DangerousActionDialog({ action, onClose, onDone }: {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fresh, setFresh] = useState(false);
   const minimum = action.minimumReasonLength ?? 8;
-  const ready = password.length >= 1 && reason.trim().length >= minimum;
+  useEffect(() => {
+    let mounted = true;
+    void hasFreshPlatformReauthentication().then((value) => { if (mounted) setFresh(value); }).catch(() => undefined);
+    return () => { mounted = false; };
+  }, []);
+  const ready = (fresh || password.length >= 1) && reason.trim().length >= minimum;
 
   async function confirm() {
     setBusy(true); setError(null);
     try {
       // Re-authenticating first means a wrong password costs nothing: the action has not started.
-      await reauthenticate(password);
+      if (!fresh) await reauthenticate(password);
       await action.run(reason.trim());
       onDone(`${action.confirmLabel}เรียบร้อย`);
       onClose();
@@ -64,15 +70,21 @@ export function DangerousActionDialog({ action, onClose, onDone }: {
       <p className="field-hint" id="reason-hint">
         อย่างน้อย {minimum} ตัวอักษร · เหตุผลนี้ถูกบันทึกถาวรและโรงเรียนตรวจสอบย้อนหลังได้
       </p>
-      <label>
-        รหัสผ่านของคุณ
-        <input
-          type="password" autoComplete="current-password" value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="ยืนยันว่าเป็นคุณจริง" required
-        />
-      </label>
-      <p className="field-hint">ยืนยันรหัสผ่านมีอายุ 15 นาที ใช้ได้กับรายการที่ต้องยืนยันทุกรายการในช่วงนั้น</p>
+      {fresh ? (
+        <div className="alert success" role="status">ยืนยันตัวตนล่าสุดแล้ว · ใช้งานหน้าต่างความปลอดภัยได้อีกไม่เกิน 15 นาที</div>
+      ) : (
+        <>
+          <label>
+            รหัสผ่านของคุณ
+            <input
+              type="password" autoComplete="current-password" value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="ยืนยันว่าเป็นคุณจริง" required
+            />
+          </label>
+          <p className="field-hint">ยืนยันรหัสผ่านมีอายุ 15 นาที ใช้ได้กับรายการที่ต้องยืนยันทุกรายการในช่วงนั้น</p>
+        </>
+      )}
       {error && <div className="alert error" role="alert">{error}</div>}
     </Modal>
   );

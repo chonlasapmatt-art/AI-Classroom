@@ -261,6 +261,15 @@ export async function reauthenticate(password: string): Promise<void> {
   await gateway({ action: 'reauthenticate', password });
 }
 
+/** Reads the server-owned re-authentication window so code-authenticated operators are not asked
+ * for a second credential immediately after they have already entered the platform access code. */
+export async function hasFreshPlatformReauthentication(): Promise<boolean> {
+  const client = requireSupabase();
+  const { data: authData } = await client.auth.getUser();
+  if (!authData.user) return false;
+  return await rpc<boolean>('platform_reauth_fresh', { p_actor: authData.user.id, p_minutes: 15 });
+}
+
 export async function enrollPlatformAdmin(input: { accessCode: string; displayName: string }): Promise<void> {
   await gateway({ action: 'enroll', accessCode: input.accessCode, displayName: input.displayName });
 }
