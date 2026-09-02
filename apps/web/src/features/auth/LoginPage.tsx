@@ -13,7 +13,7 @@ import { useTheme } from '../../app/ThemeContext';
 import { themeModes, themePresets, type ThemeMode, type ThemePreset } from '../../app/theme';
 import { enablePreviewMode, isPreviewModeAvailable } from '../../preview/previewMode';
 import {
-  isCompleteMemberLogin, memberLogin, normalizeAccessCode, teacherLogin, type MemberAccountChoice, type MemberRole
+  isCompleteMemberLogin, memberLogin, normalizeTeacherCode, teacherLogin, type MemberAccountChoice, type MemberRole
 } from './memberAccess';
 import { isCompleteStudentLogin, studentLogin, type SchoolChoice } from './studentAccess';
 
@@ -257,7 +257,7 @@ export function LoginPage() {
           <button
             className="primary-button big-button"
             disabled={busy || !(who === 'teacher'
-              ? displayName.trim().length >= 2 && normalizeAccessCode(password).length >= 1
+              ? displayName.trim().length >= 2 && normalizeTeacherCode(password).length >= 1
               : who === 'student'
                 ? isCompleteStudentLogin(displayName, password)
                 : isCompleteMemberLogin(displayName, password))}

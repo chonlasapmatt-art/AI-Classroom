@@ -44,6 +44,19 @@ export function normalizeAccessCode(value: string): string {
 }
 
 /**
+ * Reduces the personal code an administrator saved for one teacher. A different rule, on purpose.
+ *
+ * The school's registration code above is hashed under this rule and stored, so it can never change.
+ * A teacher's own code is compared against the roster in the database, which strips spaces and
+ * dashes and nothing else — and Thai schools write these codes in Thai, `ครู-01` and `ค.02`. Sending
+ * the latin-only form meant `01` was compared against a stored `ครู01` and no such teacher was ever
+ * found. Both sides now strip the same two separator characters and leave the rest alone.
+ */
+export function normalizeTeacherCode(value: string): string {
+  return value.replace(/[\s-]/g, '').trim().toUpperCase();
+}
+
+/**
  * The form a person sees and copies.
  *
  * A generated code is `SC-` plus digits and is shown that way. A code the school chose is shown as

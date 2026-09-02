@@ -13,7 +13,9 @@
 // client are rate limited before any lookup runs.
 
 import { corsHeaders, json } from '../_shared/http.ts';
-import { hashAccessCode, normalizeAccessCode, resolveTeacherCodeSecret } from '../_shared/teacherCode.ts';
+import {
+  hashAccessCode, normalizeAccessCode, normalizeTeacherCode, resolveTeacherCodeSecret
+} from '../_shared/teacherCode.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const IDENTITY_WINDOW_MINUTES = 15;
@@ -261,6 +263,9 @@ Deno.serve(async (request) => {
     const { data: signedIn, error: signInError } = await anon.auth.signInWithPassword({ email, password });
     if (signInError || !signedIn.session) {
       await service.auth.admin.deleteUser(profileId).catch(() => undefined);
+      // The account is gone, so the use claimed for it has to go back too. Without this a school
+      // with a twelve-use code silently loses one of the twelve every time this branch is taken.
+      await releaseClaim();
       await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'session_failed' });
       return json({ code: REGISTRATION_FAILURE }, 400, headers);
     }
@@ -279,7 +284,7 @@ Deno.serve(async (request) => {
    */
   async function teacherLogin(body: Record<string, unknown>) {
     const displayName = text(body, 'displayName');
-    const teacherCode = normalizeAccessCode(text(body, 'teacherCode', 100));
+    const teacherCode = normalizeTeacherCode(text(body, 'teacherCode', 100));
     const teacherId = body.teacherId ? String(body.teacherId) : null;
     const identityHash = await hmac(`teacher-login|${normalizeName(displayName)}|${teacherCode}`, secret);
 

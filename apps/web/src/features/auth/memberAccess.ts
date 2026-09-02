@@ -71,14 +71,32 @@ export function isCompleteMemberLogin(displayName: string, password: string): bo
 }
 
 /**
- * Reduces a teacher code to what it means, exactly as the server does.
+ * Reduces a school's registration access code to what it means, exactly as the server does.
  *
  * The code is copied out of a chat message or read off a whiteboard, so the dash, the case and the
  * spaces around it are noise; the digits are the code. Normalising on both sides means a teacher who
  * types `sc 482917` is not told their school's code is wrong.
+ *
+ * This one drops everything that is not a latin letter or a digit, and it has to: the server stores
+ * an HMAC of this exact form, so the rule cannot change without invalidating every code ever issued.
+ * It is not the rule for the personal code a teacher signs in with — see `normalizeTeacherCode`.
  */
 export function normalizeAccessCode(value: string): string {
   return value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+}
+
+/**
+ * Reduces the personal code an administrator saved for one teacher.
+ *
+ * Only spaces and dashes go, because a Thai school writes these codes in Thai — `ครู-01`, `ค.02` —
+ * and `normalizeAccessCode` deletes every one of those characters. A teacher whose code was `ครู-01`
+ * was sending `01` to a server holding `ครู01`, so the pair never matched and the sign-in button was
+ * disabled outright for a code written entirely in Thai. The database applies this same rule to the
+ * stored code, so the school keeps whatever formatting it chose and only the comparison ignores the
+ * separators. Student numbers have worked this way since `202608300017_student_code_matching`.
+ */
+export function normalizeTeacherCode(value: string): string {
+  return value.replace(/[\s-]/g, '').trim().toUpperCase();
 }
 
 export function isCompleteMemberRegistration(input: {
@@ -189,7 +207,7 @@ export async function teacherLogin(input: {
   return accessCall({
     action: 'teacher-login',
     displayName: normalizeMemberName(input.displayName),
-    teacherCode: normalizeAccessCode(input.teacherCode),
+    teacherCode: normalizeTeacherCode(input.teacherCode),
     ...(input.teacherId ? { teacherId: input.teacherId } : {})
   });
 }

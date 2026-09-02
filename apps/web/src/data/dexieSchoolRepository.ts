@@ -335,11 +335,13 @@ export class DexieSchoolRepository implements SchoolRepository {
       avatarPhotoId: existing?.avatarPhotoId ?? null,
       teacherCode: input.teacherCode, displayName: input.displayName,
       email: input.email, subject: input.subject,
-      // upsert_teacher creates the server row as verification_pending, so the local projection says
-      // the same. Claiming verified here showed a green chip and hid the verify button until the
-      // next pull corrected it, which read as the status changing on its own.
-      verificationStatus: existing?.verificationStatus ?? 'verification_pending',
-      status: existing?.status ?? 'active', updatedAt: nowIso()
+      // `upsert_teacher` writes the server row as an active, verified teacher — a teacher the
+      // administrator entered by hand is one the school has vouched for by entering them. The local
+      // projection has to say the same thing: leaving it pending showed a "ยังไม่ยืนยัน" chip and a
+      // verify button for an account that was already usable, and it corrected itself on the next
+      // pull, which read as the status changing on its own.
+      verificationStatus: 'verified_teacher',
+      status: 'active', updatedAt: nowIso()
     };
     await db.teachers.put(record);
   }
