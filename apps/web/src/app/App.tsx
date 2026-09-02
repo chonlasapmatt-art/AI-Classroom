@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
-import { SessionProvider, type SessionValue } from './SessionContext';
+import { SessionProvider, type SessionValue, type SupportView } from './SessionContext';
 import { RepositoryProvider } from '../data/RepositoryContext';
 import { createDexieRepository } from '../data/dexieSchoolRepository';
 import { ConfigurationScreen } from '../features/auth/ConfigurationScreen';
@@ -42,7 +42,7 @@ import { AchievementsPage } from '../features/achievements/AchievementsPage';
 import { PromotionPage } from '../features/promotion/PromotionPage';
 import { AvatarGalleryPage } from '../features/avatars/AvatarGalleryPage';
 import { PreviewDemoPage } from '../preview/PreviewDemoPage';
-import { isCloudConfigured } from '../services/supabase';
+import { isCloudConfigured, requireSupabase } from '../services/supabase';
 import { useBackgroundSync } from '../sync/useBackgroundSync';
 import { SyncStatusProvider } from '../sync/SyncStatusContext';
 import { PreviewProviders } from '../preview/PreviewProviders';
@@ -94,14 +94,37 @@ function CloudRoutes() {
   const auth = useAuth();
   const active = auth.active;
   const schoolId = active?.schoolId ?? '';
+  const supportActive = Boolean(active?.membershipId.startsWith('support:'));
+  const [supportView, setSupportView] = useState<SupportView | null>(null);
+
+  useEffect(() => {
+    if (!supportActive || !active) {
+      setSupportView(null);
+      return;
+    }
+    setSupportView({ role: 'admin', targetProfileId: active.profileId, targetDisplayName: active.displayName });
+  }, [active, supportActive]);
+
+  // The repository keeps the real support authority as admin. This selected role is only a
+  // troubleshooting perspective and never becomes a different database principal.
+  const effectiveActive = useMemo(() => active && supportActive && supportView
+    ? { ...active, role: supportView.role, profileId: supportView.targetProfileId, displayName: supportView.targetDisplayName }
+    : active, [active, supportActive, supportView]);
   const repository = useMemo(() => createDexieRepository(schoolId, active ? {
     role: active.role,
     profileId: active.profileId
   } : undefined), [active, schoolId]);
   const { memberships, selectMembership, signOut } = auth;
+  const endSupport = useCallback(async () => {
+    const { error } = await requireSupabase().rpc('end_support_session', { p_session_id: null });
+    if (error) throw new Error(error.message);
+    setSupportView(null);
+    window.location.assign('/platform/#/schools');
+  }, []);
   const session: SessionValue | null = useMemo(() => (active ? {
-    mode: 'cloud', membership: active, memberships, selectMembership, signOut
-  } : null), [active, memberships, selectMembership, signOut]);
+    mode: 'cloud', membership: effectiveActive ?? active, memberships, selectMembership, signOut,
+    ...(supportActive && supportView ? { support: { view: supportView, setView: setSupportView, end: endSupport } } : {})
+  } : null), [active, effectiveActive, endSupport, memberships, selectMembership, signOut, supportActive, supportView]);
 
   if (auth.loading) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบเซสชัน...</p></main>;
   if (!auth.session) return <Navigate to="/login" replace />;

@@ -176,7 +176,12 @@ export function SchoolsPage() {
         <StartSupportDialog
           school={supporting}
           onClose={() => setSupporting(null)}
-          onStarted={(text) => { setMessage(text); void refresh(); }}
+          onStarted={(text) => {
+            setMessage(text);
+            // Move straight into the school's real app. AuthContext will read the fresh support
+            // session from the server on this entrypoint.
+            window.location.assign('/');
+          }}
         />
       )}
     </Card>
@@ -400,6 +405,7 @@ export function SupportModeBanner({ session, onLeave }: {
       <span className="support-timer">
         {expired ? 'หมดเวลาแล้ว — สิทธิ์ถูกยกเลิกโดยอัตโนมัติ' : `เหลือเวลา ${minutes}:${String(seconds).padStart(2, '0')}`}
       </span>
+      {!expired && <button type="button" onClick={() => window.location.assign('/')}>เปิดแอปโรงเรียน</button>}
       <button type="button" onClick={onLeave}>ออกจาก Support Mode</button>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../app/SessionContext';
 import { useSchoolSnapshot } from '../data/RepositoryContext';
 import { unreadCount } from '../academic/views';
@@ -9,6 +9,7 @@ import { TeacherCodeFirstRun } from '../features/teachers/TeacherCodeFirstRun';
 import { ProfileAvatar } from '../features/avatars/ProfileAvatar';
 import { useSyncStatus } from '../sync/SyncStatusContext';
 import type { Role } from '../domain/types';
+import type { SessionValue, SupportView } from '../app/SessionContext';
 
 const roleLabels: Record<Role, string> = { admin: 'ผู้ดูแลระบบ', teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง' };
 
@@ -59,6 +60,75 @@ const navigationGroups: NavGroup[] = [
 
 const sidebarStorageKey = (role: Role) => `smart-classroom.sidebar-groups.${role}`;
 const avatarStorageKey = (profileId: string) => `smart-classroom.avatar.${profileId}`;
+
+const supportRoleOptions: { role: Role; label: string }[] = [
+  { role: 'admin', label: 'ผู้ดูแลระบบ' },
+  { role: 'teacher', label: 'ครู' },
+  { role: 'student', label: 'นักเรียน' },
+  { role: 'parent', label: 'ผู้ปกครอง' }
+];
+
+interface SupportTarget { profileId: string; displayName: string }
+
+function SupportRoleSwitcher({ session, snapshot }: { session: SessionValue; snapshot: ReturnType<typeof useSchoolSnapshot> }) {
+  const navigate = useNavigate();
+  const support = session.support;
+  if (!support) return null;
+  const activeSupport = support;
+
+  const operator = session.memberships.find((item) => item.membershipId.startsWith('support:')) ?? session.membership;
+  const targets: Record<Role, SupportTarget[]> = {
+    admin: [{ profileId: operator.profileId, displayName: operator.displayName }],
+    teacher: snapshot.teachers
+      .filter((teacher) => teacher.status === 'active' && teacher.profileId)
+      .map((teacher) => ({ profileId: teacher.profileId!, displayName: teacher.displayName })),
+    student: snapshot.students
+      .filter((student) => student.status === 'active' && student.profileId)
+      .map((student) => ({ profileId: student.profileId!, displayName: student.displayName })),
+    parent: Array.from(new Map(snapshot.parentLinks
+      .filter((link) => link.status === 'linked' && link.profileId)
+      .map((link) => [link.profileId!, { profileId: link.profileId!, displayName: link.parentName }])).values())
+  };
+  const roleTargets = targets[activeSupport.view.role];
+
+  function setRole(role: Role) {
+    const target = targets[role][0] ?? operator;
+    const next: SupportView = { role, targetProfileId: target.profileId, targetDisplayName: target.displayName };
+    activeSupport.setView(next);
+    navigate('/');
+  }
+
+  function setTarget(profileId: string) {
+    const target = roleTargets.find((item) => item.profileId === profileId);
+    if (!target) return;
+    activeSupport.setView({ ...activeSupport.view, targetProfileId: target.profileId, targetDisplayName: target.displayName });
+    navigate('/');
+  }
+
+  return (
+    <div className="support-role-switch" aria-label="เครื่องมือดูแลหลายมุมมอง">
+      <label className="role-switch-label">
+        มุมมอง Support
+        <select aria-label="เลือกมุมมอง Support" value={activeSupport.view.role} onChange={(event) => setRole(event.target.value as Role)}>
+          {supportRoleOptions.map((option) => <option key={option.role} value={option.role}>{option.label}</option>)}
+        </select>
+      </label>
+      <label className="role-switch-label support-target-select">
+        บัญชีที่ตรวจสอบ
+        <select
+          aria-label="เลือกบัญชีที่ตรวจสอบ"
+          value={roleTargets.some((item) => item.profileId === activeSupport.view.targetProfileId) ? activeSupport.view.targetProfileId : ''}
+          onChange={(event) => setTarget(event.target.value)}
+          disabled={roleTargets.length === 0}
+        >
+          {roleTargets.length === 0
+            ? <option value="">ยังไม่มีบัญชีใน role นี้</option>
+            : roleTargets.map((target) => <option key={target.profileId} value={target.profileId}>{target.displayName}</option>)}
+        </select>
+      </label>
+    </div>
+  );
+}
 
 function readExpandedGroups(role: Role, groups: NavGroup[], path: string): Record<string, boolean> {
   try {
@@ -183,7 +253,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           )}
           <div className="role-switch">
-            {session.memberships.length > 1 && (
+            {session.support ? <SupportRoleSwitcher session={session} snapshot={snapshot} /> : session.memberships.length > 1 && (
               <label className="role-switch-label">
                 {session.mode === 'preview' ? 'สลับบทบาท (Preview)' : 'บทบาท'}
                 <select
@@ -205,9 +275,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             for the school's own administrator — by the school, or by themselves. */}
         {membership.membershipId.startsWith('support:') && (
           <div className="support-banner" role="status">
-            <strong>SUPER ADMIN SUPPORT MODE</strong>
+            <strong>SUPER ADMIN SUPPORT MODE · {roleLabels[membership.role]}</strong>
             <span>กำลังดูแล: {membership.schoolName}</span>
-            <span className="support-reason">ทุกการกระทำถูกบันทึกในบันทึกตรวจสอบของโรงเรียนนี้</span>
+            <span className="support-reason">มุมมองนี้ใช้ตรวจสอบข้อมูลจริง · สิทธิ์แก้ไขยังตรวจจาก Support Session ของเซิร์ฟเวอร์</span>
+            <button type="button" onClick={() => void session.support?.end()}>ออกจาก Support Mode</button>
           </div>
         )}
         {/* A round running in this student's class reaches them wherever they are in the app: the

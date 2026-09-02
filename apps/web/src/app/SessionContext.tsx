@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import type { MembershipContext } from '../domain/types';
+import type { MembershipContext, Role } from '../domain/types';
 
 /**
  * The screens depend on a session, not on Supabase. The cloud path fills this from AuthContext,
@@ -11,6 +11,18 @@ export interface SessionValue {
   memberships: MembershipContext[];
   selectMembership(membershipId: string): void;
   signOut(): void | Promise<void>;
+  /** A support perspective changes presentation only; server authority remains administrator. */
+  support?: {
+    view: SupportView;
+    setView(view: SupportView): void;
+    end(): Promise<void>;
+  };
+}
+
+export interface SupportView {
+  role: Role;
+  targetProfileId: string;
+  targetDisplayName: string;
 }
 
 const SessionContext = createContext<SessionValue | null>(null);

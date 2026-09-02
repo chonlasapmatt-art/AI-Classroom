@@ -191,6 +191,9 @@ input:focus,select:focus,textarea:focus { border-color:var(--brand-500); }
 .checkbox-row input { min-height:auto; width:20px; height:20px; }
 textarea { min-height:110px; resize:vertical; }
 .role-switch-label { font-size:.7rem; gap:.25rem; }
+.support-role-switch { display:flex; align-items:flex-end; gap:.5rem; }
+.support-role-switch .role-switch-label { min-width:150px; }
+.support-role-switch .support-target-select { min-width:210px; }
 
 .preview-entry { margin-top:1.5rem; padding:1.2rem; border:1px dashed var(--warning); border-radius:var(--radius-md); background:var(--warning-soft); }
 .preview-entry h3 { margin:.6rem 0 .3rem; }
