@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { db } from '../db/database';
 import { registerAndSync } from './engine';
 import { registerUpdatePreparation } from '../app/appUpdate';
+import { recall, remember } from '../app/deviceMemory';
 
 export type SyncPhase = 'idle' | 'offline' | 'syncing' | 'synced' | 'attention' | 'error';
 
@@ -21,10 +22,12 @@ const MUTATION_DEBOUNCE_MS = 350;
 
 /** One stable device id per browser profile, reused by every sync from this device. */
 export function deviceId(): string {
-  const existing = localStorage.getItem('device-id');
+  const existing = recall('device-id');
   if (existing) return existing;
+  // A browser that refuses to store anything gets a fresh id per call rather than a crash. Sync
+  // still works; the device list just shows more short-lived entries than it otherwise would.
   const created = crypto.randomUUID();
-  localStorage.setItem('device-id', created);
+  remember('device-id', created);
   return created;
 }
 
@@ -108,8 +111,15 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
     const online = () => { void syncNow(); };
     const offline = () => { setPhase('offline'); setDetail('บันทึกในเครื่องแล้ว รอเชื่อมต่ออินเทอร์เน็ต'); };
     const focus = () => { void syncNow(); };
-    const visible = () => { if (document.visibilityState === 'visible') void syncNow(); };
+    // Both directions matter. Coming back is when the server has news; leaving is the last moment
+    // this tab will run at all. A teacher who marks attendance and immediately locks the tablet, or
+    // switches apps on a phone the browser then discards, otherwise leaves that push sitting in the
+    // queue until the app happens to be opened again — the work is safe on disk, but nobody else can
+    // see it, which is indistinguishable from lost to the person waiting for it.
+    const visible = () => { void syncNow(); };
     const pageShow = () => { void syncNow(); };
+    // `pagehide` is the one teardown event mobile browsers reliably fire; `beforeunload` is not.
+    const pageHide = () => { void syncNow(); };
     const channel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('smart-classroom-sync') : null;
     const channelMessage = (event: MessageEvent<{ schoolId?: string }>) => {
       if (event.data?.schoolId === schoolId) void syncNow();
@@ -121,6 +131,7 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
     window.addEventListener('focus', focus);
     document.addEventListener('visibilitychange', visible);
     window.addEventListener('pageshow', pageShow);
+    window.addEventListener('pagehide', pageHide);
     return () => {
       window.clearInterval(timer);
       if (mutationTimer.current !== null) window.clearTimeout(mutationTimer.current);
@@ -133,6 +144,7 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
       window.removeEventListener('focus', focus);
       document.removeEventListener('visibilitychange', visible);
       window.removeEventListener('pageshow', pageShow);
+      window.removeEventListener('pagehide', pageHide);
     };
   }, [enabled, schoolId, syncNow]);
 
