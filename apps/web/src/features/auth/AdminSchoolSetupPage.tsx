@@ -15,8 +15,8 @@ export function AdminSchoolSetupPage() {
   const [displayName, setDisplayName] = useState(initialName);
   const [schoolName, setSchoolName] = useState('');
   const [schoolCode, setSchoolCode] = useState('');
-  const [academicYear, setAcademicYear] = useState('');
-  const [term, setTerm] = useState('1');
+  const [academicYear] = useState(() => String(new Date().getFullYear() + 543));
+  const term = '1';
   const [accessCode, setAccessCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,8 +33,8 @@ export function AdminSchoolSetupPage() {
 
   async function finish(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (accessCode.trim().length < 4 || academicYear.trim().length < 2 || term.trim().length < 1) {
-      setError('กรุณากรอกปีการศึกษา ภาคเรียน และรหัสเปิดใช้งานให้ครบ'); return;
+    if (accessCode.trim().length < 4) {
+      setError('กรุณากรอกรหัสเปิดใช้งานสินค้าให้ครบ'); return;
     }
     setBusy(true); setError(null);
     try {
@@ -109,9 +109,9 @@ export function AdminSchoolSetupPage() {
           <form onSubmit={(event) => void finish(event)} className="admin-setup-form">
             <span className="ui-eyebrow">STEP 03 · ACTIVATE SERVER</span>
             <h2>เปิดใช้งานเซิร์ฟโรงเรียน</h2>
-            <p className="form-intro">ข้อมูลนี้ใช้เริ่มต้นโครงสร้างโรงเรียนของคุณ และรหัสเปิดใช้งานจะตรวจสอบบนเซิร์ฟเวอร์เท่านั้น</p>
+              <p className="form-intro">กรอกรหัสเปิดใช้งานสินค้าเพื่อยืนยันการใช้งาน ระบบจะพาไปหน้าหลักทันทีเมื่อสำเร็จ</p>
             <div className="admin-setup-summary"><div><span>ผู้ดูแล</span><strong>{displayName}</strong></div><div><span>โรงเรียน</span><strong>{schoolName} · {schoolCode.toUpperCase()}</strong></div></div>
-            <div className="form-grid"><label>ปีการศึกษา<input autoFocus value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} placeholder="เช่น 2569" minLength={2} maxLength={20} required /></label><label>ภาคเรียน<input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="เช่น 1" maxLength={20} required /></label></div>
+            <p className="field-hint">ระบบตั้งปีการศึกษา {academicYear} และภาคเรียน 1 ให้โดยอัตโนมัติ คุณแก้ไขได้ภายหลังในเมนูตั้งค่าโรงเรียน</p>
             <label>รหัสเปิดใช้งานสินค้า<input type="password" value={accessCode} onChange={(event) => setAccessCode(event.target.value)} placeholder="ใส่รหัสที่ได้รับตอนซื้อระบบ" minLength={4} maxLength={128} autoComplete="one-time-code" required /></label>
             {error && <div className="alert error" role="alert">{error}</div>}
             <div className="admin-setup-actions"><button type="button" className="text-button" onClick={() => { setError(null); setStep(2); }}>ย้อนกลับ</button><button type="submit" className="primary-button" disabled={busy}>{busy ? 'กำลังเปิดใช้งาน...' : 'บันทึกและเข้าใช้งาน'}</button></div>
