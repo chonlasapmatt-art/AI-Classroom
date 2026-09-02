@@ -131,7 +131,9 @@ describe('passwordless student access — the screen a student sees', () => {
     expect(appSource).toContain('<Route path="/student" element={<Navigate to="/login" replace />} />');
     expect(appSource).not.toContain('/student/first-time');
     expect(loginPage).toContain('ชื่อนักเรียน');
-    expect(loginPage).toContain('รหัสผ่าน');
+    expect(loginPage).toContain('studentLogin');
+    expect(loginPage).toContain('เลขประจำตัวนักเรียน');
+    expect(loginPage).toContain('studentCode: password');
     expect(loginPage).not.toContain('สมัครใช้งาน');
     expect(accessFunction).toContain("if (action === 'register')");
     expect(accessFunction).toContain("code: 'SELF_REGISTRATION_DISABLED'");

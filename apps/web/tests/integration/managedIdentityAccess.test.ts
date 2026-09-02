@@ -63,12 +63,14 @@ describe('managed roster identity flows', () => {
     expect(teacherMigration).toContain("if p_role='teacher' then raise exception 'TEACHER_ADMIN_ONLY'");
   });
 
-  it('uses the administrator-entered password as the login credential', () => {
+  it('uses the saved teacher code for teacher login and keeps passwords for parents', () => {
     expect(teacherPage).toContain('รหัสครู');
     expect(teacherPage).toContain('ใช้เป็นรหัสประจำตัวครู ไม่ใช่รหัสผ่าน');
     expect(teacherPage).toContain('สร้างบัญชีเข้าใช้');
-    expect(loginPage).not.toContain('teacherLogin');
-    expect(loginPage).toContain('ใช้ชื่อและรหัสผ่านที่แอดมินโรงเรียนสร้างให้');
+    expect(loginPage).toContain('teacherLogin');
+    expect(loginPage).toContain('teacherCode: password');
+    expect(loginPage).toContain('ใช้ชื่อและรหัสครูที่แอดมินโรงเรียนบันทึกให้');
+    expect(loginPage).toContain("role: 'parent'");
     expect(teacherLoginMigration).toContain('teachers_login_code_idx');
     expect(teacherLoginMigration).toContain('t.teacher_code');
     expect(teacherLoginMigration).toContain('p_role=\'teacher\'');

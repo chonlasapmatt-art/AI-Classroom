@@ -13,13 +13,16 @@ import { useTheme } from '../../app/ThemeContext';
 import { themeModes, themePresets, type ThemeMode, type ThemePreset } from '../../app/theme';
 import { enablePreviewMode, isPreviewModeAvailable } from '../../preview/previewMode';
 import {
-  isCompleteMemberLogin, memberLogin, type MemberAccountChoice, type MemberRole
+  isCompleteMemberLogin, memberLogin, normalizeAccessCode, teacherLogin, type MemberAccountChoice, type MemberRole
 } from './memberAccess';
+import { isCompleteStudentLogin, studentLogin, type SchoolChoice } from './studentAccess';
 
 type Who = Exclude<MemberRole, 'admin'>;
 
 const whoLabels: Record<Who, string> = { teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง' };
 const whoIcons: Record<Who, string> = { teacher: '✎', student: '◉', parent: '♧' };
+
+type LoginChoice = MemberAccountChoice | SchoolChoice;
 
 export function LoginPage() {
   const auth = useAuth();
@@ -27,7 +30,7 @@ export function LoginPage() {
   const [who, setWho] = useState<Who | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
-  const [accounts, setAccounts] = useState<MemberAccountChoice[]>([]);
+  const [choices, setChoices] = useState<LoginChoice[]>([]);
   const [profileId, setProfileId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,7 +38,7 @@ export function LoginPage() {
   if (auth.session) return <Navigate to="/" replace />;
 
   function choose(next: Who) {
-    setWho(next); setError(null); setAccounts([]); setProfileId(''); setPassword('');
+    setWho(next); setError(null); setChoices([]); setProfileId(''); setPassword('');
   }
 
   function moveHero(event: PointerEvent<HTMLElement>) {
@@ -62,10 +65,42 @@ export function LoginPage() {
     if (who === null) return;
     setBusy(true); setError(null);
     try {
-      const result = await memberLogin({ role: who, displayName, password, ...(profileId ? { profileId } : {}) });
+      if (who === 'teacher') {
+        const result = await teacherLogin({
+          displayName,
+          teacherCode: password,
+          ...(profileId ? { teacherId: profileId } : {})
+        });
+        if (result.outcome === 'session') { await auth.applySession(result.session); return; }
+        if (result.outcome === 'account-required') {
+          setChoices(result.accounts);
+          setError('มีครูชื่อนี้และรหัสนี้มากกว่าหนึ่งโรงเรียน กรุณาเลือกโรงเรียนของคุณ');
+          return;
+        }
+        setError(result.message);
+        return;
+      }
+
+      if (who === 'student') {
+        const result = await studentLogin({
+          displayName,
+          studentCode: password,
+          ...(profileId ? { schoolId: profileId } : {})
+        });
+        if (result.outcome === 'session') { await auth.applyStudentSession(result.session); return; }
+        if (result.outcome === 'school-required') {
+          setChoices(result.schools);
+          setError('มีนักเรียนชื่อนี้และเลขประจำตัวนี้มากกว่าหนึ่งโรงเรียน กรุณาเลือกโรงเรียนของคุณ');
+          return;
+        }
+        setError(result.message);
+        return;
+      }
+
+      const result = await memberLogin({ role: 'parent', displayName, password, ...(profileId ? { profileId } : {}) });
       if (result.outcome === 'session') { await auth.applySession(result.session); return; }
       if (result.outcome === 'account-required') {
-        setAccounts(result.accounts);
+        setChoices(result.accounts);
         setError('มีบัญชีชื่อนี้มากกว่าหนึ่งบัญชี กรุณาเลือกโรงเรียนของคุณ');
         return;
       }
@@ -171,7 +206,11 @@ export function LoginPage() {
       ) : (
         <form className="auth-card" onSubmit={(event) => void submit(event)}>
           <h2>เข้าสู่ระบบ{whoLabels[who]}</h2>
-          <p className="role-hint">ใช้ชื่อและรหัสผ่านที่แอดมินโรงเรียนสร้างให้</p>
+          <p className="role-hint">
+            {who === 'teacher' ? 'ใช้ชื่อและรหัสครูที่แอดมินโรงเรียนบันทึกให้' :
+              who === 'student' ? 'ใช้ชื่อและเลขประจำตัวที่โรงเรียนบันทึกให้' :
+                'ใช้ชื่อและรหัสผ่านที่แอดมินโรงเรียนสร้างให้'}
+          </p>
           {/* The hint sits outside the label so the field keeps its short name — a screen reader
               announces the label, then the description, rather than one long sentence. */}
           <label>
@@ -184,26 +223,45 @@ export function LoginPage() {
           </label>
           <p className="field-hint" id="login-name-hint">ใช้ชื่อเดียวกับที่แอดมินบันทึกไว้ (ตัวพิมพ์เล็กใหญ่และเว้นวรรคไม่มีผล)</p>
           <label>
-            รหัสผ่าน
+            {who === 'teacher' ? 'รหัสครู' : who === 'student' ? 'เลขประจำตัวนักเรียน' : 'รหัสผ่าน'}
             <input
-              name="password" type="password" autoComplete="current-password" value={password}
+              name={who === 'teacher' ? 'teacherCode' : who === 'student' ? 'studentCode' : 'password'}
+              type={who === 'parent' ? 'password' : 'text'}
+              autoComplete={who === 'parent' ? 'current-password' : 'off'} value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="รหัสผ่านของคุณ" required
+              placeholder={who === 'teacher' ? 'เช่น SC-001' : who === 'student' ? 'เช่น 00001' : 'รหัสผ่านของคุณ'} required
             />
           </label>
-          {accounts.length > 0 && (
+          <p className="field-hint">
+            {who === 'teacher' ? 'ใช้รหัสครูที่แอดมินบันทึกไว้ ไม่ใช่รหัสผ่าน' :
+              who === 'student' ? 'ใช้เลขประจำตัวนักเรียนที่ครูบันทึกไว้' :
+                'ใช้รหัสผ่านของคุณที่แอดมินสร้างให้'}
+          </p>
+          {choices.length > 0 && (
             <label>
               โรงเรียน
               <select value={profileId} onChange={(event) => setProfileId(event.target.value)} required>
                 <option value="">เลือกโรงเรียน</option>
-                {accounts.map((account) => (
-                  <option key={account.profileId} value={account.profileId}>{account.schoolName}</option>
+                {choices.map((choice) => (
+                  <option
+                    key={'profileId' in choice ? choice.profileId : choice.schoolId}
+                    value={'profileId' in choice ? choice.profileId : choice.schoolId}
+                  >
+                    {'schoolName' in choice ? choice.schoolName : choice.name}
+                  </option>
                 ))}
               </select>
             </label>
           )}
           {error && <div className="alert error" role="alert">{error}</div>}
-          <button className="primary-button big-button" disabled={busy || !isCompleteMemberLogin(displayName, password)}>
+          <button
+            className="primary-button big-button"
+            disabled={busy || !(who === 'teacher'
+              ? displayName.trim().length >= 2 && normalizeAccessCode(password).length >= 1
+              : who === 'student'
+                ? isCompleteStudentLogin(displayName, password)
+                : isCompleteMemberLogin(displayName, password))}
+          >
             {busy ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
           </button>
           <p className="fine-print">หากเข้าระบบไม่ได้ ให้ติดต่อแอดมินเพื่อกำหนดรหัสผ่านใหม่</p>
