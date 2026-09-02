@@ -203,7 +203,7 @@ function QuizSetup({ schoolId, editableSubjectIds, onStarted, onError, history, 
     setBusy(true);
     try {
       const created = await createQuizSession({
-        schoolId, classId, subjectId: subjectId || null,
+        schoolId, classId, subjectId,
         title: subjects.find((subject) => subject.id === subjectId)?.name ?? 'Quiz Challenge',
         questionIds: preview.map((question) => question.id),
         timerSeconds: timer === '' ? null : Number(timer),
@@ -227,9 +227,11 @@ function QuizSetup({ schoolId, editableSubjectIds, onStarted, onError, history, 
               ))}
             </select>
           </Field>
-          <Field label="รายวิชา">
+          {/* Not optional. The round's points are awarded into this subject at the end, and a round
+              opened without one could be played and never scored. */}
+          <Field label="รายวิชา" hint={subjectId ? undefined : 'เลือกก่อนจึงจะเปิดกิจกรรมได้'}>
             <select value={subjectId} onChange={(event) => { setSubjectId(event.target.value); setCategoryId(''); }}>
-              <option value="">ทุกรายวิชา</option>
+              <option value="">เลือกรายวิชา</option>
               {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
             </select>
           </Field>
@@ -313,7 +315,7 @@ function QuizSetup({ schoolId, editableSubjectIds, onStarted, onError, history, 
 
         <Button
           variant="primary" loading={busy}
-          disabled={!classId || preview.length === 0}
+          disabled={!classId || !subjectId || preview.length === 0}
           onClick={() => void start()}
         >
           เปิดกิจกรรมและขึ้นกระดาน

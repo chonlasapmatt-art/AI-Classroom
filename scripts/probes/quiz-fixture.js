@@ -24,11 +24,18 @@ async function up() {
   const studentId = student.body?.[0]?.id;
   if (!termId || !classId || !studentId) throw new Error('school is missing a term, a class or the student');
 
+  // A question with no subject is invisible to every teacher — the bank is read through subject
+  // ownership — and a round with no subject cannot be scored. So the probe's questions belong to a
+  // subject, and it must be one the probe's teacher owns: `SC_SUBJECT_ID` names it.
+  const subject = await rest(`subjects?select=id&school_id=eq.${school}&status=eq.active&limit=1`);
+  const subjectId = process.env.SC_SUBJECT_ID || subject.body?.[0]?.id;
+  if (!subjectId) throw new Error('school has no active subject to file the questions under');
+
   const questions = await rest('question_bank', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify([1, 2, 3].map((index) => ({
-      school_id: school, difficulty: 'easy', question_type: 'multiple_choice',
+      school_id: school, subject_id: subjectId, difficulty: 'easy', question_type: 'multiple_choice',
       prompt: `[${PROBE_TAG}] คำถามทดสอบข้อที่ ${index}`,
       choices: [{ id: 'a', text: 'ถูก' }, { id: 'b', text: 'ผิด' }],
       answer_key: ['a'], points: 1, tags: [PROBE_TAG], status: 'active'
@@ -54,6 +61,7 @@ async function up() {
   }
 
   console.log(JSON.stringify({
+    subjectId,
     questions: (questions.body ?? []).map((row) => row.id),
     classId, studentId, enrolmentId, enrolmentCreated
   }));

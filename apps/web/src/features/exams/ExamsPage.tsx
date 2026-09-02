@@ -88,9 +88,11 @@ export function ExamsPage() {
     const form = event.currentTarget;
     const data = new FormData(form);
     try {
+      const subjectId = String(data.get('subjectId') ?? '');
+      if (!subjectId) throw new Error('เลือกรายวิชาก่อน เพราะการออกข้อสอบและให้คะแนนผูกกับเจ้าของรายวิชา');
       const input = {
         classId: String(data.get('classId') ?? ''),
-        subjectId: String(data.get('subjectId') ?? '') || null,
+        subjectId,
         title: String(data.get('title') ?? '').trim(),
         testDate: String(data.get('testDate') ?? ''),
         maxScore: Number(data.get('maxScore') ?? 100)
@@ -147,9 +149,11 @@ export function ExamsPage() {
                 {classes.map((classroom) => <option key={classroom.id} value={classroom.id}>{classroom.name}</option>)}
               </select>
             </Field>
-            <Field label="รายวิชา">
-              <select name="subjectId">
-                <option value="">ไม่ระบุ</option>
+            {/* An exam with no subject is one nobody but an administrator can compose or mark: every
+                check on its questions and its scores asks who owns the subject. */}
+            <Field label="รายวิชา" hint="ต้องระบุ เพราะการออกข้อสอบและให้คะแนนผูกกับเจ้าของรายวิชา">
+              <select name="subjectId" required defaultValue="">
+                <option value="" disabled>เลือกรายวิชา</option>
                 {editableSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
               </select>
             </Field>

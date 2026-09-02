@@ -119,6 +119,9 @@ const messages: Record<string, string> = {
   QUIZ_TIME_UP: 'หมดเวลาของข้อนี้แล้ว',
   QUIZ_ENDED: 'กิจกรรมนี้จบไปแล้ว',
   QUIZ_BONUS_ALREADY_AWARDED: 'ให้คะแนนพิเศษของกิจกรรมนี้ไปแล้ว ให้ซ้ำไม่ได้',
+  // A round's subject is fixed when it opens, and it is what lets the points become marks at the end.
+  QUIZ_SUBJECT_REQUIRED: 'เลือกรายวิชาก่อนเปิดกิจกรรม เพราะคะแนนพิเศษท้ายรอบต้องลงในรายวิชา',
+  SUBJECT_OWNER_REQUIRED: 'เฉพาะครูเจ้าของรายวิชานี้เท่านั้นที่ให้คะแนนได้',
   FORBIDDEN: 'ไม่มีสิทธิ์ทำรายการนี้'
 };
 
@@ -139,8 +142,14 @@ async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise
   return data as T;
 }
 
+/**
+ * Opens a round.
+ *
+ * The subject is not optional here, unlike the records this reads: a round's points are awarded into
+ * it at the end, and a round opened without one can be played and never scored.
+ */
 export function createQuizSession(input: {
-  schoolId: string; classId: string; subjectId: string | null; title: string;
+  schoolId: string; classId: string; subjectId: string; title: string;
   questionIds: string[]; timerSeconds: number | null; scoringMode: ScoringMode;
   leaderboardVisible: boolean;
 }) {

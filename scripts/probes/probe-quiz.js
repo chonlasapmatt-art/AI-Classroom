@@ -48,10 +48,14 @@ const line = (label, value) => console.log(`  ${label}`.padEnd(34), value);
 
   // A question to ask, and a class to ask it of.
   const bank = await fetch(
-    `${url}/rest/v1/question_bank?select=id,prompt,answer_key&school_id=eq.${school}&status=eq.active&limit=3`,
+    `${url}/rest/v1/question_bank?select=id,prompt,answer_key,subject_id&school_id=eq.${school}&status=eq.active&limit=3`,
     { headers: headers(teacher) }
   ).then((response) => response.json());
   if (!Array.isArray(bank) || bank.length === 0) throw new Error('no active questions in the bank');
+  // The round belongs to a subject — that is what lets its points become marks — and the questions
+  // this teacher can see are the ones in subjects they own, so the bank names the subject.
+  const subjectId = bank.find((question) => question.subject_id)?.subject_id ?? null;
+  if (!subjectId) throw new Error('the questions this teacher can see carry no subject');
 
   const classes = await fetch(
     `${url}/rest/v1/classes?select=id,name&school_id=eq.${school}&limit=1`, { headers: headers(teacher) }
@@ -60,7 +64,7 @@ const line = (label, value) => console.log(`  ${label}`.padEnd(34), value);
   const classId = classes[0].id;
 
   const created = await call('create_quiz_session', teacher, {
-    p_school_id: school, p_class_id: classId, p_subject_id: null,
+    p_school_id: school, p_class_id: classId, p_subject_id: subjectId,
     p_title: 'ตรวจระบบ Quiz Challenge',
     p_question_ids: bank.map((question) => question.id),
     p_timer_seconds: 30, p_scoring_mode: 'accuracy', p_leaderboard_visible: true
