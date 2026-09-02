@@ -726,7 +726,11 @@ tr.row-warning td { background: var(--warning-soft); }
 .platform-health-hero { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-md); background: var(--success-soft); color: var(--success); }
 .platform-health-hero.warning { color: var(--warning); background: var(--warning-soft); }
 .platform-health-hero.danger { color: var(--danger); background: var(--danger-soft); }
-.platform-health-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: currentColor; color: var(--surface); font-size: var(--text-lg); font-weight: var(--weight-heavy); }
+.platform-health-icon { position: relative; width: 58px; height: 58px; flex: 0 0 58px; display: grid; place-items: center; border-radius: 50%; color: currentColor; background: conic-gradient(from -40deg, currentColor 0deg 292deg, color-mix(in srgb, currentColor 18%, transparent) 292deg 360deg); box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 30%, transparent), 0 0 24px color-mix(in srgb, currentColor 22%, transparent); }
+.platform-health-icon::before { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: color-mix(in srgb, currentColor 12%, var(--surface)); border: 1px solid color-mix(in srgb, currentColor 32%, transparent); }
+.platform-health-icon::after { content: ""; position: absolute; inset: -5px; border: 1px solid color-mix(in srgb, currentColor 24%, transparent); border-radius: 50%; animation: platform-health-pulse 2.8s ease-out infinite; }
+.platform-health-icon > span { position: relative; z-index: 1; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, currentColor 20%, var(--surface)); color: currentColor; font-size: var(--text-lg); font-weight: var(--weight-heavy); }
+@keyframes platform-health-pulse { 0%, 55% { opacity: .65; transform: scale(.92); } 80%, 100% { opacity: 0; transform: scale(1.2); } }
 .platform-health-hero div { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .platform-health-hero strong { color: var(--ink-900); font-size: var(--text-md); }
 .platform-health-hero div span { color: var(--ink-500); font-size: var(--text-xs); }

@@ -115,7 +115,9 @@ export function OverviewPage() {
         <Card className="platform-health-card">
           <CardHeader title="สุขภาพระบบ" description="ค่าประเมินจาก error, sync และอุปกรณ์ที่เชื่อมต่อ" />
           <div className={`platform-health-hero ${healthTone}`}>
-            <span className="platform-health-icon">{health === 'healthy' ? '✓' : '!'}</span>
+            <span className="platform-health-icon" aria-label={`สถานะ ${healthLabel}`}>
+              <span aria-hidden="true">{health === 'healthy' ? '✓' : '!'}</span>
+            </span>
             <div><strong>{healthLabel}</strong><span>{overview.errors.openTotal} รายการที่ยังไม่ปิด</span></div>
             <Badge tone={healthTone}>{health === 'healthy' ? 'Healthy' : health === 'warning' ? 'Warning' : 'Critical'}</Badge>
           </div>
