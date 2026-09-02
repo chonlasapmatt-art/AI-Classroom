@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import { requireSupabase } from '../../services/supabase';
 import { isCompleteMemberRegistration, registerOwner } from './memberAccess';
@@ -68,7 +68,10 @@ export function OwnerAccessPage() {
           <button className="primary-button" disabled={busy || !isCompleteMemberRegistration({ firstName, lastName, password, confirmPassword })}>
             {busy ? 'กำลังสร้างบัญชี...' : 'สร้างบัญชีและไปขั้นถัดไป'}
           </button>
-          <p className="fine-print">มีบัญชีอยู่แล้ว? เข้าสู่ระบบตามปกติแล้วเปิดหน้านี้อีกครั้ง</p>
+          <div className="owner-access-existing">
+            <p className="fine-print">มีบัญชีแอดมินอยู่แล้ว?</p>
+            <Link className="text-button" to="/admin-access">เข้าสู่ระบบแอดมิน</Link>
+          </div>
         </form>
       </main>
     );
