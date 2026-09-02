@@ -48,7 +48,7 @@ const line = (label, value) => console.log(`  ${label}`.padEnd(34), value);
   const teacher = await teacherToken();
 
   const bank = await fetch(
-    `${url}/rest/v1/question_bank?select=id,answer_key&school_id=eq.${school}&status=eq.active&limit=2`,
+    `${url}/rest/v1/question_bank?select=id,answer_key,subject_id&school_id=eq.${school}&status=eq.active&limit=2`,
     { headers: headers(teacher) }
   ).then((response) => response.json());
   const classes = await fetch(
@@ -58,10 +58,16 @@ const line = (label, value) => console.log(`  ${label}`.padEnd(34), value);
 
   // The exam row itself is an ordinary synced record, so it is created with the service key rather
   // than by replaying the whole offline mutation path here.
+  // An exam belongs to a subject: composing it and marking it are both checked against who owns
+  // that subject, and the questions this teacher can see are the ones in subjects they own.
+  const subjectId = bank.find((question) => question.subject_id)?.subject_id ?? null;
+  if (!subjectId) throw new Error('the questions this teacher can see carry no subject');
+
   const created = await fetch(`${url}/rest/v1/tests`, {
     method: 'POST', headers: { ...serviceHeaders, Prefer: 'return=representation' },
     body: JSON.stringify({
-      school_id: school, class_id: classes[0].id, title: '[exam-probe] ตรวจระบบข้อสอบ',
+      school_id: school, class_id: classes[0].id, subject_id: subjectId,
+      title: '[exam-probe] ตรวจระบบข้อสอบ',
       test_date: new Date().toISOString().slice(0, 10), max_score: 10, status: 'draft'
     })
   }).then((response) => response.json());
