@@ -4,6 +4,7 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { TeacherVerificationStatus } from '../../domain/types';
 import { responsibilityLabels, responsibilityOf, type TeacherResponsibility } from '../../data/teacherResponsibilities';
 import { provisionManagedAccount, setManagedAccountPassword } from '../auth/adminAccount';
+import { EraseAccountButton } from '../auth/EraseAccountButton';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 
@@ -180,6 +181,12 @@ export function TeachersPage() {
                     <button className="text-button" onClick={() => setPasswordTeacher(teacher)}>
                       {teacher.profileId ? 'เปลี่ยนรหัสผ่าน' : 'ตั้งรหัสผ่าน'}
                     </button>
+                    {teacher.profileId && (
+                      <EraseAccountButton
+                        schoolId={membership.schoolId} role="teacher" profileId={teacher.profileId}
+                        displayName={teacher.displayName} onDone={setMessage}
+                      />
+                    )}
                   </div>
                 )}
                 {links.length > 0 && (

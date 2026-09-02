@@ -8,6 +8,7 @@ import type { Student } from '../../domain/types';
 import { previewStudentCsv } from './csvImport';
 import { requireSupabase } from '../../services/supabase';
 import { provisionManagedAccount, setManagedAccountPassword } from '../auth/adminAccount';
+import { EraseAccountButton } from '../auth/EraseAccountButton';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 
@@ -178,6 +179,12 @@ export function StudentsPage() {
                       <>
                         <button className="secondary-button" onClick={() => void activate(student.id)}>ยืนยันไอดี</button>
                         <button className="text-button" onClick={() => void setAccess(student, false)}>ปิดการเข้าใช้งาน</button>
+                        {student.profileId && (
+                          <EraseAccountButton
+                            schoolId={membership.schoolId} role="student" profileId={student.profileId}
+                            displayName={student.displayName} onDone={setMessage}
+                          />
+                        )}
                       </>
                     )}
                     {canEdit && (

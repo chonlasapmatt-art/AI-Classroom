@@ -58,6 +58,35 @@ Deno.serve(async (request) => {
       return json({ updated: true }, 200, headers);
     }
 
+    if (action === 'erase') {
+      // Deleting the account, not the person: `erase_member_account` releases every reference a
+      // record can do without and keeps the roster row, then the authentication account itself goes.
+      // Anything it could not release comes back by name, because "ไม่สำเร็จ" for a delete that half
+      // happened is the worst answer this could give.
+      const profileId = text(body, 'profileId', 80);
+      if (!profileId) return json({ code: 'VALIDATION_ERROR' }, 400, headers);
+      const { data, error } = await service.rpc('erase_member_account', {
+        p_school_id: schoolId, p_profile_id: profileId, p_actor: actor
+      });
+      if (error) {
+        const message = String(error.message ?? '');
+        const known = ['CANNOT_ERASE_SELF', 'CANNOT_ERASE_PLATFORM_OPERATOR', 'ACCOUNT_BELONGS_TO_ANOTHER_SCHOOL',
+          'LAST_ADMINISTRATOR', 'NOT_FOUND', 'FORBIDDEN', 'VALIDATION_ERROR'].find((code) => message.includes(code));
+        return json({
+          code: known ?? GENERIC_FAILURE, ...(known ? {} : { reason: message.slice(0, 300) })
+        }, known === 'FORBIDDEN' ? 403 : 400, headers);
+      }
+      const result = (data ?? {}) as { blocking?: string[]; displayName?: string };
+      if ((result.blocking ?? []).length > 0) {
+        return json({ code: 'ACCOUNT_ERASE_BLOCKED', blocking: result.blocking }, 409, headers);
+      }
+      const { error: deleteError } = await service.auth.admin.deleteUser(profileId);
+      if (deleteError) {
+        return json({ code: 'ACCOUNT_ERASE_BLOCKED', reason: String(deleteError.message ?? '').slice(0, 300) }, 409, headers);
+      }
+      return json({ erased: true, displayName: result.displayName ?? '' }, 200, headers);
+    }
+
     if (action !== 'provision') return json({ code: 'ACTION_NOT_SUPPORTED' }, 400, headers);
     const password = String(body.password ?? '');
     const displayName = text(body, 'displayName');

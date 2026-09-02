@@ -8,6 +8,7 @@ import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 import { requireSupabase } from '../../services/supabase';
 import { ParentRequestsPanel } from './ParentRequestsPanel';
+import { EraseAccountButton } from '../auth/EraseAccountButton';
 
 type PasswordTarget = {
   profileId: string | null;
@@ -325,6 +326,13 @@ export function ParentsPage() {
                     <button className="text-button" onClick={() => setPasswordParent({ profileId: row.profileId, parentName: row.parentName, studentId: '', relationship: 'ผู้ปกครอง', contact: row.contact })}>
                       {row.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชีเข้าใช้'}
                     </button>
+                    {row.profileId && (
+                      <EraseAccountButton
+                        schoolId={membership.schoolId} role="parent" profileId={row.profileId}
+                        displayName={row.parentName}
+                        onDone={(text) => { setMessage(text); void refreshParents(); }}
+                      />
+                    )}
                   </div>
                 )}
                 {row.links.map((link) => canManageAccounts && link.status !== 'revoked' && (

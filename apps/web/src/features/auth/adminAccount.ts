@@ -23,6 +23,11 @@ const messages: Record<string, string> = {
   FORBIDDEN: 'เฉพาะผู้ดูแลโรงเรียนเท่านั้น',
   NOT_FOUND: 'ไม่พบบัญชีนี้ในโรงเรียน อาจถูกลบหรือยังไม่ได้สร้างบัญชีเข้าใช้งาน',
   TARGET_ALREADY_LINKED: 'บัญชีนี้ถูกเชื่อมไว้แล้ว',
+  CANNOT_ERASE_SELF: 'ลบบัญชีของตัวเองไม่ได้ ให้ผู้ดูแลอีกคนเป็นผู้ลบ',
+  CANNOT_ERASE_PLATFORM_OPERATOR: 'บัญชีนี้เป็นผู้ดูแลแพลตฟอร์ม ต้องถอนสิทธิ์ที่คอนโซลก่อน',
+  ACCOUNT_BELONGS_TO_ANOTHER_SCHOOL: 'บัญชีนี้ยังเป็นสมาชิกของโรงเรียนอื่น ลบจากที่นี่ไม่ได้',
+  LAST_ADMINISTRATOR: 'เหลือผู้ดูแลคนสุดท้ายของโรงเรียน ตั้งผู้ดูแลอีกคนก่อนจึงจะลบได้',
+  ACCOUNT_ERASE_BLOCKED: 'ยังมีข้อมูลอ้างถึงบัญชีนี้อยู่ ระบบจึงลบไม่ได้ ดูรายละเอียดที่แนบมากับข้อความนี้',
   ROLE_CONFLICT: 'บัญชีนี้ถูกใช้กับผู้ใช้งานคนละประเภท',
   PARENT_NAME_EXISTS: 'มีผู้ปกครองชื่อนี้อยู่แล้วในโรงเรียน กรุณาแก้ไขรายชื่อเดิม หรือใช้ชื่อที่ต่างกัน',
   VALIDATION_ERROR: 'กรุณากรอกข้อมูลให้ครบถ้วน รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร'
@@ -70,4 +75,18 @@ export async function setManagedAccountPassword(input: {
 }): Promise<void> {
   const { error } = await invokeAdminAccount({ action: 'set-password', ...input });
   if (error) throw new Error(await refusalMessage(error, 'เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'));
+}
+
+/**
+ * Deletes the account, not the person.
+ *
+ * The roster row and its history stay; what goes is the login and the personal account behind it.
+ * Nothing about this is recoverable, which is why the screen asks first.
+ */
+export async function eraseManagedAccount(input: {
+  schoolId: string; role: ManagedAccountRole; profileId: string;
+}): Promise<string> {
+  const { data, error } = await invokeAdminAccount({ action: 'erase', ...input });
+  if (error) throw new Error(await refusalMessage(error, 'ลบบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'));
+  return String((data as { displayName?: string } | null)?.displayName ?? '');
 }
