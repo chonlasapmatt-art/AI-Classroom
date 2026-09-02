@@ -5,6 +5,16 @@ const WINDOW_MINUTES = 15;
 const MAX_FAILURES = 5;
 const LOCK_MINUTES = 30;
 
+function setupFailureCode(error: { code?: string; message?: string }): string {
+  const code = String(error.code ?? '').toUpperCase();
+  const message = String(error.message ?? '').toUpperCase();
+  if (code === '23505' || message.includes('SCHOOL_CODE') || message.includes('SCHOOLS_CODE')) return 'SCHOOL_CODE_EXISTS';
+  if (message.includes('ALREADY_HAS_MEMBERSHIP')) return 'ALREADY_HAS_MEMBERSHIP';
+  if (message.includes('AUTH_REQUIRED')) return 'AUTH_REQUIRED';
+  if (message.includes('VALIDATION_ERROR')) return 'VALIDATION_ERROR';
+  return 'SETUP_REJECTED';
+}
+
 async function sha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -74,11 +84,12 @@ Deno.serve(async (request) => {
       p_display_name: displayName
     });
     if (setupError) {
+      const failureCode = setupFailureCode(setupError);
       await service.from('admin_access_attempts').insert({
         actor_profile_id: actorId, fingerprint_hash: fingerprintHash, succeeded: false,
-        failure_reason: setupError.code === '23505' ? 'SCHOOL_CODE_EXISTS' : 'SETUP_REJECTED'
+        failure_reason: failureCode
       });
-      return json({ code: 'SETUP_REJECTED' }, 400, headers);
+      return json({ code: failureCode }, failureCode === 'AUTH_REQUIRED' ? 401 : 400, headers);
     }
 
     await service.from('admin_access_attempts').insert({

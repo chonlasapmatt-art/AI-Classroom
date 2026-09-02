@@ -47,7 +47,18 @@ export function AdminSchoolSetupPage() {
       if (invokeError) {
         const context = (invokeError as { context?: Response }).context;
         const body = context && typeof context.json === 'function' ? await context.json().catch(() => null) as { code?: string } | null : null;
-        throw new Error(body?.code === 'SCHOOL_CODE_EXISTS' ? 'รหัสโรงเรียนนี้ถูกใช้แล้ว กรุณาใช้รหัสอื่น' : body?.code === 'TEMPORARILY_LOCKED' ? 'ลองรหัสเปิดใช้งานหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่' : 'ตั้งค่าโรงเรียนไม่สำเร็จ กรุณาตรวจข้อมูลและรหัสเปิดใช้งาน');
+        const rawMessage = String((invokeError as { message?: string }).message ?? '');
+        const code = body?.code ?? ['SCHOOL_CODE_EXISTS', 'TEMPORARILY_LOCKED', 'ACCESS_DENIED', 'SERVER_CONFIGURATION_ERROR', 'ALREADY_HAS_MEMBERSHIP', 'AUTH_REQUIRED', 'VALIDATION_ERROR']
+          .find((knownCode) => rawMessage.includes(knownCode));
+        const message = code === 'SCHOOL_CODE_EXISTS' ? 'รหัสโรงเรียนนี้ถูกใช้แล้ว กรุณาใช้รหัสโรงเรียนใหม่ หรือกลับไปเข้าสู่ระบบของโรงเรียนเดิม' :
+          code === 'TEMPORARILY_LOCKED' ? 'ลองรหัสเปิดใช้งานหลายครั้งเกินไป กรุณารอประมาณ 30 นาทีแล้วลองใหม่' :
+          code === 'ACCESS_DENIED' ? 'รหัสเปิดใช้งานไม่ถูกต้อง กรุณาตรวจตัวพิมพ์เล็ก–ใหญ่และเว้นวรรคท้ายรหัส' :
+          code === 'SERVER_CONFIGURATION_ERROR' ? 'เซิร์ฟเวอร์ยังไม่ได้ตั้งค่ารหัสเปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ' :
+          code === 'ALREADY_HAS_MEMBERSHIP' ? 'บัญชีนี้ตั้งค่าโรงเรียนไว้แล้ว ให้กลับไปเข้าสู่ระบบแทนการสร้างโรงเรียนใหม่' :
+          code === 'AUTH_REQUIRED' ? 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง' :
+          code === 'VALIDATION_ERROR' ? 'ข้อมูลโรงเรียนไม่ครบหรือรูปแบบไม่ถูกต้อง กรุณาตรวจชื่อ รหัสโรงเรียน ปีการศึกษา และภาคเรียน' :
+          'ตั้งค่าโรงเรียนไม่สำเร็จ กรุณาตรวจข้อมูลและรหัสเปิดใช้งาน';
+        throw new Error(message);
       }
       if (!(data as { schoolId?: string } | null)?.schoolId) throw new Error('ตั้งค่าโรงเรียนไม่สมบูรณ์');
       await auth.refreshMemberships();
