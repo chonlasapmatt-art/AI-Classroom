@@ -43,6 +43,33 @@ interface TeacherAccessCandidate {
   school_name: string;
 }
 
+/**
+ * Writes the reason a step failed into this function's own log.
+ *
+ * Every refusal a caller receives is deliberately one sentence, because the difference between "no
+ * such name" and "wrong password" is exactly what an attacker is trying to buy. That reasoning holds
+ * for the answer and not for the log: `link_parent_child` was refused by the database on every call
+ * for as long as the feature existed, and because nothing wrote the database's own words down
+ * anywhere, the only symptom was "เชื่อมบัญชีไม่สำเร็จ" and nobody could tell it from a typo.
+ */
+function logRefusal(stage: string, error: unknown): void {
+  const detail = error && typeof error === 'object'
+    ? `${(error as { code?: string }).code ?? ''} ${(error as { message?: string }).message ?? ''}`
+    : String(error ?? '');
+  console.error(`member-access ${stage}: ${detail.trim() || 'no detail'}`);
+}
+
+/** The same, for every RPC this function makes, without a line at each of the twenty call sites. */
+function logRefusedCalls<T extends { rpc: (...args: never[]) => Promise<{ error: unknown }> }>(client: T): T {
+  const call = client.rpc.bind(client);
+  client.rpc = (async (name: string, params?: unknown) => {
+    const result = await call(name as never, params as never);
+    if (result.error) logRefusal(`rpc ${name}`, result.error);
+    return result;
+  }) as T['rpc'];
+  return client;
+}
+
 function serviceClients() {
   const url = Deno.env.get('SUPABASE_URL');
   const anon = Deno.env.get('SUPABASE_ANON_KEY');
@@ -51,7 +78,7 @@ function serviceClients() {
   return {
     url,
     anon: createClient(url, anon, { auth: { persistSession: false } }),
-    service: createClient(url, service, { auth: { persistSession: false } })
+    service: logRefusedCalls(createClient(url, service, { auth: { persistSession: false } }))
   };
 }
 
@@ -223,6 +250,7 @@ Deno.serve(async (request) => {
       app_metadata: { access_model: 'name_password', member_role: role, has_recovery_email: role !== 'admin' }
     });
     if (createError || !created.user) {
+      logRefusal(`register-${role} createUser`, createError);
       await releaseClaim();
       await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'create_failed' });
       const authMessage = String(createError?.message ?? '').toLowerCase();
@@ -262,6 +290,7 @@ Deno.serve(async (request) => {
 
     const { data: signedIn, error: signInError } = await anon.auth.signInWithPassword({ email, password });
     if (signInError || !signedIn.session) {
+      logRefusal(`register-${role} signIn`, signInError);
       await service.auth.admin.deleteUser(profileId).catch(() => undefined);
       // The account is gone, so the use claimed for it has to go back too. Without this a school
       // with a twelve-use code silently loses one of the twelve every time this branch is taken.

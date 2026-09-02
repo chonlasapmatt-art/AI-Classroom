@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
-import { attendanceDailySummary, classIdOfStudent, consentedStudents, privacyPolicyFrom, standingsFor } from '../../data/selectors';
-import { ProfileAvatar } from '../avatars/ProfileAvatar';
+import { privacyPolicyFrom } from '../../data/selectors';
 import { provisionManagedAccount, setManagedAccountPassword } from '../auth/adminAccount';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 import { requireSupabase } from '../../services/supabase';
-import { ChildLinkPanel } from './ChildLinkPanel';
 import { ParentRequestsPanel } from './ParentRequestsPanel';
 
 type PasswordTarget = {
@@ -250,48 +249,10 @@ export function ParentsPage() {
     }
   }
 
-  if (membership.role === 'parent') {
-    const children = consentedStudents(snapshot);
-    return (
-      <>
-        <section className="page-heading">
-          <div>
-            <span className="eyebrow">Parent Portal</span>
-            <h1>บุตรหลานของฉัน</h1>
-            <p>แสดงเฉพาะข้อมูลที่ได้รับความยินยอมตามนโยบายเวอร์ชัน {privacy.policyVersion}</p>
-          </div>
-        </section>
-        {mode === 'cloud' && <ChildLinkPanel onChanged={() => window.location.reload()} />}
-        <section className="panel data-panel">
-          {children.length === 0 ? (
-            <div className="empty-state"><span>♧</span><h3>ยังไม่มีการเชื่อมบัญชีที่ยินยอมแล้ว</h3><p>ติดต่อครูประจำชั้นเพื่อขอรหัสผูกบัญชี</p></div>
-          ) : (
-            <div className="student-grid">
-              {children.map((student) => {
-                const classId = classIdOfStudent(snapshot, student.id) ?? '';
-                const summary = attendanceDailySummary(snapshot, { studentId: student.id });
-                const standing = standingsFor(snapshot, classId).find((entry) => entry.student.id === student.id);
-                return (
-                  <article key={student.id} className="student-card">
-                    <ProfileAvatar displayName={student.displayName} avatarId={student.avatarId} avatarIndex={student.avatarIndex} avatarConfig={student.avatarConfig} size={64} />
-                    <div>
-                      <strong>{student.displayName}</strong>
-                      <span>เข้าเรียน {summary.presentRate}% · ขาด {summary.absent} วัน</span>
-                      <span>
-                        {privacy.shareScoresWithParents && standing
-                          ? `คะแนนรวม ${standing.total.toFixed(2)} · เกรด ${standing.grade}`
-                          : 'โรงเรียนปิดการแชร์คะแนนกับผู้ปกครอง'}
-                      </span>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      </>
-    );
-  }
+  // A guardian has one home, and it is "ลูกของฉัน". This screen used to render its own copy of that
+  // one — the same panel, a second set of summary cards — so the menu offered two entries for the
+  // same thing and every change had to be made in both.
+  if (membership.role === 'parent') return <Navigate to="/my-children" replace />;
 
   return (
     <>
