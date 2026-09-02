@@ -75,8 +75,10 @@ Deno.serve(async (request) => {
     });
     let profileId = created.user?.id ?? null;
     if (createError || !profileId) {
-      const existing = await service.auth.admin.getUserByEmail(email);
-      profileId = existing.data.user?.id ?? null;
+      // The address is deterministic for this record, so a repeat provision lands on the account an
+      // earlier half-finished attempt created. Adopt it and reset the password to the new one.
+      const { data: existingId } = await service.rpc('find_auth_user_by_email', { p_email: email });
+      profileId = typeof existingId === 'string' ? existingId : null;
       if (!profileId) return json({ code: GENERIC_FAILURE }, 400, headers);
       const { error: updateError } = await service.auth.admin.updateUserById(profileId, { password });
       if (updateError) return json({ code: GENERIC_FAILURE }, 400, headers);
@@ -100,8 +102,17 @@ Deno.serve(async (request) => {
       if (created.user) await service.auth.admin.deleteUser(created.user.id).catch(() => undefined);
       const message = String(bindError?.message ?? '');
       const code = message.includes('FORBIDDEN') ? 'FORBIDDEN' : message.includes('NOT_FOUND') ? 'NOT_FOUND'
-        : message.includes('TARGET_ALREADY_LINKED') ? 'TARGET_ALREADY_LINKED' : message.includes('ROLE_CONFLICT') ? 'ROLE_CONFLICT' : GENERIC_FAILURE;
-      return json({ code }, code === 'FORBIDDEN' ? 403 : 400, headers);
+        : message.includes('TARGET_ALREADY_LINKED') ? 'TARGET_ALREADY_LINKED' : message.includes('ROLE_CONFLICT') ? 'ROLE_CONFLICT'
+          // One active guardian per name per school. The index is the guarantee; this is the sentence.
+          : message.includes('parents_unique_active_name') || message.includes('PARENT_NAME_EXISTS') ? 'PARENT_NAME_EXISTS'
+            : message.includes('VALIDATION_ERROR') ? 'VALIDATION_ERROR' : GENERIC_FAILURE;
+      // An unrecognised database refusal carries its own reason back to the administrator who caused
+      // it. Every named case above is already a sentence the screen can show; what is left is the
+      // case nobody anticipated, and answering that with a bare "ไม่สำเร็จ" is how a bug survives —
+      // there is no log a school can read, and the same click fails the same way forever. The caller
+      // here is an authenticated administrator of this school acting on this school's own records.
+      const reason = code === GENERIC_FAILURE ? message.slice(0, 300) : undefined;
+      return json({ code, ...(reason ? { reason } : {}) }, code === 'FORBIDDEN' ? 403 : 400, headers);
     }
     return json({ ...(bound as Record<string, unknown>), email, passwordSet: true }, 201, headers);
   } catch {

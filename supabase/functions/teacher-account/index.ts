@@ -3,9 +3,30 @@ import { clients } from '../_shared/clients.ts';
 
 const GENERIC_FAILURE = 'TEACHER_ACCOUNT_FAILED';
 
+// No O/0, I/l/1: an administrator reads this password aloud to a teacher, or writes it on paper.
+const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+const PASSWORD_LENGTH = 14;
+
+/**
+ * The teacher's first password, shown once to the administrator who created the account.
+ *
+ * Base-36 of four random 32-bit numbers produced a string of unpredictable length — a draw of small
+ * values gave a short password, and `slice(0, 20)` then cut a long one mid-way. Drawing characters
+ * directly gives every password the same length and the same strength.
+ */
 function password(): string {
-  const bytes = crypto.getRandomValues(new Uint32Array(4));
-  return `SC-${[...bytes].map((value) => value.toString(36)).join('')}`.slice(0, 20);
+  const characters: string[] = [];
+  // Bytes at or above the last whole multiple of the alphabet are redrawn rather than folded, so no
+  // character is fractionally more likely than another.
+  const ceiling = Math.floor(256 / PASSWORD_ALPHABET.length) * PASSWORD_ALPHABET.length;
+  while (characters.length < PASSWORD_LENGTH) {
+    for (const byte of crypto.getRandomValues(new Uint8Array(PASSWORD_LENGTH))) {
+      if (byte >= ceiling) continue;
+      characters.push(PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length]!);
+      if (characters.length === PASSWORD_LENGTH) break;
+    }
+  }
+  return `SC-${characters.join('')}`;
 }
 
 Deno.serve(async (request) => {
@@ -48,8 +69,10 @@ Deno.serve(async (request) => {
     if (createError || !profileId) {
       const message = String(createError?.message ?? '').toLowerCase();
       if (message.includes('already registered') || message.includes('already been registered') || message.includes('duplicate')) {
-        const existing = await service.auth.admin.getUserByEmail(email);
-        profileId = existing.data.user?.id ?? null;
+        // The address belongs to an earlier attempt that reached Auth and stopped. Adopt that user
+        // rather than fail: the teacher row is still unbound, which is the whole reason we are here.
+        const { data: existingId } = await service.rpc('find_auth_user_by_email', { p_email: email });
+        profileId = typeof existingId === 'string' ? existingId : null;
       }
       if (!profileId) return json({ code: GENERIC_FAILURE }, 400, headers);
     }

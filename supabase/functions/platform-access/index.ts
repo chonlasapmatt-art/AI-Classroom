@@ -191,8 +191,10 @@ Deno.serve(async (request) => {
       });
       let profileId = created.user?.id ?? null;
       if (createError || !profileId) {
-        const existing = await service.auth.admin.getUserByEmail(email);
-        profileId = existing.data.user?.id ?? null;
+        // A retry of the same provision lands on the account the first attempt created. Adopt it
+        // and set the password the operator just chose, rather than refusing forever.
+        const { data: existingId } = await service.rpc('find_auth_user_by_email', { p_email: email });
+        profileId = typeof existingId === 'string' ? existingId : null;
         if (!profileId) return json({ code: 'ADMIN_ACCOUNT_FAILED' }, 400, headers);
         const { error: updateError } = await service.auth.admin.updateUserById(profileId, { password });
         if (updateError) return json({ code: 'ADMIN_ACCOUNT_FAILED' }, 400, headers);
