@@ -1,6 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+// `useToast` and the tone type live in ./toastContext, which is what a screen imports to raise one.
+import { ToastContext, type ToastTone } from './toastContext';
 
 /**
  * The shared building blocks every screen is made of.
@@ -251,26 +253,12 @@ export function Tooltip({ children, tip }: { children: ReactNode; tip: ReactNode
 
 /* ---------- Toast / Snackbar ---------- */
 
-export type ToastTone = 'info' | 'success' | 'warning' | 'error';
-
 interface ToastItem {
   id: number;
   title: string;
   message?: string;
   tone: ToastTone;
   duration: number;
-}
-
-interface ToastContextValue {
-  toast: (title: string, opts?: { message?: string; tone?: ToastTone; duration?: number }) => void;
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null);
-
-export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used within a ToastProvider');
-  return ctx;
 }
 
 let toastId = 0;
