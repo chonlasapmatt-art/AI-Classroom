@@ -353,6 +353,7 @@ textarea { min-height:110px; resize:vertical; }
 .update-banner { position:fixed; left:50%; bottom:1.5rem; transform:translateX(-50%); z-index:70; display:flex; align-items:center; gap:1.2rem; width:min(560px,calc(100% - 2rem)); padding:1rem 1.2rem; border-radius:var(--radius-md); background:var(--inverse-surface); color:var(--inverse-ink); box-shadow:var(--shadow-md); }
 .update-banner strong { display:block; }
 .update-banner span { display:block; margin-top:.2rem; color:#c8c3df; font-size:.78rem; }
+.update-banner .update-error { color:#ffd1a3; font-weight:700; }
 .update-banner .update-actions { margin-left:auto; display:flex; align-items:center; gap:.6rem; }
 .update-banner .text-button { color:#c8c3df; }
 .update-banner .primary-button { min-height:44px; }

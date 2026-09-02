@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { db } from '../db/database';
 import { registerAndSync } from './engine';
+import { registerUpdatePreparation } from '../app/appUpdate';
 
 export type SyncPhase = 'idle' | 'offline' | 'syncing' | 'synced' | 'attention' | 'error';
 
@@ -42,46 +43,51 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
   const [phase, setPhase] = useState<SyncPhase>(navigator.onLine ? 'idle' : 'offline');
   const [detail, setDetail] = useState('');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
-  const running = useRef(false);
+  const activeSync = useRef<Promise<SyncResult | null> | null>(null);
   const mutationTimer = useRef<number | null>(null);
   const retryTimer = useRef<number | null>(null);
 
   const syncNow = useCallback(async (): Promise<SyncResult | null> => {
-    if (!enabled || running.current) return null;
+    if (!enabled) return null;
+    if (activeSync.current) return activeSync.current;
     if (!navigator.onLine) { setPhase('offline'); setDetail('บันทึกในเครื่องแล้ว รอเชื่อมต่ออินเทอร์เน็ต'); return null; }
-    running.current = true;
-    setPhase('syncing');
-    try {
-      const result = await registerAndSync(schoolId, deviceId(), navigator.userAgent.slice(0, 80), deviceType());
-      setLastSyncedAt(new Date().toISOString());
-      if (result.blocked > 0) {
-        setPhase('attention');
-        setDetail(`มี ${result.blocked} รายการที่ต้องตรวจสอบก่อนซิงก์`);
-      } else {
-        setPhase('synced');
-        setDetail(result.accepted + result.pulled > 0 ? `ส่ง ${result.accepted} · รับ ${result.pulled}` : 'ข้อมูลตรงกับเซิร์ฟเวอร์แล้ว');
+    const task = (async () => {
+      setPhase('syncing');
+      try {
+        const result = await registerAndSync(schoolId, deviceId(), navigator.userAgent.slice(0, 80), deviceType());
+        setLastSyncedAt(new Date().toISOString());
+        if (result.blocked > 0) {
+          setPhase('attention');
+          setDetail(`มี ${result.blocked} รายการที่ต้องตรวจสอบก่อนซิงก์`);
+        } else {
+          setPhase('synced');
+          setDetail(result.accepted + result.pulled > 0 ? `ส่ง ${result.accepted} · รับ ${result.pulled}` : 'ข้อมูลตรงกับเซิร์ฟเวอร์แล้ว');
+        }
+        return result;
+      } catch (reason) {
+        setPhase(navigator.onLine ? 'error' : 'offline');
+        setDetail(syncErrorMessage(reason));
+        // The queue already calculated an exponential backoff. Wake at its next eligible time so a
+        // transient failure is retried promptly without hammering Supabase or waiting a full minute.
+        const pending = await db.syncQueue.where({ schoolId, status: 'pending' }).toArray().catch(() => []);
+        const nextAt = pending.reduce<number | null>((soonest, item) => {
+          const time = Date.parse(item.nextRetryAt);
+          return Number.isFinite(time) && (soonest === null || time < soonest) ? time : soonest;
+        }, null);
+        if (nextAt !== null && retryTimer.current === null) {
+          retryTimer.current = window.setTimeout(() => {
+            retryTimer.current = null;
+            void syncNow();
+          }, Math.max(1_000, nextAt - Date.now()));
+        }
+        return null;
       }
-      return result;
-    } catch (reason) {
-      setPhase(navigator.onLine ? 'error' : 'offline');
-      setDetail(syncErrorMessage(reason));
-      // The queue already calculated an exponential backoff. Wake at its next eligible time so a
-      // transient failure is retried promptly without hammering Supabase or waiting a full minute.
-      const pending = await db.syncQueue.where({ schoolId, status: 'pending' }).toArray().catch(() => []);
-      const nextAt = pending.reduce<number | null>((soonest, item) => {
-        const time = Date.parse(item.nextRetryAt);
-        return Number.isFinite(time) && (soonest === null || time < soonest) ? time : soonest;
-      }, null);
-      if (nextAt !== null && retryTimer.current === null) {
-        retryTimer.current = window.setTimeout(() => {
-          retryTimer.current = null;
-          void syncNow();
-        }, Math.max(1_000, nextAt - Date.now()));
-      }
-      return null;
-    } finally {
-      running.current = false;
-    }
+    })();
+    activeSync.current = task;
+    void task.finally(() => {
+      if (activeSync.current === task) activeSync.current = null;
+    }).catch(() => undefined);
+    return task;
   }, [enabled, schoolId]);
 
   useEffect(() => {
@@ -128,6 +134,25 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
       document.removeEventListener('visibilitychange', visible);
       window.removeEventListener('pageshow', pageShow);
     };
+  }, [enabled, schoolId, syncNow]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    return registerUpdatePreparation(async () => {
+      if (navigator.onLine) await syncNow();
+      const pending = await db.syncQueue.where({ schoolId, status: 'pending' }).count().catch(() => 0);
+      const processing = await db.syncQueue.where({ schoolId, status: 'processing' }).count().catch(() => 0);
+      if (pending + processing > 0) {
+        return {
+          ready: false,
+          pending: pending + processing,
+          message: navigator.onLine
+            ? `ยังมีข้อมูลรอซิงก์ ${pending + processing} รายการ ระบบยังไม่รีโหลดเพื่อป้องกันข้อมูลหาย`
+            : `ออฟไลน์อยู่ มีข้อมูลรอซิงก์ ${pending + processing} รายการ เชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง`
+        };
+      }
+      return { ready: true, pending: 0, message: 'ซิงก์ข้อมูลเรียบร้อย พร้อมอัปเดต' };
+    });
   }, [enabled, schoolId, syncNow]);
 
   const label = phase === 'syncing' ? 'กำลังซิงก์'

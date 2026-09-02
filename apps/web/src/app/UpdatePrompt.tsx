@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { APP_VERSION, readLastCheckedAt, shouldCheckNow, UPDATE_CHECK_INTERVAL_MS, writeLastCheckedAt } from './appUpdate';
+import { db } from '../db/database';
+import { APP_VERSION, prepareForUpdate, readLastCheckedAt, shouldCheckNow, UPDATE_CHECK_INTERVAL_MS, writeLastCheckedAt } from './appUpdate';
 
 /**
  * Shows the "a new version is ready" banner and applies it on the user's word.
@@ -10,6 +11,8 @@ import { APP_VERSION, readLastCheckedAt, shouldCheckNow, UPDATE_CHECK_INTERVAL_M
  */
 export function UpdatePrompt() {
   const [dismissed, setDismissed] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [preparationError, setPreparationError] = useState<string | null>(null);
 
   const {
     offlineReady: [offlineReady, setOfflineReady],
@@ -39,8 +42,30 @@ export function UpdatePrompt() {
   });
 
   useEffect(() => {
-    if (needRefresh) setDismissed(false);
+    if (needRefresh) {
+      setDismissed(false);
+      setPreparationError(null);
+    }
   }, [needRefresh]);
+
+  const applyUpdateSafely = async () => {
+    if (preparing) return;
+    setPreparing(true);
+    setPreparationError(null);
+    try {
+      const result = await prepareForUpdate();
+      const queued = await db.syncQueue.where('status').anyOf('pending', 'processing').count().catch(() => 0);
+      if (!result.ready || queued > 0) {
+        setPreparationError(!result.ready ? result.message : `มีข้อมูลรอซิงก์ ${queued} รายการ ระบบยังไม่รีโหลดเพื่อป้องกันข้อมูลหาย`);
+        return;
+      }
+      await updateServiceWorker(true);
+    } catch (reason) {
+      setPreparationError(reason instanceof Error ? reason.message : 'เตรียมข้อมูลก่อนอัปเดตไม่สำเร็จ กรุณาลองใหม่');
+    } finally {
+      setPreparing(false);
+    }
+  };
 
   if (!needRefresh && !offlineReady) return null;
   if (dismissed && !offlineReady) return null;
@@ -50,11 +75,12 @@ export function UpdatePrompt() {
       <div className="update-banner" role="status">
         <div>
           <strong>มีเวอร์ชันใหม่พร้อมใช้งาน</strong>
-          <span>เวอร์ชันที่ใช้อยู่ {APP_VERSION} · ข้อมูลที่ยังไม่ซิงก์จะไม่หายเมื่ออัปเดต</span>
+          <span>เวอร์ชันที่ใช้อยู่ {APP_VERSION} · ระบบจะซิงก์ข้อมูลก่อนรีโหลด เพื่อไม่ให้ข้อมูลหาย</span>
+          {preparationError && <span className="update-error" role="alert">{preparationError}</span>}
         </div>
         <div className="update-actions">
-          <button className="text-button" onClick={() => { setNeedRefresh(false); setDismissed(true); }}>ภายหลัง</button>
-          <button className="primary-button" onClick={() => void updateServiceWorker(true)}>อัปเดตตอนนี้</button>
+          <button className="text-button" disabled={preparing} onClick={() => { setNeedRefresh(false); setDismissed(true); }}>ภายหลัง</button>
+          <button className="primary-button" disabled={preparing} onClick={() => void applyUpdateSafely()}>{preparing ? 'กำลังซิงก์...' : 'อัปเดตตอนนี้'}</button>
         </div>
       </div>
     );

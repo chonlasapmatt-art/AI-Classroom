@@ -11,6 +11,34 @@ export const BUILD_TIME: string = __BUILD_TIME__;
 /** How often a running tab asks the server whether a newer build exists. */
 export const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 
+export interface UpdatePreparationResult {
+  ready: boolean;
+  pending: number;
+  message: string;
+}
+
+type UpdatePreparation = () => Promise<UpdatePreparationResult>;
+let updatePreparation: UpdatePreparation | null = null;
+
+/**
+ * Lets the active cloud session flush its durable mutation queue before a PWA reload.
+ * The registration is deliberately process-local: it never stores credentials or application
+ * data, and a fresh tab can safely register its own session again.
+ */
+export function registerUpdatePreparation(preparation: UpdatePreparation): () => void {
+  updatePreparation = preparation;
+  return () => {
+    if (updatePreparation === preparation) updatePreparation = null;
+  };
+}
+
+export async function prepareForUpdate(): Promise<UpdatePreparationResult> {
+  if (!updatePreparation) {
+    return { ready: true, pending: 0, message: 'ไม่มีเซสชันที่ต้องซิงก์ก่อนอัปเดต' };
+  }
+  return updatePreparation();
+}
+
 const LAST_CHECK_KEY = 'smart-classroom-update-checked-at';
 
 export function shouldCheckNow(lastCheckedAt: string | null, now = new Date(), intervalMs = UPDATE_CHECK_INTERVAL_MS): boolean {
