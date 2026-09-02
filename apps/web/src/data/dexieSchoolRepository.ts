@@ -1,7 +1,7 @@
 import { liveQuery } from 'dexie';
 import { db, type AttachmentRecord } from '../db/database';
 import { attachmentKindFor } from './attachmentKind';
-import { commitLocalMutation, softDeleteLocal } from '../db/localMutation';
+import { announceLocalMutation, commitLocalMutation, softDeleteLocal } from '../db/localMutation';
 import { isCloudConfigured, requireSupabase, supabase } from '../services/supabase';
 import type {
   AcademicAuditAction, AcademicAuditEntry, AcademicTerm, Activity, ActivityScore, Announcement, Assignment, Attachment,
@@ -141,12 +141,16 @@ export class DexieSchoolRepository implements SchoolRepository {
   private async rpc(name: string, params: Record<string, unknown>): Promise<void> {
     const { error } = await requireSupabase().rpc(name, params);
     if (error) throw new Error(error.message);
+    // Structural writes are server-backed rather than queue rows. Wake the background sync so all
+    // open tabs pull the authoritative structure immediately instead of waiting for the next tick.
+    announceLocalMutation(this.schoolId, 'server');
   }
 
   /** The same call for the trusted functions whose answer the local projection has to keep. */
   private async rpcResult<T>(name: string, params: Record<string, unknown>): Promise<T> {
     const { data, error } = await requireSupabase().rpc(name, params);
     if (error) throw new Error(error.message);
+    announceLocalMutation(this.schoolId, 'server');
     return data as T;
   }
 

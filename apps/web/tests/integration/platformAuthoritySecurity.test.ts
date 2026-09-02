@@ -202,8 +202,11 @@ describe('the development sign-in', () => {
     expect(devGateway).toContain('display_name: displayName');
     expect(consoleApp).toContain('ชื่อผู้ดูแล');
     expect(consoleApp).toContain('devSignIn(accessCode, displayName)');
-    // The code, not the chosen display name, remains the only secret on this entry screen.
-    expect(consoleApp).not.toContain('autoComplete="current-password"');
+    // Production now has a separate existing-admin password form. The development shortcut still
+    // uses a one-time platform code and never persists a password.
+    expect(consoleApp).toContain('autoComplete="current-password"');
+    expect(consoleApp).toContain("memberLogin({ role: 'admin'");
+    expect(consoleApp).toContain('autoComplete="one-time-code"');
   });
 
   it('signs in as an operator who already exists and creates nobody', () => {

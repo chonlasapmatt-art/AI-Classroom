@@ -18,6 +18,23 @@ function tableFor<T extends SyncRecord>(entityType: SyncEntityType): Table<T, st
   return db.table<T, string>(names[entityType]);
 }
 
+const SYNC_CHANNEL_NAME = 'smart-classroom-sync';
+let syncChannel: BroadcastChannel | null | undefined;
+
+function getSyncChannel(): BroadcastChannel | null {
+  if (syncChannel !== undefined) return syncChannel;
+  syncChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel(SYNC_CHANNEL_NAME) : null;
+  return syncChannel;
+}
+
+/** Wakes every open app tab after a local or server-backed write. */
+export function announceLocalMutation(schoolId: string, source: 'local' | 'server' = 'local'): void {
+  if (typeof window === 'undefined') return;
+  const detail = { schoolId, source, at: Date.now() };
+  window.dispatchEvent(new CustomEvent('smart-classroom:local-mutation', { detail }));
+  getSyncChannel()?.postMessage(detail);
+}
+
 export async function commitLocalMutation<T extends SyncRecord>(entityType: SyncEntityType, record: T, operation: SyncOperation = 'upsert'): Promise<SyncQueueItem> {
   const table = tableFor<T>(entityType);
   const payload = structuredClone(record) as unknown as Record<string, unknown>;
@@ -33,9 +50,7 @@ export async function commitLocalMutation<T extends SyncRecord>(entityType: Sync
     await table.put(record);
     await db.syncQueue.add(item);
   });
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('smart-classroom:local-mutation', { detail: { schoolId: record.schoolId } }));
-  }
+  announceLocalMutation(record.schoolId);
   return item;
 }
 

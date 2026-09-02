@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { db } from '../db/database';
 import { registerAndSync } from './engine';
 
 export type SyncPhase = 'idle' | 'offline' | 'syncing' | 'synced' | 'attention' | 'error';
@@ -15,6 +16,7 @@ export interface SyncStatus {
 export interface SyncResult { accepted: number; blocked: number; pulled: number; structure: number; }
 
 const INTERVAL_MS = 60_000;
+const MUTATION_DEBOUNCE_MS = 350;
 
 /** One stable device id per browser profile, reused by every sync from this device. */
 export function deviceId(): string {
@@ -42,6 +44,7 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const running = useRef(false);
   const mutationTimer = useRef<number | null>(null);
+  const retryTimer = useRef<number | null>(null);
 
   const syncNow = useCallback(async (): Promise<SyncResult | null> => {
     if (!enabled || running.current) return null;
@@ -62,6 +65,19 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
     } catch (reason) {
       setPhase(navigator.onLine ? 'error' : 'offline');
       setDetail(syncErrorMessage(reason));
+      // The queue already calculated an exponential backoff. Wake at its next eligible time so a
+      // transient failure is retried promptly without hammering Supabase or waiting a full minute.
+      const pending = await db.syncQueue.where({ schoolId, status: 'pending' }).toArray().catch(() => []);
+      const nextAt = pending.reduce<number | null>((soonest, item) => {
+        const time = Date.parse(item.nextRetryAt);
+        return Number.isFinite(time) && (soonest === null || time < soonest) ? time : soonest;
+      }, null);
+      if (nextAt !== null && retryTimer.current === null) {
+        retryTimer.current = window.setTimeout(() => {
+          retryTimer.current = null;
+          void syncNow();
+        }, Math.max(1_000, nextAt - Date.now()));
+      }
       return null;
     } finally {
       running.current = false;
@@ -70,6 +86,9 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
 
   useEffect(() => {
     if (!enabled) return;
+    void db.syncState.get(`${schoolId}:${deviceId()}`).then((state) => {
+      if (state?.lastSuccessfulSyncAt) setLastSyncedAt(state.lastSuccessfulSyncAt);
+    }).catch(() => undefined);
     void syncNow();
     const timer = window.setInterval(() => { void syncNow(); }, INTERVAL_MS);
     const localMutation = (event: Event) => {
@@ -78,19 +97,36 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
       if (mutationTimer.current !== null) window.clearTimeout(mutationTimer.current);
       // Coalesce a multi-row action (publish, import, attendance sheet) into one push, then send it
       // shortly after the local transaction commits so the UI stays instant without racing itself.
-      mutationTimer.current = window.setTimeout(() => { mutationTimer.current = null; void syncNow(); }, 250);
+      mutationTimer.current = window.setTimeout(() => { mutationTimer.current = null; void syncNow(); }, MUTATION_DEBOUNCE_MS);
     };
     const online = () => { void syncNow(); };
     const offline = () => { setPhase('offline'); setDetail('บันทึกในเครื่องแล้ว รอเชื่อมต่ออินเทอร์เน็ต'); };
+    const focus = () => { void syncNow(); };
+    const visible = () => { if (document.visibilityState === 'visible') void syncNow(); };
+    const pageShow = () => { void syncNow(); };
+    const channel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('smart-classroom-sync') : null;
+    const channelMessage = (event: MessageEvent<{ schoolId?: string }>) => {
+      if (event.data?.schoolId === schoolId) void syncNow();
+    };
+    channel?.addEventListener('message', channelMessage);
     window.addEventListener('smart-classroom:local-mutation', localMutation);
     window.addEventListener('online', online);
     window.addEventListener('offline', offline);
+    window.addEventListener('focus', focus);
+    document.addEventListener('visibilitychange', visible);
+    window.addEventListener('pageshow', pageShow);
     return () => {
       window.clearInterval(timer);
       if (mutationTimer.current !== null) window.clearTimeout(mutationTimer.current);
+      if (retryTimer.current !== null) window.clearTimeout(retryTimer.current);
+      channel?.removeEventListener('message', channelMessage);
+      channel?.close();
       window.removeEventListener('smart-classroom:local-mutation', localMutation);
       window.removeEventListener('online', online);
       window.removeEventListener('offline', offline);
+      window.removeEventListener('focus', focus);
+      document.removeEventListener('visibilitychange', visible);
+      window.removeEventListener('pageshow', pageShow);
     };
   }, [enabled, schoolId, syncNow]);
 
