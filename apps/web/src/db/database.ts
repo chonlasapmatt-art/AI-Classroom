@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { AcademicTerm, AcademicAuditEntry, Announcement, Attachment, Activity, ActivityScore, Assignment, Attendance, ClassTeacher, ClassroomNotification, Classroom, DeviceMetadata, Enrollment, LocalSessionMetadata, ParentLink, DeadlineExtension, NotificationPreference, Rubric, RubricScore, Setting, Student, StudentAchievement, Subject, Submission, SubmissionVersion,
   ImportRun, ScoreEvent, SyncQueueItem, SyncState, Teacher, TestRecord, TestScore, TimetableEntry } from '../domain/types';
 
-export const LOCAL_SCHEMA_VERSION = 10;
+export const LOCAL_SCHEMA_VERSION = 13;
 
 /**
  * Attachment row as stored locally: metadata plus the file bytes when this device has them.
@@ -70,7 +70,7 @@ export class SmartClassroomDatabase extends Dexie {
     this.version(2).stores({
       teachers: 'id, schoolId, teacherCode, profileId, status, deletedAt',
       classTeachers: 'id, schoolId, classId, teacherId, [classId+teacherId]',
-      parentLinks: 'id, schoolId, studentId, status, lineUserId, deletedAt'
+      parentLinks: 'id, schoolId, studentId, profileId, status, lineUserId, deletedAt'
     });
     // v3 adds subjects (learning areas a school can extend) and in-app classroom notifications.
     this.version(3).stores({
@@ -153,8 +153,24 @@ export class SmartClassroomDatabase extends Dexie {
     });
     // v10 stores individual and bonus score awards. One award is one row, so this table is
     // append-mostly and doubles as the history a teacher inspects.
-    this.version(LOCAL_SCHEMA_VERSION).stores({
+    this.version(10).stores({
       scoreEvents: 'id, schoolId, studentId, classId, subjectId, category, occurredAt, [schoolId+studentId], [schoolId+classId], deletedAt'
+    });
+    // v11 indexes the Auth profile on parent links so a guardian can edit only their own profile.
+    this.version(11).stores({
+      parentLinks: 'id, schoolId, studentId, profileId, status, lineUserId, deletedAt'
+    });
+    // v12 keeps one attendance row per student, date and lesson. This prevents the next period
+    // from overwriting the previous one while preserving the old daily records as session "daily".
+    this.version(12).stores({
+      attendance: 'id, schoolId, classId, studentId, attendanceDate, sessionKey, [classId+attendanceDate], [classId+studentId+attendanceDate+sessionKey]'
+    });
+    // v13 keeps the student's Google Drive turn-in link with the submission head. It is metadata,
+    // not a separate index, so the upgrade only backfills old rows safely.
+    this.version(LOCAL_SCHEMA_VERSION).upgrade(async (transaction) => {
+      await transaction.table('submissions').toCollection().modify((row: Record<string, unknown>) => {
+        row.driveUrl ??= null;
+      });
     });
   }
 }

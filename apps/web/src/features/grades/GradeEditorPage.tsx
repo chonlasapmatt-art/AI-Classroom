@@ -11,6 +11,7 @@ import {
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { Assignment, Student } from '../../domain/types';
+import { teacherCanEditSubject } from '../../data/teacherResponsibilities';
 
 interface DraftScore { value: string; dirty: boolean }
 
@@ -36,14 +37,16 @@ export function GradeEditorPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = membership.role === 'admin' || membership.role === 'teacher';
   const selectedClassId = classId || classes[0]?.id || '';
   const roster = rosterFor(snapshot, selectedClassId);
 
   const works = useMemo(() => snapshot.assignments
     .filter((item) => item.classId === selectedClassId && item.status !== 'draft' && item.status !== 'cancelled')
+    .filter((item) => membership.role !== 'teacher' || teacherCanEditSubject(snapshot, membership.profileId, item.classId, item.subjectId))
     .sort((a, b) => (b.dueAt ?? b.assignedAt).localeCompare(a.dueAt ?? a.assignedAt)),
-    [snapshot.assignments, selectedClassId]);
+    [membership.profileId, membership.role, snapshot, selectedClassId]);
+
+  const canEdit = membership.role === 'admin' || (membership.role === 'teacher' && works.length > 0);
 
   const work: Assignment | undefined = works.find((item) => item.id === workId) ?? works[0];
   const rows = useMemo(() => (work ? rosterRowsFor(snapshot, work, roster) : []), [snapshot, work, roster]);

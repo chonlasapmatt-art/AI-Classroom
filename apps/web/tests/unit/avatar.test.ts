@@ -5,10 +5,10 @@ import {
 import { resolveAvatar } from '../../src/features/avatars/avatarThemes';
 
 describe('avatar catalogue', () => {
-  it('offers exactly 100 selectable avatars with stable ids', () => {
+  it('offers exactly 160 selectable avatars with stable ids', () => {
     expect(avatarCatalog).toHaveLength(AVATAR_CATALOG_SIZE);
     expect(avatarCatalog[0]!.id).toBe('avatar_001');
-    expect(avatarCatalog[99]!.id).toBe('avatar_100');
+    expect(avatarCatalog[159]!.id).toBe('avatar_160');
     expect(new Set(avatarCatalog.map((avatar) => avatar.id)).size).toBe(AVATAR_CATALOG_SIZE);
   });
 
@@ -25,7 +25,7 @@ describe('avatar catalogue', () => {
 
   it('validates ids and falls back when one is missing or unknown', () => {
     expect(isValidAvatarId('avatar_001')).toBe(true);
-    expect(isValidAvatarId('avatar_101')).toBe(false);
+    expect(isValidAvatarId('avatar_101')).toBe(true);
     expect(isValidAvatarId(null)).toBe(false);
     expect(avatarById('nope')).toBeNull();
     expect(configForAvatarId(null)).toBeNull();
@@ -42,7 +42,7 @@ describe('avatar catalogue', () => {
   });
 
   it('covers every category so the filter is never empty', () => {
-    for (const category of ['classic', 'glasses', 'sporty', 'creative', 'scholar'] as const) {
+    for (const category of ['classic', 'glasses', 'sporty', 'creative', 'scholar', 'animal'] as const) {
       expect(searchAvatars('', category).length).toBeGreaterThan(0);
     }
   });

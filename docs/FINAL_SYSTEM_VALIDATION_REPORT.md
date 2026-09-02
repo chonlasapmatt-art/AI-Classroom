@@ -1,10 +1,16 @@
 # Final System Validation Report
 
-**Date:** 2026-08-31
+**Date:** 2026-09-01
 **Branch:** `continuation/claude-completion` (merged to `main`)
 **Supabase project:** the deployment this branch is linked to (see `supabase/.temp/project-ref`, which is not committed)
 
 ## How this pass was validated
+
+The managed-identity changes in migrations `202609010036` and `202609010037`, together with the
+teacher responsibility enforcement in `202609010038`, are implemented and
+covered by local tests. They still require deployment to the linked Supabase project before they can
+be called a live verification; the earlier live findings below remain valid for the already deployed
+baseline.
 
 Every claim below marked PASS was exercised against the live Supabase project, not against
 fixtures. Where a property is about who may see what, it was checked from two real sessions — a
@@ -29,14 +35,14 @@ Automated gates alone would have shipped all six.
 
 | | |
 | --- | --- |
-| Migrations | 29 |
+| Migrations | 32 |
 | Edge Functions | 12 |
 | Application source files | 116 |
-| Test files | 43 |
-| Automated tests | 489, all passing |
+| Test files | 46 |
+| Automated tests | 512, all passing |
 | Routes | 37 across two entry points |
 
-Gates: `typecheck` PASS · `lint` PASS (`--max-warnings 0`) · `test` PASS (489) · `build` PASS.
+Gates: `typecheck` PASS · `lint` PASS (`--max-warnings 0`) · `test` PASS (512) · `build` PASS.
 
 ---
 
@@ -58,7 +64,7 @@ suite asserts that no screen calls `signInWithPassword`. Accounts created throug
 entry carry a generated internal address nobody is shown, which is why an email-based console
 sign-in was removed after it proved unusable.
 
-Six-digit OTP is used only for forgotten passwords.
+Password recovery uses a Supabase recovery link; no email or recovery code appears in normal sign-in.
 
 ## ROLE MODEL — PASS
 
@@ -116,17 +122,27 @@ about how well they are protected.
 Name plus student number, no email, no password, no OTP. Server-side resolution, rate limiting,
 lockout and opaque failures unchanged from the established implementation.
 
+## MANAGED TEACHER IDENTITY — LOCAL PASS / LIVE PENDING
+
+School administrators can now create a teacher roster row and provision its usable Auth identity in
+the same save flow. The teacher receives a generated initial password and signs in by display name;
+no email field, invitation step or teacher self-registration is required. Multiple subjects are
+stored on the roster entry, and class assignments can carry a subject responsibility or remain a
+class-advisor assignment. Audit and account-event rows are written by trusted server functions.
+
 ## PARENT — PARTIAL
 
-Registration, name-and-password sign-in, child search by first name and the linking approval flow all
-work. The portal itself covers linked children, timetable, achievements and announcements; the fuller
-list in the specification — attendance detail, missing work, per-subject feedback, calendar — is not
-built.
+Registration now records the selected school, child search is school-scoped, and a valid child match
+is linked immediately. Legacy pending links remain readable. The portal itself covers linked
+children, timetable, achievements and announcements; the fuller list in the specification —
+attendance detail, missing work, per-subject feedback, calendar — is not built.
 
 ## SCHOOL MANAGEMENT — PASS
 
-Terms, classes, subjects, teachers, students, enrolment, transfers and promotion are unchanged and
-covered by the existing suite.
+Terms, classes, subjects, teachers, students, enrolment, transfers and promotion remain school
+scoped. Teacher assignments now support four explicit responsibilities without duplicate accounts:
+class advisor, assistant advisor, subject owner and subject co-teacher. A class has at most one active
+advisor, one assistant advisor and one subject owner per subject; assignment changes are audited.
 
 ## ATTENDANCE — PASS
 
@@ -134,13 +150,17 @@ Unchanged. Offline capture through the local-first path.
 
 ## ASSIGNMENTS — PASS
 
-Unchanged.
+Teachers still see work and submission tracking for every class they are assigned to. Creating,
+editing, publishing, cancelling and grading work is now limited to the exact class/subject where the
+teacher is the active subject owner; advisors and assistants remain read-only for academic content.
 
 ## SCORES — PASS
 
 One score ledger for everything. Quiz bonuses write through the same `score_events` path as manual
 awards, with a reason, an author and a source, and the quiz source was added to the existing
-constraints rather than to a second engine.
+constraints rather than to a second engine. Score entry, grade editing, activity/test scores and
+quick-score awards now require the subject owner for the exact class and subject; advisors and
+assistants can still inspect the whole assigned class.
 
 ## SYNC — PASS
 
@@ -176,8 +196,10 @@ so one topic cannot split in two.
 Searching runs on the server, so a bank of thousands stays usable on a tablet and the answer key of a
 question nobody matched never reaches the device.
 
-Verified live: category and question created, listed and searched from a staff session; both tables
-refused to an unauthenticated caller by privilege.
+Verified locally: category and question creation is now subject-owner scoped, while advisors and
+assistants can still use the assigned classroom without receiving answer keys. The previous live
+verification remains valid for privilege boundaries; migration `202609010038` is still pending
+deployment for the new owner checks.
 
 ## QUIZ CHALLENGE — PASS (new)
 
@@ -254,10 +276,12 @@ written correctly.
 
 Verified live: every one of those tables returned `401 permission denied` to an anonymous caller.
 
-## DATABASE — PASS
+## DATABASE — BASELINE PASS / NEW MIGRATIONS LIVE PENDING
 
-29 immutable migrations. Nothing deployed was edited; every repair is a new migration. No data was
-reset. All probe rows created during validation were removed and the affected tables confirmed empty.
+32 immutable migrations in the repository. Nothing deployed was edited; every repair is a new
+migration. No data was reset. Migrations `202609010036`, `202609010037` and `202609010038` have not
+been deployed from this environment, so their live RLS/RPC/trigger behaviour still needs a Supabase
+migration run.
 
 ## PWA — PASS
 
@@ -277,7 +301,7 @@ one classroom and will not scale to many schools.
 
 ## TESTS — PASS
 
-489 automated tests across 43 files, all passing. Coverage includes authorisation boundaries as
+512 automated tests across 46 files, all passing. Coverage includes authorisation boundaries as
 static assertions over the deployed SQL and Edge Functions, because a grant and a policy cannot be
 exercised by rendering a screen.
 
@@ -306,5 +330,5 @@ authorisation model is sound. It is not ready for production while queued notifi
 sent, backups have never been restore-tested, and the Android product named in the specification does
 not exist.
 
-Recommended order of work: the notification sender, then a restore test, then question bank import,
-then Android.
+Recommended order of work: deploy and smoke-test `202609010038`, then the notification sender, a
+restore test, question bank import and Android.

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { SessionProvider, type SessionValue } from '../app/SessionContext';
 import { RepositoryProvider } from '../data/RepositoryContext';
 import { getFixtureRepository } from '../data/fixtureSchoolRepository';
@@ -12,14 +12,19 @@ export function PreviewProviders({ children, onExit }: { children: ReactNode; on
   const repository = useMemo(() => getFixtureRepository(), []);
   const memberships = repository.memberships;
   const [membershipId, setMembershipId] = useState(memberships[0]!.membershipId);
+  const membership = memberships.find((item) => item.membershipId === membershipId) ?? memberships[0]!;
+
+  useEffect(() => {
+    repository.setVisibility({ role: membership.role, profileId: membership.profileId });
+  }, [membership, repository]);
 
   const session: SessionValue = useMemo(() => ({
     mode: 'preview',
-    membership: memberships.find((item) => item.membershipId === membershipId) ?? memberships[0]!,
+    membership,
     memberships,
     selectMembership: setMembershipId,
     signOut: () => { disablePreviewMode(); onExit(); }
-  }), [membershipId, memberships, onExit]);
+  }), [membership, memberships, onExit]);
 
   return (
     <SessionProvider value={session}>

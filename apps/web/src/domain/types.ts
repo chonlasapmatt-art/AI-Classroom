@@ -1,5 +1,6 @@
 export type Role = 'admin' | 'teacher' | 'student' | 'parent';
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave';
+export type AttendanceSessionType = 'daily' | 'class' | 'homeroom';
 export type SyncEntityType = 'student' | 'enrollment' | 'assignment' | 'submission' | 'activity' | 'activity_score' | 'test' | 'test_score' | 'attendance' | 'setting' | 'timetable_entry' | 'achievement' | 'score_event';
 export type SyncOperation = 'upsert' | 'delete';
 
@@ -59,6 +60,8 @@ export interface Assignment extends SyncRecord {
 export interface Submission extends SyncRecord {
   assignmentId: string;
   studentId: string;
+  /** The Google Drive/Docs link shared by the student for this turn-in. */
+  driveUrl?: string | null;
   submittedAt: string | null;
   status: SubmissionStatus;
   score: number | null;
@@ -81,7 +84,19 @@ export interface Activity extends SyncRecord { classId: string; subjectId: strin
 export interface ActivityScore extends SyncRecord { activityId: string; studentId: string; score: number | null; note: string; }
 export interface TestRecord extends SyncRecord { classId: string; subjectId: string | null; title: string; testDate: string; maxScore: number; status: 'draft' | 'published' | 'closed'; }
 export interface TestScore extends SyncRecord { testId: string; studentId: string; score: number | null; publishedAt: string | null; }
-export interface Attendance extends SyncRecord { classId: string; studentId: string; attendanceDate: string; status: AttendanceStatus; note: string; }
+export interface Attendance extends SyncRecord {
+  classId: string;
+  studentId: string;
+  attendanceDate: string;
+  status: AttendanceStatus;
+  note: string;
+  /** Stable identity for one attendance sheet. Older daily rows omit this and mean "daily". */
+  sessionKey?: string;
+  sessionType?: AttendanceSessionType;
+  period?: number | null;
+  subjectId?: string | null;
+  timetableEntryId?: string | null;
+}
 export interface Setting extends SyncRecord { scopeType: string; scopeId: string | null; key: string; valueJson: Record<string, unknown>; }
 
 export interface AvatarConfig { archetype: number; palette: number; skinTone: number; hair: number; accessory: number; badge: number; }
@@ -134,12 +149,16 @@ export interface ClassTeacher extends SyncRecord {
   classId: string;
   teacherId: string;
   role: 'primary' | 'assistant';
+  /** Optional subject responsibility; null means the teacher advises the class generally. */
+  subjectId?: string | null;
 }
 
 export type ParentLinkStatus = 'invited' | 'linked' | 'revoked';
 
 export interface ParentLink extends SyncRecord {
   studentId: string;
+  /** Auth profile that owns this guardian identity. LINE identity is separate and optional. */
+  profileId: string | null;
   avatarId: string | null;
   avatarPhotoId: string | null;
   parentName: string;
@@ -193,7 +212,7 @@ export interface ClassroomNotification extends SyncRecord {
 }
 
 export type AttachmentOwner = 'assignment' | 'submission' | 'subject' | 'profile';
-export type AttachmentKind = 'pdf' | 'spreadsheet' | 'csv' | 'document' | 'image' | 'other';
+export type AttachmentKind = 'pdf' | 'spreadsheet' | 'csv' | 'document' | 'presentation' | 'archive' | 'image' | 'video' | 'audio' | 'other';
 
 /**
  * A file attached to teaching material or to a student's turned-in work.

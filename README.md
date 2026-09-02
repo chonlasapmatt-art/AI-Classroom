@@ -22,6 +22,9 @@ Product Owner เปิดดู UX ได้โดยยังไม่ต้�
 - ใช้ `fixtureSchoolRepository` ซึ่งเก็บข้อมูลในหน่วยความจำ ไม่แตะ Dexie, ไม่แตะ Supabase, ไม่เข้าคิว sync (มีเทสต์ยืนยัน)
 - สลับบทบาท Admin/Teacher/Student/Parent ได้จากแถบบน พร้อมป้าย "Preview / Development Only"
 - หน้า Avatar Gallery (`/avatar-gallery`) แสดงทุกธีมและทุกสถานะแอนิเมชัน เปิดเฉพาะโหมด Preview
+- เมนู **คู่มือทดสอบระบบ** (`/preview-demo`) รวมทางลัดและ flow ทดสอบตาม role พร้อมข้อมูลเดโมที่เตรียมไว้
+- คลังข้อสอบ, Quiz Challenge และข้อสอบมีตัวจำลองในหน่วยความจำสำหรับ Preview จึงทดลองค้นหา สร้างรอบ สลับ role เข้าร่วม และทำข้อสอบได้โดยไม่ต้องมีเซิร์ฟเวอร์จริง
+- ข้อมูลเดโมครอบคลุมงาน/การส่งงาน/ติดตามนักเรียน/คะแนนรายวิชา/ผู้ปกครอง/แจ้งเตือน/ตารางเรียน/รายงาน/ธีม/Avatar และสถานะ local-first
 
 ```bash
 # ดูแบบ production build บน http://127.0.0.1:4173/
@@ -39,7 +42,7 @@ npm run preview --workspace @smart-classroom/web
 ./scripts/setup-supabase.ps1 -ProjectRef <project-ref>
 ```
 
-สคริปต์จะ link project, push migrations, deploy Edge Function ทั้งหมด และตั้ง secret ฝั่งเซิร์ฟเวอร์ โดยรหัสเจ้าของระบบถูกแฮชก่อนส่ง ไม่มีค่าดิบอยู่ในเครื่องหรือใน repository
+สคริปต์จะ link project, push migrations, deploy Edge Function ทั้งหมด และตั้ง secret ฝั่งเซิร์ฟเวอร์ โดยรหัสเจ้าของระบบและรหัสผู้ดูแลแพลตฟอร์มถูกแฮชแยกกันก่อนส่ง ไม่มีค่าดิบอยู่ในเครื่องหรือใน repository
 
 เมื่อตั้ง Custom SMTP บน Supabase แล้ว ให้เพิ่ม `-PushAuthConfig` เพื่อเปิด recovery template และ OTP 6 หลัก เช่น `./scripts/setup-supabase.ps1 -ProjectRef <project-ref> -PushAuthConfig` โดย Hosted Free tier ที่ใช้ default email provider จะไม่อนุญาตให้แก้ custom email template
 
@@ -69,7 +72,7 @@ npm run preview --workspace @smart-classroom/web
 - **รายวิชา** — เริ่มด้วย 8 กลุ่มสาระมาตรฐาน และเพิ่ม/แก้ไข/เก็บถาวรรายวิชาเองได้ (`/subjects`) งาน กิจกรรม และการสอบผูกกับรายวิชา
 - **อวตารนักเรียน** — ประกอบจากบุคลิก สีชุด สีผิว ทรงผม ของประดับ และเข็มกลัด รวมกว่า 100 แบบ เลือกเองได้ที่ Avatar Studio
 - **มอบหมายงานแบบ Classroom** — สร้างงาน มอบหมายทั้งห้อง แจ้งเตือนเฉพาะคนที่ยังไม่ส่ง นักเรียนส่งงานพร้อมไฟล์แนบ ครูให้คะแนนและส่งคืนพร้อมแจ้งเตือน
-- **แลกไฟล์ครู-นักเรียน** — PDF, Excel (.xlsx), CSV, เอกสาร และรูปภาพ (ไม่เกิน 15 MB ต่อไฟล์) ครูแจกเอกสารให้ทั้งห้องพร้อมแจ้งเตือน นักเรียนส่งงานแนบไฟล์กลับ ไฟล์เก็บใน Dexie ของเครื่อง และมิเรอร์ขึ้น Supabase Storage bucket `classroom-files` (private) เพื่อให้เครื่องอื่นดาวน์โหลดได้ตาม RLS
+- **แลกไฟล์ครู-นักเรียน** — รองรับไฟล์งานทุกประเภท เช่น PDF, Word, Excel, PowerPoint, CSV, ZIP, รูปภาพ, เสียง และวิดีโอ (ไม่เกิน 15 MB ต่อไฟล์) ครูแจกไฟล์ให้ทั้งห้องพร้อมแจ้งเตือน นักเรียนส่งงานแนบไฟล์กลับ ไฟล์เก็บใน Dexie ของเครื่อง และมิเรอร์ขึ้น Supabase Storage bucket `classroom-files` (private) เพื่อให้เครื่องอื่นดาวน์โหลดได้ตาม RLS
 - **นำเข้ารายชื่อ** — นักเรียน ครู ผู้ปกครอง จาก CSV/TSV/Excel แก้ไขและลบแถวได้ก่อนบันทึก (`/import`)
 - **สมุดเกรด** — ตารางเกรดแยกตามรายวิชา การกระจายเกรด GPA 4.00 และใบรายงานผลรายบุคคล (`/gradebook`)
 

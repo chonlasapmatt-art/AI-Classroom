@@ -212,7 +212,8 @@ export function planSubmission(
   studentNote: string,
   effectiveDue: string | null,
   createRecord: RecordFactory,
-  now = new Date()
+  now = new Date(),
+  driveUrl?: string | null
 ): { submission: Submission; version: SubmissionVersion; cancelledReminderKeys: string[] } {
   const timestamp = now.toISOString();
   const isLate = Boolean(effectiveDue && Date.parse(effectiveDue) < now.getTime());
@@ -223,6 +224,7 @@ export function planSubmission(
     ...(submission ?? createRecord()),
     assignmentId: work.id,
     studentId,
+    driveUrl: driveUrl ?? submission?.driveUrl ?? null,
     submittedAt: timestamp,
     status: wasRevision ? 'resubmitted' : isLate ? 'late' : 'submitted',
     score: submission?.score ?? null,

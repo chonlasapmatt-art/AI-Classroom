@@ -5,6 +5,7 @@ import {
   Badge, Button, Card, CardHeader, EmptyState, ErrorState, Field, PageHeader, Skeleton, Stat, Toolbar
 } from '../../ui/components';
 import { QuestionEditor } from './QuestionEditor';
+import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 import {
   archiveBankQuestion, difficultyLabels, difficultyTone, duplicateDraft, emptyDraft,
   listBankQuestions, listQuestionCategories, questionTypeLabels, reorderQuestionCategories,
@@ -22,7 +23,7 @@ import {
  * up with four spellings of one topic.
  */
 export function QuestionBankPage() {
-  const { membership, mode } = useSession();
+  const { membership } = useSession();
   const snapshot = useSchoolSnapshot();
   const schoolId = membership.schoolId;
   const isStaff = membership.role === 'admin' || membership.role === 'teacher';
@@ -43,9 +44,14 @@ export function QuestionBankPage() {
       .sort((a, b) => a.sortOrder - b.sortOrder),
     [snapshot.subjects]
   );
+  const ownedSubjectIds = teacherOwnedSubjectIds(snapshot, membership.profileId);
+  const editableSubjects = membership.role === 'teacher'
+    ? subjects.filter((subject) => ownedSubjectIds.has(subject.id))
+    : subjects;
+  const canEditBank = membership.role === 'admin' || editableSubjects.length > 0;
 
   const load = useCallback(async () => {
-    if (mode !== 'cloud' || !isStaff) return;
+    if (!isStaff) return;
     setError(null);
     try {
       const [rows, groups] = await Promise.all([
@@ -57,7 +63,7 @@ export function QuestionBankPage() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'โหลดคลังข้อสอบไม่สำเร็จ');
     }
-  }, [filter, isStaff, keyword, mode, schoolId]);
+  }, [filter, isStaff, keyword, schoolId]);
 
   useEffect(() => {
     // Typing in the search box should not fire a query per keystroke.
@@ -67,6 +73,11 @@ export function QuestionBankPage() {
 
   async function save() {
     if (!draft) return;
+    if (membership.role === 'teacher' && (!draft.subjectId || !ownedSubjectIds.has(draft.subjectId))) {
+      // The server remains authoritative; this message prevents a confusing round trip in preview.
+      setEditorError('เลือกได้เฉพาะรายวิชาที่คุณเป็นครูเจ้าของวิชา');
+      return;
+    }
     setBusy(true); setEditorError(null);
     try {
       await saveBankQuestion(schoolId, draft);
@@ -90,15 +101,6 @@ export function QuestionBankPage() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'เก็บคำถามไม่สำเร็จ');
     }
-  }
-
-  if (mode !== 'cloud') {
-    return (
-      <Card>
-        <CardHeader title="คลังข้อสอบ" description="ใช้ได้เฉพาะเมื่อเชื่อมต่อระบบจริง" />
-        <EmptyState title="โหมดตัวอย่างไม่มีคลังข้อสอบ" description="เข้าสู่ระบบด้วยบัญชีครูหรือผู้ดูแลโรงเรียน" />
-      </Card>
-    );
   }
 
   if (!isStaff) {
@@ -128,12 +130,12 @@ export function QuestionBankPage() {
         description="เก็บคำถามไว้ใช้ซ้ำ ทั้งกิจกรรมทบทวนและข้อสอบจริง"
         action={
           <>
-            <Button onClick={() => setShowCategories((value) => !value)}>
+            {canEditBank && <Button onClick={() => setShowCategories((value) => !value)}>
               {showCategories ? 'ซ่อนหมวดหมู่' : 'จัดการหมวดหมู่'}
-            </Button>
-            <Button variant="primary" onClick={() => { setEditorError(null); setDraft(emptyDraft(filter.subjectId ?? null)); }}>
+            </Button>}
+            {canEditBank && <Button variant="primary" onClick={() => { setEditorError(null); setDraft(emptyDraft(filter.subjectId ?? editableSubjects[0]?.id ?? null)); }}>
               เพิ่มคำถาม
-            </Button>
+            </Button>}
           </>
         }
       />
@@ -145,14 +147,14 @@ export function QuestionBankPage() {
         <CategoryManager
           schoolId={schoolId}
           categories={categories}
-          subjects={subjects}
+          subjects={editableSubjects}
           onChanged={() => void load()}
           onMessage={setMessage}
         />
       )}
 
       <Card>
-        <CardHeader title="ค้นหา" description="กรองด้วยรายวิชา หมวดหมู่ ความยาก ชนิดคำถาม หรือคำในโจทย์" />
+        <CardHeader title="ค้นหาและจัดหมวด" description="กรองและเก็บคำถามตามลำดับ ชั้นปี → รายวิชา → Topic ย่อย พร้อมบันทึกลงคลังของโรงเรียน" />
         <Toolbar>
           <Field label="คำค้น">
             <input
@@ -170,6 +172,27 @@ export function QuestionBankPage() {
               <option value="">ทุกรายวิชา</option>
               {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
             </select>
+          </Field>
+          <Field label="ชั้นปี">
+            <input
+              list="question-grade-levels"
+              value={filter.gradeLevel ?? ''}
+              placeholder="เช่น ป.4 หรือ ม.1"
+              onChange={(event) => setFilter((value) => ({ ...value, gradeLevel: event.target.value || null }))}
+            />
+            <datalist id="question-grade-levels">
+              {[...new Set([
+                ...snapshot.classes.map((classroom) => classroom.gradeLevel),
+                ...(questions ?? []).map((question) => question.gradeLevel)
+              ].filter(Boolean))].sort().map((grade) => <option key={grade} value={grade} />)}
+            </datalist>
+          </Field>
+          <Field label="Topic ย่อย">
+            <input
+              value={filter.topic ?? ''}
+              placeholder="เช่น เศษส่วน หรือ เซลล์"
+              onChange={(event) => setFilter((value) => ({ ...value, topic: event.target.value || null }))}
+            />
           </Field>
           <Field label="หมวดหมู่">
             <select
@@ -238,6 +261,7 @@ export function QuestionBankPage() {
           {questions.map((question) => {
             const subject = subjects.find((item) => item.id === question.subjectId);
             const category = categories.find((item) => item.id === question.categoryId);
+            const canEditQuestion = membership.role === 'admin' || (membership.role === 'teacher' && Boolean(question.subjectId && ownedSubjectIds.has(question.subjectId)));
             return (
               <Card key={question.id} as="article">
                 <div className="question-head">
@@ -245,9 +269,14 @@ export function QuestionBankPage() {
                   <Badge tone="neutral">{questionTypeLabels[question.questionType]}</Badge>
                   {subject && <Badge tone="info">{subject.name}</Badge>}
                   {category && <Badge tone="brand">{category.name}</Badge>}
+                  {question.gradeLevel && <Badge tone="neutral">ชั้นปี: {question.gradeLevel}</Badge>}
+                  {question.topic && <Badge tone="neutral">Topic: {question.topic}</Badge>}
                   <span className="fine-print">{question.points} คะแนน</span>
                 </div>
                 <p className="question-prompt">{question.prompt}</p>
+                {(question.unit || question.topic) && (
+                  <p className="fine-print">เส้นทางคลัง: {question.gradeLevel || 'ไม่ระบุชั้นปี'} · {subject?.name || 'ไม่ระบุวิชา'} · {question.unit ? `${question.unit} · ` : ''}{question.topic || 'ไม่ระบุ Topic'}</p>
+                )}
                 {question.choices.length > 0 && (
                   <ol className="question-choices">
                     {question.choices.map((choice) => (
@@ -265,9 +294,9 @@ export function QuestionBankPage() {
                   <p className="fine-print">ป้ายกำกับ: {question.tags.join(' · ')}</p>
                 )}
                 <div className="record-actions">
-                  <Button size="sm" onClick={() => { setEditorError(null); setDraft(toDraft(question)); }}>แก้ไข</Button>
-                  <Button size="sm" onClick={() => { setEditorError(null); setDraft(duplicateDraft(question)); }}>ทำสำเนา</Button>
-                  {question.status === 'active' && (
+                  {canEditQuestion && <Button size="sm" onClick={() => { setEditorError(null); setDraft(toDraft(question)); }}>แก้ไข</Button>}
+                  {canEditQuestion && <Button size="sm" onClick={() => { setEditorError(null); setDraft(duplicateDraft(question)); }}>ทำสำเนา</Button>}
+                  {canEditQuestion && question.status === 'active' && (
                     <Button size="sm" variant="ghost" onClick={() => void archive(question)}>เก็บเข้าคลังเก่า</Button>
                   )}
                 </div>
@@ -280,13 +309,13 @@ export function QuestionBankPage() {
           icon="✎"
           title={filter.status === 'archived' ? 'ไม่มีคำถามที่เก็บไว้' : 'ยังไม่มีคำถามที่ตรงเงื่อนไข'}
           description="ลองล้างตัวกรอง หรือกด “เพิ่มคำถาม” เพื่อเริ่มสร้างคลังของโรงเรียน"
-          action={<Button variant="primary" onClick={() => setDraft(emptyDraft(filter.subjectId ?? null))}>เพิ่มคำถาม</Button>}
+          action={canEditBank && <Button variant="primary" onClick={() => setDraft(emptyDraft(filter.subjectId ?? editableSubjects[0]?.id ?? null))}>เพิ่มคำถาม</Button>}
         />
       ))}
 
       {draft && (
         <QuestionEditor
-          draft={draft} subjects={subjects} categories={categories}
+          draft={draft} subjects={editableSubjects} categories={categories}
           onChange={setDraft} onSave={() => void save()} onClose={() => setDraft(null)}
           busy={busy} error={editorError}
         />

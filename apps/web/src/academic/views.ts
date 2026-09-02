@@ -1,6 +1,7 @@
 import type { SchoolSnapshot } from '../data/schoolRepository';
 import type { Assignment, ClassroomNotification, Student, Submission } from '../domain/types';
-import { effectiveDueAt, workStateFor, type WorkState } from './workStatus';
+import { rosterFor } from '../data/selectors';
+import { effectiveDueAt, hasSubmitted, workStateFor, type WorkState } from './workStatus';
 
 /**
  * Read models the screens share: calendar entries, notification groups and the acknowledgement
@@ -120,6 +121,61 @@ export function rosterRowsFor(snapshot: SchoolSnapshot, work: Assignment, roster
       state: workStateFor({ work, submission, dueAt, now }),
       versions: snapshot.submissionVersions.filter((item) => item.assignmentId === work.id && item.studentId === student.id).length,
       extended: dueAt !== work.dueAt
+    };
+  });
+}
+
+export type StudentTrackingBucket = 'attention' | 'waiting' | 'complete' | 'empty';
+
+/** A calm, neutral summary for a teacher who needs to decide whom to follow up with next. */
+export interface StudentTrackingRow {
+  student: Student;
+  totalWork: number;
+  submitted: number;
+  late: number;
+  overdue: number;
+  revisionRequested: number;
+  waiting: number;
+  completionRate: number;
+  latestActivityAt: string | null;
+  nextDueAt: string | null;
+  bucket: StudentTrackingBucket;
+}
+
+export function studentTrackingFor(snapshot: SchoolSnapshot, classId: string, now = new Date(), subjectId?: string | null): StudentTrackingRow[] {
+  const roster = rosterFor(snapshot, classId);
+  const works = snapshot.assignments.filter((work) =>
+    work.classId === classId && (!subjectId || work.subjectId === subjectId) && (work.status === 'published' || work.status === 'closed'));
+
+  return roster.map((student) => {
+    const entries = works.map((work) => {
+      const submission = snapshot.submissions.find((item) => item.assignmentId === work.id && item.studentId === student.id);
+      const dueAt = effectiveDueAt(work, student.id, snapshot.deadlineExtensions);
+      const state = workStateFor({ work, submission, dueAt, now });
+      return { submission, dueAt, state };
+    });
+    const submitted = entries.filter((entry) => hasSubmitted(entry.submission)).length;
+    const late = entries.filter((entry) => entry.state === 'late').length;
+    const overdue = entries.filter((entry) => entry.state === 'overdue').length;
+    const revisionRequested = entries.filter((entry) => entry.state === 'revision_requested').length;
+    const waiting = entries.filter((entry) => !hasSubmitted(entry.submission) || entry.state === 'revision_requested').length;
+    const outstandingDueDates = entries
+      .filter((entry) => !hasSubmitted(entry.submission) || entry.state === 'revision_requested')
+      .map((entry) => entry.dueAt)
+      .filter((dueAt): dueAt is string => Boolean(dueAt))
+      .sort();
+    const activities = entries.map((entry) => entry.submission?.submittedAt ?? entry.submission?.acknowledgedAt ?? entry.submission?.openedAt ?? null)
+      .filter((value): value is string => Boolean(value)).sort();
+    const totalWork = works.length;
+    const bucket: StudentTrackingBucket = totalWork === 0 ? 'empty'
+      : late > 0 || overdue > 0 || revisionRequested > 0 ? 'attention'
+        : waiting > 0 ? 'waiting' : 'complete';
+    return {
+      student, totalWork, submitted, late, overdue, revisionRequested, waiting,
+      completionRate: totalWork === 0 ? 0 : Math.round((submitted / totalWork) * 100),
+      latestActivityAt: activities.at(-1) ?? null,
+      nextDueAt: outstandingDueDates[0] ?? null,
+      bucket
     };
   });
 }

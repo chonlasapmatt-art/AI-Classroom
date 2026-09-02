@@ -1,4 +1,4 @@
-import type { AttendanceStatus, Classroom, ClassroomNotification, ScoreEvent, Setting, Student, Subject } from '../domain/types';
+import type { Attendance, AttendanceStatus, Classroom, ClassroomNotification, ScoreEvent, Setting, Student, Subject } from '../domain/types';
 import { calculateTotal, defaultScorePolicy, gradeFor, type Category, type ScoreItem, type ScorePolicy } from '../features/scores/scoreEngine';
 import type { SchoolSnapshot } from './schoolRepository';
 
@@ -52,11 +52,12 @@ export function consentedStudents(snapshot: SchoolSnapshot): Student[] {
 
 export interface AttendanceSummary { present: number; late: number; absent: number; leave: number; total: number; presentRate: number }
 
-export function attendanceSummary(snapshot: SchoolSnapshot, filter: { classId?: string; studentId?: string; date?: string } = {}): AttendanceSummary {
+export function attendanceSummary(snapshot: SchoolSnapshot, filter: { classId?: string; studentId?: string; date?: string; sessionKey?: string } = {}): AttendanceSummary {
   const rows = snapshot.attendance.filter((item) =>
     (!filter.classId || item.classId === filter.classId) &&
     (!filter.studentId || item.studentId === filter.studentId) &&
-    (!filter.date || item.attendanceDate === filter.date));
+    (!filter.date || item.attendanceDate === filter.date) &&
+    (!filter.sessionKey || (item.sessionKey ?? 'daily') === filter.sessionKey));
   const count = (status: AttendanceStatus) => rows.filter((item) => item.status === status).length;
   const present = count('present');
   const late = count('late');
@@ -64,6 +65,38 @@ export function attendanceSummary(snapshot: SchoolSnapshot, filter: { classId?: 
   return {
     present, late, absent: count('absent'), leave: count('leave'), total,
     presentRate: total === 0 ? 0 : Math.round(((present + late) / total) * 1000) / 10
+  };
+}
+
+export type AttendanceDayStatus = AttendanceStatus | 'unmarked';
+
+/** Collapse all lesson sheets for one student and date into one parent-safe day status. */
+export function attendanceDayStatus(rows: Attendance[]): AttendanceDayStatus {
+  if (rows.length === 0) return 'unmarked';
+  if (rows.some((row) => row.status === 'absent')) return 'absent';
+  if (rows.some((row) => row.status === 'leave')) return 'leave';
+  if (rows.some((row) => row.status === 'late')) return 'late';
+  return 'present';
+}
+
+export interface AttendanceDailySummary extends AttendanceSummary { unmarked: number; totalDays: number; checkedSessions: number }
+
+/** A student's whole attendance history, counted by day rather than by lesson row. */
+export function attendanceDailySummary(snapshot: SchoolSnapshot, filter: { classId?: string; studentId?: string } = {}): AttendanceDailySummary {
+  const rows = snapshot.attendance.filter((item) =>
+    (!filter.classId || item.classId === filter.classId) &&
+    (!filter.studentId || item.studentId === filter.studentId));
+  const byDay = new Map<string, Attendance[]>();
+  for (const row of rows) byDay.set(row.attendanceDate, [...(byDay.get(row.attendanceDate) ?? []), row]);
+  const statuses = [...byDay.values()].map(attendanceDayStatus);
+  const count = (status: AttendanceDayStatus) => statuses.filter((value) => value === status).length;
+  const totalDays = statuses.length;
+  const present = count('present');
+  const late = count('late');
+  return {
+    present, late, absent: count('absent'), leave: count('leave'), total: totalDays,
+    totalDays, unmarked: count('unmarked'), checkedSessions: rows.length,
+    presentRate: totalDays === 0 ? 0 : Math.round(((present + late) / totalDays) * 1000) / 10
   };
 }
 
@@ -120,7 +153,7 @@ export function standingsFor(snapshot: SchoolSnapshot, classId: string, policy =
         const submission = snapshot.submissions.find((item) => item.assignmentId === assignment.id && item.studentId === student.id);
         return !submission || ['not_started', 'in_progress', 'assigned', 'draft', 'overdue'].includes(submission.status);
       }).length;
-    return { student, total, previousTotal, missingWork, presentRate: attendanceSummary(snapshot, { studentId: student.id }).presentRate };
+    return { student, total, previousTotal, missingWork, presentRate: attendanceDailySummary(snapshot, { studentId: student.id }).presentRate };
   });
 
   const byTotal = [...scored].sort((a, b) => b.total - a.total || a.student.studentCode.localeCompare(b.student.studentCode));

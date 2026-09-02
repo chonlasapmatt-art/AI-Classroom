@@ -33,6 +33,9 @@ export async function commitLocalMutation<T extends SyncRecord>(entityType: Sync
     await table.put(record);
     await db.syncQueue.add(item);
   });
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('smart-classroom:local-mutation', { detail: { schoolId: record.schoolId } }));
+  }
   return item;
 }
 

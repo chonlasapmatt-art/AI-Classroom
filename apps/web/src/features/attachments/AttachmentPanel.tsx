@@ -14,7 +14,9 @@ interface Props {
   notify?: { classId: string; studentIds: string[]; assignmentId: string | null; title: string };
 }
 
-const acceptedTypes = '.pdf,.xlsx,.xls,.csv,.tsv,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp';
+// Teachers may use any file format in a lesson. The server/storage layer still enforces the
+// per-file size limit and classroom permissions.
+const acceptedTypes = '*/*';
 
 /** Upload, open and remove the files attached to teaching material or to turned-in work. */
 export function AttachmentPanel({ ownerType, ownerId, uploadedBy, canUpload, canDelete = canUpload, title = 'ไฟล์แนบ', notify }: Props) {
@@ -73,7 +75,7 @@ export function AttachmentPanel({ ownerType, ownerId, uploadedBy, canUpload, can
         <strong>{title}</strong>
         {canUpload && (
           <label className={`upload-button ${busy ? 'busy' : ''}`}>
-            {busy ? 'กำลังอัปโหลด...' : '+ แนบไฟล์ (PDF / Excel / CSV / รูปภาพ)'}
+            {busy ? 'กำลังอัปโหลด...' : '+ แนบไฟล์งานทุกประเภท (สูงสุด 15 MB/ไฟล์)'}
             <input ref={inputRef} type="file" multiple accept={acceptedTypes} disabled={busy} onChange={(event) => void upload(event)} />
           </label>
         )}

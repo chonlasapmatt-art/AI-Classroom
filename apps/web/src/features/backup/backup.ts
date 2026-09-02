@@ -9,15 +9,15 @@ export interface BackupEnvelope {
 /**
  * Every local table a school's records live in, keyed by the name used inside the backup file.
  *
- * Attachments are deliberately absent: the bytes live in Supabase Storage and re-downloading them
- * is cheaper and safer than carrying tens of megabytes inside an encrypted JSON envelope. Their
- * metadata comes back with the next sync, so a restored device is not missing the file list.
+ * Attachments are included with their local bytes as base64 inside the encrypted payload. This is
+ * important for a file that was created offline and has not reached Supabase Storage yet; a backup
+ * must be able to restore that file too. The attachment size limit keeps the browser operation safe.
  */
 const backedUpTables = [
   'academicTerms', 'classes', 'subjects', 'teachers', 'classTeachers', 'parentLinks', 'students', 'enrollments',
   'assignments', 'submissions', 'submissionVersions', 'deadlineExtensions', 'activities', 'activityScores',
   'tests', 'testScores', 'attendance', 'notifications', 'notificationPreferences', 'announcements',
-  'rubrics', 'rubricScores', 'academicAudit', 'timetable', 'achievements', 'settings', 'syncQueue', 'syncState'
+  'rubrics', 'rubricScores', 'academicAudit', 'timetable', 'achievements', 'settings', 'attachments', 'syncQueue', 'syncState'
 ] as const;
 
 export type BackupTable = typeof backedUpTables[number];
@@ -36,6 +36,40 @@ function base64(bytes: Uint8Array): string { let text = ''; bytes.forEach((byte)
 function bytes(value: string): Uint8Array { return Uint8Array.from(atob(value), (char) => char.charCodeAt(0)); }
 async function digest(value: string) { return base64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value)))); }
 async function keyFromPassword(password: string, salt: Uint8Array) { const base = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveKey']); return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: salt as unknown as BufferSource, iterations: 310_000 }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']); }
+export async function encodeBackupBlob(blob: unknown): Promise<string | null> {
+  if (!blob) return null;
+  if (typeof (blob as { arrayBuffer?: unknown }).arrayBuffer === 'function') {
+    return base64(new Uint8Array(await (blob as Blob).arrayBuffer()));
+  }
+  // jsdom and a few older WebViews expose Blob through FileReader but not arrayBuffer().
+  if (typeof FileReader !== 'undefined') {
+    try {
+      const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as ArrayBuffer);
+        reader.onerror = () => reject(reader.error ?? new Error('อ่านไฟล์ไม่สำเร็จ'));
+        reader.readAsArrayBuffer(blob as Blob);
+      });
+      return base64(new Uint8Array(buffer));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function restoreAttachment(row: Record<string, unknown>): Record<string, unknown> {
+  const encoded = row.blobBase64;
+  const metadata = { ...row };
+  delete metadata.blobBase64;
+  const decoded = typeof encoded === 'string' && encoded.length > 0 ? bytes(encoded) : null;
+  return {
+    ...metadata,
+    blob: decoded
+      ? new Blob([decoded.buffer as ArrayBuffer], { type: typeof row.mimeType === 'string' ? row.mimeType : 'application/octet-stream' })
+      : null
+  };
+}
 
 function tableOf(name: BackupTable): Table<Record<string, unknown>, string> {
   return db.table<Record<string, unknown>, string>(name);
@@ -47,7 +81,13 @@ export async function createEncryptedBackup(schoolId: string, deviceId: string, 
   const data = await db.transaction('r', tables, async () => {
     const collected: BackupContents = {};
     for (const name of backedUpTables) {
-      collected[name] = await tableOf(name).where('schoolId').equals(schoolId).toArray();
+      const rows = await tableOf(name).where('schoolId').equals(schoolId).toArray();
+      collected[name] = name === 'attachments'
+        ? await Promise.all(rows.map(async (row) => {
+          const { blob, ...metadata } = row;
+          return { ...metadata, blobBase64: await encodeBackupBlob(blob) };
+        }))
+        : rows;
     }
     return collected;
   });
@@ -129,7 +169,13 @@ export async function restoreBackup(
           const incomingStamp = typeof row.updatedAt === 'string' ? row.updatedAt : '';
           if (current && currentStamp > incomingStamp) { skipped += 1; continue; }
         }
-        await table.put(row);
+        // A backup can have been captured while an older tab was processing a queue row. Treating
+        // that transient state as pending makes restore self-healing instead of producing a row
+        // that the sync engine will never pick up.
+        const restoredRow = name === 'attachments' ? restoreAttachment(row) : row;
+        await table.put(name === 'syncQueue' && row.status === 'processing'
+          ? { ...restoredRow, status: 'pending', nextRetryAt: new Date().toISOString(), lastError: null }
+          : restoredRow);
         written += 1;
       }
     }
@@ -144,7 +190,7 @@ export function downloadBackup(envelope: BackupEnvelope) {
   link.href = url;
   link.download = `smart-classroom-${envelope.schoolId}-${envelope.exportedAt.slice(0, 10)}.scbackup`;
   link.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** Parses a chosen file into an envelope, refusing anything that is not one of ours. */

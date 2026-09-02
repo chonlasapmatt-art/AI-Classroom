@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../app/AuthContext';
-import {
-  isCompleteMemberLogin, memberLogin, type MemberAccountChoice
-} from '../features/auth/memberAccess';
 import { isCloudConfigured } from '../services/supabase';
 import { Button, Card, CardHeader, Field } from '../ui/components';
 import { ChangelogPage } from './ChangelogPage';
-import { DevicesPage, ErrorsPage, OverviewPage, PlatformSettingsPage, SecurityPage } from './PlatformPages';
+import { DevicesPage, ErrorsPage, NotificationsPage, OverviewPage, PlatformSettingsPage, SecurityPage } from './PlatformPages';
 import { SchoolsPage, SupportModeBanner } from './PlatformSchools';
 import {
   currentSupportSession, devSignIn, endSupportSession, enrollPlatformAdmin, isDevSignInAvailable,
@@ -19,6 +16,7 @@ const sections: { to: string; label: string; end: boolean }[] = [
   { to: '/', label: 'ภาพรวม', end: true },
   { to: '/schools', label: 'โรงเรียน', end: false },
   { to: '/errors', label: 'ศูนย์ข้อผิดพลาด', end: false },
+  { to: '/notifications', label: 'ศูนย์แจ้งเตือน', end: false },
   { to: '/devices', label: 'ศูนย์อุปกรณ์', end: false },
   { to: '/changelog', label: 'บันทึกการเปลี่ยนแปลง', end: false },
   { to: '/security', label: 'ความปลอดภัยและบันทึก', end: false },
@@ -26,7 +24,7 @@ const sections: { to: string; label: string; end: boolean }[] = [
 ];
 
 /**
- * The development door: the platform code, and nothing else.
+ * The development door: the platform code plus the display name to save for the operator.
  *
  * It is shown only in a development build, and it only works against a server that was separately
  * opted in — the endpoint behind it is its own deployable that a production project does not deploy.
@@ -36,13 +34,14 @@ const sections: { to: string; label: string; end: boolean }[] = [
 function DevSignIn() {
   const auth = useAuth();
   const [accessCode, setAccessCode] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(null);
     try {
-      await auth.applySession(await devSignIn(accessCode));
+      await auth.applySession(await devSignIn(accessCode, displayName));
     } catch (reason) {
       setError(reason instanceof PlatformError ? reason.message : 'เข้าสู่ระบบไม่สำเร็จ');
     } finally { setBusy(false); }
@@ -54,8 +53,14 @@ function DevSignIn() {
       <h2>เข้าด้วยรหัสสิทธิ์อย่างเดียว</h2>
       <p className="field-hint">
         ทางลัดสำหรับเครื่องนักพัฒนา ใช้ได้เฉพาะเซิร์ฟเวอร์ที่เปิด PLATFORM_DEV_SIGN_IN ไว้
-        และเข้าเป็นผู้ดูแลแพลตฟอร์มที่มีอยู่แล้วเท่านั้น ไม่สร้างบัญชีและไม่เพิ่มสิทธิ์ให้ใคร
+        ชื่อที่กรอกจะถูกบันทึกเป็นชื่อแสดงของผู้ดูแลแพลตฟอร์มที่มีอยู่แล้ว ไม่สร้างบัญชีและไม่เพิ่มสิทธิ์ให้ใคร
       </p>
+      <Field label="ชื่อผู้ดูแล" hint="ตั้งชื่อได้ตามต้องการ และระบบจะบันทึกไว้ในบัญชี">
+        <input
+          autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)}
+          placeholder="เช่น ผู้ดูแลระบบ Smart Classroom" required
+        />
+      </Field>
       <Field label="รหัสสิทธิ์">
         <input
           type="password" autoComplete="one-time-code" value={accessCode}
@@ -64,14 +69,16 @@ function DevSignIn() {
         />
       </Field>
       {error && <div className="alert error" role="alert">{error}</div>}
-      <Button variant="primary" loading={busy} disabled={accessCode.length < 4}>เข้าใช้งาน</Button>
+      <Button variant="primary" loading={busy} disabled={accessCode.length < 4 || displayName.trim().length < 1}>เข้าใช้งาน</Button>
       <p className="fine-print">ทุกครั้งที่เข้าทางนี้จะถูกบันทึกไว้ในบันทึกความปลอดภัยของแพลตฟอร์ม</p>
     </form>
   );
 }
 
 /**
- * Sign-in for the console.
+ * Legacy name/password sign-in is intentionally no longer rendered. The only public entry is the
+ * development code form above; this component is kept out of the route so no second login surface
+ * can return by accident in the console shell.
  *
  * Name and password, through the same gateway as every other entrance in the product — not because
  * the console needs to look consistent, but because an email address is not something an operator
@@ -84,68 +91,7 @@ function DevSignIn() {
  * `platform_admins`, which this screen cannot create and the server will not infer from a name.
  */
 function OperatorSignIn() {
-  const auth = useAuth();
-  const [displayName, setDisplayName] = useState('');
-  const [password, setPassword] = useState('');
-  const [accounts, setAccounts] = useState<MemberAccountChoice[]>([]);
-  const [profileId, setProfileId] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError(null);
-    try {
-      const result = await memberLogin({
-        role: 'teacher', displayName, password, ...(profileId ? { profileId } : {})
-      });
-      if (result.outcome === 'session') { await auth.applySession(result.session); return; }
-      if (result.outcome === 'account-required') {
-        // Two people share a name and chose the same password. The gateway refuses to guess.
-        setAccounts(result.accounts);
-        setError('มีบัญชีชื่อนี้มากกว่าหนึ่งบัญชี กรุณาเลือกให้ถูกต้อง');
-        return;
-      }
-      setError(result.message);
-    } finally { setBusy(false); }
-  }
-
-  return (
-    <main className="setup-page">
-      {isDevSignInAvailable && <DevSignIn />}
-      <form className="configuration-card" onSubmit={(event) => void submit(event)}>
-        <span className="eyebrow">PLATFORM OPERATIONS</span>
-        <h1>เข้าสู่ศูนย์ปฏิบัติการ</h1>
-        <p>ใช้ชื่อกับรหัสผ่านของบัญชีคุณ ไม่ต้องใช้อีเมล · สิทธิ์ตัดสินที่เซิร์ฟเวอร์ ไม่ใช่ที่หน้าจอนี้</p>
-        <Field label="ชื่อ" hint="ชื่อจริงและนามสกุล แบบเดียวกับตอนสมัคร">
-          <input
-            autoComplete="name" value={displayName} placeholder="เช่น สมชาย ใจดี"
-            onChange={(event) => setDisplayName(event.target.value)} required
-          />
-        </Field>
-        <Field label="รหัสผ่าน">
-          <input
-            type="password" autoComplete="current-password" value={password}
-            placeholder="รหัสผ่านที่ตั้งไว้ตอนสมัคร"
-            onChange={(event) => setPassword(event.target.value)} required
-          />
-        </Field>
-        {accounts.length > 0 && (
-          <Field label="บัญชี">
-            <select value={profileId} onChange={(event) => setProfileId(event.target.value)} required>
-              <option value="">เลือกบัญชี</option>
-              {accounts.map((account) => (
-                <option key={account.profileId} value={account.profileId}>{account.schoolName}</option>
-              ))}
-            </select>
-          </Field>
-        )}
-        {error && <div className="alert error" role="alert">{error}</div>}
-        <Button variant="primary" loading={busy} disabled={!isCompleteMemberLogin(displayName, password)}>
-          เข้าสู่ระบบ
-        </Button>
-      </form>
-    </main>
-  );
+  return <main className="setup-page">{isDevSignInAvailable && <DevSignIn />}</main>;
 }
 
 /**
@@ -238,6 +184,7 @@ function OperationsShell() {
           <Route index element={<OverviewPage />} />
           <Route path="schools" element={<SchoolsPage />} />
           <Route path="errors" element={<ErrorsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="devices" element={<DevicesPage />} />
           <Route path="changelog" element={<ChangelogPage />} />
           <Route path="security" element={<SecurityPage />} />

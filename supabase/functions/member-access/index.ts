@@ -1,6 +1,7 @@
-// Name + password access for teachers and parents, and child linking by name alone.
+// Name + password access for admins and parents, managed teacher-code access, and child linking by name alone.
 //
-// The everyday screen asks for a name and a password, which means the server has to do the work an
+// The everyday screen asks a teacher for the managed name + code, or a parent for name + password.
+// The server has to do the work an
 // email address would otherwise have done: turn a name that is not unique into exactly one account.
 // It does that by giving every account an internal address nobody ever types, resolving the typed
 // name to every candidate address, and letting GoTrue verify the password against each. The password —
@@ -21,6 +22,7 @@ const CLIENT_WINDOW_MINUTES = 15;
 const CLIENT_FAILURE_LIMIT = 20;
 const MINIMUM_PASSWORD_LENGTH = 8;
 const GENERIC_FAILURE = 'MEMBER_ACCESS_DENIED';
+const REGISTRATION_FAILURE = 'MEMBER_REGISTRATION_FAILED';
 
 interface LoginCandidate {
   profile_id: string;
@@ -28,6 +30,15 @@ interface LoginCandidate {
   display_name: string;
   school_id: string | null;
   school_name: string | null;
+}
+
+interface TeacherAccessCandidate {
+  teacher_id: string;
+  profile_id: string | null;
+  auth_email: string | null;
+  display_name: string;
+  school_id: string;
+  school_name: string;
 }
 
 function serviceClients() {
@@ -142,17 +153,18 @@ Deno.serve(async (request) => {
   }
 
   async function register(role: 'teacher' | 'parent' | 'admin', body: Record<string, unknown>) {
+    if (role === 'teacher') return json({ code: 'TEACHER_ADMIN_ONLY' }, 403, headers);
     const firstName = text(body, 'firstName', 100);
     const lastName = text(body, 'lastName', 100);
     const password = String(body.password ?? '');
     const recoveryEmail = text(body, 'recoveryEmail', 320).toLowerCase();
-    const schoolId = role === 'teacher' ? String(body.schoolId ?? '') : null;
+    const schoolId = role !== 'admin' ? String(body.schoolId ?? '') : null;
     const accessCode = role === 'teacher' ? normalizeAccessCode(String(body.accessCode ?? '')) : '';
     const identityHash = await hmac(`register|${role}|${normalizeName(`${firstName} ${lastName}`)}`, secret);
     const recoveryEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail);
 
     if (!firstName || !lastName || password.length < MINIMUM_PASSWORD_LENGTH
-      || (role === 'teacher' && !schoolId) || (role !== 'admin' && !recoveryEmailValid)) {
+      || (role !== 'admin' && !schoolId) || (role !== 'admin' && !recoveryEmailValid)) {
       await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'validation' });
       return json({ code: 'MEMBER_REGISTRATION_INVALID' }, 400, headers);
     }
@@ -211,15 +223,25 @@ Deno.serve(async (request) => {
     if (createError || !created.user) {
       await releaseClaim();
       await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'create_failed' });
-      return json({ code: GENERIC_FAILURE }, 400, headers);
+      const authMessage = String(createError?.message ?? '').toLowerCase();
+      if (authMessage.includes('already registered') || authMessage.includes('already been registered')
+        || authMessage.includes('already exists') || authMessage.includes('email_exists')
+        || authMessage.includes('duplicate')) {
+        return json({ code: 'MEMBER_EMAIL_EXISTS' }, 409, headers);
+      }
+      return json({ code: REGISTRATION_FAILURE }, 400, headers);
     }
     const profileId = created.user.id;
 
-    const { data: registered, error: registerError } = await service.rpc('register_member_identity', {
+    // Teacher access codes are not part of a parent registration. The database now exposes one
+    // unambiguous seven-argument registration function; keeping this payload exact prevents
+    // PostgREST from having to choose between the retired teacher-code overload and this path.
+    const identityParams = {
       p_actor: profileId, p_role: role, p_first_name: firstName, p_last_name: lastName,
       p_auth_email: email, p_school_id: schoolId, p_source: 'self_registration',
-      p_access_code_id: claimedCodeId
-    });
+      ...(claimedCodeId ? { p_access_code_id: claimedCodeId } : {})
+    };
+    const { data: registered, error: registerError } = await service.rpc('register_member_identity', identityParams);
     if (registerError) {
       // The account exists but carries no records, so it would be an orphan able to sign in with no
       // identity behind it. Remove it rather than leave that lying around.
@@ -229,13 +251,18 @@ Deno.serve(async (request) => {
       const message = String(registerError.message ?? '');
       if (message.includes('SCHOOL_NOT_AVAILABLE')) return json({ code: 'SCHOOL_NOT_AVAILABLE' }, 400, headers);
       if (message.includes('TEACHER_CODE_REQUIRED')) return json({ code: 'TEACHER_CODE_INVALID' }, 403, headers);
-      return json({ code: GENERIC_FAILURE }, 400, headers);
+      const normalizedMessage = message.toLowerCase();
+      if (normalizedMessage.includes('already exists') || normalizedMessage.includes('duplicate')) {
+        return json({ code: 'MEMBER_EMAIL_EXISTS' }, 409, headers);
+      }
+      return json({ code: REGISTRATION_FAILURE }, 400, headers);
     }
 
     const { data: signedIn, error: signInError } = await anon.auth.signInWithPassword({ email, password });
     if (signInError || !signedIn.session) {
+      await service.auth.admin.deleteUser(profileId).catch(() => undefined);
       await recordAttempt({ action: `register-${role}`, identityHash, succeeded: false, failureReason: 'session_failed' });
-      return json({ code: GENERIC_FAILURE }, 400, headers);
+      return json({ code: REGISTRATION_FAILURE }, 400, headers);
     }
     await service.rpc('record_member_login', { p_profile_id: profileId });
     await recordAttempt({ action: `register-${role}`, identityHash, succeeded: true, profileId });
@@ -243,6 +270,91 @@ Deno.serve(async (request) => {
       session: { accessToken: signedIn.session.access_token, refreshToken: signedIn.session.refresh_token },
       member: { ...(registered as Record<string, unknown>), role }
     }, 201, headers);
+  }
+
+  /**
+   * Managed teachers do not create or remember a second password. The pair saved by the admin is
+   * checked against the roster in a service-only RPC, then an internal Auth identity is created on
+   * first use and a normal Supabase session is minted from a one-time magic-link token.
+   */
+  async function teacherLogin(body: Record<string, unknown>) {
+    const displayName = text(body, 'displayName');
+    const teacherCode = normalizeAccessCode(text(body, 'teacherCode', 100));
+    const teacherId = body.teacherId ? String(body.teacherId) : null;
+    const identityHash = await hmac(`teacher-login|${normalizeName(displayName)}|${teacherCode}`, secret);
+
+    if (displayName.length < 2 || teacherCode.length < 1) {
+      await recordAttempt({ action: 'teacher-login', identityHash, succeeded: false, failureReason: 'validation' });
+      return json({ code: GENERIC_FAILURE }, 400, headers);
+    }
+    const counts = await failureCounts(identityHash);
+    if (isLockedOut(counts.identity, counts.client)) {
+      await recordAttempt({ action: 'teacher-login', identityHash, succeeded: false, failureReason: 'locked_out' });
+      return json({ code: 'MEMBER_ACCESS_LOCKED', retryAfterMinutes: IDENTITY_WINDOW_MINUTES }, 429, headers);
+    }
+
+    const { data, error } = await service.rpc('resolve_teacher_access', {
+      p_display_name: displayName, p_teacher_code: teacherCode, p_teacher_id: teacherId
+    });
+    const candidates = (data ?? []) as TeacherAccessCandidate[];
+    if (error || candidates.length === 0) {
+      await recordAttempt({ action: 'teacher-login', identityHash, succeeded: false, failureReason: 'no_match' });
+      return json({ code: GENERIC_FAILURE }, 401, headers);
+    }
+    if (candidates.length > 1) {
+      await recordAttempt({ action: 'teacher-login', identityHash, succeeded: false, failureReason: 'ambiguous' });
+      return json({
+        code: 'MEMBER_SELECTION_REQUIRED',
+        accounts: candidates.map((item) => ({ profileId: item.teacher_id, schoolName: item.school_name }))
+      }, 409, headers);
+    }
+
+    const candidate = candidates[0]!;
+    const teacherEmailDomain = Deno.env.get('TEACHER_ACCESS_EMAIL_DOMAIN') ?? 'teachers.smart-classroom.invalid';
+    const email = `teacher.${candidate.teacher_id}@${teacherEmailDomain}`;
+    let profileId = candidate.profile_id;
+    let createdAuthUser = false;
+    try {
+      if (!profileId) {
+        const { data: created, error: createError } = await service.auth.admin.createUser({
+          email, email_confirm: true,
+          user_metadata: { display_name: candidate.display_name, requested_role: 'teacher' },
+          app_metadata: { access_model: 'teacher_name_code', member_role: 'teacher', teacher_id: candidate.teacher_id }
+        });
+        if (createError || !created.user) {
+          const { data: existingId, error: lookupError } = await service.rpc('find_teacher_auth_user', { p_email: email });
+          if (lookupError || !existingId) throw new Error(GENERIC_FAILURE);
+          profileId = String(existingId);
+        } else {
+          profileId = created.user.id;
+          createdAuthUser = true;
+        }
+        const { error: bindError } = await service.rpc('activate_teacher_access', {
+          p_teacher_id: candidate.teacher_id, p_profile_id: profileId, p_auth_email: email
+        });
+        if (bindError) {
+          if (createdAuthUser && profileId) await service.auth.admin.deleteUser(profileId).catch(() => undefined);
+          throw new Error(GENERIC_FAILURE);
+        }
+      }
+
+      const { data: link, error: linkError } = await service.auth.admin.generateLink({ type: 'magiclink', email });
+      const hashedToken = link?.properties?.hashed_token;
+      if (linkError || !hashedToken) throw new Error(GENERIC_FAILURE);
+      const { data: verified, error: verifyError } = await anon.auth.verifyOtp({ token_hash: hashedToken, type: 'email' });
+      if (verifyError || !verified.session || !profileId) throw new Error(GENERIC_FAILURE);
+
+      const { data: recorded, error: recordError } = await service.rpc('record_member_login', { p_profile_id: profileId });
+      if (recordError || !recorded) throw new Error(GENERIC_FAILURE);
+      await recordAttempt({ action: 'teacher-login', identityHash, succeeded: true, profileId });
+      return json({
+        session: { accessToken: verified.session.access_token, refreshToken: verified.session.refresh_token },
+        member: { ...(recorded as Record<string, unknown>), role: 'teacher', schoolName: candidate.school_name }
+      }, 200, headers);
+    } catch {
+      await recordAttempt({ action: 'teacher-login', identityHash, succeeded: false, failureReason: 'rejected' });
+      return json({ code: GENERIC_FAILURE }, 401, headers);
+    }
   }
 
   try {
@@ -257,12 +369,14 @@ Deno.serve(async (request) => {
       return json({ schools: data ?? [] }, 200, headers);
     }
 
-    if (action === 'register-teacher') return await register('teacher', body);
-    if (action === 'register-parent') return await register('parent', body);
+    // Teacher accounts are created by the school administrator from the Teachers page. Keep the
+    // legacy action name understood only as a hard rejection so an old client cannot self-register.
+    if (action === 'register-teacher' || action === 'register-parent') return json({ code: 'PUBLIC_ACCESS_DISABLED' }, 403, headers);
     // The account that creates the first school. It is an ordinary name and password account with no
     // school and no rights; the owner code checked by admin-access is still the only thing that turns
     // it into an administrator, so this action hands out nothing on its own.
     if (action === 'register-owner') return await register('admin', body);
+    if (action === 'teacher-login') return await teacherLogin(body);
 
     if (action === 'login') {
       const role = String(body.role ?? '');
@@ -271,7 +385,7 @@ Deno.serve(async (request) => {
       const chosenProfileId = body.profileId ? String(body.profileId) : null;
       const identityHash = await hmac(`login|${role}|${normalizeName(displayName)}`, secret);
 
-      if ((role !== 'teacher' && role !== 'parent') || displayName.length < 2 || password.length < 1) {
+      if ((role !== 'teacher' && role !== 'student' && role !== 'parent' && role !== 'admin') || displayName.length < 2 || password.length < 1) {
         await recordAttempt({ action, identityHash, succeeded: false, failureReason: 'validation' });
         return json({ code: GENERIC_FAILURE }, 400, headers);
       }
@@ -341,7 +455,7 @@ Deno.serve(async (request) => {
       }
 
       const { data, error } = await service.rpc('search_children_for_parent', {
-        p_actor: actor, p_child_name: childName
+        p_actor: actor, p_school_id: String(body.schoolId ?? ''), p_child_name: childName
       });
       if (error) {
         await recordAttempt({ action, identityHash, succeeded: false, failureReason: 'no_match', profileId: actor });
@@ -382,6 +496,8 @@ Deno.serve(async (request) => {
     }
 
     if (action === 'reset-request') {
+      return json({ code: 'PUBLIC_ACCESS_DISABLED' }, 403, headers);
+      /*
       const role = String(body.role ?? '');
       const displayName = text(body, 'displayName');
       const identityHash = await hmac(`reset|${role}|${normalizeName(displayName)}`, secret);
@@ -395,10 +511,12 @@ Deno.serve(async (request) => {
       // The same answer either way: whether that name has an account is not this endpoint's to tell.
       await recordAttempt({ action, identityHash, succeeded: false, failureReason: 'reset_requested' });
       return json({ recorded: true }, 202, headers);
+      */
     }
 
     if (action === 'reset-complete') {
-      const actor = await callerId();
+      return json({ code: 'PUBLIC_ACCESS_DISABLED' }, 403, headers);
+      /* const actor = await callerId();
       if (!actor) return json({ code: 'AUTH_REQUIRED' }, 401, headers);
       const requestId = String(body.requestId ?? '');
       const newPassword = String(body.newPassword ?? '');
@@ -415,6 +533,7 @@ Deno.serve(async (request) => {
       });
       if (updateError) return json({ code: GENERIC_FAILURE }, 400, headers);
       return json({ completed: true }, 200, headers);
+      */
     }
 
     return json({ code: 'UNSUPPORTED_ACTION' }, 400, headers);

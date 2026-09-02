@@ -15,3 +15,8 @@ outputs/
 .supabase/
 supabase/.temp/
 .claude/
+.freebuff/
+tmp/
+
+.vercel
+.env*

@@ -9,6 +9,7 @@
   /* Brand and ink */
   --brand-50:#f5f3ff; --brand-100:#ece7ff; --brand-200:#dcd3ff; --brand-400:#8f74ff;
   --brand-500:#6c4df6; --brand-600:#5b3df5; --brand-700:#4930d1; --brand-800:#3a259f;
+  --brand-gradient:linear-gradient(135deg,var(--brand-500),var(--brand-700));
   --ink-900:#161327; --ink-800:#24203a; --ink-700:#3a3552; --ink-600:#514c6b; --ink-500:#6f6a86;
   --ink-400:#8e89a3; --ink-300:#b6b2c6;
 
@@ -18,6 +19,7 @@
   --surface-muted:#fbfaff;
   --surface-sunken:#f2f1f8;
   --line:#eceaf4;
+  --surface-hover:#f8f7fd; --surface-glass:#ffffffc9;
   --line-strong:#ddd9ec;
 
   /* Chrome: the navigation rail, the sticky top bar and anything that inverts. */
@@ -61,8 +63,8 @@
   --control-sm:40px; --control-md:46px; --control-lg:56px;
   --focus-ring:0 0 0 3px var(--brand-200);
 
-  --duration-fast:120ms; --duration-normal:200ms;
-  --ease-out:cubic-bezier(.22,.61,.36,1);
+  --duration-fast:120ms; --duration-normal:200ms; --duration-slow:420ms; --duration-page:320ms;
+  --ease-out:cubic-bezier(.22,.61,.36,1); --ease-emphasized:cubic-bezier(.16,1,.3,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
 
   color: var(--ink-900);
   font-family: "Noto Sans Thai", "Leelawadee UI", "Inter", system-ui, -apple-system, Tahoma, sans-serif;
@@ -102,6 +104,21 @@
   --brand-50:#fdf2f8; --brand-100:#fce7f3; --brand-200:#fbcfe8; --brand-400:#f472b6;
   --brand-500:#ec4899; --brand-600:#db2777; --brand-700:#be185d; --brand-800:#9d174d;
   --nav-surface:#4a0f31; --inverse-surface:#4a0f31; --overlay:#3d0d28bb;
+}
+:root[data-preset="ocean"] {
+  --brand-50:#ecfeff; --brand-100:#cffafe; --brand-200:#a5f3fc; --brand-400:#22d3ee;
+  --brand-500:#06b6d4; --brand-600:#0891b2; --brand-700:#0e7490; --brand-800:#155e75;
+  --nav-surface:#093b4b; --inverse-surface:#093b4b; --overlay:#062e3bbb;
+}
+:root[data-preset="forest"] {
+  --brand-50:#f0fdf4; --brand-100:#dcfce7; --brand-200:#bbf7d0; --brand-400:#4ade80;
+  --brand-500:#22c55e; --brand-600:#16a34a; --brand-700:#15803d; --brand-800:#166534;
+  --nav-surface:#123b29; --inverse-surface:#123b29; --overlay:#0b291bbb;
+}
+:root[data-preset="graphite"] {
+  --brand-50:#f8fafc; --brand-100:#e2e8f0; --brand-200:#cbd5e1; --brand-400:#94a3b8;
+  --brand-500:#64748b; --brand-600:#475569; --brand-700:#334155; --brand-800:#1e293b;
+  --nav-surface:#1e293b; --inverse-surface:#1e293b; --overlay:#0f172abb;
 }
 
 /*
@@ -156,4 +173,20 @@
   --shadow-xs:0 1px 2px rgba(0,0,0,.4); --shadow-sm:0 2px 8px rgba(0,0,0,.45);
   --shadow-md:0 12px 30px rgba(0,0,0,.5); --shadow-lg:0 24px 60px rgba(0,0,0,.55);
   color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --surface-hover:#242040; --surface-glass:#1b1834e6; }
+}
+:root[data-theme="dark"] { --surface-hover:#242040; --surface-glass:#1b1834e6; }
+
+/* Display preferences are deliberately token based, so old screens and new screens get the same
+   spacing rhythm without each feature having to know which density the viewer selected. */
+:root[data-density="compact"] {
+  --space-3:.6rem; --space-4:.8rem; --space-5:1.15rem; --space-6:1.5rem;
+  --control-sm:36px; --control-md:42px; --control-lg:50px;
+}
+:root[data-density="spacious"] {
+  --space-3:.9rem; --space-4:1.2rem; --space-5:1.75rem; --space-6:2.35rem;
+  --control-sm:44px; --control-md:52px; --control-lg:62px;
 }

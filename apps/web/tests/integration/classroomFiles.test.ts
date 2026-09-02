@@ -21,7 +21,11 @@ describe('classroom file exchange', () => {
     expect(attachmentKindFor('คะแนน.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')).toBe('spreadsheet');
     expect(attachmentKindFor('รายชื่อ.csv', 'text/csv')).toBe('csv');
     expect(attachmentKindFor('บันทึก.docx', '')).toBe('document');
+    expect(attachmentKindFor('สไลด์.pptx', '')).toBe('presentation');
+    expect(attachmentKindFor('ชุดสื่อ.zip', 'application/zip')).toBe('archive');
     expect(attachmentKindFor('ภาพงาน.png', 'image/png')).toBe('image');
+    expect(attachmentKindFor('คลิป.mp4', 'video/mp4')).toBe('video');
+    expect(attachmentKindFor('เสียงอ่าน.mp3', 'audio/mpeg')).toBe('audio');
   });
 
   it('hands teacher material to the whole class with a notification each', async () => {

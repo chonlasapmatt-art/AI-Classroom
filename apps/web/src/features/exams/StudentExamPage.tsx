@@ -20,7 +20,7 @@ import {
  * tab is a paper one crash away from being lost.
  */
 export function StudentExamPage() {
-  const { membership, mode } = useSession();
+  const { membership } = useSession();
   const snapshot = useSchoolSnapshot();
   const [exams, setExams] = useState<ExamRow[] | null>(null);
   const [access, setAccess] = useState<Record<string, ExamAccess>>({});
@@ -32,7 +32,6 @@ export function StudentExamPage() {
   const [now, setNow] = useState(Date.now());
 
   const load = useCallback(async () => {
-    if (mode !== 'cloud') return;
     setError(null);
     try {
       const rows = await listExams(membership.schoolId);
@@ -45,7 +44,7 @@ export function StudentExamPage() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'โหลดรายการสอบไม่สำเร็จ');
     }
-  }, [membership.schoolId, mode]);
+  }, [membership.schoolId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -106,15 +105,6 @@ export function StudentExamPage() {
     } catch (reason) {
       setError(reason instanceof ExamError ? reason.message : 'ส่งข้อสอบไม่สำเร็จ');
     } finally { setBusy(false); }
-  }
-
-  if (mode !== 'cloud') {
-    return (
-      <Card>
-        <CardHeader title="สอบ" description="ใช้ได้เฉพาะเมื่อเชื่อมต่อระบบจริง" />
-        <EmptyState title="โหมดตัวอย่างสอบไม่ได้" description="เวลาสอบตัดสินที่นาฬิกาของเซิร์ฟเวอร์" />
-      </Card>
-    );
   }
 
   if (sitting) {

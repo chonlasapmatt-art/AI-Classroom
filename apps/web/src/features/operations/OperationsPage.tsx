@@ -1,42 +1,38 @@
 import { useEffect, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
-import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
+import { useSchoolSnapshot } from '../../data/RepositoryContext';
+import { useSyncStatus } from '../../sync/SyncStatusContext';
+import { Badge, Card, EmptyState } from '../../ui/components';
 import { createEncryptedBackup, downloadBackup, inspectBackup, readBackupFile, restoreBackup, type BackupEnvelope, type BackupSummary } from '../backup/backup';
-import { registerAndSync } from '../../sync/engine';
 import { ConflictPanel } from './ConflictPanel';
 
 export function OperationsPage() {
   const { membership, mode } = useSession();
-  const repository = useRepository();
   const snapshot = useSchoolSnapshot();
+  const syncStatus = useSyncStatus();
   const [storage, setStorage] = useState<{ usage: number; quota: number; persisted: boolean } | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const [seed, setSeed] = useState({ classCount: 2, studentsPerClass: 10, teacherCount: 2, includeActivity: true });
   const [summary, setSummary] = useState<BackupSummary | null>(null);
   const [pending, setPending] = useState<{ envelope: BackupEnvelope; password: string } | null>(null);
   const cloudDisabled = mode === 'preview';
-  // Seeding writes real records, so it is offered only where that is appropriate: a cloud-backed
-  // school, to somebody who may manage structure.
-  const showSeeding = !cloudDisabled && repository.canManageStructure && membership.role === 'admin';
 
   useEffect(() => {
-    void Promise.all([navigator.storage.estimate(), navigator.storage.persisted()])
-      .then(([estimate, persisted]) => setStorage({ usage: estimate.usage ?? 0, quota: estimate.quota ?? 0, persisted }))
+    void Promise.all([navigator.storage.estimate(), navigator.storage.persisted(), navigator.storage.persist?.() ?? Promise.resolve(false)])
+      .then(([estimate, persisted, requested]) => setStorage({ usage: estimate.usage ?? 0, quota: estimate.quota ?? 0, persisted: persisted || requested }))
       .catch(() => setStorage(null));
   }, []);
 
   async function sync() {
+    if (busy) return;
+    setBusy(true);
     setMessage('กำลังซิงก์...');
     try {
-      const deviceId = localStorage.getItem('device-id') ?? crypto.randomUUID();
-      localStorage.setItem('device-id', deviceId);
-      const type = /Android|iPad/i.test(navigator.userAgent) ? 'tablet' : 'desktop';
-      const result = await registerAndSync(membership.schoolId, deviceId, navigator.userAgent.slice(0, 80), type);
-      setMessage(`ส่ง ${result.accepted} · รับ ${result.pulled} · ต้องตรวจสอบ ${result.blocked}`);
+      const result = await syncStatus?.syncNow();
+      setMessage(result ? `ซิงก์แล้ว · ส่ง ${result.accepted} · รับ ${result.pulled} · ตรวจสอบ ${result.blocked}` : (syncStatus?.detail || 'ยังไม่สามารถเริ่มซิงก์ได้'));
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'ซิงก์ไม่สำเร็จ');
-    }
+    } finally { setBusy(false); }
   }
 
   async function inspect(file: File) {
@@ -71,29 +67,6 @@ export function OperationsPage() {
     } finally { setBusy(false); }
   }
 
-  async function seedData() {
-    const term = snapshot.terms.find((item) => item.status === 'active') ?? snapshot.terms[0];
-    if (!term) { setMessage('ยังไม่มีปีการศึกษา สร้างที่หน้า “ปีการศึกษาและการเลื่อนชั้น” ก่อน'); return; }
-    setBusy(true);
-    try {
-      const result = await repository.seedDevelopmentData({ ...seed, academicTermId: term.id });
-      setMessage(`สร้างแล้ว: ${result.classes} ห้อง · ${result.students} นักเรียน · ${result.teachers} ครู · ${result.assignments} งาน`);
-    } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'สร้างข้อมูลตัวอย่างไม่สำเร็จ');
-    } finally { setBusy(false); }
-  }
-
-  async function clearData() {
-    if (!window.confirm('ลบเฉพาะข้อมูลที่ระบบสร้างเป็นตัวอย่าง ข้อมูลที่กรอกเองจะไม่ถูกแตะต้อง\n\nยืนยันลบ?')) return;
-    setBusy(true);
-    try {
-      const result = await repository.clearDevelopmentData();
-      setMessage(`ลบข้อมูลตัวอย่างแล้ว ${result.removed} รายการ`);
-    } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ลบข้อมูลตัวอย่างไม่สำเร็จ');
-    } finally { setBusy(false); }
-  }
-
   async function backup() {
     const password = prompt('ตั้งรหัสเข้ารหัสไฟล์สำรอง (อย่างน้อย 12 ตัวอักษร)');
     if (!password) return;
@@ -105,6 +78,17 @@ export function OperationsPage() {
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'สำรองข้อมูลไม่สำเร็จ');
     }
+  }
+
+  if (membership.role !== 'admin') {
+    return (
+      <>
+        <section className="page-heading">
+          <div><span className="eyebrow">Administrator only</span><h1>Sync และ Backup</h1><p>พื้นที่ควบคุมข้อมูลและกู้คืนระบบของผู้ดูแลระบบ</p></div>
+        </section>
+        <Card><EmptyState icon="🔒" title="เฉพาะแอดมินระบบ" description="ทุก role ยังคงกดไอคอนซิงค์บนแถบด้านบนได้ แต่หน้าควบคุม Sync และ Backup เปิดได้เฉพาะแอดมินเท่านั้น" /></Card>
+      </>
+    );
   }
 
   return (
@@ -136,44 +120,19 @@ export function OperationsPage() {
         </article>
       </section>
 
-      {showSeeding && (
-        <section className="panel data-panel">
-          <div className="panel-heading">
-            <h2>ข้อมูลตัวอย่างสำหรับทดสอบ</h2>
-            <p>เขียนผ่านเส้นทางจริงทุกขั้น (ตรวจสอบ → Dexie transaction → sync queue) และลบได้เฉพาะสิ่งที่สร้างไว้</p>
-          </div>
-          <div className="form-grid">
-            <label>จำนวนห้อง<input type="number" min={1} max={10} value={seed.classCount}
-              onChange={(event) => setSeed({ ...seed, classCount: Number(event.target.value) })} /></label>
-            <label>นักเรียนต่อห้อง<input type="number" min={1} max={60} value={seed.studentsPerClass}
-              onChange={(event) => setSeed({ ...seed, studentsPerClass: Number(event.target.value) })} /></label>
-            <label>จำนวนครู<input type="number" min={0} max={20} value={seed.teacherCount}
-              onChange={(event) => setSeed({ ...seed, teacherCount: Number(event.target.value) })} /></label>
-            <label className="checkbox-field">
-              <input type="checkbox" checked={seed.includeActivity}
-                onChange={(event) => setSeed({ ...seed, includeActivity: event.target.checked })} />
-              สร้างงาน การเช็กชื่อ และผู้ปกครองตัวอย่างด้วย
-            </label>
-          </div>
-          <div className="record-actions">
-            <button className="secondary-button" onClick={() => void seedData()} disabled={busy}>สร้างข้อมูลตัวอย่าง</button>
-            <button className="danger-button" onClick={() => void clearData()} disabled={busy}>ลบข้อมูลตัวอย่าง</button>
-          </div>
-          <p className="hint">ห้ามใช้กับโรงเรียนจริงที่มีข้อมูลผู้ใช้จริงแล้ว — ปุ่มนี้มีไว้สำหรับรอบทดสอบเท่านั้น</p>
-        </section>
-      )}
-
       <section className="dashboard-grid">
         <article className="panel action-panel">
           <h2>Two-way Synchronization</h2>
           <p>ลงทะเบียนอุปกรณ์ ส่ง queue แบบ batch แล้ว pull ด้วย server revision</p>
-          <button className="primary-button" onClick={() => void sync()} disabled={cloudDisabled}>
-            {cloudDisabled ? 'ปิดใช้งานในโหมด Preview' : 'Sync Now'}
+          <div className="sync-health-line"><Badge tone={syncStatus?.phase === 'synced' ? 'success' : syncStatus?.phase === 'error' ? 'danger' : syncStatus?.phase === 'offline' ? 'warning' : 'info'}>{syncStatus?.label ?? 'พร้อมใช้งาน'}</Badge><span>{syncStatus?.lastSyncedAt ? `ล่าสุด ${new Date(syncStatus.lastSyncedAt).toLocaleString('th-TH')}` : 'ยังไม่เคยซิงก์จากเครื่องนี้'}</span></div>
+          {syncStatus?.detail && <p className="sync-detail">{syncStatus.detail}</p>}
+          <button className="primary-button" onClick={() => void sync()} disabled={cloudDisabled || busy}>
+            {cloudDisabled ? 'ปิดใช้งานในโหมด Preview' : busy ? 'กำลังซิงก์...' : 'Sync Now'}
           </button>
         </article>
         <article className="panel action-panel">
           <h2>สำรองข้อมูลแบบเข้ารหัส</h2>
-          <p>AES-GCM + PBKDF2 พร้อม checksum ครอบคลุมทุกตารางของโรงเรียนนี้ ยกเว้นไฟล์แนบซึ่งดึงกลับได้จาก Storage</p>
+          <p>AES-GCM + PBKDF2 พร้อม checksum ครอบคลุมข้อมูลทุกตาราง รวม byte ของไฟล์แนบที่ยังอยู่ในเครื่อง</p>
           <button className="secondary-button" onClick={() => void backup()} disabled={cloudDisabled || busy}>
             {cloudDisabled ? 'ปิดใช้งานในโหมด Preview' : 'สร้างไฟล์สำรอง'}
           </button>

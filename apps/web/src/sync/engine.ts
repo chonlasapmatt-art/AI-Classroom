@@ -12,6 +12,10 @@ export async function pushPending(schoolId: string, deviceId: string): Promise<{
   const token = sessionData.session?.access_token;
   if (!token) throw new Error('AUTH_REQUIRED');
   const now = new Date().toISOString();
+  // A previous tab can be closed while an older build has marked a row as processing. It is safe to
+  // put those rows back into the durable pending queue: idempotencyKey protects the server from a
+  // duplicate write, while leaving them hidden would make them impossible to deliver ever again.
+  await db.syncQueue.where({ schoolId, status: 'processing' }).modify({ status: 'pending', lastError: 'กู้คืนคิวที่ค้างจากการปิดแอป' });
   const mutations = await db.syncQueue.where({ schoolId, status: 'pending' }).filter((item) => item.nextRetryAt <= now).limit(100).toArray();
   if (mutations.length === 0) return { accepted: 0, blocked: 0 };
   const envelope: PushEnvelope = { requestId: crypto.randomUUID(), deviceId, schoolId, clientVersion: CLIENT_VERSION, localSchemaVersion: LOCAL_SCHEMA_VERSION, syncProtocolVersion: SYNC_PROTOCOL_VERSION, mutations };
@@ -19,7 +23,12 @@ export async function pushPending(schoolId: string, deviceId: string): Promise<{
   let response: Response;
   try { response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_ANON_KEY!, 'Content-Type': 'application/json' }, body: JSON.stringify(envelope) }); }
   catch (reason) { await scheduleRetry(mutations, reason instanceof Error ? reason.message : 'NETWORK_ERROR'); throw reason; }
-  if (!response.ok) { const message = await response.text(); if (isRetryableStatus(response.status)) await scheduleRetry(mutations, message); else await block(mutations, message); throw new Error(`SYNC_PUSH_${response.status}`); }
+  if (!response.ok) {
+    const message = await response.text();
+    if (isRetryableStatus(response.status)) await scheduleRetry(mutations, message);
+    else await block(mutations, message);
+    throw new Error(`SYNC_PUSH_${response.status}${message ? `: ${message.slice(0, 180)}` : ''}`);
+  }
   const payload = await response.json() as PushResponse;
   let accepted = 0; let blockedCount = 0;
   await db.transaction('rw', db.syncQueue, async () => {
@@ -34,14 +43,14 @@ export async function pushPending(schoolId: string, deviceId: string): Promise<{
   return { accepted, blocked: blockedCount };
 }
 
-const cloudTables: Record<string, string> = { student:'students', enrollment:'student_class_enrollments', assignment:'assignments', submission:'submissions', activity:'activities', activity_score:'activity_scores', test:'tests', test_score:'test_scores', attendance:'attendance', setting:'settings', timetable_entry:'timetable_entries', achievement:'student_achievements', score_event:'score_events' };
-const localTables: Record<string, string> = { student:'students', enrollment:'enrollments', assignment:'assignments', submission:'submissions', activity:'activities', activity_score:'activityScores', test:'tests', test_score:'testScores', attendance:'attendance', setting:'settings', timetable_entry:'timetable', achievement:'achievements', score_event:'scoreEvents' };
+const cloudTables: Record<string, string> = { student:'students', enrollment:'student_class_enrollments', assignment:'assignments', submission:'submissions', activity:'activities', activity_score:'activity_scores', test:'tests', test_score:'test_scores', attendance:'attendance', setting:'settings', timetable_entry:'timetable_entries', achievement:'student_achievements', score_event:'score_events', announcement:'announcements' };
+const localTables: Record<string, string> = { student:'students', enrollment:'enrollments', assignment:'assignments', submission:'submissions', activity:'activities', activity_score:'activityScores', test:'tests', test_score:'testScores', attendance:'attendance', setting:'settings', timetable_entry:'timetable', achievement:'achievements', score_event:'scoreEvents', announcement:'announcements' };
 function camel(key: string): string { return key.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase()); }
 function fromCloud(row: Record<string, unknown>): Record<string, unknown> { return Object.fromEntries(Object.entries(row).map(([key,value])=>[camel(key),value])); }
 
 // Fields the local schema carries that an older server build may not return yet. Keeping the local
 // value when the pulled row omits it stops a pull from wiping data the client already holds.
-const LOCAL_ONLY_FIELDS = ['subjectId', 'instructions', 'studentNote'] as const;
+const LOCAL_ONLY_FIELDS = ['subjectId', 'instructions', 'studentNote', 'driveUrl'] as const;
 function mergeLocal(existing: Record<string, unknown> | undefined, incoming: Record<string, unknown>): Record<string, unknown> {
   if (!existing) return incoming;
   const merged = { ...incoming };
@@ -54,8 +63,19 @@ function mergeLocal(existing: Record<string, unknown> | undefined, incoming: Rec
 }
 
 export async function registerAndSync(schoolId: string, deviceId: string, deviceName: string, deviceType: 'board'|'desktop'|'tablet'|'mobile') {
-  const client=requireSupabase(); const {error}=await client.rpc('register_device',{p_school_id:schoolId,p_device_id:deviceId,p_device_name:deviceName,p_device_type:deviceType}); if(error) throw error;
-  const pushed=await pushPending(schoolId,deviceId); const pulled=await pullChanges(schoolId,deviceId);
+  const client=requireSupabase();
+  const {error}=await client.rpc('register_device',{p_school_id:schoolId,p_device_id:deviceId,p_device_name:deviceName,p_device_type:deviceType,p_client_version:CLIENT_VERSION,p_protocol_version:SYNC_PROTOCOL_VERSION});
+  if(error) throw error;
+  let pushed = { accepted: 0, blocked: 0 };
+  // Drain every currently eligible batch. A single click should not leave batch 2..N waiting for
+  // the background timer, while the hard cap still prevents a pathological queue from monopolising
+  // the browser forever.
+  for (let batch = 0; batch < 100; batch += 1) {
+    const next = await pushPending(schoolId, deviceId);
+    pushed = { accepted: pushed.accepted + next.accepted, blocked: pushed.blocked + next.blocked };
+    if (next.accepted === 0) break;
+  }
+  const pulled=await pullChanges(schoolId,deviceId);
   const structure=await pullStructure(schoolId);
   return {...pushed,pulled,structure};
 }
@@ -89,6 +109,7 @@ export async function pullStructure(schoolId: string): Promise<number> {
   await mirror('subjects', 'subjects');
   await mirror('teachers', 'teachers');
   await mirror('class_teachers', 'classTeachers');
+  await mirror('announcements', 'announcements');
   applied += await pullParentLinks(schoolId);
   return applied;
 }
@@ -96,7 +117,7 @@ export async function pullStructure(schoolId: string): Promise<number> {
 interface ParentLinkRow {
   id: string; student_id: string; relationship: string; status: string; linked_at: string | null;
   revoked_at: string | null; version: number | null; created_at: string; updated_at: string; deleted_at: string | null;
-  parents: { display_name?: string; phone?: string | null; line_user_id?: string | null } | null;
+  parents: { profile_id?: string | null; avatar_id?: string | null; display_name?: string; phone?: string | null; line_user_id?: string | null } | null;
 }
 
 const parentLinkStatus: Record<string, 'invited' | 'linked' | 'revoked'> = {
@@ -110,7 +131,7 @@ const parentLinkStatus: Record<string, 'invited' | 'linked' | 'revoked'> = {
 async function pullParentLinks(schoolId: string): Promise<number> {
   const client = requireSupabase();
   const { data, error } = await client.from('parent_student_links')
-    .select('id, student_id, relationship, status, linked_at, revoked_at, version, created_at, updated_at, deleted_at, parents(display_name, phone, line_user_id)')
+    .select('id, student_id, relationship, status, linked_at, revoked_at, version, created_at, updated_at, deleted_at, parents(profile_id, avatar_id, display_name, phone, line_user_id)')
     .eq('school_id', schoolId);
   if (error) throw error;
   let applied = 0;
@@ -120,7 +141,8 @@ async function pullParentLinks(schoolId: string): Promise<number> {
       id: row.id, schoolId, version: row.version ?? 1,
       createdAt: row.created_at, updatedAt: row.updated_at, deletedAt: row.deleted_at,
       studentId: row.student_id,
-      avatarId: current?.avatarId ?? null, avatarPhotoId: current?.avatarPhotoId ?? null,
+      profileId: row.parents?.profile_id ?? current?.profileId ?? null,
+      avatarId: row.parents?.avatar_id ?? current?.avatarId ?? null, avatarPhotoId: current?.avatarPhotoId ?? null,
       parentName: row.parents?.display_name ?? current?.parentName ?? 'ผู้ปกครอง',
       relationship: row.relationship, contact: row.parents?.phone ?? current?.contact ?? '',
       lineUserId: row.parents?.line_user_id ?? current?.lineUserId ?? null,

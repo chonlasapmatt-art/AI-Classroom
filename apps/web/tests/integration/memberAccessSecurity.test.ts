@@ -110,9 +110,9 @@ describe('name and password access — abuse resistance', () => {
     expect(gateway).not.toMatch(/NAME_NOT_FOUND|PASSWORD_INCORRECT|ACCOUNT_NOT_FOUND/);
   });
 
-  it('does not tell a password reset request whether the name exists', () => {
-    expect(gateway).toMatch(/action === 'reset-request'[\s\S]{0,900}json\(\{ recorded: true \}, 202/);
-    expect(migration).toMatch(/request_member_password_reset[\s\S]{0,600}return jsonb_build_object\('recorded',false\)/);
+  it('rejects public password reset requests because passwords are admin-managed', () => {
+    expect(gateway).toContain("action === 'reset-request'");
+    expect(gateway).toContain("code: 'PUBLIC_ACCESS_DISABLED'");
   });
 
   it('logs the attempt without the typed name', () => {
@@ -170,22 +170,23 @@ describe('linking a child by name alone', () => {
 describe('the screens a teacher and a parent see', () => {
   it('asks who you are, then only for a name and a password', () => {
     expect(loginPage).toContain('คุณคือใคร?');
-    expect(loginPage).toContain('to="/student"');
+    expect(loginPage).toContain('ชื่อนักเรียน');
+    expect(loginPage).toContain('รหัสผ่าน');
+    expect(loginPage).not.toContain('สมัครใช้งานผู้ปกครอง');
+    expect(loginPage).not.toContain('ลืมรหัสผ่าน');
     expect(loginPage).not.toMatch(/type="email"|autoComplete="one-time-code"/);
     expect(loginPage).not.toMatch(/<label>[\s\S]{0,60}(อีเมล|รหัสโรงเรียน|รหัสคำเชิญ)/);
   });
 
-  it('signs up with a recovery email but keeps it out of normal login', () => {
-    expect(accountPages).toContain('ชื่อจริง');
-    expect(accountPages).toContain('นามสกุล');
-    expect(accountPages).toContain('ยืนยันรหัสผ่าน');
-    expect(accountPages).toContain('name="recoveryEmail" type="email"');
-    expect(accountPages).toContain('ไม่ใช้เข้าสู่ระบบปกติ');
-    expect(accountPages).toContain('registerParent');
-    expect(accountPages).toContain('registerTeacher');
+  it('keeps signup and recovery routes out of the public app', () => {
+    expect(appSource).toContain('path="/register" element={<Navigate to="/login" replace />}');
+    expect(appSource).toContain('path="/forgot-password" element={<Navigate to="/login" replace />}');
+    expect(appSource).toContain('path="/reset-password" element={<Navigate to="/login" replace />}');
+    expect(loginPage).not.toContain('to="/register"');
+    expect(loginPage).not.toContain('to="/forgot-password"');
   });
 
-  it('uses a six-digit OTP only for password recovery', () => {
+  it('uses the provider recovery link only for password recovery', () => {
     expect(authContext).not.toContain('signInWithOtp');
     expect(authContext).not.toContain('auth.signUp');
     // No entrance in the product signs in with an email address, the operations console included:
@@ -197,13 +198,12 @@ describe('the screens a teacher and a parent see', () => {
     for (const screen of [loginPage, accountPages, studentPages, platformApp]) {
       expect(screen).not.toContain('signInWithPassword');
     }
-    expect(platformApp).toContain('memberLogin');
-    expect(authContext).toContain("token, type: 'recovery'");
-    expect(authContext).toContain('/^\\d{6}$/');
-    expect(supabaseConfig).toContain('otp_length = 6');
-    expect(supabaseConfig).toContain('[auth.email.template.recovery]');
+    // The operations console uses its isolated platform-code gateway, not the school member login.
+    expect(platformApp).toContain('devSignIn');
+    expect(authContext).not.toContain('resetPasswordForEmail');
+    expect(accountPages).not.toContain('ส่งลิงก์ตั้งรหัสผ่าน');
+    expect(supabaseConfig).toContain('additional_redirect_urls');
     expect(recoveryTemplate).toContain('{{ .Token }}');
-    expect(recoveryTemplate).toContain('OTP 6 หลัก');
     expect(confirmationTemplate).not.toContain('{{ .Token }}');
     expect(magicLinkTemplate).not.toContain('{{ .Token }}');
   });

@@ -2,16 +2,16 @@ import { avatarAccessories, avatarPalettes, avatarThemes, hairStyles, skinTones,
 import type { AvatarConfig } from '../../domain/types';
 
 /**
- * The 100 avatars anyone can pick for themselves.
+ * The 160 avatars anyone can pick for themselves.
  *
  * Each entry is a deterministic combination of the drawing parts already used across the app, so a
  * catalogue avatar renders through exactly the same component as everything else: no image files to
  * ship, no remote URLs to break, and the same look on every device. Ids are stable
- * (`avatar_001` … `avatar_100`) and are the only thing stored on a record.
+ * (`avatar_001` … `avatar_160`) and are the only thing stored on a record.
  */
-export const AVATAR_CATALOG_SIZE = 100;
+export const AVATAR_CATALOG_SIZE = 160;
 
-export type AvatarCategory = 'classic' | 'glasses' | 'sporty' | 'creative' | 'scholar';
+export type AvatarCategory = 'classic' | 'glasses' | 'sporty' | 'creative' | 'scholar' | 'animal';
 
 export interface CatalogAvatar {
   id: string;
@@ -24,13 +24,14 @@ export interface CatalogAvatar {
 }
 
 export const avatarCategoryLabels: Record<AvatarCategory, string> = {
-  classic: 'คลาสสิก', glasses: 'ใส่แว่น', sporty: 'สายกีฬา', creative: 'สายสร้างสรรค์', scholar: 'สายวิชาการ'
+  classic: 'คลาสสิก', glasses: 'ใส่แว่น', sporty: 'สายกีฬา', creative: 'สายสร้างสรรค์', scholar: 'สายวิชาการ', animal: 'สัตว์การ์ตูน'
 };
 
 /** Accessory indexes that read as "wearing glasses" in the renderer. */
 const glassesAccessories = new Set([1, 2]);
 
 function categoryFor(config: AvatarConfig, theme: AvatarTheme): AvatarCategory {
+  if (theme.kind === 'animal') return 'animal';
   if (glassesAccessories.has(config.accessory)) return 'glasses';
   if (theme.id === 'athlete') return 'sporty';
   if (theme.id === 'artist' || theme.id === 'musician') return 'creative';
@@ -40,7 +41,7 @@ function categoryFor(config: AvatarConfig, theme: AvatarTheme): AvatarCategory {
 
 /**
  * Theme, palette and skin tone are read off the index like digits of a mixed-radix number, which
- * guarantees all 100 combinations are different. Hair, accessory and badge then advance on their own
+ * guarantees all 160 combinations are different. Hair, accessory and badge then advance on their own
  * strides so neighbouring ids still look clearly distinct rather than merely being distinct.
  */
 function configForIndex(index: number): AvatarConfig {

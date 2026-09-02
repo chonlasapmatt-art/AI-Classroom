@@ -8,6 +8,8 @@
 // score is. The server marks, the server times, and this module renders what it is told.
 
 import { requireSupabase } from '../../services/supabase';
+import { isPreviewActive } from '../../preview/previewMode';
+import { previewQuizStore } from '../../preview/previewData';
 
 export type QuizStatus = 'lobby' | 'running' | 'paused' | 'ended';
 export type ScoringMode = 'accuracy' | 'speed';
@@ -142,41 +144,61 @@ export function createQuizSession(input: {
   questionIds: string[]; timerSeconds: number | null; scoringMode: ScoringMode;
   leaderboardVisible: boolean;
 }) {
-  return rpc<{ sessionId: string; questionCount: number }>('create_quiz_session', {
-    p_school_id: input.schoolId, p_class_id: input.classId, p_subject_id: input.subjectId,
-    p_title: input.title, p_question_ids: input.questionIds, p_timer_seconds: input.timerSeconds,
-    p_scoring_mode: input.scoringMode, p_leaderboard_visible: input.leaderboardVisible
-  });
+  return isPreviewActive()
+    ? Promise.resolve(previewQuizStore.create(input))
+    : rpc<{ sessionId: string; questionCount: number }>('create_quiz_session', {
+      p_school_id: input.schoolId, p_class_id: input.classId, p_subject_id: input.subjectId,
+      p_title: input.title, p_question_ids: input.questionIds, p_timer_seconds: input.timerSeconds,
+      p_scoring_mode: input.scoringMode, p_leaderboard_visible: input.leaderboardVisible
+    });
 }
 
 export const controlQuiz = (sessionId: string, command: 'start' | 'next' | 'pause' | 'resume' | 'end') =>
-  rpc<{ status: QuizStatus; currentPosition: number }>('control_quiz_session', {
-    p_session_id: sessionId, p_command: command
-  });
+  isPreviewActive()
+    ? Promise.resolve(previewQuizStore.control(sessionId, command))
+    : rpc<{ status: QuizStatus; currentPosition: number }>('control_quiz_session', {
+      p_session_id: sessionId, p_command: command
+    });
 
-export const quizBoard = (sessionId: string) => rpc<QuizBoard>('quiz_board', { p_session_id: sessionId });
-export const quizResults = (sessionId: string) => rpc<QuizResults>('quiz_results', { p_session_id: sessionId });
+export const quizBoard = (sessionId: string) => isPreviewActive()
+  ? Promise.resolve(previewQuizStore.board(sessionId))
+  : rpc<QuizBoard>('quiz_board', { p_session_id: sessionId });
+export const quizResults = (sessionId: string) => isPreviewActive()
+  ? Promise.resolve(previewQuizStore.results(sessionId))
+  : rpc<QuizResults>('quiz_results', { p_session_id: sessionId });
 export const recentQuizSessions = (schoolId: string, limit = 20) =>
-  rpc<QuizSessionSummary[]>('recent_quiz_sessions', { p_school_id: schoolId, p_limit: limit });
+  isPreviewActive()
+    ? Promise.resolve(previewQuizStore.history(schoolId).slice(0, limit))
+    : rpc<QuizSessionSummary[]>('recent_quiz_sessions', { p_school_id: schoolId, p_limit: limit });
 
 export const quizWaitingForMe = () =>
-  rpc<{ waiting: boolean; sessionId?: string; title?: string; status?: QuizStatus; joined?: boolean }>(
-    'quiz_waiting_for_me'
-  );
+  isPreviewActive()
+    ? Promise.resolve(previewQuizStore.waiting())
+    : rpc<{ waiting: boolean; sessionId?: string; title?: string; status?: QuizStatus; joined?: boolean }>(
+      'quiz_waiting_for_me'
+    );
 export const joinQuiz = (sessionId: string) =>
-  rpc<{ participantId: string; displayName: string; score: number }>('join_quiz', { p_session_id: sessionId });
-export const quizView = (sessionId: string) => rpc<StudentQuizView>('quiz_view', { p_session_id: sessionId });
+  isPreviewActive()
+    ? Promise.resolve(previewQuizStore.join(sessionId))
+    : rpc<{ participantId: string; displayName: string; score: number }>('join_quiz', { p_session_id: sessionId });
+export const quizView = (sessionId: string) => isPreviewActive()
+  ? Promise.resolve(previewQuizStore.studentView(sessionId))
+  : rpc<StudentQuizView>('quiz_view', { p_session_id: sessionId });
 
 export const submitQuizAnswer = (sessionId: string, questionId: string, selected: string[]) =>
-  rpc<{ recorded: boolean; alreadyAnswered: boolean; isCorrect: boolean; awarded: number; explanation?: string }>(
-    'submit_quiz_answer',
-    { p_session_id: sessionId, p_question_id: questionId, p_selected: selected }
-  );
+  isPreviewActive()
+    ? Promise.resolve(previewQuizStore.answer(sessionId, questionId, selected))
+    : rpc<{ recorded: boolean; alreadyAnswered: boolean; isCorrect: boolean; awarded: number; explanation?: string }>(
+      'submit_quiz_answer',
+      { p_session_id: sessionId, p_question_id: questionId, p_selected: selected }
+    );
 
 export const awardQuizBonus = (sessionId: string, awards: { studentId: string; points: number }[], reason: string) =>
-  rpc<{ awarded: number }>('award_quiz_bonus', {
-    p_session_id: sessionId, p_awards: awards, p_reason: reason
-  });
+  isPreviewActive()
+    ? Promise.resolve(previewQuizStore.awardBonus(sessionId))
+    : rpc<{ awarded: number }>('award_quiz_bonus', {
+      p_session_id: sessionId, p_awards: awards, p_reason: reason
+    });
 
 /**
  * Seconds left on the question, measured against the server's clock rather than the device's.

@@ -7,6 +7,8 @@
 // change one is not a decision a browser gets to make.
 
 import { requireSupabase } from '../../services/supabase';
+import { isPreviewActive } from '../../preview/previewMode';
+import { previewQuestionStore } from '../../preview/previewData';
 
 export type QuestionType = 'multiple_choice' | 'multiple_select' | 'true_false' | 'short_answer';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -104,6 +106,7 @@ function toCategory(row: Record<string, unknown>): QuestionCategory {
 }
 
 export async function listQuestionCategories(schoolId: string): Promise<QuestionCategory[]> {
+  if (isPreviewActive()) return previewQuestionStore.categories(schoolId);
   const { data, error } = await requireSupabase()
     .from('question_categories')
     .select('id, school_id, subject_id, name, description, position, status')
@@ -119,6 +122,7 @@ export interface QuestionFilter {
   difficulty?: Difficulty | null;
   questionType?: QuestionType | null;
   gradeLevel?: string | null;
+  topic?: string | null;
   status?: QuestionStatus | null;
   keyword?: string | null;
 }
@@ -133,6 +137,7 @@ export interface QuestionFilter {
 export async function listBankQuestions(
   schoolId: string, filter: QuestionFilter = {}, limit = 200
 ): Promise<BankQuestion[]> {
+  if (isPreviewActive()) return previewQuestionStore.list(schoolId, filter, limit);
   let query = requireSupabase()
     .from('question_bank')
     .select('*')
@@ -146,6 +151,7 @@ export async function listBankQuestions(
   if (filter.difficulty) query = query.eq('difficulty', filter.difficulty);
   if (filter.questionType) query = query.eq('question_type', filter.questionType);
   if (filter.gradeLevel) query = query.eq('grade_level', filter.gradeLevel);
+  if (filter.topic) query = query.eq('topic', filter.topic);
   query = query.eq('status', filter.status ?? 'active');
   if (filter.keyword && filter.keyword.trim()) {
     const needle = filter.keyword.trim().replace(/[%,]/g, ' ');
@@ -267,6 +273,19 @@ export async function saveBankQuestion(schoolId: string, draft: QuestionDraft): 
     status: draft.status
   };
 
+  if (isPreviewActive()) return previewQuestionStore.save(schoolId, {
+    ...draft,
+    choices: payload.choices,
+    answerKey: payload.answerKey,
+    explanation: payload.explanation,
+    gradeLevel: payload.gradeLevel,
+    unit: payload.unit,
+    topic: payload.topic,
+    prompt: payload.prompt,
+    points: payload.points,
+    tags: payload.tags
+  });
+
   const { data, error } = await requireSupabase().rpc('save_bank_question', {
     p_school_id: schoolId, p_question_id: draft.id ?? null, p_payload: payload
   });
@@ -275,6 +294,7 @@ export async function saveBankQuestion(schoolId: string, draft: QuestionDraft): 
 }
 
 export async function archiveBankQuestion(questionId: string): Promise<void> {
+  if (isPreviewActive()) { previewQuestionStore.archive(questionId); return; }
   const { error } = await requireSupabase().rpc('archive_bank_question', { p_question_id: questionId });
   if (error) throw error;
 }
@@ -282,6 +302,7 @@ export async function archiveBankQuestion(questionId: string): Promise<void> {
 export async function saveQuestionCategory(input: {
   schoolId: string; categoryId?: string | null; subjectId: string | null; name: string; description?: string;
 }): Promise<string> {
+  if (isPreviewActive()) return previewQuestionStore.saveCategory(input);
   const { data, error } = await requireSupabase().rpc('save_question_category', {
     p_school_id: input.schoolId, p_category_id: input.categoryId ?? null,
     p_subject_id: input.subjectId, p_name: input.name, p_description: input.description ?? ''
@@ -291,6 +312,7 @@ export async function saveQuestionCategory(input: {
 }
 
 export async function setQuestionCategoryStatus(categoryId: string, status: QuestionStatus): Promise<void> {
+  if (isPreviewActive()) { previewQuestionStore.setCategoryStatus(categoryId, status); return; }
   const { error } = await requireSupabase().rpc('set_question_category_status', {
     p_category_id: categoryId, p_status: status
   });
@@ -298,6 +320,7 @@ export async function setQuestionCategoryStatus(categoryId: string, status: Ques
 }
 
 export async function reorderQuestionCategories(schoolId: string, orderedIds: string[]): Promise<void> {
+  if (isPreviewActive()) { previewQuestionStore.reorderCategories(orderedIds); return; }
   const { error } = await requireSupabase().rpc('reorder_question_categories', {
     p_school_id: schoolId, p_ordered_ids: orderedIds
   });

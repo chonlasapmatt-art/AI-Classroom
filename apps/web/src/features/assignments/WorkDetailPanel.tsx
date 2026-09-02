@@ -7,6 +7,7 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { Assignment, Student } from '../../domain/types';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
+import { isGoogleDriveUrl } from '../../domain/driveLinks';
 
 interface Props {
   work: Assignment;
@@ -74,7 +75,7 @@ export function WorkDetailPanel({ work, roster, actorProfileId, onMessage }: Pro
         caption={`รายชื่อการส่งงาน ${work.title}`}
         head={
           <tr>
-            <th>นักเรียน</th><th>สถานะ</th><th>ส่งเมื่อ</th><th>เวอร์ชัน</th><th>คะแนน</th><th>จัดการ</th>
+            <th>นักเรียน</th><th>สถานะ</th><th>ส่งเมื่อ</th><th>ไฟล์ส่งงาน</th><th>เวอร์ชัน</th><th>คะแนน</th><th>จัดการ</th>
           </tr>
         }
       >
@@ -97,6 +98,9 @@ export function WorkDetailPanel({ work, roster, actorProfileId, onMessage }: Pro
             </td>
             <td><Badge tone={workStateTone[row.state]}>{workStateLabels[row.state]}</Badge></td>
             <td>{row.submission?.submittedAt ? new Date(row.submission.submittedAt).toLocaleString('th-TH') : '—'}</td>
+            <td>{isGoogleDriveUrl(row.submission?.driveUrl)
+              ? <a className="drive-link" href={row.submission.driveUrl} target="_blank" rel="noreferrer">เปิด Google Drive ↗</a>
+              : <span className="muted">ยังไม่มีลิงก์</span>}</td>
             <td>{row.versions === 0 ? '—' : `v${row.versions}`}</td>
             <td>
               {row.submission?.score === null || row.submission?.score === undefined

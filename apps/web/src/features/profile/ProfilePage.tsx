@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { Badge, Button, Card, CardHeader, Field, FieldGroup, PageHeader } from '../../ui/components';
@@ -6,6 +6,7 @@ import { AvatarPicker } from '../avatars/AvatarPicker';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 
 const roleLabels = { admin: 'ผู้ดูแลระบบ', teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง' } as const;
+const avatarStorageKey = (profileId: string) => `smart-classroom.avatar.${profileId}`;
 
 /**
  * Everyone's own account page: pick your avatar, decide which non-critical reminders you want.
@@ -18,20 +19,33 @@ export function ProfilePage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [localAvatarId, setLocalAvatarId] = useState(() => localStorage.getItem(avatarStorageKey(membership.profileId)));
+
+  useEffect(() => {
+    setLocalAvatarId(localStorage.getItem(avatarStorageKey(membership.profileId)));
+  }, [membership.profileId]);
 
   const student = snapshot.students.find((item) => item.profileId === membership.profileId);
   const teacher = snapshot.teachers.find((item) => item.profileId === membership.profileId);
-  const parentLink = snapshot.parentLinks.find((item) => item.lineUserId === membership.profileId);
+  const parentLink = snapshot.parentLinks.find((item) => item.profileId === membership.profileId || item.lineUserId === membership.profileId);
 
-  const avatarId = student?.avatarId ?? teacher?.avatarId ?? parentLink?.avatarId ?? null;
+  const avatarId = student?.avatarId ?? teacher?.avatarId ?? parentLink?.avatarId
+    ?? localAvatarId;
   const avatarPhotoId = student?.avatarPhotoId ?? teacher?.avatarPhotoId ?? parentLink?.avatarPhotoId ?? null;
   const photoInput = useRef<HTMLInputElement>(null);
-  const canPickAvatar = membership.role !== 'admin' && Boolean(student ?? teacher ?? parentLink);
+  const canPickAvatar = membership.role === 'admin' || ['teacher', 'student', 'parent'].includes(membership.role);
   const preference = snapshot.notificationPreferences.find((item) => item.profileId === membership.profileId);
 
   async function saveAvatar(nextAvatarId: string) {
-    if (membership.role === 'admin') throw new Error('บัญชีผู้ดูแลระบบไม่มี avatar ส่วนตัว');
-    await repository.saveOwnAvatar(membership.profileId, membership.role, nextAvatarId);
+    if (membership.role === 'admin') {
+      localStorage.setItem(avatarStorageKey(membership.profileId), nextAvatarId);
+      setLocalAvatarId(nextAvatarId);
+    } else {
+      await repository.saveOwnAvatar(membership.profileId, membership.role, nextAvatarId);
+    }
+    localStorage.setItem(avatarStorageKey(membership.profileId), nextAvatarId);
+    setLocalAvatarId(nextAvatarId);
+    window.dispatchEvent(new Event('smart-classroom:avatar-changed'));
     setMessage('บันทึก avatar แล้ว');
   }
 
@@ -110,18 +124,24 @@ export function ProfilePage() {
           {canPickAvatar ? (
             <div className="profile-photo-actions">
               <Button variant="primary" onClick={() => setPickerOpen(true)}>เปลี่ยน Avatar</Button>
-              <Button variant="secondary" onClick={() => photoInput.current?.click()}>อัปโหลดรูปของฉัน</Button>
-              {avatarPhotoId && <Button variant="ghost" onClick={() => void removePhoto()}>ลบรูปที่อัปโหลด</Button>}
-              <input
-                ref={photoInput}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                hidden
-                onChange={(event) => void uploadPhoto(event)}
-              />
+              {membership.role === 'admin' ? (
+                <p className="ui-field-hint">ผู้ดูแลระบบเลือก Avatar ได้จากคลัง Avatar Gallery</p>
+              ) : (
+                <>
+                  <Button variant="secondary" onClick={() => photoInput.current?.click()}>อัปโหลดรูปของฉัน</Button>
+                  {avatarPhotoId && <Button variant="ghost" onClick={() => void removePhoto()}>ลบรูปที่อัปโหลด</Button>}
+                  <input
+                    ref={photoInput}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    hidden
+                    onChange={(event) => void uploadPhoto(event)}
+                  />
+                </>
+              )}
             </div>
           ) : (
-            <p className="ui-field-hint">บัญชีผู้ดูแลระบบใช้ตัวอักษรย่อเป็นสัญลักษณ์</p>
+            <p className="ui-field-hint">บัญชีนี้ยังไม่มีข้อมูลเจ้าของโปรไฟล์สำหรับเปลี่ยน avatar</p>
           )}
         </Card>
 

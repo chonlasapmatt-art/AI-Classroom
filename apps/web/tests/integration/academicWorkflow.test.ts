@@ -267,6 +267,8 @@ describe('avatars, announcements and preferences', () => {
     const parentLine = snapshot.parentLinks.find((item) => item.lineUserId)!;
     await repository.saveOwnAvatar(parentLine.lineUserId!, 'parent', 'avatar_055');
     expect(snapshotOf(repository).parentLinks.find((item) => item.id === parentLine.id)?.avatarId).toBe('avatar_055');
+    await repository.saveOwnAvatar('preview-parent', 'parent', 'avatar_088');
+    expect(snapshotOf(repository).parentLinks.find((item) => item.profileId === 'preview-parent')?.avatarId).toBe('avatar_088');
   });
 
   it('refuses to touch somebody else and rejects an unknown avatar', async () => {

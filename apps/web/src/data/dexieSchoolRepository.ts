@@ -10,13 +10,15 @@ import type {
   SyncRecord, Teacher, TestRecord, TestScore, TimetableEntry
 } from '../domain/types';
 import { auditEntry, planCancellation, planPublish, planScoring, planSubmission, planWorkUpdate } from './academicOps';
+import { normalizeGoogleDriveUrl } from '../domain/driveLinks';
 import { defaultReminderOffsets, dueReminders } from '../academic/reminderEngine';
 import { gradeSchemeFrom, resolveGrade } from '../academic/gradeScheme';
 import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
+import { scopeSchoolSnapshot, type VisibilityScope } from './visibility';
 import {
-  DEVELOPMENT_SEED_SETTING_KEY, emptySnapshot, MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, newId, nowIso,
+  DEVELOPMENT_SEED_SETTING_KEY, emptySnapshot, MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, attendanceRecordId, newId, nowIso,
   MAX_SCORE_EVENT_POINTS,
   type AcademicTermInput, type AchievementInput, type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput, type ImportRunInput,
   type ClassInput, type DevelopmentClearResult, type DevelopmentSeedInput, type DevelopmentSeedResult,
@@ -73,7 +75,7 @@ export class DexieSchoolRepository implements SchoolRepository {
   readonly kind = 'dexie' as const;
   readonly canManageStructure = isCloudConfigured;
 
-  constructor(readonly schoolId: string) {}
+  constructor(readonly schoolId: string, private readonly visibility: VisibilityScope = { role: 'admin', profileId: '' }) {}
 
   private async read(): Promise<SchoolSnapshot> {
     const schoolId = this.schoolId;
@@ -113,7 +115,7 @@ export class DexieSchoolRepository implements SchoolRepository {
       db.syncQueue.where({ schoolId, status: 'pending' }).count(),
       db.syncQueue.where({ schoolId, status: 'blocked' }).count()
     ]);
-    return {
+    const snapshot: SchoolSnapshot = {
       ...emptySnapshot, ready: true,
       terms: alive(terms), classes: alive(classes), subjects: alive(subjects), teachers: alive(teachers),
       classTeachers: alive(classTeachers), students: alive(students), enrollments: alive(enrollments),
@@ -128,6 +130,7 @@ export class DexieSchoolRepository implements SchoolRepository {
       timetable: alive(timetable), achievements: alive(achievements), scoreEvents: alive(scoreEvents),
       settings: alive(settings), pendingSync, blockedSync
     };
+    return scopeSchoolSnapshot(snapshot, this.visibility);
   }
 
   subscribe(listener: (snapshot: SchoolSnapshot) => void): () => void {
@@ -206,21 +209,25 @@ export class DexieSchoolRepository implements SchoolRepository {
   }
 
   async setAttendance(input: AttendanceInput): Promise<void> {
+    const sessionKey = input.sessionKey ?? 'daily';
     const existing = await db.attendance
       .where({ classId: input.classId, studentId: input.studentId, attendanceDate: input.attendanceDate })
+      .filter((item) => (item.sessionKey ?? 'daily') === sessionKey)
       .first();
     const record: Attendance = {
-      ...(existing ?? base(this.schoolId)),
+      ...(existing ?? base(this.schoolId, attendanceRecordId(this.schoolId, input.classId, input.studentId, input.attendanceDate, sessionKey))),
       classId: input.classId, studentId: input.studentId, attendanceDate: input.attendanceDate,
-      status: input.status, note: input.note ?? existing?.note ?? '', updatedAt: nowIso()
+      status: input.status, note: input.note ?? existing?.note ?? '', updatedAt: nowIso(),
+      sessionKey, sessionType: input.sessionType ?? existing?.sessionType ?? 'daily',
+      period: input.period ?? existing?.period ?? null,
+      subjectId: input.subjectId ?? existing?.subjectId ?? null,
+      timetableEntryId: input.timetableEntryId ?? existing?.timetableEntryId ?? null
     };
     await commitLocalMutation('attendance', record);
   }
 
-  async setAttendanceForStudents(classId: string, attendanceDate: string, status: AttendanceInput['status'], studentIds: string[]): Promise<void> {
-    for (const studentId of studentIds) {
-      await this.setAttendance({ classId, studentId, attendanceDate, status });
-    }
+  async setAttendanceForStudents(classId: string, attendanceDate: string, status: AttendanceInput['status'], studentIds: string[], session?: Omit<AttendanceInput, 'classId' | 'studentId' | 'attendanceDate' | 'status' | 'note'>): Promise<void> {
+    for (const studentId of studentIds) await this.setAttendance({ classId, studentId, attendanceDate, status, ...session });
   }
 
   async saveAcademicTerm(input: AcademicTermInput): Promise<void> {
@@ -345,12 +352,13 @@ export class DexieSchoolRepository implements SchoolRepository {
     }
   }
 
-  async assignTeacher(classId: string, teacherId: string, role: ClassTeacher['role']): Promise<void> {
+  async assignTeacher(classId: string, teacherId: string, role: ClassTeacher['role'], subjectId: string | null = null): Promise<void> {
     const id = newId();
-    await this.rpc('assign_class_teacher', {
-      p_school_id: this.schoolId, p_class_teacher_id: id, p_class_id: classId, p_teacher_id: teacherId, p_role: role
+    await this.rpc(subjectId ? 'assign_class_teacher_with_subject' : 'assign_class_teacher', {
+      p_school_id: this.schoolId, p_class_teacher_id: id, p_class_id: classId, p_teacher_id: teacherId, p_role: role,
+      ...(subjectId ? { p_subject_id: subjectId } : {})
     });
-    await db.classTeachers.put({ ...base(this.schoolId, id), classId, teacherId, role });
+    await db.classTeachers.put({ ...base(this.schoolId, id), classId, teacherId, role, subjectId });
   }
 
   async unassignTeacher(classTeacherId: string): Promise<void> {
@@ -705,8 +713,12 @@ export class DexieSchoolRepository implements SchoolRepository {
     const record: Announcement = {
       ...(existing ?? base(this.schoolId, id)),
       classId: input.classId, subjectId: input.subjectId, title: input.title.trim(), body: input.body.trim(),
-      studentIds: input.studentIds ?? [], createdBy: existing?.createdBy ?? '', updatedAt: nowIso()
+      studentIds: input.studentIds ?? [], createdBy: existing?.createdBy ?? this.visibility.profileId, updatedAt: nowIso()
     };
+    await this.rpc('save_announcement', {
+      p_school_id: this.schoolId, p_announcement_id: id, p_class_id: record.classId,
+      p_subject_id: record.subjectId, p_title: record.title, p_body: record.body, p_student_ids: record.studentIds
+    });
     await db.announcements.put(record);
     const audience = record.studentIds.length > 0 ? record.studentIds : await this.rosterFor(record.classId);
     await this.notifyStudents({
@@ -782,7 +794,8 @@ export class DexieSchoolRepository implements SchoolRepository {
       ? await db.students.where({ schoolId: this.schoolId, profileId: actorProfileId }).first()
       : role === 'teacher'
         ? await db.teachers.where({ schoolId: this.schoolId, profileId: actorProfileId }).first()
-        : await db.parentLinks.where({ schoolId: this.schoolId, lineUserId: actorProfileId }).first();
+        : (await db.parentLinks.where({ schoolId: this.schoolId, profileId: actorProfileId }).first())
+          ?? (await db.parentLinks.where({ schoolId: this.schoolId, lineUserId: actorProfileId }).first());
     if (!owner) throw new Error('แก้ไขโปรไฟล์ได้เฉพาะบัญชีของตัวเองเท่านั้น');
     return owner;
   }
@@ -806,30 +819,33 @@ export class DexieSchoolRepository implements SchoolRepository {
   async saveOwnAvatar(actorProfileId: string, role: 'teacher' | 'student' | 'parent', avatarId: string): Promise<void> {
     if (!isValidAvatarId(avatarId)) throw new Error('ไม่พบ avatar ที่เลือก');
     const timestamp = nowIso();
+    await this.rpc('set_own_avatar', { p_school_id: this.schoolId, p_avatar_id: avatarId });
     if (role === 'student') {
       const student = await db.students.where({ schoolId: this.schoolId, profileId: actorProfileId }).first();
-      if (!student) throw new Error('แก้ไข avatar ได้เฉพาะบัญชีของตัวเองเท่านั้น');
-      await commitLocalMutation('student', { ...student, avatarId, updatedAt: timestamp });
+      if (student) await db.students.put({ ...student, avatarId, updatedAt: timestamp });
       return;
     }
     if (role === 'teacher') {
       const teacher = await db.teachers.where({ schoolId: this.schoolId, profileId: actorProfileId }).first();
-      if (!teacher) throw new Error('แก้ไข avatar ได้เฉพาะบัญชีของตัวเองเท่านั้น');
-      await db.teachers.put({ ...teacher, avatarId, updatedAt: timestamp });
+      if (teacher) await db.teachers.put({ ...teacher, avatarId, updatedAt: timestamp });
       return;
     }
-    const link = await db.parentLinks.where({ schoolId: this.schoolId, lineUserId: actorProfileId }).first();
-    if (!link) throw new Error('แก้ไข avatar ได้เฉพาะบัญชีของตัวเองเท่านั้น');
-    await db.parentLinks.put({ ...link, avatarId, updatedAt: timestamp });
+    const parentLink = await db.parentLinks.where({ schoolId: this.schoolId, profileId: actorProfileId }).first()
+      ?? await db.parentLinks.where({ schoolId: this.schoolId, lineUserId: actorProfileId }).first();
+    if (parentLink) await db.parentLinks.put({ ...parentLink, avatarId, updatedAt: timestamp });
   }
 
   async saveSubmission(input: SubmissionInput): Promise<void> {
+    if (input.driveUrl !== undefined && input.driveUrl !== null && !normalizeGoogleDriveUrl(input.driveUrl)) {
+      throw new Error('ลิงก์ส่งงานต้องเป็น Google Drive หรือ Google Docs แบบ HTTPS');
+    }
     const existing = await db.submissions.where({ assignmentId: input.assignmentId, studentId: input.studentId }).first();
     const record: Submission = {
       ...(existing ?? base(this.schoolId, input.id)),
       assignmentId: input.assignmentId, studentId: input.studentId,
       submittedAt: existing?.submittedAt ?? (['submitted', 'graded', 'returned'].includes(input.status) ? nowIso() : null),
       status: input.status, score: input.score, isLate: input.isLate,
+      driveUrl: input.driveUrl ?? existing?.driveUrl ?? null,
       teacherNote: input.teacherNote, studentNote: input.studentNote ?? existing?.studentNote ?? '',
       version: existing?.version ?? 0,
       openedAt: existing?.openedAt ?? null,
@@ -846,14 +862,18 @@ export class DexieSchoolRepository implements SchoolRepository {
     await commitLocalMutation('submission', record);
   }
 
-  async submitWork(assignmentId: string, studentId: string, studentNote: string, isLate: boolean): Promise<void> {
+  async submitWork(assignmentId: string, studentId: string, studentNote: string, isLate: boolean, driveUrl?: string | null): Promise<void> {
     const work = await db.assignments.get(assignmentId);
     if (!work) throw new Error('ไม่พบงานที่ต้องการส่ง');
     void isLate; // lateness is derived from the student's effective deadline
     const extensions = await db.deadlineExtensions.where({ assignmentId, studentId }).toArray();
     const due = effectiveDueAt(work, studentId, extensions);
     const submission = await this.submissionHead(assignmentId, studentId);
-    const plan = planSubmission(work, submission, studentId, studentNote, due, (id) => base(this.schoolId, id));
+    const normalizedDriveUrl = driveUrl === undefined || driveUrl === null ? driveUrl : normalizeGoogleDriveUrl(driveUrl);
+    if (driveUrl !== undefined && driveUrl !== null && !normalizedDriveUrl) {
+      throw new Error('ลิงก์ส่งงานต้องเป็น Google Drive หรือ Google Docs แบบ HTTPS');
+    }
+    const plan = planSubmission(work, submission, studentId, studentNote, due, (id) => base(this.schoolId, id), new Date(), normalizedDriveUrl);
     await commitLocalMutation('submission', plan.submission);
     await db.submissionVersions.put(plan.version);
     const pending = await db.notifications.where({ schoolId: this.schoolId, studentId, assignmentId }).toArray();
@@ -969,7 +989,7 @@ export class DexieSchoolRepository implements SchoolRepository {
   /** Mirrors the file to shared storage so the rest of the class can download it. */
   private async uploadToStorage(id: string, input: AttachmentInput): Promise<string | null> {
     if (!isCloudConfigured || !supabase) return null;
-    const safeName = input.file.name.replace(/[^w.-ก-๙]+/g, '_');
+    const safeName = input.file.name.replace(/[^\w.\-ก-๙]+/gu, '_');
     const path = `${this.schoolId}/${input.ownerType}/${input.ownerId}/${id}-${safeName}`;
     const upload = await supabase.storage.from(CLASSROOM_FILES_BUCKET)
       .upload(path, input.file, { contentType: input.file.type || 'application/octet-stream', upsert: false });
@@ -1061,7 +1081,7 @@ export class DexieSchoolRepository implements SchoolRepository {
     const existing = await db.parentLinks.get(id);
     const record: ParentLink = {
       ...(existing ?? base(this.schoolId, id)),
-      studentId: input.studentId, avatarId: existing?.avatarId ?? null,
+      studentId: input.studentId, profileId: existing?.profileId ?? null, avatarId: existing?.avatarId ?? null,
       avatarPhotoId: existing?.avatarPhotoId ?? null,
       parentName: input.parentName, relationship: input.relationship,
       contact: input.contact, lineUserId: existing?.lineUserId ?? null,
@@ -1087,7 +1107,7 @@ export class DexieSchoolRepository implements SchoolRepository {
     const existing = await db.parentLinks.get(linkId);
     await db.parentLinks.put({
       ...(existing ?? base(this.schoolId, linkId)),
-      studentId: input.studentId, avatarId: existing?.avatarId ?? null, avatarPhotoId: existing?.avatarPhotoId ?? null,
+      studentId: input.studentId, profileId: existing?.profileId ?? null, avatarId: existing?.avatarId ?? null, avatarPhotoId: existing?.avatarPhotoId ?? null,
       parentName: displayName, relationship: input.relationship, contact: input.phone ?? existing?.contact ?? '',
       lineUserId: existing?.lineUserId ?? null, status: existing?.status ?? 'invited',
       invitationCode: existing?.invitationCode ?? null,
@@ -1259,6 +1279,6 @@ export class DexieSchoolRepository implements SchoolRepository {
   }
 }
 
-export function createDexieRepository(schoolId: string): SchoolRepository {
-  return new DexieSchoolRepository(schoolId);
+export function createDexieRepository(schoolId: string, visibility?: VisibilityScope): SchoolRepository {
+  return new DexieSchoolRepository(schoolId, visibility);
 }

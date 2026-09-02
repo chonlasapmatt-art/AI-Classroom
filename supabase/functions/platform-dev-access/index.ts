@@ -1,5 +1,4 @@
-// One-field sign-in to the operations console for a development machine: the platform code, and
-// nothing else.
+// Development sign-in to the operations console: the platform code and a display name to save.
 //
 // This is a separate deployable on purpose. It is the only endpoint in the system that mints a
 // session without a password, so it does not share a function with the endpoints a production
@@ -81,6 +80,11 @@ Deno.serve(async (request) => {
 
   try {
     const body = await request.json() as Record<string, unknown>;
+    const displayName = String(body.displayName ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (!displayName) {
+      await record(false);
+      return json({ code: GENERIC_FAILURE }, 400, headers);
+    }
     const supplied = await sha256(String(body.accessCode ?? '').trim());
     if (!constantTimeEqual(supplied, expected)) {
       await record(false);
@@ -99,6 +103,14 @@ Deno.serve(async (request) => {
         code: candidates.length === 0 ? 'PLATFORM_NO_OPERATOR' : 'PLATFORM_OPERATOR_AMBIGUOUS'
       }, 409, headers);
     }
+
+    // The name is profile data, not authority. The code still has to match and the target must be
+    // an active platform operator before this update is allowed. Saving it server-side means the
+    // chosen name is available to the Operations Center and survives a new browser session.
+    const { error: profileError } = await service.from('user_profiles')
+      .update({ display_name: displayName, updated_at: new Date().toISOString() })
+      .eq('id', target);
+    if (profileError) return json({ code: GENERIC_FAILURE }, 400, headers);
 
     const { data: account } = await service.auth.admin.getUserById(target);
     const email = account?.user?.email;
@@ -119,7 +131,7 @@ Deno.serve(async (request) => {
 
     await service.rpc('record_platform_event', {
       p_actor: target, p_action: 'PLATFORM_DEV_SIGN_IN', p_school_id: null, p_profile_id: null,
-      p_reason: 'development sign-in with the platform code', p_metadata: {}
+      p_reason: 'development sign-in with the platform code', p_metadata: { displayName }
     });
     await record(true);
     return json({

@@ -108,7 +108,34 @@ export interface PromotionInput {
 }
 
 export interface PromotionResult { promoted: number; graduated: number; skipped: number }
-export interface AttendanceInput { classId: string; studentId: string; attendanceDate: string; status: AttendanceStatus; note?: string }
+export interface AttendanceInput {
+  classId: string;
+  studentId: string;
+  attendanceDate: string;
+  status: AttendanceStatus;
+  note?: string;
+  sessionKey?: string;
+  sessionType?: 'daily' | 'class' | 'homeroom';
+  period?: number | null;
+  subjectId?: string | null;
+  timetableEntryId?: string | null;
+}
+
+/** Same student/date/session always gets the same UUID on every device, so concurrent offline
+ * check-ins converge on one server row without changing the generic sync protocol. */
+export function attendanceRecordId(schoolId: string, classId: string, studentId: string, date: string, sessionKey = 'daily'): string {
+  const seed = `${schoolId}|${classId}|${studentId}|${date}|${sessionKey}`;
+  const chunks: string[] = [];
+  for (let segment = 0; segment < 4; segment += 1) {
+    let hash = (2166136261 + segment * 2654435761) >>> 0;
+    for (const character of `${segment}:${seed}`) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
+    chunks.push(hash.toString(16).padStart(8, '0'));
+  }
+  const hex = chunks.join('').split('');
+  hex[12] = '5';
+  hex[16] = ((Number.parseInt(hex[16] ?? '8', 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20).join('')}`;
+}
 export interface AssignmentInput {
   id?: string;
   classId: string;
@@ -142,7 +169,7 @@ export interface ScoreSubmissionInput {
 }
 export interface SubmissionInput {
   id?: string; assignmentId: string; studentId: string; status: SubmissionStatus; score: number | null;
-  isLate: boolean; teacherNote: string; studentNote?: string;
+  isLate: boolean; teacherNote: string; studentNote?: string; driveUrl?: string | null;
 }
 export interface ActivityInput { id?: string; classId: string; subjectId: string | null; title: string; activityDate: string; maxScore: number; status: Activity['status'] }
 export interface TestInput { id?: string; classId: string; subjectId: string | null; title: string; testDate: string; maxScore: number; status: TestRecord['status'] }
@@ -256,7 +283,7 @@ export interface SchoolRepository {
   listImportRuns(limit?: number): Promise<ImportRun[]>;
 
   setAttendance(input: AttendanceInput): Promise<void>;
-  setAttendanceForStudents(classId: string, attendanceDate: string, status: AttendanceStatus, studentIds: string[]): Promise<void>;
+  setAttendanceForStudents(classId: string, attendanceDate: string, status: AttendanceStatus, studentIds: string[], session?: Omit<AttendanceInput, 'classId' | 'studentId' | 'attendanceDate' | 'status' | 'note'>): Promise<void>;
 
   /**
    * Opens or edits an academic year/term. Making one active closes the previous active term, so
@@ -278,7 +305,7 @@ export interface SchoolRepository {
    * rejection here is authoritative and must not be worked around in the UI.
    */
   verifyTeacher(teacherId: string, reason: string): Promise<void>;
-  assignTeacher(classId: string, teacherId: string, role: ClassTeacher['role']): Promise<void>;
+  assignTeacher(classId: string, teacherId: string, role: ClassTeacher['role'], subjectId?: string | null): Promise<void>;
   unassignTeacher(classTeacherId: string): Promise<void>;
 
   enrollStudent(studentId: string, classId: string, academicTermId: string): Promise<void>;
@@ -316,7 +343,7 @@ export interface SchoolRepository {
   deliverDueReminders(now?: Date): Promise<number>;
   saveSubmission(input: SubmissionInput): Promise<void>;
   /** Student turn-in. */
-  submitWork(assignmentId: string, studentId: string, studentNote: string, isLate: boolean): Promise<void>;
+  submitWork(assignmentId: string, studentId: string, studentNote: string, isLate: boolean, driveUrl?: string | null): Promise<void>;
   /** Teacher grade and hand back. */
   returnWork(assignmentId: string, studentId: string, score: number | null, teacherNote: string): Promise<void>;
 

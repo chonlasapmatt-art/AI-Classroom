@@ -9,6 +9,8 @@
 // a paper is read from.
 
 import { requireSupabase } from '../../services/supabase';
+import { isPreviewActive } from '../../preview/previewMode';
+import { previewExamStore } from '../../preview/previewData';
 
 export type ExamState = 'draft' | 'scheduled' | 'open' | 'grading' | 'closed' | 'published' | 'archived';
 
@@ -123,6 +125,7 @@ function toExam(row: Record<string, unknown>): ExamRow {
 }
 
 export async function listExams(schoolId: string): Promise<ExamRow[]> {
+  if (isPreviewActive()) return previewExamStore.list(schoolId);
   const { data, error } = await requireSupabase()
     .from('tests').select('*').eq('school_id', schoolId).is('deleted_at', null)
     .order('test_date', { ascending: false }).limit(100);
@@ -131,6 +134,7 @@ export async function listExams(schoolId: string): Promise<ExamRow[]> {
 }
 
 export async function listExamAttempts(testId: string): Promise<ExamAttemptRow[]> {
+  if (isPreviewActive()) return previewExamStore.attempts(testId);
   const { data, error } = await requireSupabase()
     .from('exam_attempts')
     .select('id, student_id, attempt_number, started_at, submitted_at, submitted_reason, auto_score')
@@ -146,6 +150,7 @@ export async function listExamAttempts(testId: string): Promise<ExamAttemptRow[]
 }
 
 export async function examQuestionCount(testId: string): Promise<number> {
+  if (isPreviewActive()) return previewExamStore.questionCount(testId);
   const { count, error } = await requireSupabase()
     .from('exam_questions').select('id', { count: 'exact', head: true }).eq('test_id', testId);
   if (error) throw error;
@@ -153,26 +158,38 @@ export async function examQuestionCount(testId: string): Promise<number> {
 }
 
 export const composeExam = (testId: string, questionIds: string[]) =>
-  rpc<number>('compose_exam', { p_test_id: testId, p_question_ids: questionIds });
+  isPreviewActive()
+    ? Promise.resolve(previewExamStore.compose(testId, questionIds))
+    : rpc<number>('compose_exam', { p_test_id: testId, p_question_ids: questionIds });
 
 export const scheduleExam = (input: {
   testId: string; opensAt: string | null; closesAt: string | null;
   durationMinutes: number | null; attemptLimit: number; status: 'draft' | 'published' | 'closed';
-}) => rpc<{ testId: string; state: ExamState }>('schedule_exam', {
-  p_test_id: input.testId, p_opens_at: input.opensAt, p_closes_at: input.closesAt,
-  p_duration_minutes: input.durationMinutes, p_attempt_limit: input.attemptLimit, p_status: input.status
-});
+}) => isPreviewActive()
+  ? Promise.resolve(previewExamStore.schedule(input))
+  : rpc<{ testId: string; state: ExamState }>('schedule_exam', {
+    p_test_id: input.testId, p_opens_at: input.opensAt, p_closes_at: input.closesAt,
+    p_duration_minutes: input.durationMinutes, p_attempt_limit: input.attemptLimit, p_status: input.status
+  });
 
-export const examAccess = (testId: string) => rpc<ExamAccess>('exam_access', { p_test_id: testId });
+export const examAccess = (testId: string) => isPreviewActive()
+  ? Promise.resolve(previewExamStore.access(testId))
+  : rpc<ExamAccess>('exam_access', { p_test_id: testId });
 export const startExamAttempt = (testId: string) =>
-  rpc<{ attemptId: string; expiresAt: string | null; serverTime: string; resumed: boolean }>(
-    'start_exam_attempt', { p_test_id: testId }
-  );
-export const takeExam = (attemptId: string) => rpc<ExamPaper>('take_exam', { p_attempt_id: attemptId });
+  isPreviewActive()
+    ? Promise.resolve(previewExamStore.start(testId))
+    : rpc<{ attemptId: string; expiresAt: string | null; serverTime: string; resumed: boolean }>(
+      'start_exam_attempt', { p_test_id: testId }
+    );
+export const takeExam = (attemptId: string) => isPreviewActive()
+  ? Promise.resolve(previewExamStore.take(attemptId))
+  : rpc<ExamPaper>('take_exam', { p_attempt_id: attemptId });
 export const submitExamAttempt = (attemptId: string, answers: Record<string, string[]>, final: boolean) =>
-  rpc<{ attemptId: string; submittedAt: string | null; reason: string | null; autoScore: number | null }>(
-    'submit_exam_attempt', { p_attempt_id: attemptId, p_answers: answers, p_final: final }
-  );
+  isPreviewActive()
+    ? Promise.resolve(previewExamStore.submit(attemptId, answers, final))
+    : rpc<{ attemptId: string; submittedAt: string | null; reason: string | null; autoScore: number | null }>(
+      'submit_exam_attempt', { p_attempt_id: attemptId, p_answers: answers, p_final: final }
+    );
 
 /**
  * Minutes and seconds left, measured against the server's clock.

@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import { PlatformApp } from './PlatformApp';
 import { ThemeProvider } from '../app/ThemeContext';
 import { applyStoredTheme } from '../app/theme';
+import { BootSplash } from '../app/BootSplash';
 import '../design-system/tokens.css';
 import '../design-system/components.css';
 import '../design-system/global.css';
@@ -27,7 +28,7 @@ applyStoredTheme();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      <HashRouter><PlatformApp /></HashRouter>
+      <BootSplash><HashRouter><PlatformApp /></HashRouter></BootSplash>
     </ThemeProvider>
   </StrictMode>
 );

@@ -14,7 +14,7 @@ export function SubjectsPage() {
   const [openForm, setOpenForm] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const canEdit = (membership.role === 'admin' || membership.role === 'teacher') && repository.canManageStructure;
+  const canEdit = membership.role === 'admin' && repository.canManageStructure;
   const classes = activeClasses(snapshot);
   const subjects = [...snapshot.subjects].sort((a, b) => a.sortOrder - b.sortOrder);
   const missingStandard = standardSubjects.filter((seed) => !subjects.some((subject) => subject.code === seed.code));

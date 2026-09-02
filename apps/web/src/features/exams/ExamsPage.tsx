@@ -15,6 +15,8 @@ import {
   difficultyLabels, listBankQuestions, listQuestionCategories,
   type BankQuestion, type QuestionCategory
 } from '../questions/questionBank';
+import { previewExamStore } from '../../preview/previewData';
+import { teacherCanEditSubject, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 
 /**
  * Derived the same way the server derives it, so the list does not claim an exam is open an hour
@@ -60,9 +62,14 @@ export function ExamsPage() {
     () => snapshot.subjects.filter((subject) => subject.status === 'active'),
     [snapshot.subjects]
   );
+  const ownedSubjectIds = teacherOwnedSubjectIds(snapshot, membership.profileId);
+  const canManageExams = membership.role === 'admin' || ownedSubjectIds.size > 0;
+  const editableSubjects = membership.role === 'teacher'
+    ? subjects.filter((subject) => ownedSubjectIds.has(subject.id))
+    : subjects;
 
   const load = useCallback(async () => {
-    if (mode !== 'cloud' || !isStaff) return;
+    if (!isStaff) return;
     setError(null);
     try {
       const rows = await listExams(schoolId);
@@ -72,7 +79,7 @@ export function ExamsPage() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'โหลดรายการข้อสอบไม่สำเร็จ');
     }
-  }, [isStaff, mode, schoolId]);
+  }, [isStaff, schoolId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -81,14 +88,15 @@ export function ExamsPage() {
     const form = event.currentTarget;
     const data = new FormData(form);
     try {
-      await repository.saveTest({
+      const input = {
         classId: String(data.get('classId') ?? ''),
         subjectId: String(data.get('subjectId') ?? '') || null,
         title: String(data.get('title') ?? '').trim(),
         testDate: String(data.get('testDate') ?? ''),
-        maxScore: Number(data.get('maxScore') ?? 100),
-        status: 'draft'
-      });
+        maxScore: Number(data.get('maxScore') ?? 100)
+      };
+      if (mode === 'preview') previewExamStore.create({ schoolId, ...input });
+      else await repository.saveTest({ ...input, status: 'draft' });
       form.reset();
       setMessage('สร้างข้อสอบเป็นฉบับร่างแล้ว · ขั้นต่อไปคือใส่ข้อสอบจากคลัง');
       await load();
@@ -97,14 +105,6 @@ export function ExamsPage() {
     }
   }
 
-  if (mode !== 'cloud') {
-    return (
-      <Card>
-        <CardHeader title="ข้อสอบ" description="ใช้ได้เฉพาะเมื่อเชื่อมต่อระบบจริง" />
-        <EmptyState title="โหมดตัวอย่างไม่มีข้อสอบจริง" description="เวลาเปิด-ปิดข้อสอบใช้นาฬิกาของเซิร์ฟเวอร์" />
-      </Card>
-    );
-  }
   if (!isStaff) {
     return (
       <Card>
@@ -119,6 +119,7 @@ export function ExamsPage() {
       <ExamDetail
         exam={selected} schoolId={schoolId}
         questionCount={counts[selected.id] ?? 0}
+        canEdit={membership.role === 'admin' || teacherCanEditSubject(snapshot, membership.profileId, selected.classId, selected.subjectId)}
         onBack={() => { setSelected(null); void load(); }}
         onMessage={setMessage}
       />
@@ -136,7 +137,7 @@ export function ExamsPage() {
       {message && <div className="alert success" role="status">{message}</div>}
       {error && <ErrorState message={error} onRetry={() => void load()} />}
 
-      <Card>
+      {canManageExams && <Card>
         <CardHeader title="สร้างข้อสอบใหม่" description="สร้างเป็นฉบับร่างก่อน แล้วค่อยใส่ข้อและตั้งเวลา" />
         <form onSubmit={(event) => void create(event)}>
           <Toolbar>
@@ -149,7 +150,7 @@ export function ExamsPage() {
             <Field label="รายวิชา">
               <select name="subjectId">
                 <option value="">ไม่ระบุ</option>
-                {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+                {editableSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
               </select>
             </Field>
             <Field label="วันสอบ">
@@ -160,7 +161,10 @@ export function ExamsPage() {
           <Button variant="primary" disabled={classes.length === 0}>สร้างฉบับร่าง</Button>
           {classes.length === 0 && <p className="field-hint">ยังไม่มีห้องเรียน สร้างห้องเรียนก่อน</p>}
         </form>
-      </Card>
+      </Card>}
+      {!canManageExams && membership.role === 'teacher' && (
+        <div className="alert warning" role="status">คุณดูข้อสอบของห้องที่ได้รับมอบหมายได้ แต่ต้องเป็นครูเจ้าของวิชาจึงจะสร้างหรือแก้ไขได้</div>
+      )}
 
       {!exams ? <Skeleton lines={5} /> : (exams.length > 0 ? (
         <Card>
@@ -190,8 +194,9 @@ export function ExamsPage() {
 
 // ---------------------------------------------------------------------------
 
-function ExamDetail({ exam, schoolId, questionCount, onBack, onMessage }: {
+function ExamDetail({ exam, schoolId, questionCount, canEdit, onBack, onMessage }: {
   exam: ExamRow; schoolId: string; questionCount: number;
+  canEdit: boolean;
   onBack(): void; onMessage(message: string): void;
 }) {
   const [count, setCount] = useState(questionCount);
@@ -237,6 +242,7 @@ function ExamDetail({ exam, schoolId, questionCount, onBack, onMessage }: {
   const started = attempts.length > 0;
 
   async function addQuestions() {
+    if (!canEdit) return;
     setBusy(true); setError(null);
     try {
       const added = await composeExam(exam.id, chosen);
@@ -249,6 +255,7 @@ function ExamDetail({ exam, schoolId, questionCount, onBack, onMessage }: {
   }
 
   async function applySchedule() {
+    if (!canEdit) return;
     setBusy(true); setError(null);
     try {
       const result = await scheduleExam({
@@ -289,7 +296,9 @@ function ExamDetail({ exam, schoolId, questionCount, onBack, onMessage }: {
           title="ใส่ข้อสอบจากคลัง"
           description="ระบบจะคัดลอกข้อที่เลือกเก็บไว้กับข้อสอบนี้ แก้คลังทีหลังไม่กระทบ"
         />
-        {started ? (
+        {!canEdit ? (
+          <div className="alert warning" role="status">โหมดดูอย่างเดียว · เฉพาะครูเจ้าของวิชาหรือผู้ดูแลโรงเรียนที่จัดการชุดข้อสอบได้</div>
+        ) : started ? (
           <div className="alert warning" role="status">
             มีนักเรียนเริ่มสอบไปแล้ว จึงแก้ชุดข้อสอบไม่ได้ — การเปลี่ยนกระดาษระหว่างสอบทำให้ผลของคนที่ทำไปแล้วใช้ไม่ได้
           </div>
@@ -304,7 +313,7 @@ function ExamDetail({ exam, schoolId, questionCount, onBack, onMessage }: {
                   ))}
                 </select>
               </Field>
-              <Button variant="primary" loading={busy} disabled={chosen.length === 0} onClick={() => void addQuestions()}>
+              <Button variant="primary" loading={busy} disabled={!canEdit || chosen.length === 0} onClick={() => void addQuestions()}>
                 ใส่ {chosen.length} ข้อที่เลือก
               </Button>
             </Toolbar>
@@ -315,7 +324,7 @@ function ExamDetail({ exam, schoolId, questionCount, onBack, onMessage }: {
                   <li key={question.id}>
                     <label className="checkbox-field">
                       <input
-                        type="checkbox" checked={chosen.includes(question.id)}
+                        type="checkbox" disabled={!canEdit} checked={chosen.includes(question.id)}
                         onChange={(event) => setChosen((value) => event.target.checked
                           ? [...value, question.id]
                           : value.filter((id) => id !== question.id))}
@@ -348,31 +357,31 @@ function ExamDetail({ exam, schoolId, questionCount, onBack, onMessage }: {
         <Toolbar>
           <Field label="เปิดสอบ">
             <input
-              type="datetime-local" value={schedule.opensAt}
+              type="datetime-local" disabled={!canEdit} value={schedule.opensAt}
               onChange={(event) => setSchedule((value) => ({ ...value, opensAt: event.target.value }))}
             />
           </Field>
           <Field label="ปิดสอบ">
             <input
-              type="datetime-local" value={schedule.closesAt}
+              type="datetime-local" disabled={!canEdit} value={schedule.closesAt}
               onChange={(event) => setSchedule((value) => ({ ...value, closesAt: event.target.value }))}
             />
           </Field>
           <Field label="เวลาทำ (นาที)" hint="เว้นว่าง = ทำได้จนถึงเวลาปิด">
             <input
-              type="number" min={1} max={600} value={schedule.durationMinutes}
+              type="number" min={1} max={600} disabled={!canEdit} value={schedule.durationMinutes}
               onChange={(event) => setSchedule((value) => ({ ...value, durationMinutes: Number(event.target.value) }))}
             />
           </Field>
           <Field label="สอบได้กี่ครั้ง">
             <input
-              type="number" min={1} max={20} value={schedule.attemptLimit}
+              type="number" min={1} max={20} disabled={!canEdit} value={schedule.attemptLimit}
               onChange={(event) => setSchedule((value) => ({ ...value, attemptLimit: Number(event.target.value) }))}
             />
           </Field>
           <Field label="สถานะ">
             <select
-              value={schedule.status}
+              disabled={!canEdit} value={schedule.status}
               onChange={(event) => setSchedule((value) => ({
                 ...value, status: event.target.value as 'draft' | 'published' | 'closed'
               }))}
@@ -385,7 +394,7 @@ function ExamDetail({ exam, schoolId, questionCount, onBack, onMessage }: {
         </Toolbar>
         <Button
           variant="primary" loading={busy}
-          disabled={count === 0 && schedule.status === 'published'}
+          disabled={!canEdit || (count === 0 && schedule.status === 'published')}
           onClick={() => void applySchedule()}
         >
           บันทึกเวลาสอบ

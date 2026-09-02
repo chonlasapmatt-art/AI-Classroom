@@ -127,14 +127,16 @@ describe('passwordless student access — the screen a student sees', () => {
     expect(studentClient).toContain('ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบชื่อและเลขประจำตัวนักเรียน');
   });
 
-  it('routes both student entrances and keeps them off the email flow', () => {
-    expect(appSource).toContain('<Route path="/student" element={<StudentLoginPage />} />');
-    expect(appSource).toContain('<Route path="/student/first-time" element={<StudentFirstTimePage />} />');
-    expect(loginPage).toContain('to="/student"');
-    // Signing up now asks for a name and a password, which a student holds neither of, so the
-    // screen offers the two roles that do and sends students to their own entrance.
-    expect(registerPage).toContain("const passwordRegistrationRoles: MemberRole[] = ['teacher', 'parent']");
-    expect(registerPage).toContain('to="/student/first-time"');
+  it('uses the shared login and removes self-registration', () => {
+    expect(appSource).toContain('<Route path="/student" element={<Navigate to="/login" replace />} />');
+    expect(appSource).not.toContain('/student/first-time');
+    expect(loginPage).toContain('ชื่อนักเรียน');
+    expect(loginPage).toContain('รหัสผ่าน');
+    expect(loginPage).not.toContain('สมัครใช้งาน');
+    expect(accessFunction).toContain("if (action === 'register')");
+    expect(accessFunction).toContain("code: 'SELF_REGISTRATION_DISABLED'");
+    expect(registerPage).not.toContain('registerParent');
+    expect(registerPage).not.toContain('/student/first-time');
   });
 
   it('carries no service role key or privileged client into the browser bundle', () => {

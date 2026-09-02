@@ -3,6 +3,7 @@ import { Badge, Button, Field, Modal, Segmented } from '../../ui/components';
 import {
   AVATAR_CATALOG_SIZE, avatarCategoryLabels, searchAvatars, type AvatarCategory
 } from './avatarCatalog';
+import { avatarPalettes, hairStyles, skinTones } from './avatarThemes';
 import { ProfileAvatar } from './ProfileAvatar';
 import { ThemedAvatar } from './ThemedAvatar';
 
@@ -23,10 +24,17 @@ export function AvatarPicker({ displayName, currentAvatarId, onSave, onClose }: 
   const [selected, setSelected] = useState<string | null>(currentAvatarId);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<AvatarCategory | 'all'>('all');
+  const [hairFilter, setHairFilter] = useState('all');
+  const [skinFilter, setSkinFilter] = useState('all');
+  const [clothesFilter, setClothesFilter] = useState('all');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const results = useMemo(() => searchAvatars(query, category), [query, category]);
+  const results = useMemo(() => searchAvatars(query, category).filter((avatar) =>
+    (hairFilter === 'all' || avatar.config.hair === Number(hairFilter))
+    && (skinFilter === 'all' || avatar.config.skinTone === Number(skinFilter))
+    && (clothesFilter === 'all' || avatar.config.palette === Number(clothesFilter))
+  ), [clothesFilter, hairFilter, query, category, skinFilter]);
 
   async function save() {
     if (!selected) { setError('เลือก avatar ก่อนบันทึก'); return; }
@@ -78,6 +86,26 @@ export function AvatarPicker({ displayName, currentAvatarId, onSave, onClose }: 
               onChange={setCategory}
               options={categories}
             />
+            <div className="avatar-part-filters">
+              <Field label="ทรงผม">
+                <select value={hairFilter} onChange={(event) => setHairFilter(event.target.value)}>
+                  <option value="all">ทุกทรงผม</option>
+                  {hairStyles.map((hair, index) => <option key={hair.id} value={index}>{hair.name}</option>)}
+                </select>
+              </Field>
+              <Field label="สีผิว">
+                <select value={skinFilter} onChange={(event) => setSkinFilter(event.target.value)}>
+                  <option value="all">ทุกสีผิว</option>
+                  {skinTones.map((tone, index) => <option key={tone} value={index}>โทนที่ {index + 1}</option>)}
+                </select>
+              </Field>
+              <Field label="เสื้อผ้า/สีหลัก">
+                <select value={clothesFilter} onChange={(event) => setClothesFilter(event.target.value)}>
+                  <option value="all">ทุกสี</option>
+                  {avatarPalettes.map((palette, index) => <option key={palette.primary} value={index}>ชุดสีที่ {index + 1}</option>)}
+                </select>
+              </Field>
+            </div>
           </div>
 
           <p className="ui-field-hint">พบ {results.length} แบบ</p>

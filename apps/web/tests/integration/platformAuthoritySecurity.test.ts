@@ -196,6 +196,16 @@ describe('the development sign-in', () => {
     expect(devGateway).toContain('PLATFORM_ACCESS_LOCKED');
   });
 
+  it('saves the operator display name without using it as authority', () => {
+    expect(devGateway).toContain('body.displayName');
+    expect(devGateway).toContain("from('user_profiles')");
+    expect(devGateway).toContain('display_name: displayName');
+    expect(consoleApp).toContain('ชื่อผู้ดูแล');
+    expect(consoleApp).toContain('devSignIn(accessCode, displayName)');
+    // The code, not the chosen display name, remains the only secret on this entry screen.
+    expect(consoleApp).not.toContain('autoComplete="current-password"');
+  });
+
   it('signs in as an operator who already exists and creates nobody', () => {
     // It may write to the attempt ledger — that is how it rate limits itself — but it may not
     // create an account or hand out authority.

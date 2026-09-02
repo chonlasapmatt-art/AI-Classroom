@@ -6,13 +6,15 @@ import { RepositoryProvider } from '../data/RepositoryContext';
 import { createDexieRepository } from '../data/dexieSchoolRepository';
 import { ConfigurationScreen } from '../features/auth/ConfigurationScreen';
 import { LoginPage } from '../features/auth/LoginPage';
-import { AuthCallbackPage, AwaitingMembershipPage, ForgotPasswordPage, RegisterPage, ResetPasswordPage } from '../features/auth/AccountPages';
+import { AdminLoginPage } from '../features/auth/AdminLoginPage';
+import { AwaitingMembershipPage } from '../features/auth/AccountPages';
+import { AdminSchoolSetupPage } from '../features/auth/AdminSchoolSetupPage';
 import { OwnerAccessPage } from '../features/auth/OwnerAccessPage';
-import { StudentFirstTimePage, StudentLoginPage } from '../features/auth/StudentAccessPages';
 import { AppShell } from '../layouts/AppShell';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
 import { StudentsPage } from '../features/students/StudentsPage';
+import { StudentDetailPage } from '../features/students/StudentDetailPage';
 import { ClassesPage } from '../features/classes/ClassesPage';
 import { SubjectsPage } from '../features/subjects/SubjectsPage';
 import { GradebookPage } from '../features/grades/GradebookPage';
@@ -20,6 +22,7 @@ import { GradeEditorPage } from '../features/grades/GradeEditorPage';
 import { ImportPage } from '../features/imports/ImportPage';
 import { CalendarPage } from '../features/calendar/CalendarPage';
 import { NotificationCenterPage } from '../features/notifications/NotificationCenterPage';
+import { AnnouncementsPage } from '../features/notifications/AnnouncementsPage';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { TeachersPage } from '../features/teachers/TeachersPage';
 import { AssignmentsPage } from '../features/assignments/AssignmentsPage';
@@ -38,6 +41,7 @@ import { TimetablePage } from '../features/timetable/TimetablePage';
 import { AchievementsPage } from '../features/achievements/AchievementsPage';
 import { PromotionPage } from '../features/promotion/PromotionPage';
 import { AvatarGalleryPage } from '../features/avatars/AvatarGalleryPage';
+import { PreviewDemoPage } from '../preview/PreviewDemoPage';
 import { isCloudConfigured } from '../services/supabase';
 import { useBackgroundSync } from '../sync/useBackgroundSync';
 import { SyncStatusProvider } from '../sync/SyncStatusContext';
@@ -51,6 +55,7 @@ function AppRoutes() {
       <Routes>
         <Route index element={<DashboardPage />} />
         <Route path="students" element={<StudentsPage />} />
+        <Route path="students/:studentId" element={<StudentDetailPage />} />
         <Route path="classes" element={<ClassesPage />} />
         <Route path="subjects" element={<SubjectsPage />} />
         <Route path="gradebook" element={<GradebookPage />} />
@@ -60,6 +65,7 @@ function AppRoutes() {
         <Route path="achievements" element={<AchievementsPage />} />
         <Route path="promotion" element={<PromotionPage />} />
         <Route path="notifications" element={<NotificationCenterPage />} />
+        <Route path="announcements" element={<AnnouncementsPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="import" element={<ImportPage />} />
         <Route path="teachers" element={<TeachersPage />} />
@@ -77,6 +83,7 @@ function AppRoutes() {
         <Route path="operations" element={<OperationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         {isPreviewModeAvailable && <Route path="avatar-gallery" element={<AvatarGalleryPage />} />}
+        {isPreviewModeAvailable && <Route path="preview-demo" element={<PreviewDemoPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>
@@ -85,9 +92,12 @@ function AppRoutes() {
 
 function CloudRoutes() {
   const auth = useAuth();
-  const schoolId = auth.active?.schoolId ?? '';
-  const repository = useMemo(() => createDexieRepository(schoolId), [schoolId]);
   const active = auth.active;
+  const schoolId = active?.schoolId ?? '';
+  const repository = useMemo(() => createDexieRepository(schoolId, active ? {
+    role: active.role,
+    profileId: active.profileId
+  } : undefined), [active, schoolId]);
   const { memberships, selectMembership, signOut } = auth;
   const session: SessionValue | null = useMemo(() => (active ? {
     mode: 'cloud', membership: active, memberships, selectMembership, signOut
@@ -95,7 +105,11 @@ function CloudRoutes() {
 
   if (auth.loading) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบเซสชัน...</p></main>;
   if (!auth.session) return <Navigate to="/login" replace />;
-  if (!session) return <AwaitingMembershipPage />;
+  if (!session) {
+    const requestedRole = auth.session.user.user_metadata.requested_role;
+    if (requestedRole === 'admin') return <AdminSchoolSetupPage />;
+    return <AwaitingMembershipPage />;
+  }
 
   return (
     <SessionProvider value={session}>
@@ -129,12 +143,12 @@ export function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/student" element={<StudentLoginPage />} />
-        <Route path="/student/first-time" element={<StudentFirstTimePage />} />
-        <Route path="/auth/callback" element={<AuthCallbackPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/admin-access" element={<AdminLoginPage />} />
+        <Route path="/register" element={<Navigate to="/login" replace />} />
+        <Route path="/student" element={<Navigate to="/login" replace />} />
+        <Route path="/auth/callback" element={<Navigate to="/login" replace />} />
+        <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
+        <Route path="/reset-password" element={<Navigate to="/login" replace />} />
         <Route path="/owner/access" element={<OwnerAccessPage />} />
         <Route path="/*" element={<CloudRoutes />} />
       </Routes>

@@ -119,17 +119,15 @@ test.describe('signing up', () => {
   });
 });
 
-test.describe('recovering a password with a six-digit OTP', () => {
+test.describe('recovering a password with a recovery link', () => {
   test('asks for recovery email only here and never reveals whether it exists', async ({ page }) => {
     await page.goto('/forgot-password');
     await expect(page.getByRole('heading', { name: 'ขอตั้งรหัสผ่านใหม่' })).toBeVisible();
     await page.getByLabel('อีเมลกู้คืนบัญชี').fill('somchai@example.com');
-    await page.getByRole('button', { name: 'ส่ง OTP' }).click();
+    await page.getByRole('button', { name: 'ส่งลิงก์ตั้งรหัสผ่าน' }).click();
     const status = page.getByRole('status').filter({ hasText: 'หากอีเมลนี้ผูกกับบัญชี' });
-    await expect(status).toContainText('OTP 6 หลัก');
+    await expect(status).toContainText('ลิงก์ตั้งรหัสผ่านใหม่');
     await expect(status).not.toContainText('ไม่พบ');
-    const otp = page.getByLabel('รหัส OTP 6 หลัก');
-    await expect(otp).toHaveAttribute('maxlength', '6');
-    await expect(otp).toHaveAttribute('autocomplete', 'one-time-code');
+    await expect(page.getByLabel('รหัส OTP 6 หลัก')).toHaveCount(0);
   });
 });

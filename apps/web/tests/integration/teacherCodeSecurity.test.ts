@@ -164,9 +164,9 @@ describe('teacher access codes', () => {
   });
 
   describe('the client', () => {
-    it('asks for the code on the teacher screen and sends it', () => {
-      expect(registerPage).toContain('รหัสสำหรับครู');
-      expect(registerPage).toMatch(/registerTeacher\(\{[^}]*accessCode/);
+    it('does not expose teacher self-registration', () => {
+      expect(registerPage).not.toContain('registerTeacher');
+      expect(registerPage).not.toContain('รหัสสำหรับครู');
     });
 
     it('decides nothing about validity in React', () => {

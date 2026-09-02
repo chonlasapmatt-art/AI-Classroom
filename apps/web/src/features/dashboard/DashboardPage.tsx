@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import {
-  activeClasses, activeSubjects, attendanceSummary, classIdOfStudent, consentedStudents, rosterFor, subjectById
+  activeClasses, activeSubjects, attendanceDailySummary, classIdOfStudent, consentedStudents, rosterFor, subjectById
 } from '../../data/selectors';
 import { subjectColor } from '../../data/subjectCatalog';
 import { calendarItemsFor, unreadCount } from '../../academic/views';
@@ -12,6 +12,9 @@ import { gradeSchemeFrom } from '../../academic/gradeScheme';
 import { followUpInsights } from '../../academic/workload';
 import { Badge, Card, CardHeader, EmptyState, LinkButton, PageHeader, ProgressBar, Stat } from '../../ui/components';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
+import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+
+const avatarStorageKey = (profileId: string) => 'smart-classroom.avatar.' + profileId;
 
 /** Role-aware home screen: everyone lands on the few things that actually need them today. */
 export function DashboardPage() {
@@ -22,11 +25,24 @@ export function DashboardPage() {
   const scheme = gradeSchemeFrom(snapshot.settings);
 
   const student = snapshot.students.find((item) => item.profileId === membership.profileId);
+  const [localAvatarId, setLocalAvatarId] = useState(() => localStorage.getItem(avatarStorageKey(membership.profileId)));
+  useEffect(() => {
+    const refreshAvatar = () => setLocalAvatarId(localStorage.getItem(avatarStorageKey(membership.profileId)));
+    refreshAvatar();
+    window.addEventListener('smart-classroom:avatar-changed', refreshAvatar);
+    return () => window.removeEventListener('smart-classroom:avatar-changed', refreshAvatar);
+  }, [membership.profileId]);
+  const studentName = student?.displayName ?? membership.displayName;
+  const studentAvatarId = student?.avatarId ?? localAvatarId;
   const classId = (membership.role === 'student' && student
     ? classIdOfStudent(snapshot, student.id)
     : classes[0]?.id) ?? '';
   const classroom = classes.find((item) => item.id === classId);
   const roster = rosterFor(snapshot, classId);
+  const canCreateWork = canManageAcademicItem(
+    snapshot, membership.role, membership.profileId, classId,
+    [...teacherOwnedSubjectIds(snapshot, membership.profileId, classId)][0] ?? null
+  );
 
   const items = useMemo(() => calendarItemsFor(snapshot, {
     classIds: membership.role === 'admin' ? classes.map((item) => item.id) : [classId],
@@ -44,27 +60,30 @@ export function DashboardPage() {
     scheme
   }), [roster, snapshot, classId, scheme]);
 
-  if (membership.role === 'student' && student) {
+  if (membership.role === 'student') {
     const mine = items.filter((item) => item.work.status === 'published');
     const todo = mine.filter((item) => ['upcoming', 'soon', 'urgent', 'revision_requested'].includes(item.state));
     const dueSoon = mine.filter((item) => ['soon', 'urgent'].includes(item.state));
     const overdue = mine.filter((item) => item.state === 'overdue');
     const graded = mine.filter((item) => item.state === 'graded');
-    const myRow = gradebook.find((row) => row.student.id === student.id);
+    const myRow = student ? gradebook.find((row) => row.student.id === student.id) : undefined;
 
     return (
       <>
         <section className="hero-card">
           <div>
             <span className="ui-eyebrow">{classroom ? `${classroom.name} · ${classroom.gradeLevel}` : 'ห้องเรียนของฉัน'}</span>
-            <h1>สวัสดี {student.displayName.split(' ')[0]} 👋</h1>
-            <p>วันนี้มีงานที่ต้องทำ {todo.length} ชิ้น · การแจ้งเตือนใหม่ {unreadCount(snapshot, student.id)} รายการ</p>
+            <span className="student-self-label">ข้อมูลส่วนตัวของฉัน</span>
+            <h1>สวัสดี {studentName.split(' ')[0]} 👋</h1>
+            <p>วันนี้มีงานที่ต้องทำ {todo.length} ชิ้น · การแจ้งเตือนใหม่ {student ? unreadCount(snapshot, student.id) : 0} รายการ</p>
+            <LinkButton to="/profile" size="sm" variant="ghost">ปรับแต่ง Avatar</LinkButton>
           </div>
           <ProfileAvatar
-            displayName={student.displayName}
-            avatarId={student.avatarId}
-            avatarIndex={student.avatarIndex}
-            avatarConfig={student.avatarConfig}
+            displayName={studentName}
+            avatarId={studentAvatarId}
+            avatarPhotoId={student?.avatarPhotoId ?? null}
+            avatarIndex={student?.avatarIndex ?? 0}
+            avatarConfig={student?.avatarConfig ?? null}
             size={116}
             animation="wave"
           />
@@ -143,7 +162,7 @@ export function DashboardPage() {
               const submitted = childItems.filter((item) => ['submitted', 'late', 'graded'].includes(item.state));
               const pending = childItems.filter((item) => ['upcoming', 'soon', 'urgent'].includes(item.state));
               const overdue = childItems.filter((item) => item.state === 'overdue');
-              const attendance = attendanceSummary(snapshot, { studentId: child.id });
+              const attendance = attendanceDailySummary(snapshot, { studentId: child.id });
               return (
                 <Card key={child.id}>
                   <CardHeader
@@ -194,7 +213,7 @@ export function DashboardPage() {
         description={membership.role === 'admin'
           ? `${classes.length} ห้องเรียน · ${subjects.length} รายวิชา · นักเรียน ${snapshot.students.length} คน`
           : 'สิ่งที่ต้องตัดสินใจวันนี้ อยู่ด้านบนสุด'}
-        action={<LinkButton to="/assignments" variant="primary">+ สร้างงาน</LinkButton>}
+        action={canCreateWork && <LinkButton to="/assignments" variant="primary">+ สร้างงาน</LinkButton>}
       />
 
       <div className="ui-stat-grid">

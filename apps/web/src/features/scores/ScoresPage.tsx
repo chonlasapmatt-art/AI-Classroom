@@ -1,11 +1,136 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
-import { activeClasses, activeSubjects, classIdOfStudent, rosterFor, scorePolicyFrom, standingsFor, subjectById } from '../../data/selectors';
+import { activeClasses, activeSubjects, classIdOfStudent, rosterFor, scorePolicyFrom, standingsFor, subjectById, subjectResultsFor } from '../../data/selectors';
 import { subjectColor } from '../../data/subjectCatalog';
 import { SubjectIcon } from '../subjects/SubjectIcon';
+import type { SchoolSnapshot } from '../../data/schoolRepository';
+import type { Subject } from '../../domain/types';
+import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 
 type Tab = 'activity' | 'test' | 'summary';
+
+const detailKindLabels: Record<'assignment' | 'homework' | 'project' | 'activity' | 'test', string> = {
+  assignment: 'งานที่มอบหมาย', homework: 'การบ้าน', project: 'โครงงาน', activity: 'กิจกรรม', test: 'สอบ'
+};
+
+function StudentScoresView({ snapshot, studentId, classId, subjects, policy }: {
+  snapshot: SchoolSnapshot;
+  studentId: string | null;
+  classId: string;
+  subjects: Subject[];
+  policy: ReturnType<typeof scorePolicyFrom>;
+}) {
+  const [detailSubjectId, setDetailSubjectId] = useState<string | null>(null);
+  const results = studentId && classId ? subjectResultsFor(snapshot, studentId, classId, policy) : [];
+  const selectedSubject = subjects.find((subject) => subject.id === detailSubjectId) ?? null;
+  const detailItems = selectedSubject && studentId
+    ? [
+      ...snapshot.assignments
+        .filter((item) => item.classId === classId && item.subjectId === selectedSubject.id && !['draft', 'cancelled'].includes(item.status))
+        .map((item) => {
+          const submission = snapshot.submissions.find((row) => row.assignmentId === item.id && row.studentId === studentId);
+          return {
+            id: item.id, title: item.title, kind: detailKindLabels[item.workType], date: item.dueAt,
+            score: submission?.score ?? null, maxScore: item.maxScore,
+            status: submission?.score === null || submission?.score === undefined ? 'รอตรวจ' : 'ประกาศแล้ว'
+          };
+        }),
+      ...snapshot.activities
+        .filter((item) => item.classId === classId && item.subjectId === selectedSubject.id && item.status === 'published')
+        .map((item) => {
+          const score = snapshot.activityScores.find((row) => row.activityId === item.id && row.studentId === studentId);
+          return {
+            id: item.id, title: item.title, kind: 'กิจกรรม', date: item.activityDate,
+            score: score?.score ?? null, maxScore: item.maxScore,
+            status: score?.score === null || score?.score === undefined ? 'รอตรวจ' : 'ประกาศแล้ว'
+          };
+        }),
+      ...snapshot.tests
+        .filter((item) => item.classId === classId && item.subjectId === selectedSubject.id)
+        .map((item) => {
+          const score = snapshot.testScores.find((row) => row.testId === item.id && row.studentId === studentId);
+          if (!score?.publishedAt) return null;
+          return {
+            id: item.id, title: item.title, kind: 'สอบ', date: item.testDate,
+            score: score.score ?? null, maxScore: item.maxScore,
+            status: 'ประกาศแล้ว'
+          };
+        })
+    ].filter((item): item is { id: string; title: string; kind: string; date: string | null; score: number | null; maxScore: number; status: string } => item !== null)
+    : [];
+
+  return (
+    <>
+      <section className="panel student-score-overview">
+        <div className="panel-heading">
+          <div>
+            <h2>คะแนนของฉันแยกตามรายวิชา</h2>
+            <p className="panel-description">แสดงเฉพาะคะแนนของบัญชีนี้ และเฉพาะรายการที่ครูประกาศแล้ว</p>
+          </div>
+          <span className="status-chip success">ข้อมูลส่วนตัว</span>
+        </div>
+        {!studentId || !classId ? (
+          <div className="empty-state"><span>☆</span><h3>กำลังเตรียมข้อมูลคะแนน</h3><p>ระบบกำลังเชื่อมข้อมูลห้องเรียนของคุณ</p></div>
+        ) : results.length === 0 ? (
+          <div className="empty-state"><span>☆</span><h3>ยังไม่มีคะแนนแยกตามรายวิชา</h3><p>คะแนนจะแสดงเมื่อครูตรวจและประกาศผลแล้ว</p></div>
+        ) : (
+          <div className="student-subject-grid">
+            {results.map((result) => {
+              const color = subjectColor(result.subject.colorIndex);
+              return (
+                <button
+                  type="button"
+                  key={result.subject.id}
+                  className={`student-subject-card ${detailSubjectId === result.subject.id ? 'selected' : ''}`}
+                  style={{ '--subject-color': color.solid, '--subject-soft': color.soft } as CSSProperties}
+                  onClick={() => setDetailSubjectId((current) => current === result.subject.id ? null : result.subject.id)}
+                  aria-label={`ดูรายละเอียดวิชา ${result.subject.name}`}
+                >
+                  <span className="student-subject-icon"><SubjectIcon iconKey={result.subject.iconKey} size={22} /></span>
+                  <span className="student-subject-card-head"><strong>{result.subject.name}</strong><span>{result.itemCount} รายการที่มีคะแนน</span></span>
+                  <span className="student-subject-total">{result.total.toFixed(2)}<small>/ 100</small></span>
+                  <span className={`status-chip ${result.grade === 'F' ? 'danger' : 'success'}`}>เกรด {result.grade}</span>
+                  <span className="student-subject-open">กดเพื่อดูรายละเอียด →</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {selectedSubject && (
+        <section className="panel data-panel student-score-detail">
+          <div className="panel-heading">
+            <div>
+              <h2>รายละเอียดคะแนน · {selectedSubject.name}</h2>
+              <p className="panel-description">ดูคะแนนที่ได้ คะแนนเต็ม และสถานะของแต่ละรายการ</p>
+            </div>
+            <button type="button" className="secondary-button" onClick={() => setDetailSubjectId(null)}>ปิดรายละเอียด</button>
+          </div>
+          {detailItems.length === 0 ? (
+            <div className="empty-state"><span>☆</span><h3>ยังไม่มีรายการคะแนนที่ประกาศ</h3><p>ครูจะเปิดเผยคะแนนเมื่อพร้อม</p></div>
+          ) : (
+            <table className="grid-table">
+              <thead><tr><th>รายการ</th><th>ประเภท</th><th>วันที่</th><th>คะแนนที่ได้</th><th>สถานะ</th></tr></thead>
+              <tbody>
+                {detailItems.map((item) => (
+                  <tr key={item.id}>
+                    <td><strong>{item.title}</strong></td>
+                    <td>{item.kind}</td>
+                    <td>{item.date ? new Date(item.date).toLocaleDateString('th-TH') : '—'}</td>
+                    <td className="student-score-value">{item.score === null ? '—' : `${item.score} / ${item.maxScore}`}</td>
+                    <td><span className={`status-chip ${item.score === null ? 'warning' : 'success'}`}>{item.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+    </>
+  );
+}
 
 export function ScoresPage() {
   const { membership } = useSession();
@@ -21,8 +146,9 @@ export function ScoresPage() {
   const isTeacher = membership.role === 'admin' || membership.role === 'teacher';
   const ownStudentId = snapshot.students.find((item) => item.profileId === membership.profileId)?.id ?? null;
   const ownClassId = membership.role === 'student' && ownStudentId ? classIdOfStudent(snapshot, ownStudentId) : null;
-  const effectiveClassId = ownClassId ?? classId ?? classes[0]?.id ?? '';
-  const selectedClassId = effectiveClassId || classes[0]?.id || '';
+  const selectedClassId = membership.role === 'student'
+    ? (ownClassId ?? '')
+    : (classId || classes[0]?.id || '');
 
   const roster = rosterFor(snapshot, selectedClassId);
   const policy = scorePolicyFrom(snapshot.settings);
@@ -30,6 +156,26 @@ export function ScoresPage() {
   const bySubject = <T extends { subjectId: string | null }>(items: T[]) => items.filter((item) => !subjectFilter || item.subjectId === subjectFilter);
   const activities = bySubject(snapshot.activities.filter((item) => item.classId === selectedClassId));
   const tests = bySubject(snapshot.tests.filter((item) => item.classId === selectedClassId));
+  const ownedSubjectIds = teacherOwnedSubjectIds(snapshot, membership.profileId, selectedClassId);
+  const canManageSelectedClass = membership.role === 'admin' || ownedSubjectIds.size > 0;
+  const editableSubjects = membership.role === 'teacher'
+    ? subjects.filter((subject) => ownedSubjectIds.has(subject.id))
+    : subjects;
+
+  if (membership.role === 'student') {
+    return (
+      <>
+        <section className="page-heading">
+          <div>
+            <span className="eyebrow">คะแนนและเกรด · มุมมองนักเรียน</span>
+            <h1>คะแนนของฉัน</h1>
+            <p>สรุปคะแนนแยกตามรายวิชา กดที่วิชาเพื่อดูรายละเอียดงาน กิจกรรม และการสอบ</p>
+          </div>
+        </section>
+        <StudentScoresView snapshot={snapshot} studentId={ownStudentId} classId={selectedClassId} subjects={subjects} policy={policy} />
+      </>
+    );
+  }
 
   async function createActivity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -132,7 +278,7 @@ export function ScoresPage() {
 
       {tab === 'activity' && (
         <>
-          {isTeacher && (
+          {isTeacher && canManageSelectedClass && (
             <form className="panel inline-form" onSubmit={(event) => void createActivity(event)}>
               <div className="panel-heading"><h2>เพิ่มกิจกรรม</h2></div>
               <div className="form-grid">
@@ -141,7 +287,7 @@ export function ScoresPage() {
                   รายวิชา
                   <select name="subjectId" defaultValue={subjectFilter || subjects[0]?.id || ''}>
                     <option value="">ไม่ระบุวิชา</option>
-                    {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+                    {editableSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
                   </select>
                 </label>
                 <label>วันที่<input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
@@ -167,7 +313,7 @@ export function ScoresPage() {
                       <tr key={student.id}>
                         <td>{student.displayName}</td>
                         <td>
-                          {isTeacher ? (
+                          {isTeacher && canManageAcademicItem(snapshot, membership.role, membership.profileId, activity.classId, activity.subjectId) ? (
                             <input
                               type="number" min="0" max={activity.maxScore} defaultValue={score?.score ?? ''}
                               onBlur={(event) => void repository.saveActivityScores(activity.id, [{
@@ -189,7 +335,7 @@ export function ScoresPage() {
 
       {tab === 'test' && (
         <>
-          {isTeacher && (
+          {isTeacher && canManageSelectedClass && (
             <form className="panel inline-form" onSubmit={(event) => void createTest(event)}>
               <div className="panel-heading"><h2>เพิ่มรายการสอบ</h2></div>
               <div className="form-grid">
@@ -198,7 +344,7 @@ export function ScoresPage() {
                   รายวิชา
                   <select name="subjectId" defaultValue={subjectFilter || subjects[0]?.id || ''}>
                     <option value="">ไม่ระบุวิชา</option>
-                    {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+                    {editableSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
                   </select>
                 </label>
                 <label>วันที่สอบ<input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
@@ -216,7 +362,7 @@ export function ScoresPage() {
                   <div className="record-actions">
                     <span className="status-chip">{subjectById(snapshot, test.subjectId)?.name ?? 'ไม่ระบุวิชา'}</span>
                     <span className={`status-chip ${published ? 'success' : 'warning'}`}>{published ? 'เผยแพร่แล้ว' : 'ยังไม่เผยแพร่'}</span>
-                    {isTeacher && !published && (
+                    {isTeacher && canManageAcademicItem(snapshot, membership.role, membership.profileId, test.classId, test.subjectId) && !published && (
                       <button className="secondary-button" onClick={() => void repository.publishTestScores(test.id).then(() => setMessage('เผยแพร่คะแนนสอบแล้ว'))}>
                         เผยแพร่คะแนน
                       </button>
@@ -233,7 +379,7 @@ export function ScoresPage() {
                           <tr key={student.id}>
                             <td>{student.displayName}</td>
                             <td>
-                              {isTeacher ? (
+                              {isTeacher && canManageAcademicItem(snapshot, membership.role, membership.profileId, test.classId, test.subjectId) ? (
                                 <input
                                   type="number" min="0" max={test.maxScore} defaultValue={score?.score ?? ''}
                                   onBlur={(event) => void repository.saveTestScores(test.id, [{

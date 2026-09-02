@@ -157,6 +157,12 @@ Deno.serve(async (request) => {
     const body = await request.json() as Record<string, unknown>;
     const action = String(body.action ?? '');
 
+    // Students are roster-managed accounts. Their name and student number are credentials for
+    // entering an existing school record; there is no public first-time registration path.
+    if (action === 'register') {
+      return json({ code: 'SELF_REGISTRATION_DISABLED' }, 403, headers);
+    }
+
     if (action === 'schools') {
       const query = String(body.query ?? '').trim();
       if (query.length < 2) return json({ schools: [] }, 200, headers);

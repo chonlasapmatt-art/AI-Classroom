@@ -28,6 +28,7 @@ supabase functions deploy admin-access
 supabase functions deploy member-invitation
 supabase functions deploy parent-link
 supabase functions deploy line-notify --no-verify-jwt
+supabase functions deploy notification-dispatch --no-verify-jwt
 supabase functions deploy student-access --no-verify-jwt
 ```
 
@@ -42,6 +43,7 @@ supabase secrets set LINE_CHANNEL_SECRET=<secret>
 supabase secrets set STUDENT_ACCESS_HMAC_SECRET=<minimum-32-random-bytes>
 supabase secrets set STUDENT_ACCESS_EMAIL_DOMAIN=students.your-school.invalid
 supabase secrets set ALLOWED_ORIGINS=https://your-app.example
+supabase secrets set NOTIFICATION_DISPATCH_SECRET=<minimum-32-random-bytes>
 ```
 
 Migrations are immutable after deployment. Apply corrective changes as a new migration.

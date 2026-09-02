@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import { requireSupabase } from '../../services/supabase';
 import { isCompleteMemberRegistration, registerOwner } from './memberAccess';
+import { AdminSchoolSetupPage } from './AdminSchoolSetupPage';
 
 /**
  * Private owner-only entry. No public screen links to this route.
@@ -72,6 +73,10 @@ export function OwnerAccessPage() {
       </main>
     );
   }
+
+  // Reuse the same mobile-friendly wizard used by the normal no-membership gate. This keeps the
+  // private product entry and a packaged app's first launch on one predictable setup experience.
+  return <AdminSchoolSetupPage />;
 
   return (
     <main className="setup-page">

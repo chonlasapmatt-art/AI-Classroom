@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { TimetableEntry } from '../../domain/types';
+import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 
 const dayNames = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
 const teachingDays = [1, 2, 3, 4, 5];
@@ -24,7 +25,6 @@ export function TimetablePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [draft, setDraft] = useState<SlotDraft | null>(null);
 
-  const canEdit = membership.role === 'admin' || membership.role === 'teacher';
   const activeTerm = snapshot.terms.find((term) => term.status === 'active') ?? snapshot.terms[0] ?? null;
 
   // A student or parent sees the class they belong to; staff pick any class.
@@ -32,9 +32,12 @@ export function TimetablePage() {
   const ownClassId = ownStudent
     ? snapshot.enrollments.find((row) => row.studentId === ownStudent.id && row.status === 'active')?.classId ?? null
     : null;
-  const visibleClasses = canEdit ? snapshot.classes : snapshot.classes.filter((row) => row.id === ownClassId);
+  const visibleClasses = membership.role === 'admin' || membership.role === 'teacher'
+    ? snapshot.classes
+    : snapshot.classes.filter((row) => row.id === ownClassId);
   const [classId, setClassId] = useState<string>(ownClassId ?? '');
   const selectedClassId = classId || visibleClasses[0]?.id || '';
+  const canEdit = membership.role === 'admin' || (membership.role === 'teacher' && teacherOwnedSubjectIds(snapshot, membership.profileId, selectedClassId).size > 0);
 
   const slots = useMemo(() => {
     const map = new Map<string, TimetableEntry>();
@@ -45,6 +48,12 @@ export function TimetablePage() {
     }
     return map;
   }, [activeTerm, selectedClassId, snapshot.timetable]);
+
+  const selectedClass = visibleClasses.find((item) => item.id === selectedClassId) ?? null;
+  const plannedSlots = useMemo(() => [...slots.values()], [slots]);
+  const subjectCount = new Set(plannedSlots.map((entry) => entry.subjectId).filter(Boolean)).size;
+  const teacherCount = new Set(plannedSlots.map((entry) => entry.teacherId).filter(Boolean)).size;
+  const totalSlots = periods.length * teachingDays.length;
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -90,11 +99,14 @@ export function TimetablePage() {
 
   return (
     <>
-      <section className="page-heading">
-        <div>
-          <span className="eyebrow">ตารางเรียน</span>
-          <h1>ตารางสอน</h1>
-          <p>ปีการศึกษา {activeTerm.academicYear} ภาคเรียนที่ {activeTerm.term} · {slots.size} คาบต่อสัปดาห์</p>
+      <section className="page-heading timetable-page-heading">
+        <div className="timetable-title-wrap">
+          <div className="timetable-title-icon" aria-hidden="true">▦</div>
+          <div>
+            <span className="eyebrow">ตารางเรียน</span>
+            <h1>ตารางสอน</h1>
+            <p>ปีการศึกษา {activeTerm.academicYear} · ภาคเรียนที่ {activeTerm.term} · อัปเดตตามห้องที่เลือก</p>
+          </div>
         </div>
         {visibleClasses.length > 1 && (
           <label className="inline-select">
@@ -106,11 +118,44 @@ export function TimetablePage() {
         )}
       </section>
 
+      {visibleClasses.length > 0 && (
+        <section className="timetable-summary" aria-label="สรุปตารางสอน">
+          <article className="timetable-summary-card brand">
+            <span className="timetable-summary-icon" aria-hidden="true">◷</span>
+            <div><span>คาบที่จัดไว้</span><strong>{slots.size}</strong><small>จาก {totalSlots} ช่องในสัปดาห์</small></div>
+          </article>
+          <article className="timetable-summary-card mint">
+            <span className="timetable-summary-icon" aria-hidden="true">◆</span>
+            <div><span>รายวิชา</span><strong>{subjectCount}</strong><small>วิชาที่อยู่ในตาราง</small></div>
+          </article>
+          <article className="timetable-summary-card amber">
+            <span className="timetable-summary-icon" aria-hidden="true">✎</span>
+            <div><span>ครูผู้สอน</span><strong>{teacherCount}</strong><small>คนที่ได้รับมอบหมาย</small></div>
+          </article>
+          <article className="timetable-summary-card slate">
+            <span className="timetable-summary-icon" aria-hidden="true">⌁</span>
+            <div><span>ห้องเรียน</span><strong>{selectedClass?.name ?? '—'}</strong><small>{canEdit ? 'คลิกช่องเพื่อจัดตาราง' : 'ตารางของห้องของคุณ'}</small></div>
+          </article>
+        </section>
+      )}
+
       {visibleClasses.length === 0 ? (
-        <section className="panel"><p>ยังไม่มีห้องเรียนที่ดูตารางได้</p></section>
+        <section className="panel timetable-empty-panel"><div className="timetable-empty-icon" aria-hidden="true">▦</div><h2>ยังไม่มีห้องเรียน</h2><p>ยังไม่มีห้องเรียนที่คุณมีสิทธิ์ดูตารางได้</p></section>
       ) : (
-        <section className="panel data-panel scroll-x">
-          <table className="timetable-grid">
+        <section className="panel timetable-panel">
+          <div className="timetable-panel-heading">
+            <div>
+              <span className="status-chip success">{selectedClass?.name ?? 'ห้องเรียนของฉัน'}</span>
+              <h2>ตารางประจำสัปดาห์</h2>
+              <p>{canEdit ? 'คลิกช่องว่างเพื่อเพิ่มคาบ หรือคลิกคาบเดิมเพื่อแก้ไข' : 'แสดงเฉพาะตารางของห้องที่คุณสังกัด'}</p>
+            </div>
+            <div className="timetable-legend" aria-label="คำอธิบายสี">
+              <span><i className="legend-dot filled" aria-hidden="true" />มีเรียน</span>
+              <span><i className="legend-dot empty" aria-hidden="true" />ว่าง</span>
+            </div>
+          </div>
+          <div className="scroll-x timetable-scroll">
+            <table className="timetable-grid">
             <thead>
               <tr>
                 <th scope="col">คาบ</th>
@@ -130,16 +175,23 @@ export function TimetablePage() {
                     const teacher = entry ? snapshot.teachers.find((row) => row.id === entry.teacherId) : undefined;
                     const content = entry ? (
                       <>
+                        <div className="slot-topline"><span className="slot-period-label">คาบ {period}</span><span className="slot-status">มีเรียน</span></div>
                         <strong>{subject?.name ?? 'ไม่ระบุวิชา'}</strong>
                         <span>{teacher?.displayName ?? 'ยังไม่กำหนดครู'}</span>
                         {entry.room && <span>{entry.room}</span>}
                         <span className="slot-time">{entry.startTime}–{entry.endTime}</span>
                       </>
-                    ) : <span className="slot-empty">ว่าง</span>;
+                    ) : (
+                      <>
+                        <span className="slot-empty-icon" aria-hidden="true">＋</span>
+                        <span className="slot-empty">ว่าง</span>
+                        {canEdit && <small>เพิ่มคาบเรียน</small>}
+                      </>
+                    );
                     return (
-                      <td key={day} className={entry ? 'slot filled' : 'slot'}>
+                      <td key={day} className={entry ? 'slot filled' : 'slot'} data-day={dayNames[day - 1]} data-period={period}>
                         {canEdit ? (
-                          <button type="button" className="slot-button" onClick={() => setDraft({ dayOfWeek: day, period, entry })}>
+                          <button type="button" className="slot-button" aria-label={`${dayNames[day - 1]} คาบ ${period}${entry ? ` ${subject?.name ?? 'มีเรียน'}` : ' ว่าง เพิ่มคาบเรียน'}`} onClick={() => setDraft({ dayOfWeek: day, period, entry })}>
                             {content}
                           </button>
                         ) : content}
@@ -149,7 +201,8 @@ export function TimetablePage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </section>
       )}
 

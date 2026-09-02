@@ -42,6 +42,16 @@ export interface PlatformOverview {
   } | null;
 }
 
+export interface OnlinePerson {
+  profileId: string | null;
+  displayName: string;
+  role: 'teacher' | 'student' | 'parent' | 'admin' | 'platform_admin' | 'user';
+  schoolName: string | null;
+  deviceName: string;
+  deviceType: string;
+  lastSeenAt: string;
+}
+
 export interface SchoolSummary {
   schoolId: string; name: string; code: string; status: string; createdAt: string;
   teachers: number; students: number; health: SchoolHealth;
@@ -51,10 +61,26 @@ export interface SchoolDetail {
   schoolId: string; name: string; code: string; status: string; timezone: string; createdAt: string;
   health: SchoolHealth;
   counts: Record<string, number>;
+  rooms: SchoolRoom[];
+  teachers: SchoolTeacher[];
   devices: DeviceRow[];
   recentErrors: ErrorRow[];
   recentAudit: { action: string; entityType: string; occurredAt: string; supportSessionId: string | null }[];
   supportSessions: SupportSessionRow[];
+}
+
+export interface SchoolRoom {
+  roomId: string; name: string; gradeLevel: string; status: string;
+  academicYear: string; term: string; teacherCount: number; studentCount: number;
+  assignmentCount: number; lastActivityAt: string | null;
+  teachers: Array<{ teacherId: string; displayName: string; teacherCode: string; role: string; profileId: string | null }>;
+}
+
+export interface SchoolTeacher {
+  teacherId: string; displayName: string; teacherCode: string; profileId: string | null;
+  accountStatus: 'active' | 'not_provisioned' | 'linked_no_login_identity';
+  lastLoginAt: string | null; roomCount: number;
+  rooms: Array<{ roomId: string; name: string; gradeLevel: string; role: string }>;
 }
 
 export interface DeviceRow {
@@ -67,6 +93,12 @@ export interface ErrorRow {
   id: number; schoolId?: string | null; schoolName?: string | null; severity: 'critical' | 'high' | 'medium' | 'low';
   feature: string; code: string; message: string; clientVersion?: string; protocolVersion?: number | null;
   occurredAt: string; resolvedAt: string | null;
+}
+
+export interface NotificationQueueRow {
+  id: string; schoolId: string; schoolName: string | null; eventType: string;
+  status: 'pending' | 'processing' | 'sent' | 'failed' | 'dead_letter'; retryCount: number;
+  nextRetryAt: string; createdAt: string; processedAt: string | null; lastError: string | null;
 }
 
 export interface SecurityEventRow {
@@ -126,6 +158,8 @@ async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise
 }
 
 export const platformOverview = () => rpc<PlatformOverview>('platform_overview');
+export const platformOnlinePeople = (limit = 12) =>
+  rpc<OnlinePerson[]>('platform_online_people', { p_limit: limit });
 export const platformSchools = () => rpc<SchoolSummary[]>('platform_schools');
 export const platformSchoolDetail = (schoolId: string) =>
   rpc<SchoolDetail>('platform_school_detail', { p_school_id: schoolId });
@@ -135,6 +169,8 @@ export const platformDevices = (schoolId: string | null = null, limit = 200) =>
   rpc<DeviceRow[]>('platform_devices', { p_school_id: schoolId, p_limit: limit });
 export const platformFlagsAndReleases = () =>
   rpc<{ flags: FeatureFlagRow[]; releases: ReleaseRow[] }>('platform_flags_and_releases');
+export const platformNotificationQueue = (status: NotificationQueueRow['status'] | null = null, limit = 200) =>
+  rpc<NotificationQueueRow[]>('platform_notification_queue', { p_status: status, p_limit: limit });
 
 export function platformErrors(input: {
   schoolId?: string | null; severity?: string | null; days?: number; limit?: number;
@@ -237,6 +273,7 @@ export const isDevSignInAvailable: boolean =
 
 const devSignInMessages: Record<string, string> = {
   PLATFORM_DEV_SIGN_IN_DISABLED: 'เซิร์ฟเวอร์นี้ปิดการเข้าสู่ระบบแบบนักพัฒนาไว้',
+  SERVER_CONFIGURATION_ERROR: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสแพลตฟอร์ม กรุณาตั้ง PLATFORM_ADMIN_CODE_HASH ก่อน',
   PLATFORM_NO_OPERATOR: 'ยังไม่มีผู้ดูแลแพลตฟอร์มในระบบ กรุณาเข้าด้วยชื่อกับรหัสผ่านแล้วยืนยันสิทธิ์ก่อน',
   PLATFORM_OPERATOR_AMBIGUOUS: 'มีผู้ดูแลแพลตฟอร์มมากกว่าหนึ่งคน ต้องระบุ PLATFORM_DEV_OPERATOR ที่เซิร์ฟเวอร์',
   PLATFORM_ACCESS_LOCKED: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที',
@@ -244,15 +281,15 @@ const devSignInMessages: Record<string, string> = {
 };
 
 /**
- * Signs in with the platform code alone.
+ * Signs in with the platform code and saves the operator's chosen display name.
  *
  * Returns the session for the caller to adopt. The code is checked on the server against the same
  * hash enrolment uses, so this screen decides nothing — it is a shortcut past typing a name and a
  * password on a development machine, not a shortcut past authorisation.
  */
-export async function devSignIn(accessCode: string): Promise<{ accessToken: string; refreshToken: string }> {
+export async function devSignIn(accessCode: string, displayName: string): Promise<{ accessToken: string; refreshToken: string }> {
   const { data, error } = await requireSupabase().functions.invoke('platform-dev-access', {
-    body: { accessCode }
+    body: { accessCode, displayName: displayName.trim() }
   });
   if (error) {
     const context = (error as { context?: Response }).context;

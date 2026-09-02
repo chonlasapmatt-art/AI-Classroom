@@ -23,24 +23,18 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('real account and private owner security upgrade', () => {
-  it('offers only the three public roles and does not reveal privileged access in public auth UI', () => {
+  it('offers the managed roles and keeps the private owner setup route unlinked', () => {
     expect(publicAuthSource).toContain("teacher: 'ครู'");
     expect(publicAuthSource).toContain("student: 'นักเรียน'");
     expect(publicAuthSource).toContain("parent: 'ผู้ปกครอง'");
-    // What must stay out of these screens is a way in: an administrator role to pick, a platform
-    // role named as an option, or the private owner entry. Naming the person who issues a teacher
-    // code is not that — a teacher who is not told where the code comes from cannot register at all —
-    // so the school-administrator wording is allowed and the entry points are checked directly.
-    expect(publicAuthSource).not.toMatch(/Admin|ผู้ดูแลระบบ|Special code/i);
-    expect(publicAuthSource).not.toMatch(/'admin'|"admin"|super_admin|register-owner/);
+    expect(publicAuthSource).toContain("admin: 'ผู้ดูแล'");
+    expect(publicAuthSource).not.toContain('owner/access');
   });
 
-  it('requires a school-issued code on the public teacher registration screen', () => {
-    // Teacher authority comes from the school, so the public screen must ask for the code and the
-    // client must send it. The server refuses without one regardless; this keeps the screen honest.
-    expect(publicAuthSource).toContain('รหัสสำหรับครู');
-    expect(publicAuthSource).toContain('accessCode');
-    expect(publicAuthSource).toMatch(/registerTeacher\(\{[^}]*accessCode/);
+  it('keeps teacher self-registration out of the public screen', () => {
+    // Teacher accounts are created by a school administrator and provisioned immediately.
+    expect(publicAuthSource).not.toContain('registerTeacher');
+    expect(publicAuthSource).not.toContain('รหัสสำหรับครู');
   });
 
   it('keeps the private owner route unlinked', () => {
@@ -53,6 +47,15 @@ describe('real account and private owner security upgrade', () => {
     expect(migration).toMatch(/revoke all on function public\.bootstrap_school\(text,text,text,text\) from public,anon,authenticated/i);
     expect(migration).toMatch(/grant execute on function public\.bootstrap_school_owner\(uuid,text,text,text,text\) to service_role/i);
     expect(migration).toContain('alter table public.admin_access_attempts enable row level security');
+  });
+
+  it('accepts the setup wizard identity and allows an existing admin to sign in by name', () => {
+    const repair = readFileSync(join(repositoryRoot, 'supabase/migrations/202609010041_admin_login_and_bootstrap_identity.sql'), 'utf8');
+    expect(adminFunction).toContain('p_display_name: displayName');
+    expect(repair).toContain('202608310034_owner_onboarding_display_name.sql');
+    expect(repair).toContain("p_role not in ('teacher','parent','admin')");
+    expect(repair).toContain('i.role=p_role');
+    expect(repair).not.toMatch(/accessCode|password_hash|password text/i);
   });
 
   it('enforces teacher verification before teacher authorization', () => {

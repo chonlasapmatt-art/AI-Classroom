@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createEncryptedBackup, decryptBackup, inspectBackup, restoreBackup } from '../../src/features/backup/backup';
+import { createEncryptedBackup, decryptBackup, encodeBackupBlob, inspectBackup, restoreBackup } from '../../src/features/backup/backup';
 import { db } from '../../src/db/database';
 
 const schoolId = '33333333-3333-4333-8333-333333333333';
@@ -25,7 +25,7 @@ describe('encrypted backup and restore', () => {
   beforeEach(async () => {
     await Promise.all([
       db.students.clear(), db.teachers.clear(), db.subjects.clear(),
-      db.timetable.clear(), db.achievements.clear(), db.syncQueue.clear()
+      db.timetable.clear(), db.achievements.clear(), db.attachments.clear(), db.syncQueue.clear()
     ]);
     await seedSchool();
   });
@@ -38,6 +38,11 @@ describe('encrypted backup and restore', () => {
     expect(contents.subjects).toHaveLength(1);
     expect(contents.timetable).toHaveLength(1);
     expect(contents.achievements).toHaveLength(1);
+  });
+
+  it('encodes an offline attachment as backup data', async () => {
+    const encoded = await encodeBackupBlob(new Blob(['ข้อมูลออฟไลน์'], { type: 'text/plain' }));
+    expect(encoded).toBeTruthy();
   });
 
   it('describes a file before anything is written back', async () => {

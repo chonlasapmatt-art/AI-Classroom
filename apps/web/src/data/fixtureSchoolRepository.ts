@@ -5,6 +5,7 @@ import type {
   Subject, Submission, SyncRecord, Teacher, TestRecord, TestScore, TimetableEntry
 } from '../domain/types';
 import { auditEntry, planCancellation, planPublish, planScoring, planSubmission, planWorkUpdate } from './academicOps';
+import { normalizeGoogleDriveUrl } from '../domain/driveLinks';
 import { defaultReminderOffsets, dueReminders } from '../academic/reminderEngine';
 import { gradeSchemeFrom, resolveGrade } from '../academic/gradeScheme';
 import { validateRubric } from '../academic/rubric';
@@ -12,8 +13,10 @@ import { effectiveDueAt } from '../academic/workStatus';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
 import { attachmentKindFor } from './attachmentKind';
 import { buildFixtureData, FIXTURE_SCHOOL_ID, type FixtureData } from './fixtures/schoolFixture';
+import { scopeSchoolSnapshot, type VisibilityScope } from './visibility';
+import { canManageAcademicItem } from './teacherResponsibilities';
 import {
-  MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, newId, nowIso,
+  MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, attendanceRecordId, newId, nowIso,
   type AcademicTermInput, type AchievementInput, type ActivityInput, type AttachmentInput, type AssignmentInput, type AttendanceInput, type ImportRunInput,
   type ClassInput, type DevelopmentClearResult, type DevelopmentSeedInput, type DevelopmentSeedResult, type NotificationInput,
   type AnnouncementInput, type NotificationPreferenceInput, type ParentAccountInput, type ParentLinkInput, type PromotionInput,
@@ -33,6 +36,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
   readonly schoolId = FIXTURE_SCHOOL_ID;
 
   private data: FixtureData;
+  private visibility: VisibilityScope = { role: 'admin', profileId: 'preview-admin' };
   private listeners = new Set<(snapshot: SchoolSnapshot) => void>();
   private blobs = new Map<string, Blob>();
   private importRuns: ImportRun[] = [];
@@ -46,7 +50,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
 
   private snapshot(): SchoolSnapshot {
     const data = this.data;
-    return structuredClone({
+    const snapshot: SchoolSnapshot = structuredClone({
       ready: data.ready, terms: data.terms, classes: data.classes, subjects: data.subjects, teachers: data.teachers,
       classTeachers: data.classTeachers, students: data.students, enrollments: data.enrollments,
       assignments: data.assignments, submissions: data.submissions, activities: data.activities,
@@ -59,6 +63,13 @@ export class FixtureSchoolRepository implements SchoolRepository {
       scoreEvents: data.scoreEvents,
       settings: data.settings, pendingSync: data.pendingSync, blockedSync: data.blockedSync
     });
+    return scopeSchoolSnapshot(snapshot, this.visibility);
+  }
+
+  /** Preview must exercise the same room boundary as a cloud session. */
+  setVisibility(scope: VisibilityScope): void {
+    this.visibility = scope;
+    this.emit();
   }
 
   private emit(): void {
@@ -117,6 +128,9 @@ export class FixtureSchoolRepository implements SchoolRepository {
   async awardScoreEvent(input: ScoreEventInput): Promise<void> {
     const points = Number(input.points);
     if (!Number.isFinite(points) || points === 0) throw new Error('คะแนนต้องเป็นตัวเลขและไม่เป็นศูนย์');
+    if (!canManageAcademicItem(this.snapshot(), this.visibility.role, this.visibility.profileId, input.classId ?? '', input.subjectId ?? null)) {
+      throw new Error('คุณไม่มีสิทธิ์แก้คะแนนวิชานี้ · ต้องเป็นครูเจ้าของวิชา');
+    }
     this.data.scoreEvents = [...this.data.scoreEvents, {
       ...this.base(),
       studentId: input.studentId, classId: input.classId ?? null, subjectId: input.subjectId ?? null,
@@ -142,24 +156,33 @@ export class FixtureSchoolRepository implements SchoolRepository {
   }
 
   async setAttendance(input: AttendanceInput): Promise<void> {
+    const sessionKey = input.sessionKey ?? 'daily';
     const existing = this.data.attendance.find((item) =>
-      item.classId === input.classId && item.studentId === input.studentId && item.attendanceDate === input.attendanceDate);
+      item.classId === input.classId && item.studentId === input.studentId && item.attendanceDate === input.attendanceDate && (item.sessionKey ?? 'daily') === sessionKey);
     const next: Attendance = {
-      ...(existing ?? this.base()),
+      ...(existing ?? this.base(attendanceRecordId(this.schoolId, input.classId, input.studentId, input.attendanceDate, sessionKey))),
       classId: input.classId, studentId: input.studentId, attendanceDate: input.attendanceDate,
-      status: input.status, note: input.note ?? existing?.note ?? '', updatedAt: nowIso()
+      status: input.status, note: input.note ?? existing?.note ?? '', updatedAt: nowIso(),
+      sessionKey, sessionType: input.sessionType ?? existing?.sessionType ?? 'daily',
+      period: input.period ?? existing?.period ?? null,
+      subjectId: input.subjectId ?? existing?.subjectId ?? null,
+      timetableEntryId: input.timetableEntryId ?? existing?.timetableEntryId ?? null
     };
     this.data.attendance = this.upsert(this.data.attendance, next);
     this.emit();
   }
 
-  async setAttendanceForStudents(classId: string, attendanceDate: string, status: AttendanceStatus, studentIds: string[]): Promise<void> {
+  async setAttendanceForStudents(classId: string, attendanceDate: string, status: AttendanceStatus, studentIds: string[], session?: Omit<AttendanceInput, 'classId' | 'studentId' | 'attendanceDate' | 'status' | 'note'>): Promise<void> {
     for (const studentId of studentIds) {
       const existing = this.data.attendance.find((item) =>
-        item.classId === classId && item.studentId === studentId && item.attendanceDate === attendanceDate);
+        item.classId === classId && item.studentId === studentId && item.attendanceDate === attendanceDate && (item.sessionKey ?? 'daily') === (session?.sessionKey ?? 'daily'));
       const next: Attendance = {
-        ...(existing ?? this.base()),
-        classId, studentId, attendanceDate, status, note: existing?.note ?? '', updatedAt: nowIso()
+        ...(existing ?? this.base(attendanceRecordId(this.schoolId, classId, studentId, attendanceDate, session?.sessionKey ?? 'daily'))),
+        classId, studentId, attendanceDate, status, note: existing?.note ?? '', updatedAt: nowIso(),
+        sessionKey: session?.sessionKey ?? 'daily', sessionType: session?.sessionType ?? existing?.sessionType ?? 'daily',
+        period: session?.period ?? existing?.period ?? null,
+        subjectId: session?.subjectId ?? existing?.subjectId ?? null,
+        timetableEntryId: session?.timetableEntryId ?? existing?.timetableEntryId ?? null
       };
       this.data.attendance = this.upsert(this.data.attendance, next);
     }
@@ -261,9 +284,24 @@ export class FixtureSchoolRepository implements SchoolRepository {
     this.emit();
   }
 
-  async assignTeacher(classId: string, teacherId: string, role: ClassTeacher['role']): Promise<void> {
-    const existing = this.data.classTeachers.find((item) => item.classId === classId && item.teacherId === teacherId);
-    const next: ClassTeacher = { ...(existing ?? this.base()), classId, teacherId, role, updatedAt: nowIso() };
+  async assignTeacher(classId: string, teacherId: string, role: ClassTeacher['role'], subjectId: string | null = null): Promise<void> {
+    if (this.visibility.role !== 'admin') throw new Error('เฉพาะผู้ดูแลโรงเรียนเท่านั้นที่มอบหมายครูได้');
+    if (!this.data.classes.some((item) => item.id === classId && item.status === 'active')) throw new Error('ไม่พบห้องเรียน');
+    if (!this.data.teachers.some((item) => item.id === teacherId && item.status === 'active')) throw new Error('ไม่พบครู');
+    if (subjectId && !this.data.subjects.some((item) => item.id === subjectId && item.status === 'active')) throw new Error('ไม่พบรายวิชา');
+    const sameClass = this.data.classTeachers.filter((item) => item.classId === classId && item.deletedAt === null);
+    if (!subjectId && role === 'primary' && sameClass.some((item) => !item.subjectId && item.role === 'primary')) {
+      throw new Error('ห้องนี้มีครูที่ปรึกษาแล้ว · ยกเลิกคนเดิมก่อน');
+    }
+    if (!subjectId && role === 'assistant' && sameClass.some((item) => !item.subjectId && item.role === 'assistant')) {
+      throw new Error('ห้องนี้มีผู้ช่วยครูที่ปรึกษาแล้ว · ยกเลิกคนเดิมก่อน');
+    }
+    if (subjectId && role === 'primary' && sameClass.some((item) => item.subjectId === subjectId && item.role === 'primary')) {
+      throw new Error('วิชานี้มีครูเจ้าของวิชาแล้ว · ยกเลิกคนเดิมก่อน');
+    }
+    const existing = this.data.classTeachers.find((item) =>
+      item.classId === classId && item.teacherId === teacherId && item.role === role && item.subjectId === subjectId);
+    const next: ClassTeacher = { ...(existing ?? this.base()), classId, teacherId, role, subjectId, updatedAt: nowIso() };
     this.data.classTeachers = this.upsert(this.data.classTeachers, next);
     this.emit();
   }
@@ -293,6 +331,9 @@ export class FixtureSchoolRepository implements SchoolRepository {
   }
 
   async saveAssignment(input: AssignmentInput): Promise<void> {
+    if (!canManageAcademicItem(this.snapshot(), this.visibility.role, this.visibility.profileId, input.classId, input.subjectId)) {
+      throw new Error('คุณไม่มีสิทธิ์จัดการงานวิชานี้ · ต้องเป็นครูเจ้าของวิชา');
+    }
     const existing = this.data.assignments.find((item) => item.id === input.id);
     const next: Assignment = {
       ...(existing ?? this.base(input.id)),
@@ -477,6 +518,9 @@ export class FixtureSchoolRepository implements SchoolRepository {
   async scoreSubmission(input: ScoreSubmissionInput): Promise<void> {
     const work = this.data.assignments.find((item) => item.id === input.assignmentId);
     if (!work) return;
+    if (!canManageAcademicItem(this.snapshot(), this.visibility.role, this.visibility.profileId, work.classId, work.subjectId)) {
+      throw new Error('คุณไม่มีสิทธิ์ให้คะแนนงานวิชานี้ · ต้องเป็นครูเจ้าของวิชา');
+    }
     const rubric = work.rubricId ? this.data.rubrics.find((item) => item.id === work.rubricId) ?? null : null;
     const outcome = planScoring(work, this.submissionHead(input.assignmentId, input.studentId), input.studentId, {
       ...(input.score === undefined ? {} : { score: input.score }),
@@ -627,7 +671,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
       ? this.data.students.find((item) => item.profileId === actorProfileId)
       : role === 'teacher'
         ? this.data.teachers.find((item) => item.profileId === actorProfileId)
-        : this.data.parentLinks.find((item) => item.lineUserId === actorProfileId || item.id === actorProfileId);
+        : this.data.parentLinks.find((item) => item.profileId === actorProfileId || item.lineUserId === actorProfileId || item.id === actorProfileId);
     if (!owner) throw new Error('แก้ไขโปรไฟล์ได้เฉพาะบัญชีของตัวเองเท่านั้น');
     return owner;
   }
@@ -659,7 +703,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
       if (!teacher) throw new Error('แก้ไข avatar ได้เฉพาะบัญชีของตัวเองเท่านั้น');
       this.data.teachers = this.upsert(this.data.teachers, { ...teacher, avatarId, updatedAt: timestamp });
     } else {
-      const link = this.data.parentLinks.find((item) => item.lineUserId === actorProfileId || item.id === actorProfileId);
+      const link = this.data.parentLinks.find((item) => item.profileId === actorProfileId || item.lineUserId === actorProfileId || item.id === actorProfileId);
       if (!link) throw new Error('แก้ไข avatar ได้เฉพาะบัญชีของตัวเองเท่านั้น');
       this.data.parentLinks = this.upsert(this.data.parentLinks, { ...link, avatarId, updatedAt: timestamp });
     }
@@ -667,6 +711,9 @@ export class FixtureSchoolRepository implements SchoolRepository {
   }
 
   async saveSubmission(input: SubmissionInput): Promise<void> {
+    if (input.driveUrl !== undefined && input.driveUrl !== null && !normalizeGoogleDriveUrl(input.driveUrl)) {
+      throw new Error('ลิงก์ส่งงานต้องเป็น Google Drive หรือ Google Docs แบบ HTTPS');
+    }
     const existing = this.data.submissions.find((item) =>
       item.assignmentId === input.assignmentId && item.studentId === input.studentId);
     const next: Submission = {
@@ -674,6 +721,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
       assignmentId: input.assignmentId, studentId: input.studentId,
       submittedAt: existing?.submittedAt ?? (['submitted', 'graded', 'returned'].includes(input.status) ? nowIso() : null),
       status: input.status, score: input.score, isLate: input.isLate,
+      driveUrl: input.driveUrl ?? existing?.driveUrl ?? null,
       teacherNote: input.teacherNote, studentNote: input.studentNote ?? existing?.studentNote ?? '',
       version: existing?.version ?? 0,
       openedAt: existing?.openedAt ?? null,
@@ -691,12 +739,16 @@ export class FixtureSchoolRepository implements SchoolRepository {
     this.emit();
   }
 
-  async submitWork(assignmentId: string, studentId: string, studentNote: string, isLate: boolean): Promise<void> {
+  async submitWork(assignmentId: string, studentId: string, studentNote: string, isLate: boolean, driveUrl?: string | null): Promise<void> {
     const work = this.data.assignments.find((item) => item.id === assignmentId);
     if (!work) return;
     void isLate; // lateness comes from the student's effective deadline, not from the caller
     const due = effectiveDueAt(work, studentId, this.data.deadlineExtensions);
-    const plan = planSubmission(work, this.submissionHead(assignmentId, studentId), studentId, studentNote, due, (id) => this.base(id));
+    const normalizedDriveUrl = driveUrl === undefined || driveUrl === null ? driveUrl : normalizeGoogleDriveUrl(driveUrl);
+    if (driveUrl !== undefined && driveUrl !== null && !normalizedDriveUrl) {
+      throw new Error('ลิงก์ส่งงานต้องเป็น Google Drive หรือ Google Docs แบบ HTTPS');
+    }
+    const plan = planSubmission(work, this.submissionHead(assignmentId, studentId), studentId, studentNote, due, (id) => this.base(id), new Date(), normalizedDriveUrl);
     this.data.submissions = this.upsert(this.data.submissions, plan.submission);
     this.data.submissionVersions = [...this.data.submissionVersions, plan.version];
     // A student who has handed the work in no longer needs the remaining reminders.
@@ -738,6 +790,9 @@ export class FixtureSchoolRepository implements SchoolRepository {
   }
 
   async saveActivity(input: ActivityInput): Promise<void> {
+    if (!canManageAcademicItem(this.snapshot(), this.visibility.role, this.visibility.profileId, input.classId, input.subjectId)) {
+      throw new Error('คุณไม่มีสิทธิ์จัดการกิจกรรมวิชานี้ · ต้องเป็นครูเจ้าของวิชา');
+    }
     const existing = this.data.activities.find((item) => item.id === input.id);
     const next: Activity = {
       ...(existing ?? this.base(input.id)),
@@ -749,6 +804,11 @@ export class FixtureSchoolRepository implements SchoolRepository {
   }
 
   async saveActivityScores(activityId: string, scores: ScoreInput[]): Promise<void> {
+    const activity = this.data.activities.find((item) => item.id === activityId);
+    if (!activity) throw new Error('ไม่พบกิจกรรม');
+    if (!canManageAcademicItem(this.snapshot(), this.visibility.role, this.visibility.profileId, activity.classId, activity.subjectId)) {
+      throw new Error('คุณไม่มีสิทธิ์ให้คะแนนกิจกรรมวิชานี้ · ต้องเป็นครูเจ้าของวิชา');
+    }
     for (const entry of scores) {
       const existing = this.data.activityScores.find((item) => item.activityId === activityId && item.studentId === entry.studentId);
       const next: ActivityScore = {
@@ -762,6 +822,9 @@ export class FixtureSchoolRepository implements SchoolRepository {
   }
 
   async saveTest(input: TestInput): Promise<void> {
+    if (!canManageAcademicItem(this.snapshot(), this.visibility.role, this.visibility.profileId, input.classId, input.subjectId)) {
+      throw new Error('คุณไม่มีสิทธิ์จัดการข้อสอบวิชานี้ · ต้องเป็นครูเจ้าของวิชา');
+    }
     const existing = this.data.tests.find((item) => item.id === input.id);
     const next: TestRecord = {
       ...(existing ?? this.base(input.id)),
@@ -773,6 +836,11 @@ export class FixtureSchoolRepository implements SchoolRepository {
   }
 
   async saveTestScores(testId: string, scores: ScoreInput[]): Promise<void> {
+    const test = this.data.tests.find((item) => item.id === testId);
+    if (!test) throw new Error('ไม่พบข้อสอบ');
+    if (!canManageAcademicItem(this.snapshot(), this.visibility.role, this.visibility.profileId, test.classId, test.subjectId)) {
+      throw new Error('คุณไม่มีสิทธิ์ให้คะแนนข้อสอบวิชานี้ · ต้องเป็นครูเจ้าของวิชา');
+    }
     for (const entry of scores) {
       const existing = this.data.testScores.find((item) => item.testId === testId && item.studentId === entry.studentId);
       const next: TestScore = {
@@ -858,7 +926,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
     const existing = this.data.parentLinks.find((item) => item.id === input.id);
     const next: ParentLink = {
       ...(existing ?? this.base(input.id)),
-      studentId: input.studentId, avatarId: existing?.avatarId ?? null,
+      studentId: input.studentId, profileId: existing?.profileId ?? null, avatarId: existing?.avatarId ?? null,
       avatarPhotoId: existing?.avatarPhotoId ?? null,
       parentName: input.parentName, relationship: input.relationship,
       contact: input.contact, lineUserId: existing?.lineUserId ?? null,
@@ -877,7 +945,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
     const existing = this.data.parentLinks.find((item) => item.id === input.id);
     const next: ParentLink = {
       ...(existing ?? this.base(input.id)),
-      studentId: input.studentId, avatarId: existing?.avatarId ?? null, avatarPhotoId: existing?.avatarPhotoId ?? null,
+      studentId: input.studentId, profileId: existing?.profileId ?? null, avatarId: existing?.avatarId ?? null, avatarPhotoId: existing?.avatarPhotoId ?? null,
       parentName: displayName, relationship: input.relationship, contact: input.phone ?? existing?.contact ?? '',
       lineUserId: existing?.lineUserId ?? null, status: existing?.status ?? 'invited',
       invitationCode: existing?.invitationCode ?? null,

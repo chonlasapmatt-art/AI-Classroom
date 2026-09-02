@@ -61,6 +61,23 @@ describe('application shell and routes', () => {
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('การแจ้งเตือน'));
   });
 
+  it.each([
+    ['preview-student', 'นักเรียน'],
+    ['preview-parent', 'ผู้ปกครอง']
+  ])('hides work creation controls for %s', async (membershipId) => {
+    renderApp('/');
+    await switchRole(membershipId);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument());
+    expect(screen.queryByRole('link', { name: /สร้างงาน/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /สร้างงาน/ })).not.toBeInTheDocument();
+
+    cleanup();
+    renderApp('/assignments');
+    await switchRole(membershipId);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('งานและโปรเจกต์'));
+    expect(screen.queryByRole('button', { name: /สร้างงาน/ })).not.toBeInTheDocument();
+  });
+
   it('lets a student open the avatar picker from their own profile', async () => {
     renderApp();
     await switchRole('preview-student');
@@ -70,10 +87,60 @@ describe('application shell and routes', () => {
     fireEvent.click(screen.getByRole('button', { name: 'เปลี่ยน Avatar' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('เลือก Avatar')).toBeInTheDocument();
-    expect(within(dialog).getAllByRole('option').length).toBeGreaterThan(50);
+    expect(within(dialog).getAllByRole('option', { name: /อวตาร/ }).length).toBeGreaterThan(50);
 
     fireEvent.change(within(dialog).getByPlaceholderText(/avatar_012/), { target: { value: 'avatar_007' } });
-    await waitFor(() => expect(within(dialog).getAllByRole('option')).toHaveLength(1));
+    await waitFor(() => expect(within(dialog).getAllByRole('option', { name: /อวตาร/ })).toHaveLength(1));
+  });
+
+  it('keeps the student dashboard personal and shows their avatar beside their name', async () => {
+    renderApp('/');
+    await switchRole('preview-student');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('สวัสดี'));
+    expect(screen.getByText('ข้อมูลส่วนตัวของฉัน')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'ปรับแต่ง Avatar' })).toBeInTheDocument();
+    expect(screen.getByText('งานที่ต้องทำ')).toBeInTheDocument();
+    expect(screen.queryByText('นักเรียนทั้งหมด')).not.toBeInTheDocument();
+    expect(screen.queryByText('งานรอตรวจ')).not.toBeInTheDocument();
+  });
+
+  it('shows only the student score summary by subject and opens score details', async () => {
+    renderApp('/scores');
+    await switchRole('preview-student');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('คะแนนของฉัน'));
+    expect(screen.getByText('คะแนนของฉันแยกตามรายวิชา')).toBeInTheDocument();
+    expect(screen.queryByText('นักเรียนรวม')).not.toBeInTheDocument();
+    const subjectCard = screen.getAllByRole('button', { name: /ดูรายละเอียดวิชา/ })[0]!;
+    fireEvent.click(subjectCard);
+    expect(await screen.findByText(/รายละเอียดคะแนน ·/)).toBeInTheDocument();
+    expect(screen.getByText('คะแนนที่ได้')).toBeInTheDocument();
+  });
+
+  it('provides a Preview Demo Center with quick links for the current role', async () => {
+    renderApp('/preview-demo');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ศูนย์เดโมระบบ'));
+    expect(screen.getByText(/ข้อมูลเดโมถูกเตรียมไว้ให้เห็นภาพจริง/)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'เปิดเดโม →' })).toHaveLength(13);
+    expect(screen.getByRole('heading', { name: 'คลังข้อสอบ' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Quiz Challenge' })).toBeInTheDocument();
+  });
+
+  it('loads question bank and exam demo data inside Preview', async () => {
+    renderApp('/question-bank');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('คลังข้อสอบ'));
+    expect(await screen.findByText('ดาวเคราะห์ดวงใดอยู่ใกล้ดวงอาทิตย์ที่สุด')).toBeInTheDocument();
+
+    cleanup();
+    renderApp('/exams');
+    await waitFor(() => expect(screen.getByText('เดโมสอบกลางภาค วิทยาศาสตร์')).toBeInTheDocument());
+    expect(screen.getByText('เปิดสอบอยู่')).toBeInTheDocument();
+  });
+
+  it.each(['preview-admin', 'preview-teacher', 'preview-parent'])('lets %s customise an avatar', async (membershipId) => {
+    renderApp();
+    await switchRole(membershipId);
+    fireEvent.click(await screen.findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'เปลี่ยน Avatar' })).toBeInTheDocument());
   });
 
   it('shows the class capacity presets and the occupancy meter', async () => {

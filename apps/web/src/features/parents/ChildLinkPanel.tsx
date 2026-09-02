@@ -1,13 +1,13 @@
 // "ลูกของฉัน" — the whole of a parent's account management, in one panel.
 //
-// The screen asks a parent for exactly one thing: their child's real name. Everything that keeps
-// that safe is on the server — the search returns identity cards and never academic data, and the
-// link it creates opens nothing by itself unless the school's own records already name this
-// guardian for this child. Otherwise a teacher approves it, and the parent simply sees "รออนุมัติ".
+// The screen asks a parent for the child's school and real name. Everything that keeps that safe
+// is on the server — the search is school-scoped and returns identity cards, never academic data.
+// A valid match is linked immediately; legacy pending rows are still rendered safely.
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { requireSupabase } from '../../services/supabase';
 import { linkChild, searchChildren, type ChildCandidate } from '../auth/memberAccess';
+import { searchSchools, type SchoolChoice } from '../auth/studentAccess';
 
 export interface ParentChild {
   linkId: string;
@@ -42,6 +42,9 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
   const [children, setChildren] = useState<ParentChild[]>([]);
   const [adding, setAdding] = useState(false);
   const [childName, setChildName] = useState('');
+  const [schoolQuery, setSchoolQuery] = useState('');
+  const [schoolId, setSchoolId] = useState('');
+  const [schools, setSchools] = useState<SchoolChoice[]>([]);
   const [candidates, setCandidates] = useState<ChildCandidate[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,7 +60,7 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
     event.preventDefault();
     setBusy(true); setMessage(null);
     try {
-      const found = await searchChildren(childName);
+      const found = await searchChildren(schoolId, childName);
       setCandidates(found);
       if (found.length === 0) setMessage('ไม่พบนักเรียนชื่อนี้ กรุณาตรวจสอบชื่อกับคุณครูอีกครั้ง');
     } finally { setBusy(false); }
@@ -102,6 +105,28 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
       {adding && (
         <form className="inline-form child-search" onSubmit={(event) => void search(event)}>
           <label>
+            โรงเรียนของลูก
+            <input
+              name="school" value={schoolQuery} autoComplete="off"
+              onChange={(event) => {
+                setSchoolQuery(event.target.value); setSchoolId('');
+                void searchSchools(event.target.value).then(setSchools);
+              }}
+              placeholder="พิมพ์ชื่อโรงเรียน" required minLength={2}
+            />
+          </label>
+          {!schoolId && schools.length > 0 && (
+            <ul className="school-suggestions">
+              {schools.map((school) => (
+                <li key={school.schoolId}>
+                  <button type="button" className="text-button" onClick={() => {
+                    setSchoolId(school.schoolId); setSchoolQuery(school.name); setSchools([]);
+                  }}>{school.name}</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <label>
             ชื่อจริงของลูก
             <input
               name="childName" value={childName} autoComplete="off"
@@ -111,7 +136,7 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
             />
           </label>
           <p className="field-hint" id="child-name-hint">ใส่ชื่อจริงอย่างเดียวก็ได้ ถ้ามีเด็กชื่อซ้ำจะขึ้นให้เลือกหลายการ์ด</p>
-          <button className="primary-button" disabled={busy || childName.trim().length < 2}>
+          <button className="primary-button" disabled={busy || !schoolId || childName.trim().length < 2}>
             {busy ? 'กำลังค้นหา...' : 'ค้นหา'}
           </button>
           <p className="hint">กรอกแค่ชื่อ ระบบจะแสดงเฉพาะข้อมูลที่ใช้แยกแยะเด็กชื่อซ้ำเท่านั้น</p>

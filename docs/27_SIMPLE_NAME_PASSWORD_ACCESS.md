@@ -74,20 +74,20 @@ school's own records cannot vouch for waits for a teacher.
 `set_parent_link_state` handles approve, revoke and restore. Staff may do all three for anyone in
 their school; a parent may only revoke their own link, never approve one.
 
-## Recovery email and six-digit OTP
+## Recovery email and reset link
 
 Normal login never touches email. Recovery uses the existing Supabase Auth account instead of a
-second password or OTP system:
+second password or a separate OTP system:
 
 1. The person opens `/forgot-password` and enters the recovery email saved during registration.
-2. `resetPasswordForEmail` sends the recovery template. The template contains only `{{ .Token }}`
-   so mail prefetchers cannot consume a reset link.
-3. The page accepts exactly six digits and calls `verifyOtp` with `type: 'recovery'`.
-4. The resulting ordinary Supabase recovery session may call `updateUser` once to set a new password.
+2. `resetPasswordForEmail` sends the provider's recovery email and returns to `/reset-password`.
+3. The person opens the recovery link from the email; Supabase creates a temporary recovery session.
+4. The page checks that session before allowing `updateUser` to set a new password.
 
-The request screen gives the same answer for an unknown address, OTP is absent from normal sign-in,
-and the old password is never read or shown. The former staff-assisted reset boundary is preserved
-for backward compatibility with accounts created before recovery email became mandatory.
+The request screen gives the same answer for an unknown address, recovery is absent from normal
+sign-in, and the old password is never read or shown. Hosted Supabase Free projects using the
+default email provider send the standard recovery link; a six-digit custom OTP requires Custom SMTP
+or an upgraded email configuration and is not assumed by this app.
 
 ## Abuse resistance
 

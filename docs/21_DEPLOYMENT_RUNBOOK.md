@@ -13,7 +13,7 @@ Use separate Supabase projects and frontend environments for development, stagin
 5. Deploy the frontend with security headers and HTTPS.
 6. Run role/RLS/sync/offline smoke tests.
 7. Apply production migrations, functions and frontend in the same order.
-8. Monitor function errors, database load, outbox retries and sync conflicts.
+8. Schedule `notification-dispatch` every minute with `x-notification-dispatch-secret` and monitor function errors, database load, outbox retries and sync conflicts.
 
 ## Rollback / forward fix
 
@@ -21,7 +21,7 @@ Database migrations are forward-only. For a database defect, stop affected write
 
 ## LINE OA
 
-Create the Messaging API channel, add webhook URL `/functions/v1/line-notify`, set the channel access token/secret only as Edge Function secrets, and verify webhook signatures. Provider failure must leave the educational transaction committed and the outbox retryable.
+Create the Messaging API channel, add webhook URL `/functions/v1/line-notify`, set the channel access token/secret only as Edge Function secrets, and verify webhook signatures. Set a separate `NOTIFICATION_DISPATCH_SECRET` for the scheduler, then call `/functions/v1/notification-dispatch` with that secret every minute. Provider failure must leave the educational transaction committed and the outbox retryable; after five attempts the message is moved to `dead_letter` for operator review.
 
 ## Interactive Board
 

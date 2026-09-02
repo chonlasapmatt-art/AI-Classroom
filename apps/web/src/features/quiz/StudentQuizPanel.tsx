@@ -18,7 +18,7 @@ import {
  * and a refresh shows what they chose rather than an empty question.
  */
 export function StudentQuizPanel() {
-  const { membership, mode } = useSession();
+  const { membership } = useSession();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
   const [view, setView] = useState<StudentQuizView | null>(null);
@@ -29,7 +29,9 @@ export function StudentQuizPanel() {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
 
-  const active = mode === 'cloud' && membership.role === 'student';
+  // Preview uses the same screen with an in-memory round so the complete teacher → student flow
+  // can be tested by switching the role selector in one tab.
+  const active = membership.role === 'student';
 
   const poll = useCallback(async () => {
     if (!active) return;

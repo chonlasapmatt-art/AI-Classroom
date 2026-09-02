@@ -11,8 +11,8 @@ interface AuthState {
   error: string | null;
   applySession(tokens: { accessToken: string; refreshToken: string }): Promise<void>;
   applyStudentSession(tokens: { accessToken: string; refreshToken: string }): Promise<void>;
+  /** Kept only for compatibility with an old unreachable screen; public recovery is disabled. */
   requestPasswordReset(email: string): Promise<void>;
-  verifyPasswordResetOtp(email: string, token: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
   signOut(): Promise<void>;
   refreshMemberships(): Promise<void>;
@@ -106,20 +106,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe();
   }, [honourForcedLogout, loadMemberships]);
 
-  const verifyPasswordResetOtp = useCallback(async (email: string, token: string) => {
-    if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
-    if (!/^\d{6}$/.test(token)) throw new Error('กรุณากรอกรหัสยืนยัน 6 หลัก');
-    setLoading(true); setError(null);
-    try {
-      const { data, error: otpError } = await supabase.auth.verifyOtp({
-        email: email.trim(), token, type: 'recovery'
-      });
-      if (otpError) throw otpError;
-      setSession(data.session);
-      await loadMemberships(data.session);
-    } finally { setLoading(false); }
-  }, [loadMemberships]);
-
   /**
    * Adopts a session one of the trusted access gateways minted. The person typed a name plus a
    * student number or a password rather than an email address, but what arrives here is an ordinary
@@ -142,12 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // session exactly the same way, so the two names stay one function.
   const applyStudentSession = applySession;
 
-  const requestPasswordReset = useCallback(async (email: string) => {
-    if (!supabase) throw new Error('ยังไม่ได้กำหนดค่า Supabase');
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`
-    });
-    if (resetError) throw resetError;
+  const requestPasswordReset = useCallback(async () => {
+    throw new Error('การรีเซ็ตรหัสผ่านปิดใช้งาน กรุณาติดต่อแอดมินโรงเรียน');
   }, []);
 
   const updatePassword = useCallback(async (password: string) => {
@@ -163,9 +145,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const active = memberships.find((item) => item.membershipId === activeId) ?? memberships[0] ?? null;
   const value = useMemo(() => ({
     loading, session, memberships, active, error,
-    applySession, applyStudentSession, requestPasswordReset, verifyPasswordResetOtp, updatePassword, signOut, refreshMemberships,
+    applySession, applyStudentSession, requestPasswordReset, updatePassword, signOut, refreshMemberships,
     selectMembership
-  }), [active, applySession, applyStudentSession, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, session, signOut, updatePassword, verifyPasswordResetOtp]);
+  }), [active, applySession, applyStudentSession, error, loading, memberships, refreshMemberships, requestPasswordReset, selectMembership, session, signOut, updatePassword]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

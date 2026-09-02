@@ -6,7 +6,7 @@ import { isCloudConfigured } from '../../services/supabase';
 import { APP_VERSION, checkForUpdateNow, formatBuildTime, readLastCheckedAt } from '../../app/appUpdate';
 import { AcademicSettingsPanel } from './AcademicSettingsPanel';
 import { useTheme } from '../../app/ThemeContext';
-import { themeModes, themePresets } from '../../app/theme';
+import { themeDensities, themeModes, themeMotions, themePresets } from '../../app/theme';
 
 export function SettingsPage() {
   const { membership, mode } = useSession();
@@ -59,32 +59,54 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel theme-studio">
         <div className="panel-heading">
-          <h2>ธีมและการแสดงผล</h2>
-          <p>ตั้งค่าเฉพาะเครื่องนี้ ไม่กระทบผู้ใช้คนอื่นและไม่ถูกส่งขึ้นเซิร์ฟเวอร์</p>
+          <div><h2>ธีมและการแสดงผล</h2><p>ปรับหน้าตาให้เข้ากับสไตล์การทำงานของคุณ ค่านี้จำเฉพาะเครื่องนี้</p></div>
+          <span className="theme-live-badge"><span aria-hidden="true" />ใช้งานอยู่</span>
         </div>
         <fieldset className="theme-choice">
           <legend>โหมดสี</legend>
-          {themeModes.map((item) => (
-            <label key={item.value}>
+          <div className="theme-option-grid">
+            {themeModes.map((item) => (
+            <label key={item.value} className={theme.mode === item.value ? 'selected' : ''}>
               <input type="radio" name="theme-mode" checked={theme.mode === item.value}
                 onChange={() => theme.setMode(item.value)} />
-              {item.label}
+              <span><strong>{item.label}</strong><small>{item.value === 'system' ? 'ตามอุปกรณ์' : item.value === 'light' ? 'สว่างสะอาด' : 'สบายตาตอนกลางคืน'}</small></span>
             </label>
-          ))}
+            ))}
+          </div>
         </fieldset>
         <fieldset className="theme-choice presets">
-          <legend>ชุดสี</legend>
+          <legend>ชุดสีของโรงเรียน</legend>
+          <div className="theme-preset-grid">
           {themePresets.map((item) => (
-            <label key={item.value} className={theme.preset === item.value ? 'selected' : ''}>
+            <label key={item.value} className={`theme-preset-card ${theme.preset === item.value ? 'selected' : ''}`}>
               <input type="radio" name="theme-preset" checked={theme.preset === item.value}
                 onChange={() => theme.setPreset(item.value)} />
               <span className="theme-swatch" style={{ background: item.swatch }} aria-hidden="true" />
-              {item.label}
+              <span><strong>{item.label}</strong><small>{item.description}</small></span>
             </label>
           ))}
+          </div>
         </fieldset>
+        <div className="theme-preference-grid">
+          <fieldset className="theme-choice">
+            <legend>ความหนาแน่นของข้อมูล</legend>
+            <div className="theme-segmented">
+              {themeDensities.map((item) => <label key={item.value} className={theme.density === item.value ? 'selected' : ''}><input type="radio" name="theme-density" checked={theme.density === item.value} onChange={() => theme.setDensity(item.value)} /><span><strong>{item.label}</strong><small>{item.description}</small></span></label>)}
+            </div>
+          </fieldset>
+          <fieldset className="theme-choice">
+            <legend>แอนิเมชัน</legend>
+            <div className="theme-segmented">
+              {themeMotions.map((item) => <label key={item.value} className={theme.motion === item.value ? 'selected' : ''}><input type="radio" name="theme-motion" checked={theme.motion === item.value} onChange={() => theme.setMotion(item.value)} /><span><strong>{item.label}</strong><small>{item.description}</small></span></label>)}
+            </div>
+          </fieldset>
+        </div>
+        <div className="theme-preview" aria-label="ตัวอย่างธีมปัจจุบัน">
+          <div className="theme-preview-top"><strong>Smart Classroom</strong><span><i /> <i /> <i /></span></div>
+          <div className="theme-preview-body"><div className="theme-preview-side" /><div className="theme-preview-content"><span /><span /><span className="wide" /></div><b>{themePresets.find((item) => item.value === theme.preset)?.label}</b></div>
+        </div>
       </section>
 
       <section className="dashboard-grid">

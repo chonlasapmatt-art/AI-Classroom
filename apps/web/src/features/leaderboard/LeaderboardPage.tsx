@@ -178,6 +178,7 @@ export function LeaderboardPage() {
               classId={effectiveClassId}
               subjectId={subjectId || null}
               actorProfileId={membership.profileId}
+              actorRole={membership.role}
               onClose={() => setScoringStudent(null)}
             />
           )}

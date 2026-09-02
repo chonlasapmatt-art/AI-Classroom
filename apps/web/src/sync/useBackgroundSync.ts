@@ -9,8 +9,10 @@ export interface SyncStatus {
   label: string;
   detail: string;
   lastSyncedAt: string | null;
-  syncNow(): Promise<void>;
+  syncNow(): Promise<SyncResult | null>;
 }
+
+export interface SyncResult { accepted: number; blocked: number; pulled: number; structure: number; }
 
 const INTERVAL_MS = 60_000;
 
@@ -39,10 +41,11 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
   const [detail, setDetail] = useState('');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const running = useRef(false);
+  const mutationTimer = useRef<number | null>(null);
 
-  const syncNow = useCallback(async () => {
-    if (!enabled || running.current) return;
-    if (!navigator.onLine) { setPhase('offline'); setDetail('บันทึกในเครื่องแล้ว รอเชื่อมต่ออินเทอร์เน็ต'); return; }
+  const syncNow = useCallback(async (): Promise<SyncResult | null> => {
+    if (!enabled || running.current) return null;
+    if (!navigator.onLine) { setPhase('offline'); setDetail('บันทึกในเครื่องแล้ว รอเชื่อมต่ออินเทอร์เน็ต'); return null; }
     running.current = true;
     setPhase('syncing');
     try {
@@ -55,9 +58,11 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
         setPhase('synced');
         setDetail(result.accepted + result.pulled > 0 ? `ส่ง ${result.accepted} · รับ ${result.pulled}` : 'ข้อมูลตรงกับเซิร์ฟเวอร์แล้ว');
       }
+      return result;
     } catch (reason) {
       setPhase(navigator.onLine ? 'error' : 'offline');
-      setDetail(reason instanceof Error ? reason.message : 'ซิงก์ไม่สำเร็จ');
+      setDetail(syncErrorMessage(reason));
+      return null;
     } finally {
       running.current = false;
     }
@@ -67,16 +72,27 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
     if (!enabled) return;
     void syncNow();
     const timer = window.setInterval(() => { void syncNow(); }, INTERVAL_MS);
+    const localMutation = (event: Event) => {
+      const mutation = (event as CustomEvent<{ schoolId?: string }>).detail;
+      if (mutation?.schoolId !== schoolId) return;
+      if (mutationTimer.current !== null) window.clearTimeout(mutationTimer.current);
+      // Coalesce a multi-row action (publish, import, attendance sheet) into one push, then send it
+      // shortly after the local transaction commits so the UI stays instant without racing itself.
+      mutationTimer.current = window.setTimeout(() => { mutationTimer.current = null; void syncNow(); }, 250);
+    };
     const online = () => { void syncNow(); };
     const offline = () => { setPhase('offline'); setDetail('บันทึกในเครื่องแล้ว รอเชื่อมต่ออินเทอร์เน็ต'); };
+    window.addEventListener('smart-classroom:local-mutation', localMutation);
     window.addEventListener('online', online);
     window.addEventListener('offline', offline);
     return () => {
       window.clearInterval(timer);
+      if (mutationTimer.current !== null) window.clearTimeout(mutationTimer.current);
+      window.removeEventListener('smart-classroom:local-mutation', localMutation);
       window.removeEventListener('online', online);
       window.removeEventListener('offline', offline);
     };
-  }, [enabled, syncNow]);
+  }, [enabled, schoolId, syncNow]);
 
   const label = phase === 'syncing' ? 'กำลังซิงก์'
     : phase === 'synced' ? 'ซิงก์เรียบร้อย'
@@ -85,4 +101,19 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
           : phase === 'error' ? 'ซิงก์ไม่สำเร็จ' : 'พร้อมใช้งาน';
 
   return { phase, label, detail, lastSyncedAt, syncNow };
+}
+
+function syncErrorMessage(reason: unknown): string {
+  const raw = reason instanceof Error
+    ? reason.message
+    : typeof reason === 'object' && reason !== null
+      ? (typeof (reason as { message?: unknown }).message === 'string'
+        ? (reason as { message: string }).message
+        : JSON.stringify(reason) ?? String(reason))
+      : String(reason ?? '');
+  if (raw.includes('AUTH_REQUIRED') || raw.includes('401')) return 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่ แล้วข้อมูลในเครื่องยังคงอยู่';
+  if (raw.includes('FORBIDDEN') || raw.includes('403')) return 'บัญชีนี้ยังไม่มีสิทธิ์ซิงก์โรงเรียนนี้ ระบบเก็บข้อมูลไว้ในเครื่องและจะลองใหม่';
+  if (raw.includes('CLIENT_UPDATE_REQUIRED')) return 'แอปเวอร์ชันนี้เก่าเกินไป กรุณารีเฟรชหน้าเพื่ออัปเดต แล้วลองซิงก์อีกครั้ง';
+  if (raw.includes('SYNC_PUSH_')) return `ส่งข้อมูลขึ้นเซิร์ฟเวอร์ไม่สำเร็จ (${raw.replace(/^.*SYNC_PUSH_/, 'HTTP ')})`;
+  return raw || 'ซิงก์ไม่สำเร็จ ระบบจะลองใหม่อัตโนมัติ';
 }

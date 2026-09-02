@@ -39,6 +39,8 @@ Deno.serve(async (request) => {
     // character nobody can see, so the surrounding whitespace is removed before the check. What is
     // inside the code still has to match exactly.
     const accessCode = String(body.accessCode ?? '').trim();
+    const displayName = String(body.displayName ?? '').replace(/\s+/g, ' ').trim();
+    if (displayName.length < 2 || displayName.length > 200) return json({ code: 'VALIDATION_ERROR' }, 400, headers);
     const actorId = authData.user.id;
     const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
     const fingerprintHash = await sha256(`${forwarded}|${request.headers.get('user-agent') ?? 'unknown'}`);
@@ -68,7 +70,8 @@ Deno.serve(async (request) => {
       p_school_name: String(body.schoolName ?? ''),
       p_school_code: String(body.schoolCode ?? ''),
       p_academic_year: String(body.academicYear ?? ''),
-      p_term: String(body.term ?? '')
+      p_term: String(body.term ?? ''),
+      p_display_name: displayName
     });
     if (setupError) {
       await service.from('admin_access_attempts').insert({

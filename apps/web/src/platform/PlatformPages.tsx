@@ -5,9 +5,9 @@ import {
 import { formatMoment, useDangerousAction } from './consoleHelpers';
 import { DangerousActionDialog } from './ReauthGate';
 import {
-  platformDevices, platformErrors, platformFlagsAndReleases, platformOverview, platformSecurityLog,
+  platformDevices, platformErrors, platformFlagsAndReleases, platformNotificationQueue, platformOnlinePeople, platformOverview, platformSecurityLog,
   publishRelease, resolveErrorEvent, revokeDevice, setFeatureFlag,
-  type DeviceRow, type ErrorRow, type FeatureFlagRow, type PlatformOverview, type ReleaseRow,
+  type DeviceRow, type ErrorRow, type FeatureFlagRow, type NotificationQueueRow, type OnlinePerson, type PlatformOverview, type ReleaseRow,
   type SecurityEventRow
 } from './platformClient';
 
@@ -32,56 +32,152 @@ function useRemote<T>(load: () => Promise<T>) {
 // ---------------------------------------------------------------------------
 
 export function OverviewPage() {
-  const { data, error, loading, refresh } = useRemote<PlatformOverview>(platformOverview);
+  const load = useCallback(async () => {
+    const [overviewResult, onlineResult, activityResult] = await Promise.allSettled([
+      platformOverview(), platformOnlinePeople(10), platformSecurityLog(8)
+    ]);
+    if (overviewResult.status === 'rejected') throw overviewResult.reason;
+    const online = onlineResult.status === 'fulfilled'
+      ? onlineResult.value
+      : (await platformDevices(null, 10).catch(() => [])).filter((device) =>
+        device.lastSeenAt && Date.now() - new Date(device.lastSeenAt).getTime() <= 15 * 60_000
+      ).map((device): OnlinePerson => ({
+        profileId: null, displayName: device.name, role: 'user', schoolName: device.schoolName ?? null,
+        deviceName: device.name, deviceType: device.type, lastSeenAt: device.lastSeenAt!
+      }));
+    return {
+      overview: overviewResult.value,
+      online,
+      activity: activityResult.status === 'fulfilled' ? activityResult.value : []
+    };
+  }, []);
+  const { data, error, loading, refresh } = useRemote<{ overview: PlatformOverview; online: OnlinePerson[]; activity: SecurityEventRow[] }>(load);
 
   if (loading && !data) return <Skeleton lines={8} />;
   if (error) return <ErrorState message={error} onRetry={() => void refresh()} />;
   if (!data) return null;
 
-  const health = data.errors.critical > 0 ? 'critical' : data.errors.high > 0 ? 'warning' : 'healthy';
+  const overview = data.overview;
+  const health = overview.errors.critical > 0 ? 'critical' : overview.errors.high > 0 ? 'warning' : 'healthy';
+  const healthLabel = health === 'critical' ? 'ต้องแก้ไขด่วน' : health === 'warning' ? 'ควรตรวจสอบ' : 'ทำงานปกติ';
+  const healthTone = health === 'critical' ? 'danger' : health === 'warning' ? 'warning' : 'success';
+  const activeSchoolPercent = overview.schools.total > 0
+    ? Math.round((overview.schools.active / overview.schools.total) * 100)
+    : 0;
 
   return (
     <>
-      <Card>
-        <CardHeader
-          title="ภาพรวมแพลตฟอร์ม"
-          description={`เวลาเซิร์ฟเวอร์ ${formatMoment(data.serverTime)}`}
-          action={<Button onClick={() => void refresh()}>รีเฟรช</Button>}
-        />
-        <div className="stat-row">
-          <Stat label="โรงเรียนทั้งหมด" value={data.schools.total} hint={`ใช้งาน ${data.schools.active} · ระงับ ${data.schools.suspended}`} />
-          <Stat label="ครู" value={data.people.teachers} />
-          <Stat label="นักเรียน" value={data.people.students} />
-          <Stat label="ผู้ปกครอง" value={data.people.parents} />
-          <Stat label="ผู้ดูแลแพลตฟอร์ม" value={data.people.platformAdmins} tone="warning" />
+      <header className="platform-dashboard-heading">
+        <div>
+          <span className="ui-eyebrow">Operations Center</span>
+          <h1>ภาพรวมระบบ</h1>
+          <p>ติดตามผู้ใช้งาน โรงเรียน และสุขภาพแพลตฟอร์มได้จากหน้าจอเดียว</p>
         </div>
-      </Card>
+        <div className="platform-dashboard-actions">
+          <span className="platform-server-time">อัปเดตล่าสุด {formatMoment(overview.serverTime)}</span>
+          <Button onClick={() => void refresh()}>รีเฟรชข้อมูล</Button>
+        </div>
+      </header>
 
-      <Card>
-        <CardHeader title="สุขภาพระบบ" description="ตัวเลขทั้งหมดคำนวณสดจากเซิร์ฟเวอร์ ไม่ได้เก็บค่าไว้" />
-        <div className="stat-row">
-          <Stat
-            label="ข้อผิดพลาดที่ยังไม่ปิด" value={data.errors.openTotal}
-            hint={`ร้ายแรง ${data.errors.critical} · สูง ${data.errors.high}`}
-            tone={health === 'critical' ? 'danger' : health === 'warning' ? 'warning' : 'success'}
+      <section className="platform-kpi-grid" aria-label="ตัวเลขสำคัญ">
+        <Stat label="โรงเรียนทั้งหมด" value={overview.schools.total} hint={`ใช้งาน ${overview.schools.active} · ระงับ ${overview.schools.suspended}`} tone="brand" />
+        <Stat label="นักเรียนทั้งหมด" value={overview.people.students} hint={`ครู ${overview.people.teachers}`} tone="info" />
+        <Stat label="ผู้ดูแลแพลตฟอร์ม" value={overview.people.platformAdmins} hint="บัญชีที่ดูแลระบบรวม" tone="warning" />
+        <Stat label="ผู้ปกครอง" value={overview.people.parents} hint="บัญชีผู้ปกครองทั้งหมด" tone="success" />
+      </section>
+
+      <div className="platform-overview-grid">
+        <Card className="platform-online-card">
+          <CardHeader
+            title={<span className="platform-section-title"><span className="platform-live-dot" />ผู้ใช้ออนไลน์</span>}
+            description="ตรวจจาก heartbeat ภายใน 15 นาทีล่าสุด"
+            action={<Badge tone="success">{data.online.length} คน</Badge>}
           />
-          <Stat label="ข้อมูลขัดแย้งรอตรวจสอบ" value={data.sync.conflictsOpen} tone={data.sync.conflictsOpen > 0 ? 'warning' : 'success'} />
-          <Stat label="การเปลี่ยนแปลงใน 24 ชม." value={data.sync.changesToday} hint={`ล่าสุด ${formatMoment(data.sync.lastChangeAt)}`} />
-          <Stat label="อุปกรณ์ที่เชื่อมต่อ" value={data.devices.total} hint={`ไม่ซิงก์เกิน 7 วัน ${data.devices.staleWeek} · ถูกเพิกถอน ${data.devices.revoked}`} />
-          <Stat label="การแจ้งเตือนค้าง" value={data.notifications.pending} hint={`ล้มเหลว ${data.notifications.failed}`} tone={data.notifications.failed > 0 ? 'warning' : 'neutral'} />
-        </div>
-      </Card>
+          {data.online.length > 0 ? (
+            <ul className="platform-online-list">
+              {data.online.map((person) => (
+                <li key={`${person.profileId ?? person.deviceName}-${person.deviceName}`}>
+                  <span className="platform-person-avatar">{person.displayName.trim().slice(0, 1) || '•'}</span>
+                  <span className="platform-person-copy">
+                    <strong>{person.displayName}</strong>
+                    <small>{platformRoleLabel(person.role)}{person.schoolName ? ` · ${person.schoolName}` : ''}</small>
+                  </span>
+                  <span className="platform-person-meta">
+                    <span>{person.deviceName}</span>
+                    <time dateTime={person.lastSeenAt}>{formatMoment(person.lastSeenAt)}</time>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : <EmptyState icon="◉" title="ยังไม่พบผู้ใช้ออนไลน์" description="เมื่อมีอุปกรณ์ส่ง heartbeat รายชื่อจะแสดงที่นี่" />}
+        </Card>
+
+        <Card className="platform-health-card">
+          <CardHeader title="สุขภาพระบบ" description="ค่าประเมินจาก error, sync และอุปกรณ์ที่เชื่อมต่อ" />
+          <div className={`platform-health-hero ${healthTone}`}>
+            <span className="platform-health-icon">{health === 'healthy' ? '✓' : '!'}</span>
+            <div><strong>{healthLabel}</strong><span>{overview.errors.openTotal} รายการที่ยังไม่ปิด</span></div>
+            <Badge tone={healthTone}>{health === 'healthy' ? 'Healthy' : health === 'warning' ? 'Warning' : 'Critical'}</Badge>
+          </div>
+          <div className="platform-health-grid">
+            <div><span>ข้อมูลขัดแย้ง</span><strong>{overview.sync.conflictsOpen}</strong><small>รอตรวจสอบ</small></div>
+            <div><span>อุปกรณ์</span><strong>{overview.devices.total}</strong><small>ใช้งานอยู่</small></div>
+            <div><span>แจ้งเตือนค้าง</span><strong>{overview.notifications.pending}</strong><small>ล้มเหลว {overview.notifications.failed}</small></div>
+          </div>
+          <div className="platform-health-progress">
+            <div><span>โรงเรียนที่ใช้งานอยู่</span><strong>{activeSchoolPercent}%</strong></div>
+            <div className="platform-progress-track"><span style={{ width: `${activeSchoolPercent}%` }} /></div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="platform-overview-grid platform-overview-grid-lower">
+        <Card>
+          <CardHeader title="สถานะโรงเรียนทั้งหมด" description="ภาพรวมการเปิดใช้งานของโรงเรียนในแพลตฟอร์ม" />
+          <div className="platform-school-summary">
+            <div className="platform-school-total"><strong>{overview.schools.total}</strong><span>โรงเรียน</span></div>
+            <div className="platform-school-bars">
+              <div><span><i className="platform-dot active" />ใช้งานอยู่</span><strong>{overview.schools.active}</strong></div>
+              <div><span><i className="platform-dot suspended" />ระงับ/อื่น ๆ</span><strong>{overview.schools.suspended}</strong></div>
+            </div>
+          </div>
+          <div className="platform-detail-stats">
+            <span>การเปลี่ยนแปลง 24 ชม. <strong>{overview.sync.changesToday}</strong></span>
+            <span>ล่าสุด <strong>{formatMoment(overview.sync.lastChangeAt)}</strong></span>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Activity log ล่าสุด" description="รายการการใช้งานระดับแพลตฟอร์มแบบย่อ" />
+          {data.activity.length > 0 ? (
+            <ul className="platform-activity-list">
+              {data.activity.map((event) => (
+                <li key={event.id}>
+                  <span className="platform-activity-icon">↗</span>
+                  <span><strong>{event.actorName ?? 'ระบบ'}</strong><small>{event.action}{event.schoolName ? ` · ${event.schoolName}` : ''}</small></span>
+                  <time dateTime={event.occurredAt}>{formatMoment(event.occurredAt)}</time>
+                </li>
+              ))}
+            </ul>
+          ) : <EmptyState icon="↗" title="ยังไม่มี activity log" description="กิจกรรมของผู้ดูแลจะแสดงที่นี่" />}
+        </Card>
+      </div>
 
       <Card>
-        <CardHeader title="Support Mode และเวอร์ชัน" />
+        <CardHeader title="การทำงานเบื้องหลัง" description="ตัวเลขประกอบสำหรับตรวจสอบระบบแบบรวดเร็ว" />
         <div className="stat-row">
-          <Stat label="Support Session ที่เปิดอยู่" value={data.support.activeSessions} tone={data.support.activeSessions > 0 ? 'warning' : 'neutral'} />
-          <Stat label="Support Session วันนี้" value={data.support.sessionsToday} />
-          <Stat label="เวอร์ชัน Production" value={data.release?.version ?? 'ยังไม่ประกาศ'} hint={data.release ? `ขั้นต่ำ ${data.release.minimumSupportedVersion || '—'} · protocol ${data.release.protocolVersion}` : 'ประกาศได้ที่หน้า Releases'} />
+          <Stat label="ข้อผิดพลาดที่ยังไม่ปิด" value={overview.errors.openTotal} hint={`ร้ายแรง ${overview.errors.critical} · สูง ${overview.errors.high}`} tone={healthTone} />
+          <Stat label="อุปกรณ์ไม่ซิงก์เกิน 7 วัน" value={overview.devices.staleWeek} hint={`ถูกเพิกถอน ${overview.devices.revoked}`} tone={overview.devices.staleWeek > 0 ? 'warning' : 'success'} />
+          <Stat label="Support Session ที่เปิดอยู่" value={overview.support.activeSessions} hint={`วันนี้ ${overview.support.sessionsToday}`} tone={overview.support.activeSessions > 0 ? 'warning' : 'neutral'} />
+          <Stat label="เวอร์ชัน Production" value={overview.release?.version ?? 'ยังไม่ประกาศ'} hint={overview.release ? `ขั้นต่ำ ${overview.release.minimumSupportedVersion || '—'} · protocol ${overview.release.protocolVersion}` : 'ประกาศได้ที่หน้า Releases'} />
         </div>
       </Card>
     </>
   );
+}
+
+function platformRoleLabel(role: OnlinePerson['role']): string {
+  return ({ teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง', admin: 'ผู้ดูแลโรงเรียน', platform_admin: 'ผู้ดูแลแพลตฟอร์ม', user: 'ผู้ใช้งาน' })[role];
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +267,60 @@ export function ErrorsPage() {
 }
 
 // ---------------------------------------------------------------------------
+
+const queueStatusTone: Record<NotificationQueueRow['status'], 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+  pending: 'info', processing: 'warning', sent: 'success', failed: 'warning', dead_letter: 'danger'
+};
+const queueStatusLabel: Record<NotificationQueueRow['status'], string> = {
+  pending: 'รอส่ง', processing: 'กำลังส่ง', sent: 'ส่งแล้ว', failed: 'รอ retry', dead_letter: 'หยุดส่ง'
+};
+
+export function NotificationsPage() {
+  const [status, setStatus] = useState<NotificationQueueRow['status'] | ''>('');
+  const load = useCallback(() => platformNotificationQueue(status || null), [status]);
+  const { data, error, loading, refresh } = useRemote<NotificationQueueRow[]>(load);
+
+  return (
+    <Card>
+      <CardHeader
+        title="ศูนย์แจ้งเตือน"
+        description="ตรวจสอบคิว LINE และการ retry โดยไม่เปิดเผยข้อมูลผู้รับหรือเนื้อหาส่วนตัว"
+        action={<Button onClick={() => void refresh()}>รีเฟรช</Button>}
+      />
+      <Toolbar>
+        <Field label="สถานะ">
+          <select value={status} onChange={(event) => setStatus(event.target.value as NotificationQueueRow['status'] | '')}>
+            <option value="">ทั้งหมด</option>
+            <option value="pending">รอส่ง</option>
+            <option value="processing">กำลังส่ง</option>
+            <option value="failed">รอ retry</option>
+            <option value="dead_letter">หยุดส่ง</option>
+            <option value="sent">ส่งแล้ว</option>
+          </select>
+        </Field>
+      </Toolbar>
+      {error && <ErrorState message={error} onRetry={() => void refresh()} />}
+      {loading && !data ? <Skeleton lines={6} /> : (data && data.length > 0 ? (
+        <DataTable
+          caption="คิวแจ้งเตือนล่าสุด"
+          head={<tr><th>เมื่อ</th><th>โรงเรียน</th><th>เหตุการณ์</th><th>สถานะ</th><th>Retry</th><th>กำหนดครั้งถัดไป</th><th>ข้อผิดพลาดล่าสุด</th></tr>}
+        >
+          {data.map((row) => (
+            <tr key={row.id}>
+              <td>{formatMoment(row.createdAt)}</td>
+              <td>{row.schoolName ?? 'ไม่ระบุโรงเรียน'}</td>
+              <td>{row.eventType}</td>
+              <td><Badge tone={queueStatusTone[row.status]}>{queueStatusLabel[row.status]}</Badge></td>
+              <td>{row.retryCount}/5</td>
+              <td>{formatMoment(row.nextRetryAt)}</td>
+              <td>{row.lastError ?? '—'}</td>
+            </tr>
+          ))}
+        </DataTable>
+      ) : <EmptyState title="ไม่มีรายการในสถานะนี้" description="ลองเปลี่ยนตัวกรองหรือรอให้มีเหตุการณ์ใหม่" />)}
+    </Card>
+  );
+}
 
 export function DevicesPage() {
   const load = useCallback(() => platformDevices(null, 300), []);

@@ -8,7 +8,8 @@
 import { useState, type FormEvent } from 'react';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { scoreEventsFor } from '../../data/selectors';
-import type { ScoreCategory, Student } from '../../domain/types';
+import type { Role, ScoreCategory, Student } from '../../domain/types';
+import { canManageAcademicItem } from '../../data/teacherResponsibilities';
 
 const quickAmounts = [-1, 1, 2, 5];
 
@@ -25,10 +26,11 @@ interface Props {
   classId: string;
   subjectId: string | null;
   actorProfileId: string;
+  actorRole: Role;
   onClose(): void;
 }
 
-export function QuickScorePanel({ student, classId, subjectId, actorProfileId, onClose }: Props) {
+export function QuickScorePanel({ student, classId, subjectId, actorProfileId, actorRole, onClose }: Props) {
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
   const [category, setCategory] = useState<ScoreCategory>('bonus');
@@ -40,6 +42,7 @@ export function QuickScorePanel({ student, classId, subjectId, actorProfileId, o
 
   const history = scoreEventsFor(snapshot, student.id);
   const awarded = history.reduce((sum, event) => sum + event.points, 0);
+  const canAward = canManageAcademicItem(snapshot, actorRole, actorProfileId, classId, subjectId);
 
   async function award(points: number) {
     setBusy(true); setError(null);
@@ -79,10 +82,12 @@ export function QuickScorePanel({ student, classId, subjectId, actorProfileId, o
         <div className="score-flash" role="status">{flash > 0 ? `+${flash}` : flash}</div>
       )}
 
+      {!canAward && <div className="alert warning" role="status">ดูประวัติได้ แต่การให้คะแนนต้องเป็นครูเจ้าของวิชานี้</div>}
+
       <div className="quick-amounts">
         {quickAmounts.map((amount) => (
           <button
-            key={amount} type="button" className="amount-button" disabled={busy}
+            key={amount} type="button" className="amount-button" disabled={busy || !canAward}
             onClick={() => void award(amount)}
           >
             {amount > 0 ? `+${amount}` : amount}
@@ -92,7 +97,7 @@ export function QuickScorePanel({ student, classId, subjectId, actorProfileId, o
 
       <label>
         ประเภทคะแนน
-        <select value={category} onChange={(event) => setCategory(event.target.value as ScoreCategory)}>
+        <select disabled={!canAward} value={category} onChange={(event) => setCategory(event.target.value as ScoreCategory)}>
           {(Object.keys(categoryLabels) as ScoreCategory[]).map((key) => (
             <option key={key} value={key}>{categoryLabels[key]}</option>
           ))}
@@ -113,18 +118,18 @@ export function QuickScorePanel({ student, classId, subjectId, actorProfileId, o
 
       <label>
         เหตุผล (ไม่บังคับ)
-        <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="เช่น ช่วยเพื่อนอธิบายโจทย์" />
+        <input disabled={!canAward} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="เช่น ช่วยเพื่อนอธิบายโจทย์" />
       </label>
 
       <form className="custom-score" onSubmit={submitCustom}>
         <label>
           กำหนดคะแนนเอง
           <input
-            value={custom} onChange={(event) => setCustom(event.target.value)}
+            value={custom} disabled={!canAward} onChange={(event) => setCustom(event.target.value)}
             inputMode="decimal" placeholder="เช่น 10 หรือ -2"
           />
         </label>
-        <button className="secondary-button" disabled={busy || custom.trim().length === 0}>ให้คะแนน</button>
+        <button className="secondary-button" disabled={!canAward || busy || custom.trim().length === 0}>ให้คะแนน</button>
       </form>
 
       {error && <div className="alert error" role="alert">{error}</div>}

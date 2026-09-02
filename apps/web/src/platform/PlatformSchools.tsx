@@ -105,15 +105,27 @@ export function SchoolsPage() {
     return school.name.toLowerCase().includes(needle) || school.code.toLowerCase().includes(needle);
   });
 
+  const healthyCount = visible.filter((school) => school.health.status === 'healthy').length;
+  const attentionCount = visible.length - healthyCount;
+
   return (
-    <Card>
-      <CardHeader
-        title="โรงเรียนทั้งหมด"
-        description="สถานะสุขภาพคำนวณสดทุกครั้งที่ถาม ไม่ได้เก็บค่าไว้ให้ค้าง"
-        action={<Button onClick={() => void refresh()}>รีเฟรช</Button>}
-      />
+    <Card className="school-directory-card">
+      <div className="school-directory-head">
+        <div>
+          <span className="ui-eyebrow">SCHOOL DIRECTORY</span>
+          <h1>โรงเรียนทั้งหมด</h1>
+          <p>จัดการโรงเรียนเป็นโฟลเดอร์ ดูสุขภาพระบบ และเปิดรายละเอียดการใช้งานเชิงลึก</p>
+        </div>
+        <Button onClick={() => void refresh()}>รีเฟรช</Button>
+      </div>
       {message && <div className="alert success" role="status">{message}</div>}
       {error && <ErrorState message={error} onRetry={() => void refresh()} />}
+
+      <div className="school-directory-summary">
+        <Stat label="โรงเรียนที่พบ" value={visible.length} hint={`จากทั้งหมด ${schools?.length ?? 0} แห่ง`} />
+        <Stat label="สุขภาพปกติ" value={healthyCount} tone="success" hint="พร้อมใช้งาน" />
+        <Stat label="ต้องดูแล" value={attentionCount} tone={attentionCount ? 'warning' : 'neutral'} hint="ตรวจสอบได้จากโฟลเดอร์" />
+      </div>
 
       <Toolbar>
         <Field label="ค้นหา">
@@ -126,25 +138,38 @@ export function SchoolsPage() {
       </Toolbar>
 
       {!schools ? <Skeleton lines={5} /> : (visible.length > 0 ? (
-        <DataTable head={<tr><th>โรงเรียน</th><th>สถานะ</th><th>สุขภาพ</th><th>ครู</th><th>นักเรียน</th><th>ซิงก์ล่าสุด</th><th /></tr>}>
+        <div className="school-folder-grid">
           {visible.map((school) => (
-            <tr key={school.schoolId}>
-              <td>{school.name}<span className="fine-print"> · {school.code}</span></td>
-              <td><Badge tone={school.status === 'active' ? 'success' : 'danger'}>{school.status === 'active' ? 'ใช้งาน' : 'ระงับ'}</Badge></td>
-              <td>
-                <Badge tone={healthTone(school.health.status)}>{healthLabel(school.health.status)}</Badge>
-                {school.health.reasons.length > 0 && <span className="fine-print"> · {school.health.reasons[0]}</span>}
-              </td>
-              <td>{school.teachers}</td>
-              <td>{school.students}</td>
-              <td>{formatMoment(school.health.lastSuccessfulSyncAt)}</td>
-              <td>
-                <Button size="sm" onClick={() => setSelected(school.schoolId)}>รายละเอียด</Button>
-                <Button size="sm" variant="primary" onClick={() => setSupporting(school)}>เข้าดูแลโรงเรียน</Button>
-              </td>
-            </tr>
+            <article key={school.schoolId} className={`school-folder school-folder-${school.health.status}`}>
+              <button className="school-folder-main" type="button" onClick={() => setSelected(school.schoolId)} aria-label={`ดูรายละเอียด ${school.name}`}>
+                <div className="school-folder-top">
+                  <span className="school-folder-icon" aria-hidden="true">▱</span>
+                  <div>
+                    <strong>{school.name}</strong>
+                    <span>{school.code}</span>
+                  </div>
+                  <Badge tone={school.status === 'active' ? 'success' : 'danger'}>{school.status === 'active' ? 'ใช้งาน' : 'ระงับ'}</Badge>
+                </div>
+                <div className="school-folder-health">
+                  <Badge tone={healthTone(school.health.status)}>{healthLabel(school.health.status)}</Badge>
+                  <span>{school.health.reasons[0] ?? 'ไม่พบสัญญาณผิดปกติ'}</span>
+                </div>
+                <div className="school-folder-metrics">
+                  <div><strong>{school.teachers}</strong><span>ครู</span></div>
+                  <div><strong>{school.students}</strong><span>นักเรียน</span></div>
+                  <div><strong>{school.health.deviceCount}</strong><span>อุปกรณ์</span></div>
+                </div>
+              </button>
+              <footer className="school-folder-footer">
+                <span>ซิงก์ล่าสุด {formatMoment(school.health.lastSuccessfulSyncAt)}</span>
+                <div>
+                  <Button size="sm" onClick={() => setSelected(school.schoolId)}>รายละเอียด</Button>
+                  <Button size="sm" variant="primary" onClick={() => setSupporting(school)}>เข้าดูแลโรงเรียน</Button>
+                </div>
+              </footer>
+            </article>
           ))}
-        </DataTable>
+        </div>
       ) : <EmptyState title="ไม่พบโรงเรียนที่ตรงกับเงื่อนไข" />)}
 
       {supporting && (
@@ -210,6 +235,43 @@ function SchoolDetailPanel({ schoolId, onBack, onSupport }: {
           <Stat label="ข้อสอบ" value={detail.counts.exams ?? 0} />
           <Stat label="งานที่มอบหมาย" value={detail.counts.assignments ?? 0} />
           <Stat label="รายวิชา" value={detail.counts.subjects ?? 0} />
+        </div>
+
+        <div className="school-detail-columns">
+          <Card className="platform-roster-card">
+            <CardHeader title="ห้องเรียนและการใช้งาน" description="แยกตามห้อง เพื่อดูว่าครูและนักเรียนใช้งานที่ใด" />
+            {detail.rooms.length > 0 ? (
+              <ul className="platform-roster-list">
+                {detail.rooms.map((room) => (
+                  <li key={room.roomId}>
+                    <div className="platform-roster-main">
+                      <span className="platform-roster-icon" aria-hidden="true">⌂</span>
+                      <div><strong>{room.name}</strong><span>{room.gradeLevel} · ปีการศึกษา {room.academicYear} / เทอม {room.term}</span></div>
+                    </div>
+                    <div className="platform-roster-meta"><span>{room.teacherCount} ครู · {room.studentCount} นักเรียน</span><span>{room.assignmentCount} งาน · ใช้ล่าสุด {formatMoment(room.lastActivityAt)}</span></div>
+                    {room.teachers.length > 0 && <div className="platform-roster-chips">{room.teachers.map((teacher) => <span key={teacher.teacherId}>{teacher.displayName}</span>)}</div>}
+                  </li>
+                ))}
+              </ul>
+            ) : <EmptyState title="ยังไม่มีห้องเรียน" />}
+          </Card>
+          <Card className="platform-roster-card">
+            <CardHeader title="ครูและบัญชีเข้าใช้" description="ตรวจได้ว่าครูคนใดมีบัญชีพร้อมใช้และอยู่ห้องใด" />
+            {detail.teachers.length > 0 ? (
+              <ul className="platform-roster-list">
+                {detail.teachers.map((teacher) => (
+                  <li key={teacher.teacherId}>
+                    <div className="platform-roster-main">
+                      <span className="platform-roster-icon" aria-hidden="true">✎</span>
+                      <div><strong>{teacher.displayName}</strong><span>{teacher.teacherCode} · เข้าใช้ล่าสุด {formatMoment(teacher.lastLoginAt)}</span></div>
+                    </div>
+                    <div className="platform-roster-meta"><Badge tone={teacher.accountStatus === 'active' ? 'success' : teacher.accountStatus === 'not_provisioned' ? 'warning' : 'danger'}>{teacher.accountStatus === 'active' ? 'พร้อมใช้' : teacher.accountStatus === 'not_provisioned' ? 'ยังไม่สร้างบัญชี' : 'ต้องตรวจสอบ'}</Badge><span>{teacher.roomCount} ห้อง</span></div>
+                    {teacher.rooms.length > 0 && <div className="platform-roster-chips">{teacher.rooms.map((room) => <span key={room.roomId}>{room.name}</span>)}</div>}
+                  </li>
+                ))}
+              </ul>
+            ) : <EmptyState title="ยังไม่มีข้อมูลครู" />}
+          </Card>
         </div>
       </Card>
 

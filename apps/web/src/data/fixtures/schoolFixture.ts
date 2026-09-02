@@ -110,6 +110,8 @@ export function buildFixtureData(): FixtureData {
 
   const classTeachers: ClassTeacher[] = [
     { ...record('fixture-ct-1'), classId: 'fixture-class-1', teacherId: 'fixture-teacher-1', role: 'primary' },
+    // The preview teacher demonstrates that one person can advise a room and own a subject in it.
+    { ...record('fixture-ct-1-science'), classId: 'fixture-class-1', teacherId: 'fixture-teacher-1', role: 'primary', subjectId: subjectId('SC') },
     { ...record('fixture-ct-2'), classId: 'fixture-class-1', teacherId: 'fixture-teacher-2', role: 'assistant' },
     { ...record('fixture-ct-3'), classId: 'fixture-class-2', teacherId: 'fixture-teacher-2', role: 'primary' },
     { ...record('fixture-ct-4'), classId: 'fixture-class-3', teacherId: 'fixture-teacher-3', role: 'primary' }
@@ -269,6 +271,7 @@ export function buildFixtureData(): FixtureData {
   const parentLinks: ParentLink[] = primaryRoster.slice(0, 4).map((studentId, index) => ({
     ...record(`fixture-parent-link-${index + 1}`),
     studentId,
+    profileId: index === 0 ? 'preview-parent' : null,
     avatarId: index === 0 ? 'avatar_055' : null,
     avatarPhotoId: null,
     parentName: `ผู้ปกครองของ ${students.find((item) => item.id === studentId)?.displayName ?? ''}`.trim(),

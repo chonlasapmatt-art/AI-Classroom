@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build --workspace @smart-classroom/web",
+  "installCommand": "npm ci",
+  "outputDirectory": "apps/web/dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/platform", "destination": "/platform/" },
+    { "source": "/((?!platform(?:/|$)|assets/|icons/|.*\\.).*)", "destination": "/index.html" }
+  ]
+}

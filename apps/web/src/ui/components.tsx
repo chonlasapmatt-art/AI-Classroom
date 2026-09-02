@@ -220,3 +220,30 @@ export function DataTable({ head, children, caption }: { head: ReactNode; childr
     </div>
   );
 }
+
+/** Confirmation dialog for destructive or important actions. */
+export function ConfirmDialog({ title, description, confirmLabel = 'ยืนยัน', cancelLabel = 'ยกเลิก', tone = 'danger', onConfirm, onCancel }: {
+  title: ReactNode; description?: ReactNode; confirmLabel?: string; cancelLabel?: string;
+  tone?: 'danger' | 'warning' | 'brand'; onConfirm: () => void; onCancel: () => void;
+}) {
+  return (
+    <Modal
+      title={title}
+      description={description}
+      onClose={onCancel}
+      actions={<>        <Button variant="ghost" onClick={onCancel}>{cancelLabel}</Button>
+        <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm}>{confirmLabel}</Button>
+      </>}
+    />
+  );
+}
+
+/** Tooltip wrapper that shows hint text on hover or focus. */
+export function Tooltip({ children, tip }: { children: ReactNode; tip: ReactNode }) {
+  return (
+    <span className="ui-tooltip-wrap" title={typeof tip === 'string' ? tip : undefined}>
+      {children}
+      {typeof tip !== 'string' && <span className="ui-tooltip-bubble" role="tooltip">{tip}</span>}
+    </span>
+  );
+}

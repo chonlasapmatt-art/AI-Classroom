@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   interpretMemberAccessResponse, isCompleteMemberLogin, isCompleteMemberRegistration,
-  isValidRecoveryEmail, MEMBER_ACCESS_GENERIC_MESSAGE, MEMBER_PASSWORD_MINIMUM, normalizeMemberName
+  isValidRecoveryEmail, MEMBER_ACCESS_GENERIC_MESSAGE, MEMBER_PASSWORD_MINIMUM,
+  MEMBER_REGISTRATION_FAILED_MESSAGE, normalizeMemberName
 } from '../../src/features/auth/memberAccess';
 
 describe('name and password access — shaping the request', () => {
@@ -96,5 +97,10 @@ describe('name and password access — reading the answer', () => {
       .toEqual({ outcome: 'error', message: MEMBER_ACCESS_GENERIC_MESSAGE });
     expect(interpretMemberAccessResponse({ session }, 200))
       .toEqual({ outcome: 'error', message: MEMBER_ACCESS_GENERIC_MESSAGE });
+  });
+
+  it('explains a registration failure without mislabelling it as a bad login', () => {
+    expect(interpretMemberAccessResponse({ code: 'MEMBER_REGISTRATION_FAILED' }, 400))
+      .toEqual({ outcome: 'error', message: MEMBER_REGISTRATION_FAILED_MESSAGE });
   });
 });

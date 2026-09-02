@@ -11,6 +11,8 @@ import { rubricMaxScore, rubricMatchesWork, rubricTotal, validateRubric } from '
 import { buildGradebook, categoryWeightsFrom, defaultCategoryWeights, gradeDistribution, totalWeight, weightsAreValid } from '../../src/academic/gradebook';
 import { followUpInsights, workloadWarningFor, WORKLOAD_WARNING_THRESHOLD } from '../../src/academic/workload';
 import { effectiveDueAt, timeRemainingLabel, workStateFor } from '../../src/academic/workStatus';
+import { studentTrackingFor } from '../../src/academic/views';
+import { emptySnapshot } from '../../src/data/schoolRepository';
 import type { Assignment, ClassroomNotification, DeadlineExtension, Student, Submission, Subject } from '../../src/domain/types';
 
 const base = {
@@ -73,6 +75,26 @@ describe('deadline states', () => {
     expect(timeRemainingLabel('2026-09-12T09:00:00.000Z', now)).toBe('เหลือ 3 วัน');
     expect(timeRemainingLabel('2026-09-08T09:00:00.000Z', now)).toContain('เลยกำหนด');
     expect(timeRemainingLabel(null)).toBe('ไม่กำหนดวันส่ง');
+  });
+});
+
+describe('student work tracking', () => {
+  it('summarises submitted, late and waiting work per student', () => {
+    const students: Student[] = [
+      { ...base, id: 'st1', profileId: null, studentCode: '001', displayName: 'สมชาย', avatarIndex: 0, avatarConfig: null, avatarId: null, avatarPhotoId: null, status: 'active' },
+      { ...base, id: 'st2', profileId: null, studentCode: '002', displayName: 'มาลี', avatarIndex: 1, avatarConfig: null, avatarId: null, avatarPhotoId: null, status: 'active' }
+    ];
+    const snapshot = {
+      ...emptySnapshot,
+      classes: [{ ...base, id: 'c1', academicTermId: 'term-1', name: 'ป.4/1', gradeLevel: 'ป.4', capacity: 40, status: 'active' as const }],
+      students,
+      enrollments: students.map((student) => ({ ...base, id: `en-${student.id}`, studentId: student.id, classId: 'c1', academicTermId: 'term-1', status: 'active' as const, enrolledAt: base.createdAt, leftAt: null })),
+      assignments: [work({ id: 'w1', dueAt: '2026-09-10T09:00:00.000Z' }), work({ id: 'w2', dueAt: '2026-09-20T09:00:00.000Z' })],
+      submissions: [submission({ id: 's1', assignmentId: 'w1', studentId: 'st1', status: 'late', isLate: true, submittedAt: '2026-09-11T09:00:00.000Z' }), submission({ id: 's2', assignmentId: 'w2', studentId: 'st1', status: 'submitted', submittedAt: '2026-09-19T09:00:00.000Z' })]
+    };
+    const rows = studentTrackingFor(snapshot, 'c1', new Date('2026-09-12T09:00:00.000Z'));
+    expect(rows[0]).toMatchObject({ submitted: 2, late: 1, waiting: 0, bucket: 'attention', completionRate: 100 });
+    expect(rows[1]).toMatchObject({ submitted: 0, overdue: 1, waiting: 2, bucket: 'attention', completionRate: 0 });
   });
 });
 

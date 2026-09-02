@@ -1,5 +1,6 @@
-// Client half of name + password access for teachers and parents.
+// Client half of the simple managed-member access flows.
 //
+// Teachers use the name + code created by an administrator. Parents use name + password.
 // Everything here is shaping and phrasing. Authority lives in the `member-access` Edge Function:
 // this module never decides that an account exists, only how to ask and how to say no. Every
 // rejection collapses into the same sentence, so the screen cannot be used to work out whether the
@@ -8,6 +9,7 @@
 import { requireSupabase } from '../../services/supabase';
 
 export const MEMBER_ACCESS_GENERIC_MESSAGE = 'ชื่อหรือรหัสผ่านไม่ถูกต้อง';
+export const MEMBER_REGISTRATION_FAILED_MESSAGE = 'สร้างบัญชีผู้ปกครองไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองใหม่อีกครั้ง';
 export const MEMBER_PASSWORD_MINIMUM = 8;
 
 export function isValidRecoveryEmail(value: string): boolean {
@@ -15,7 +17,7 @@ export function isValidRecoveryEmail(value: string): boolean {
   return email.length <= 320 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-export type MemberRole = 'teacher' | 'parent';
+export type MemberRole = 'teacher' | 'student' | 'parent' | 'admin';
 
 export interface MemberSessionTokens {
   accessToken: string;
@@ -110,7 +112,7 @@ export function interpretMemberAccessResponse(payload: unknown, status: number):
     return { outcome: 'error', locked: true, message: `พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารออีก ${minutes} นาที` };
   }
   if (code === 'MEMBER_REGISTRATION_INVALID') {
-    return { outcome: 'error', message: `กรุณากรอกชื่อ นามสกุล อีเมลกู้คืน และรหัสผ่านอย่างน้อย ${MEMBER_PASSWORD_MINIMUM} ตัวอักษร` };
+    return { outcome: 'error', message: `กรุณากรอกชื่อ นามสกุล โรงเรียน อีเมลกู้คืน และรหัสผ่านอย่างน้อย ${MEMBER_PASSWORD_MINIMUM} ตัวอักษร` };
   }
   if (code === 'SCHOOL_NOT_AVAILABLE') {
     return { outcome: 'error', message: 'ไม่พบโรงเรียนที่เลือก กรุณาเลือกใหม่อีกครั้ง' };
@@ -118,10 +120,19 @@ export function interpretMemberAccessResponse(payload: unknown, status: number):
   if (code === 'TEACHER_CODE_REQUIRED') {
     return { outcome: 'error', message: 'กรุณากรอกรหัสสำหรับครูที่ได้รับจากผู้ดูแลโรงเรียน' };
   }
+  if (code === 'TEACHER_ADMIN_ONLY') {
+    return { outcome: 'error', message: 'บัญชีครูต้องให้ผู้ดูแลโรงเรียนสร้างให้ ครูไม่ต้องสมัครเอง' };
+  }
   // Wrong, revoked, expired and used-up codes arrive here as one answer, because the server does not
   // say which. The message names the person who can fix any of them.
   if (code === 'TEACHER_CODE_INVALID') {
     return { outcome: 'error', message: 'รหัสสำหรับครูใช้ไม่ได้กับโรงเรียนนี้ อาจหมดอายุหรือถูกยกเลิกแล้ว กรุณาขอรหัสใหม่จากผู้ดูแลโรงเรียน' };
+  }
+  if (code === 'MEMBER_EMAIL_EXISTS') {
+    return { outcome: 'error', message: 'อีเมลนี้มีบัญชีอยู่แล้ว กรุณากลับไปเข้าสู่ระบบด้วยชื่อและรหัสผ่านเดิม หรือใช้เมนูลืมรหัสผ่าน' };
+  }
+  if (code === 'MEMBER_REGISTRATION_FAILED') {
+    return { outcome: 'error', message: MEMBER_REGISTRATION_FAILED_MESSAGE };
   }
 
   const session = body.session as { accessToken?: string; refreshToken?: string } | undefined;
@@ -171,6 +182,18 @@ export async function memberLogin(input: {
   });
 }
 
+/** A managed teacher signs in with the exact name + code saved by the school administrator. */
+export async function teacherLogin(input: {
+  displayName: string; teacherCode: string; teacherId?: string;
+}): Promise<MemberAccessResult> {
+  return accessCall({
+    action: 'teacher-login',
+    displayName: normalizeMemberName(input.displayName),
+    teacherCode: normalizeAccessCode(input.teacherCode),
+    ...(input.teacherId ? { teacherId: input.teacherId } : {})
+  });
+}
+
 /**
  * First registration for a teacher. The school's own access code is what authorises it — this call
  * carries the code, and the server, not this screen, decides whether it is a real one.
@@ -188,12 +211,12 @@ export async function registerTeacher(input: {
 }
 
 export async function registerParent(input: {
-  firstName: string; lastName: string; password: string; recoveryEmail: string;
+  firstName: string; lastName: string; password: string; recoveryEmail: string; schoolId: string;
 }): Promise<MemberAccessResult> {
   return accessCall({
     action: 'register-parent',
     firstName: normalizeMemberName(input.firstName), lastName: normalizeMemberName(input.lastName),
-    password: input.password, recoveryEmail: input.recoveryEmail.trim().toLowerCase()
+    password: input.password, recoveryEmail: input.recoveryEmail.trim().toLowerCase(), schoolId: input.schoolId
   });
 }
 
@@ -212,10 +235,10 @@ export async function registerOwner(input: {
 }
 
 /** A parent types one thing — their child's real name — and gets back cards, never data. */
-export async function searchChildren(childName: string): Promise<ChildCandidate[]> {
+export async function searchChildren(schoolId: string, childName: string): Promise<ChildCandidate[]> {
   if (normalizeMemberName(childName).length < 2) return [];
   try {
-    const { data } = await call({ action: 'children-search', childName: normalizeMemberName(childName) });
+    const { data } = await call({ action: 'children-search', schoolId, childName: normalizeMemberName(childName) });
     const rows = (data as { children?: ChildCandidate[] } | null)?.children ?? [];
     return rows;
   } catch {

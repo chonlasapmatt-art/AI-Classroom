@@ -15,6 +15,7 @@ import {
   difficultyLabels, listBankQuestions, listQuestionCategories,
   type BankQuestion, type QuestionCategory
 } from '../questions/questionBank';
+import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 
 const LENGTHS = [5, 10, 15, 20];
 const TIMERS: { value: string; label: string }[] = [
@@ -31,10 +32,12 @@ const TIMERS: { value: string; label: string }[] = [
  * mean a teacher standing in front of a class navigating between pages to see the board.
  */
 export function QuizChallengePage() {
-  const { membership, mode } = useSession();
+  const { membership } = useSession();
   const snapshot = useSchoolSnapshot();
   const schoolId = membership.schoolId;
   const isStaff = membership.role === 'admin' || membership.role === 'teacher';
+  const ownedSubjectIds = teacherOwnedSubjectIds(snapshot, membership.profileId);
+  const canManageQuiz = membership.role === 'admin' || ownedSubjectIds.size > 0;
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [board, setBoard] = useState<QuizBoard | null>(null);
@@ -46,9 +49,9 @@ export function QuizChallengePage() {
   const [busy, setBusy] = useState(false);
 
   const refreshHistory = useCallback(async () => {
-    if (mode !== 'cloud' || !isStaff) return;
+    if (!isStaff) return;
     try { setHistory(await recentQuizSessions(schoolId, 10)); } catch { /* history is a convenience */ }
-  }, [isStaff, mode, schoolId]);
+  }, [isStaff, schoolId]);
 
   useEffect(() => { void refreshHistory(); }, [refreshHistory]);
 
@@ -80,14 +83,6 @@ export function QuizChallengePage() {
     finally { setBusy(false); }
   }
 
-  if (mode !== 'cloud') {
-    return (
-      <Card>
-        <CardHeader title="Quiz Challenge" description="ใช้ได้เฉพาะเมื่อเชื่อมต่อระบบจริง" />
-        <EmptyState title="โหมดตัวอย่างเล่นกิจกรรมไม่ได้" description="กิจกรรมนี้ต้องมีนักเรียนเข้าร่วมจากเครื่องของตัวเอง" />
-      </Card>
-    );
-  }
   if (!isStaff) {
     return (
       <Card>
@@ -114,13 +109,18 @@ export function QuizChallengePage() {
       {error && <ErrorState message={error} onRetry={() => setError(null)} />}
 
       {!sessionId ? (
-        <QuizSetup
-          schoolId={schoolId}
-          onStarted={(id) => { setSessionId(id); setResults(null); setMessage(null); }}
-          onError={setError}
-          history={history}
-          onOpen={(id) => { setSessionId(id); setResults(null); }}
-        />
+        canManageQuiz ? (
+          <QuizSetup
+            schoolId={schoolId}
+            editableSubjectIds={ownedSubjectIds}
+            onStarted={(id) => { setSessionId(id); setResults(null); setMessage(null); }}
+            onError={setError}
+            history={history}
+            onOpen={(id) => { setSessionId(id); setResults(null); }}
+          />
+        ) : (
+          <Card><EmptyState title="โหมดดูอย่างเดียว" description="เปิด Quiz Challenge ได้เฉพาะครูเจ้าของวิชา หรือผู้ดูแลโรงเรียน" /></Card>
+        )
       ) : (
         <>
           {!board ? <Skeleton lines={6} /> : (
@@ -145,18 +145,22 @@ export function QuizChallengePage() {
 
 // ---------------------------------------------------------------------------
 
-function QuizSetup({ schoolId, onStarted, onError, history, onOpen }: {
+function QuizSetup({ schoolId, editableSubjectIds, onStarted, onError, history, onOpen }: {
   schoolId: string;
+  editableSubjectIds: Set<string>;
   onStarted(sessionId: string): void;
   onError(message: string): void;
   history: QuizSessionSummary[];
   onOpen(sessionId: string): void;
 }) {
   const snapshot = useSchoolSnapshot();
-  const classes = activeClasses(snapshot);
+  const classes = activeClasses(snapshot).filter((classroom) =>
+    editableSubjectIds.size > 0 && snapshot.classTeachers.some((link) =>
+      link.classId === classroom.id && link.subjectId && editableSubjectIds.has(link.subjectId))
+  );
   const subjects = useMemo(
-    () => snapshot.subjects.filter((subject) => subject.status === 'active'),
-    [snapshot.subjects]
+    () => snapshot.subjects.filter((subject) => subject.status === 'active' && editableSubjectIds.has(subject.id)),
+    [editableSubjectIds, snapshot.subjects]
   );
 
   const [classId, setClassId] = useState('');

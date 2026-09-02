@@ -6,8 +6,9 @@ import type { AvatarAnimation, AvatarConfig } from '../../domain/types';
  * A student either keeps the deterministic look derived from their avatarIndex, or picks their own
  * combination in the Avatar Studio, which is stored in `students.avatarConfig`.
  */
-export type AvatarThemeId = 'science' | 'coder' | 'reader' | 'athlete' | 'artist' | 'leader' | 'musician' | 'explorer';
+export type AvatarThemeId = 'science' | 'coder' | 'reader' | 'athlete' | 'artist' | 'leader' | 'musician' | 'explorer' | 'cat' | 'fox' | 'panda' | 'bunny' | 'penguin';
 export type AvatarProp = 'flask' | 'laptop' | 'book' | 'ball' | 'palette' | 'badge' | 'note' | 'compass';
+export type AvatarAnimal = 'cat' | 'fox' | 'panda' | 'bunny' | 'penguin';
 
 export interface AvatarTheme {
   id: AvatarThemeId;
@@ -17,17 +18,24 @@ export interface AvatarTheme {
   soft: string;
   accent: string;
   prop: AvatarProp;
+  kind: 'person' | 'animal';
+  animal?: AvatarAnimal;
 }
 
 export const avatarThemes: AvatarTheme[] = [
-  { id: 'science', name: 'สายวิทยาศาสตร์', description: 'ชอบตั้งคำถามและทดลอง', primary: '#0f766e', soft: '#ccfbef', accent: '#22d3ee', prop: 'flask' },
-  { id: 'coder', name: 'โปรแกรมเมอร์', description: 'สนุกกับการเขียนโค้ดและแก้บั๊ก', primary: '#4930d1', soft: '#e8e1ff', accent: '#a5b4fc', prop: 'laptop' },
-  { id: 'reader', name: 'นักอ่าน', description: 'อ่านจบเล่มแล้วเล่าให้เพื่อนฟัง', primary: '#b45309', soft: '#fef1d6', accent: '#fbbf24', prop: 'book' },
-  { id: 'athlete', name: 'นักกีฬา', description: 'พลังงานเต็มร้อยทุกคาบพละ', primary: '#c2410c', soft: '#ffe6d5', accent: '#fb923c', prop: 'ball' },
-  { id: 'artist', name: 'สายศิลปะ', description: 'มองโลกเป็นสีสันเสมอ', primary: '#be185d', soft: '#ffe4f0', accent: '#f9a8d4', prop: 'palette' },
-  { id: 'leader', name: 'ผู้นำห้องเรียน', description: 'ดูแลเพื่อนและช่วยครูเสมอ', primary: '#2765d7', soft: '#dbe9ff', accent: '#93c5fd', prop: 'badge' },
-  { id: 'musician', name: 'นักดนตรี', description: 'มีจังหวะอยู่ในหัวตลอดเวลา', primary: '#7c3aed', soft: '#efe6ff', accent: '#c4b5fd', prop: 'note' },
-  { id: 'explorer', name: 'นักสำรวจ', description: 'อยากรู้ว่าอีกฝั่งของแผนที่มีอะไร', primary: '#4d7c0f', soft: '#e8f7cf', accent: '#a3e635', prop: 'compass' }
+  { id: 'science', name: 'สายวิทยาศาสตร์', description: 'ชอบตั้งคำถามและทดลอง', primary: '#0f766e', soft: '#ccfbef', accent: '#22d3ee', prop: 'flask', kind: 'person' },
+  { id: 'coder', name: 'โปรแกรมเมอร์', description: 'สนุกกับการเขียนโค้ดและแก้บั๊ก', primary: '#4930d1', soft: '#e8e1ff', accent: '#a5b4fc', prop: 'laptop', kind: 'person' },
+  { id: 'reader', name: 'นักอ่าน', description: 'อ่านจบเล่มแล้วเล่าให้เพื่อนฟัง', primary: '#b45309', soft: '#fef1d6', accent: '#fbbf24', prop: 'book', kind: 'person' },
+  { id: 'athlete', name: 'นักกีฬา', description: 'พลังงานเต็มร้อยทุกคาบพละ', primary: '#c2410c', soft: '#ffe6d5', accent: '#fb923c', prop: 'ball', kind: 'person' },
+  { id: 'artist', name: 'สายศิลปะ', description: 'มองโลกเป็นสีสันเสมอ', primary: '#be185d', soft: '#ffe4f0', accent: '#f9a8d4', prop: 'palette', kind: 'person' },
+  { id: 'leader', name: 'ผู้นำห้องเรียน', description: 'ดูแลเพื่อนและช่วยครูเสมอ', primary: '#2765d7', soft: '#dbe9ff', accent: '#93c5fd', prop: 'badge', kind: 'person' },
+  { id: 'musician', name: 'นักดนตรี', description: 'มีจังหวะอยู่ในหัวตลอดเวลา', primary: '#7c3aed', soft: '#efe6ff', accent: '#c4b5fd', prop: 'note', kind: 'person' },
+  { id: 'explorer', name: 'นักสำรวจ', description: 'อยากรู้ว่าอีกฝั่งของแผนที่มีอะไร', primary: '#4d7c0f', soft: '#e8f7cf', accent: '#a3e635', prop: 'compass', kind: 'person' },
+  { id: 'cat', name: 'แมวขี้เล่น', description: 'น่ารัก คล่องแคล่ว และชอบค้นพบสิ่งใหม่', primary: '#f59e0b', soft: '#fff4cf', accent: '#fb7185', prop: 'ball', kind: 'animal', animal: 'cat' },
+  { id: 'fox', name: 'จิ้งจอกนักผจญภัย', description: 'ฉลาด เท่ และพร้อมออกสำรวจ', primary: '#ea580c', soft: '#ffeadf', accent: '#fbbf24', prop: 'compass', kind: 'animal', animal: 'fox' },
+  { id: 'panda', name: 'แพนด้านุ่มนิ่ม', description: 'ใจดี มีสมาธิ และรักการเรียนรู้', primary: '#334155', soft: '#e8edf4', accent: '#94a3b8', prop: 'book', kind: 'animal', animal: 'panda' },
+  { id: 'bunny', name: 'กระต่ายสายครีเอทีฟ', description: 'สดใส อ่อนโยน และชอบสร้างสรรค์', primary: '#db2777', soft: '#ffe4f1', accent: '#f9a8d4', prop: 'palette', kind: 'animal', animal: 'bunny' },
+  { id: 'penguin', name: 'เพนกวินสุดคูล', description: 'เป็นมิตร มั่นใจ และไม่กลัวความหนาว', primary: '#2563eb', soft: '#dcecff', accent: '#67e8f9', prop: 'note', kind: 'animal', animal: 'penguin' }
 ];
 
 /** Extra shirt palettes, applied on top of the theme colour. */

@@ -1,4 +1,4 @@
-import { attendanceSummary, classIdOfStudent, rosterFor, scorePolicyFrom, standingsFor } from '../../data/selectors';
+import { attendanceDailySummary, classIdOfStudent, rosterFor, scorePolicyFrom, standingsFor } from '../../data/selectors';
 import type { SchoolSnapshot } from '../../data/schoolRepository';
 
 export type ReportId = 'student' | 'class' | 'attendance' | 'score' | 'grade' | 'missing' | 'at-risk';
@@ -42,7 +42,7 @@ export function buildReport(id: ReportId, snapshot: SchoolSnapshot, classId: str
         id, title, columns: ['ห้องเรียน', 'ระดับชั้น', 'จำนวนนักเรียน', 'อัตราเข้าเรียน (%)', 'งานที่เผยแพร่'],
         rows: snapshot.classes.map((item) => [
           item.name, item.gradeLevel, rosterFor(snapshot, item.id).length,
-          attendanceSummary(snapshot, { classId: item.id }).presentRate,
+          attendanceDailySummary(snapshot, { classId: item.id }).presentRate,
           snapshot.assignments.filter((assignment) => assignment.classId === item.id && assignment.status !== 'draft').length
         ])
       };
@@ -51,7 +51,7 @@ export function buildReport(id: ReportId, snapshot: SchoolSnapshot, classId: str
       return {
         id, title, columns: ['รหัสนักเรียน', 'ชื่อ-สกุล', 'มา', 'สาย', 'ขาด', 'ลา', 'อัตราเข้าเรียน (%)'],
         rows: roster.map((student) => {
-          const summary = attendanceSummary(snapshot, { studentId: student.id });
+          const summary = attendanceDailySummary(snapshot, { studentId: student.id });
           return [student.studentCode, student.displayName, summary.present, summary.late, summary.absent, summary.leave, summary.presentRate];
         })
       };
