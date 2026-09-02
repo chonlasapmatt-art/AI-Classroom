@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../app/AuthContext';
+import { isCompleteMemberLogin, memberLogin, type MemberAccountChoice } from '../features/auth/memberAccess';
 import { isCloudConfigured } from '../services/supabase';
 import { Button, Card, CardHeader, Field } from '../ui/components';
 import { ChangelogPage } from './ChangelogPage';
@@ -23,14 +24,7 @@ const sections: { to: string; label: string; end: boolean }[] = [
   { to: '/platform', label: 'Flags และ Releases', end: false }
 ];
 
-/**
- * The development door: the platform code plus the display name to save for the operator.
- *
- * It is shown only in a development build, and it only works against a server that was separately
- * opted in — the endpoint behind it is its own deployable that a production project does not deploy.
- * The card says all of that on its face, because a shortcut that looks like a normal way in is how
- * a shortcut ends up in production.
- */
+/** The development door, kept available only when the deployment explicitly opts into it. */
 function DevSignIn() {
   const auth = useAuth();
   const [accessCode, setAccessCode] = useState('');
@@ -76,22 +70,58 @@ function DevSignIn() {
 }
 
 /**
- * Legacy name/password sign-in is intentionally no longer rendered. The only public entry is the
- * development code form above; this component is kept out of the route so no second login surface
- * can return by accident in the console shell.
- *
- * Name and password, through the same gateway as every other entrance in the product — not because
- * the console needs to look consistent, but because an email address is not something an operator
- * has. Accounts created through the private owner entry carry a generated internal address that
- * nobody is ever shown, so a screen asking for an email would be asking for something that does not
- * exist. The name directory already resolves an `admin` identity under the staff role, so this
- * reuses that rather than opening a second way in.
- *
- * Signing in successfully grants nothing here. What makes somebody an operator is a row in
- * `platform_admins`, which this screen cannot create and the server will not infer from a name.
+ * Production entry: sign in with the existing administrator account, then let the server decide
+ * whether that account is a platform operator. Authentication and platform authority are separate;
+ * a successful password check alone never opens the console.
  */
 function OperatorSignIn() {
-  return <main className="setup-page">{isDevSignInAvailable && <DevSignIn />}</main>;
+  const auth = useAuth();
+  const [displayName, setDisplayName] = useState('');
+  const [password, setPassword] = useState('');
+  const [accounts, setAccounts] = useState<MemberAccountChoice[]>([]);
+  const [profileId, setProfileId] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(null);
+    try {
+      const result = await memberLogin({ role: 'admin', displayName, password, ...(profileId ? { profileId } : {}) });
+      if (result.outcome === 'session') { await auth.applySession(result.session); return; }
+      if (result.outcome === 'account-required') {
+        setAccounts(result.accounts);
+        setError('มีบัญชีแอดมินชื่อนี้มากกว่าหนึ่งโรงเรียน กรุณาเลือกโรงเรียน');
+      } else setError(result.message);
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <main className="setup-page">
+      <form className="configuration-card" onSubmit={(event) => void submit(event)}>
+        <span className="eyebrow">PLATFORM OPERATIONS</span>
+        <h1>เข้าสู่ Super Admin</h1>
+        <p>ใช้ชื่อและรหัสผ่านของบัญชีแอดมินที่มีอยู่แล้ว ระบบจะตรวจสิทธิ์ผู้ดูแลแพลตฟอร์มจากเซิร์ฟเวอร์</p>
+        <Field label="ชื่อแอดมิน">
+          <input autoComplete="username" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="ชื่อที่แอดมินกำหนดไว้" required />
+        </Field>
+        <Field label="รหัสผ่าน">
+          <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านแอดมิน" required />
+        </Field>
+        {accounts.length > 0 && (
+          <Field label="โรงเรียน">
+            <select value={profileId} onChange={(event) => setProfileId(event.target.value)} required>
+              <option value="">เลือกโรงเรียน</option>
+              {accounts.map((account) => <option key={account.profileId} value={account.profileId}>{account.schoolName}</option>)}
+            </select>
+          </Field>
+        )}
+        {error && <div className="alert error" role="alert">{error}</div>}
+        <Button variant="primary" loading={busy} disabled={!isCompleteMemberLogin(displayName, password)}>เข้าสู่ระบบ</Button>
+        <p className="fine-print">บัญชีทั่วไปจะเข้าสู่ศูนย์นี้ไม่ได้ แม้มีชื่อและรหัสผ่านถูกต้อง</p>
+      </form>
+      {isDevSignInAvailable && <DevSignIn />}
+    </main>
+  );
 }
 
 /**
