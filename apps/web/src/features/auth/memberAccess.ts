@@ -264,16 +264,30 @@ export async function searchChildren(schoolId: string, childName: string): Promi
   }
 }
 
-export async function linkChild(studentId: string, relationship?: string): Promise<ChildLinkResult | null> {
-  try {
-    const { data, status } = await call({
-      action: 'children-link', studentId, ...(relationship ? { relationship } : {})
-    });
-    if (status >= 400 || !data) return null;
-    return data as ChildLinkResult;
-  } catch {
-    return null;
+/** What a refused link means, in words a parent can act on rather than "ไม่สำเร็จ". */
+const childLinkMessages: Record<string, string> = {
+  AUTH_REQUIRED: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่',
+  MEMBER_ACCESS_DENIED: 'บัญชีผู้ปกครองนี้ยังใช้เชื่อมบัญชีไม่ได้ กรุณาติดต่อโรงเรียน',
+  CHILD_NOT_AVAILABLE: 'นักเรียนคนนี้ไม่พร้อมให้เชื่อมแล้ว กรุณาตรวจสอบกับคุณครู',
+  MEMBER_ACCESS_LOCKED: 'ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่'
+};
+
+/**
+ * Links the signed-in parent to one child, and says why when it will not.
+ *
+ * This used to answer `null` for every refusal — an expired session, an account the school has not
+ * finished setting up and a child who has left all produced the same "เชื่อมบัญชีไม่สำเร็จ", which is
+ * not something a parent can do anything about.
+ */
+export async function linkChild(studentId: string, relationship?: string): Promise<ChildLinkResult> {
+  const { data, status } = await call({
+    action: 'children-link', studentId, ...(relationship ? { relationship } : {})
+  });
+  if (status >= 400 || !data) {
+    const code = String((data as { code?: unknown } | null)?.code ?? '');
+    throw new Error(childLinkMessages[code] ?? 'เชื่อมบัญชีไม่สำเร็จ กรุณาลองใหม่');
   }
+  return data as ChildLinkResult;
 }
 
 export async function requestMemberPasswordReset(input: { role: MemberRole; displayName: string }): Promise<void> {

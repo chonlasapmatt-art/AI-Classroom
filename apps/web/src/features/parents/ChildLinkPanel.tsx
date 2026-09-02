@@ -70,13 +70,14 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
     setBusy(true); setMessage(null);
     try {
       const result = await linkChild(candidate.studentId);
-      if (!result) { setMessage('เชื่อมบัญชีไม่สำเร็จ กรุณาลองใหม่'); return; }
       setMessage(result.status === 'linked'
         ? `เชื่อมบัญชีกับ ${result.displayName} เรียบร้อยแล้ว`
         : `ส่งคำขอเชื่อมบัญชีกับ ${result.displayName} แล้ว รอคุณครูอนุมัติ`);
       setCandidates(null); setChildName(''); setAdding(false);
       await reload();
       onChanged?.();
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'เชื่อมบัญชีไม่สำเร็จ กรุณาลองใหม่');
     } finally { setBusy(false); }
   }
 

@@ -494,7 +494,12 @@ Deno.serve(async (request) => {
       });
       if (error) {
         await recordAttempt({ action, identityHash, succeeded: false, failureReason: 'rejected', profileId: actor });
-        return json({ code: GENERIC_FAILURE }, 403, headers);
+        // The two refusals this can carry are both about the caller's own account or a child they
+        // were just shown, so naming them tells a parent nothing they could not already see — and
+        // "เชื่อมบัญชีไม่สำเร็จ" with no reason is how this failed silently for everyone.
+        const reason = String((error as { message?: string }).message ?? '');
+        const code = reason.includes('CHILD_NOT_AVAILABLE') ? 'CHILD_NOT_AVAILABLE' : GENERIC_FAILURE;
+        return json({ code }, 403, headers);
       }
       await recordAttempt({ action, identityHash, succeeded: true, profileId: actor });
       return json(data, 201, headers);

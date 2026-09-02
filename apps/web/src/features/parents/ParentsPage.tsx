@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { attendanceDailySummary, classIdOfStudent, consentedStudents, privacyPolicyFrom, standingsFor } from '../../data/selectors';
@@ -8,6 +8,7 @@ import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 import { requireSupabase } from '../../services/supabase';
 import { ChildLinkPanel } from './ChildLinkPanel';
+import { ParentRequestsPanel } from './ParentRequestsPanel';
 
 type PasswordTarget = {
   profileId: string | null;
@@ -23,20 +24,37 @@ function sameName(left: string, right: string): boolean {
   return reduce(left) === reduce(right) && reduce(left).length > 0;
 }
 
+/**
+ * One relationship, as the server holds it.
+ *
+ * The administrator's screen used to read these out of the local projection, which is a copy that
+ * arrives when a sync runs. A relationship created seconds ago on this screen is not in it yet, so
+ * the row an administrator had just saved came back with no children and no buttons — the work
+ * looked lost. The list is read from the server for the same reason it is written there.
+ */
+type ManagedLink = {
+  linkId: string;
+  studentId: string;
+  relationship: string;
+  status: string;
+  consented: boolean;
+};
+
 type ManagedParent = {
   id: string;
   profileId: string | null;
   parentName: string;
   contact: string;
   status: string;
-  childIds: string[];
+  links: ManagedLink[];
 };
 
 async function loadManagedParents(schoolId: string): Promise<ManagedParent[]> {
   const client = requireSupabase();
   const load = () => Promise.all([
     client.from('parents').select('id,profile_id,display_name,phone,status').eq('school_id', schoolId).order('display_name'),
-    client.from('parent_student_links').select('parent_id,student_id,status,deleted_at').eq('school_id', schoolId)
+    client.from('parent_student_links')
+      .select('id,parent_id,student_id,relationship,status,consent_id,deleted_at').eq('school_id', schoolId)
   ]);
   let [{ data: parents, error: parentsError }, { data: links, error: linksError }] = await load();
   const expired = [parentsError, linksError].some((error) => (error as { status?: number } | null)?.status === 401);
@@ -45,12 +63,20 @@ async function loadManagedParents(schoolId: string): Promise<ManagedParent[]> {
     if (!refreshError) [{ data: parents, error: parentsError }, { data: links, error: linksError }] = await load();
   }
   if (parentsError || linksError) throw parentsError ?? linksError;
-  const childIdsByParent = new Map<string, string[]>();
-  for (const link of (links ?? []) as { parent_id: string; student_id: string; status: string; deleted_at: string | null }[]) {
-    if (link.deleted_at || link.status === 'revoked') continue;
-    const childIds = childIdsByParent.get(link.parent_id) ?? [];
-    childIds.push(link.student_id);
-    childIdsByParent.set(link.parent_id, childIds);
+  const linksByParent = new Map<string, ManagedLink[]>();
+  const linkRows = (links ?? []) as {
+    id: string; parent_id: string; student_id: string; relationship: string | null;
+    status: string; consent_id: string | null; deleted_at: string | null;
+  }[];
+  for (const link of linkRows) {
+    if (link.deleted_at) continue;
+    const rows = linksByParent.get(link.parent_id) ?? [];
+    rows.push({
+      linkId: link.id, studentId: link.student_id,
+      relationship: link.relationship ?? 'ผู้ปกครอง', status: link.status,
+      consented: Boolean(link.consent_id)
+    });
+    linksByParent.set(link.parent_id, rows);
   }
   return ((parents ?? []) as { id: string; profile_id: string | null; display_name: string; phone: string | null; status: string }[])
     .map((parent) => ({
@@ -59,7 +85,7 @@ async function loadManagedParents(schoolId: string): Promise<ManagedParent[]> {
       parentName: parent.display_name,
       contact: parent.phone ?? '',
       status: parent.status,
-      childIds: childIdsByParent.get(parent.id) ?? []
+      links: linksByParent.get(parent.id) ?? []
     }));
 }
 
@@ -86,33 +112,101 @@ export function ParentsPage() {
     return () => { cancelled = true; };
   }, [canManageAccounts, membership.schoolId, mode]);
 
-  const parentRows = useMemo(() => {
+  type ParentRow = {
+    key: string; parentName: string; profileId: string | null; contact: string;
+    childNames: string[]; links: ManagedLink[]; status: string;
+  };
+
+  const nameOfStudent = useCallback(
+    (studentId: string) => snapshot.students.find((student) => student.id === studentId)?.displayName ?? '',
+    [snapshot.students]
+  );
+
+  const parentRows = useMemo<ParentRow[]>(() => {
     if (mode === 'cloud' && canManageAccounts) {
-      return managedParents.map((parent) => {
-        const links = snapshot.parentLinks.filter((link) => link.profileId === parent.profileId);
-        return {
-          key: parent.id,
-          parentName: parent.parentName,
-          profileId: parent.profileId,
-          contact: parent.contact,
-          childNames: parent.childIds.map((studentId) => snapshot.students.find((student) => student.id === studentId)?.displayName).filter((name): name is string => Boolean(name)),
-          links,
-          status: parent.status
-        };
-      });
+      return managedParents.map((parent) => ({
+        key: parent.id,
+        parentName: parent.parentName,
+        profileId: parent.profileId,
+        contact: parent.contact,
+        childNames: parent.links
+          .filter((link) => link.status !== 'revoked')
+          .map((link) => nameOfStudent(link.studentId))
+          .filter((name) => Boolean(name)),
+        links: parent.links,
+        status: parent.status
+      }));
     }
-    const grouped = new Map<string, { key: string; parentName: string; profileId: string | null; contact: string; childNames: string[]; links: typeof snapshot.parentLinks; status: string }>();
+    const grouped = new Map<string, ParentRow>();
     for (const link of snapshot.parentLinks) {
       const key = link.profileId ?? `${link.parentName}|${link.contact}`;
       const row = grouped.get(key) ?? { key, parentName: link.parentName, profileId: link.profileId, contact: link.contact, childNames: [], links: [], status: link.status };
-      const student = snapshot.students.find((item) => item.id === link.studentId);
-      if (student && !row.childNames.includes(student.displayName)) row.childNames.push(student.displayName);
-      row.links.push(link);
+      const name = nameOfStudent(link.studentId);
+      if (name && !row.childNames.includes(name)) row.childNames.push(name);
+      row.links.push({
+        linkId: link.id, studentId: link.studentId, relationship: link.relationship,
+        status: link.status, consented: Boolean(link.consentGrantedAt)
+      });
       if (link.status === 'linked') row.status = 'linked';
       grouped.set(key, row);
     }
     return Array.from(grouped.values());
-  }, [canManageAccounts, managedParents, mode, snapshot]);
+  }, [canManageAccounts, managedParents, mode, nameOfStudent, snapshot.parentLinks]);
+
+  const refreshParents = useCallback(async () => {
+    if (mode !== 'cloud' || !canManageAccounts) return;
+    setManagedParents(await loadManagedParents(membership.schoolId));
+  }, [canManageAccounts, membership.schoolId, mode]);
+
+  /**
+   * Attaches one more child to a guardian who already exists.
+   *
+   * The create-account form is the only other way to make this relationship, and it asks for a
+   * password — so a sibling meant re-entering credentials for an account that already had them.
+   */
+  async function linkChild(parentId: string, studentId: string, relationship: string) {
+    if (!studentId) return;
+    setBusy(true);
+    try {
+      const { error } = await requireSupabase().rpc('admin_link_parent_child', {
+        p_school_id: membership.schoolId, p_parent_id: parentId, p_student_id: studentId,
+        p_relationship: relationship.trim() || 'ผู้ปกครอง'
+      });
+      if (error) throw new Error(error.message);
+      await refreshParents();
+      setMessage(`เชื่อมกับ ${nameOfStudent(studentId) || 'นักเรียน'} แล้ว`);
+    } catch (reason) {
+      setMessage(reason instanceof Error ? `เชื่อมนักเรียนไม่สำเร็จ (${reason.message})` : 'เชื่อมนักเรียนไม่สำเร็จ');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setConsent(link: ManagedLink, granted: boolean) {
+    setBusy(true);
+    try {
+      await repository.setParentConsent(link.linkId, granted, privacy.policyVersion);
+      await refreshParents();
+      setMessage(granted ? 'บันทึกความยินยอมแล้ว' : 'ถอนความยินยอมแล้ว');
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'ไม่สำเร็จ');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unlink(link: ManagedLink) {
+    setBusy(true);
+    try {
+      await repository.revokeParentLink(link.linkId);
+      await refreshParents();
+      setMessage('ยกเลิกการเชื่อมบัญชีแล้ว');
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'ไม่สำเร็จ');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function activate(parentId: string) {
     try {
@@ -266,35 +360,55 @@ export function ParentsPage() {
                 </div>
                 {canManageAccounts && mode === 'cloud' && (
                   <div className="record-actions">
-                    <button className="secondary-button" onClick={() => void activate(row.key)}>ยืนยันไอดี</button>
+                    <button className="secondary-button" disabled={busy} onClick={() => void activate(row.key)}>ยืนยันไอดี</button>
+                    <button className="text-button" onClick={() => setPasswordParent({ profileId: row.profileId, parentName: row.parentName, studentId: '', relationship: 'ผู้ปกครอง', contact: row.contact })}>
+                      {row.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชีเข้าใช้'}
+                    </button>
                   </div>
                 )}
                 {row.links.map((link) => canManageAccounts && link.status !== 'revoked' && (
-                  <div className="record-actions" key={link.id}>
-                    <span className="hint">{link.relationship} · {link.consentGrantedAt ? `ยินยอมแล้ว (${new Date(link.consentGrantedAt).toLocaleDateString('th-TH')})` : 'ยังไม่ยินยอม'}</span>
-                    <button
-                      className="secondary-button"
-                      onClick={() => void repository.setParentConsent(link.id, !link.consentGrantedAt, privacy.policyVersion)
-                        .then(() => setMessage(link.consentGrantedAt ? 'ถอนความยินยอมแล้ว' : 'บันทึกความยินยอมแล้ว'))
-                        .catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'ไม่สำเร็จ'))}
-                    >
-                      {link.consentGrantedAt ? 'ถอนความยินยอม' : 'บันทึกความยินยอม'}
+                  <div className="record-actions" key={link.linkId}>
+                    <span className="hint">
+                      {nameOfStudent(link.studentId) || 'นักเรียน'} · {link.relationship} · {link.consented ? 'ยินยอมแล้ว' : 'ยังไม่ยินยอม'}
+                    </span>
+                    <button className="secondary-button" disabled={busy} onClick={() => void setConsent(link, !link.consented)}>
+                      {link.consented ? 'ถอนความยินยอม' : 'บันทึกความยินยอม'}
                     </button>
-                    <button className="text-button" onClick={() => void repository.revokeParentLink(link.id).then(() => setMessage('ยกเลิกการเชื่อมบัญชีแล้ว')).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'ไม่สำเร็จ'))}>ยกเลิกการเชื่อม</button>
-                    {canManageAccounts && <button className="text-button" onClick={() => setPasswordParent(link)}>{link.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชีเข้าใช้'}</button>}
+                    <button className="text-button" disabled={busy} onClick={() => void unlink(link)}>ยกเลิกการเชื่อม</button>
                   </div>
                 ))}
-                {canManageAccounts && row.links.length === 0 && row.profileId && (
-                  <div className="record-actions">
-                    <span className="hint">บัญชีพร้อมใช้งาน รอผู้ปกครองผูกนักเรียน</span>
-                    <button className="text-button" onClick={() => setPasswordParent({ profileId: row.profileId, parentName: row.parentName, studentId: '', relationship: 'ผู้ปกครอง', contact: row.contact })}>เปลี่ยนรหัสผ่าน</button>
-                  </div>
+                {canManageAccounts && mode === 'cloud' && (
+                  // Attaching a second child used to mean filling in the create-account form again,
+                  // password and all, for an account that already had one.
+                  <form
+                    className="record-actions"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const data = new FormData(event.currentTarget);
+                      void linkChild(row.key, String(data.get('studentId') ?? ''), String(data.get('relationship') ?? ''));
+                      event.currentTarget.reset();
+                    }}
+                  >
+                    <select name="studentId" defaultValue="" aria-label={`เชื่อมนักเรียนกับ ${row.parentName}`} required>
+                      <option value="">เพิ่มนักเรียนที่ดูแล...</option>
+                      {snapshot.students
+                        .filter((student) => !row.links.some((link) => link.studentId === student.id && link.status !== 'revoked'))
+                        .map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
+                    </select>
+                    <input name="relationship" placeholder="ความสัมพันธ์ เช่น มารดา" aria-label="ความสัมพันธ์" />
+                    <button className="secondary-button" disabled={busy}>เชื่อมนักเรียน</button>
+                  </form>
                 )}
               </li>
             );
           })}
         </ul>
       </section>
+
+      {/* A guardian who adds a child by name is a claim, and this is where staff answer it. The panel
+          existed and was never rendered, so every one of those requests waited for a screen that was
+          not in the application. */}
+      {mode === 'cloud' && <ParentRequestsPanel schoolId={membership.schoolId} />}
 
       {passwordParent && canManageAccounts && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ตั้งรหัสผ่านผู้ปกครอง">
