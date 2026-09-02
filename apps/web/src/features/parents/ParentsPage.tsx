@@ -26,10 +26,16 @@ type ManagedParent = {
 
 async function loadManagedParents(schoolId: string): Promise<ManagedParent[]> {
   const client = requireSupabase();
-  const [{ data: parents, error: parentsError }, { data: links, error: linksError }] = await Promise.all([
+  const load = () => Promise.all([
     client.from('parents').select('id,profile_id,display_name,phone,status').eq('school_id', schoolId).order('display_name'),
     client.from('parent_student_links').select('parent_id,student_id,status,deleted_at').eq('school_id', schoolId)
   ]);
+  let [{ data: parents, error: parentsError }, { data: links, error: linksError }] = await load();
+  const expired = [parentsError, linksError].some((error) => (error as { status?: number } | null)?.status === 401);
+  if (expired) {
+    const { error: refreshError } = await client.auth.refreshSession();
+    if (!refreshError) [{ data: parents, error: parentsError }, { data: links, error: linksError }] = await load();
+  }
   if (parentsError || linksError) throw parentsError ?? linksError;
   const childIdsByParent = new Map<string, string[]>();
   for (const link of (links ?? []) as { parent_id: string; student_id: string; status: string; deleted_at: string | null }[]) {

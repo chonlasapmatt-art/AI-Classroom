@@ -2,13 +2,26 @@ import { requireSupabase } from '../../services/supabase';
 
 export type ManagedAccountRole = 'teacher' | 'student' | 'parent';
 
+/**
+ * A long-open admin tab can hold an expired access token while Supabase still has a refresh token.
+ * Refresh once on a gateway 401 so an otherwise valid admin does not lose a form submission.
+ */
+async function invokeAdminAccount(body: Record<string, unknown>) {
+  const client = requireSupabase();
+  let result = await client.functions.invoke('admin-account', { body });
+  const context = (result.error as { context?: Response } | null)?.context;
+  if (result.error && context?.status === 401) {
+    const { error: refreshError } = await client.auth.refreshSession();
+    if (!refreshError) result = await client.functions.invoke('admin-account', { body });
+  }
+  return result;
+}
+
 export async function provisionManagedAccount(input: {
   schoolId: string; role: ManagedAccountRole; recordId: string; studentId?: string;
   displayName: string; password: string; relationship?: string; phone?: string;
 }): Promise<{ profileId: string; parentId?: string | null; linkId?: string | null }> {
-  const { data, error } = await requireSupabase().functions.invoke('admin-account', {
-    body: { action: 'provision', ...input }
-  });
+  const { data, error } = await invokeAdminAccount({ action: 'provision', ...input });
   if (error) {
     const context = (error as { context?: Response }).context;
     const parsed = context && typeof context.json === 'function' ? await context.json().catch(() => null) as Record<string, unknown> | null : null;
@@ -32,8 +45,6 @@ export async function provisionManagedAccount(input: {
 export async function setManagedAccountPassword(input: {
   schoolId: string; role: ManagedAccountRole; profileId: string; password: string;
 }): Promise<void> {
-  const { error } = await requireSupabase().functions.invoke('admin-account', {
-    body: { action: 'set-password', ...input }
-  });
+  const { error } = await invokeAdminAccount({ action: 'set-password', ...input });
   if (error) throw new Error('เปลี่ยนรหัสผ่านไม่สำเร็จ');
 }

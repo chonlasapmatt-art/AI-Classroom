@@ -42,9 +42,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadMemberships = useCallback(async (next: Session | null) => {
     if (!supabase || !next) { setMemberships([]); return; }
-    const { data, error: queryError } = await supabase.from('school_memberships')
+    const load = (session: Session) => supabase!.from('school_memberships')
       .select('id, school_id, profile_id, role, status, active_from, active_until, schools(name), user_profiles(display_name)')
-      .eq('profile_id', next.user.id).eq('status', 'active');
+      .eq('profile_id', session.user.id).eq('status', 'active');
+    let { data, error: queryError } = await load(next);
+    if (queryError && (queryError as { status?: number }).status === 401) {
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (!refreshError && refreshed.session) {
+        next = refreshed.session;
+        setSession(next);
+        ({ data, error: queryError } = await load(next));
+      }
+    }
     if (queryError) throw queryError;
     const real = (data ?? []).map((row) => mapMembership(row as unknown as Record<string, unknown>));
 
