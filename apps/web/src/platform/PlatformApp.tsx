@@ -24,19 +24,28 @@ const sections: { to: string; label: string; end: boolean }[] = [
   { to: '/platform', label: 'Flags และ Releases', end: false }
 ];
 
+const PLATFORM_OPERATOR_DEVICE_KEY = 'platform-operator-name-saved';
+
 /** The development door, kept available only when the deployment explicitly opts into it. */
 function DevSignIn() {
   const auth = useAuth();
   const [accessCode, setAccessCode] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [needsDisplayName, setNeedsDisplayName] = useState(
+    () => localStorage.getItem(PLATFORM_OPERATOR_DEVICE_KEY) !== 'true'
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(null);
     try {
-      await auth.applySession(await devSignIn(accessCode, displayName));
+      await auth.applySession(await devSignIn(accessCode, needsDisplayName ? displayName : undefined));
+      localStorage.setItem(PLATFORM_OPERATOR_DEVICE_KEY, 'true');
     } catch (reason) {
+      if (reason instanceof PlatformError && reason.code === 'PLATFORM_DISPLAY_NAME_REQUIRED') {
+        setNeedsDisplayName(true);
+      }
       setError(reason instanceof PlatformError ? reason.message : 'เข้าสู่ระบบไม่สำเร็จ');
     } finally { setBusy(false); }
   }
@@ -46,15 +55,15 @@ function DevSignIn() {
       <span className="eyebrow">DEVELOPMENT ONLY</span>
       <h2>เข้าด้วยรหัสสิทธิ์อย่างเดียว</h2>
       <p className="field-hint">
-        ทางลัดสำหรับเครื่องนักพัฒนา ใช้ได้เฉพาะเซิร์ฟเวอร์ที่เปิด PLATFORM_DEV_SIGN_IN ไว้
-        ชื่อที่กรอกจะถูกบันทึกเป็นชื่อแสดงของผู้ดูแลแพลตฟอร์มที่มีอยู่แล้ว ไม่สร้างบัญชีและไม่เพิ่มสิทธิ์ให้ใคร
+        ครั้งแรกของเครื่องนี้กรอกชื่อเพื่อบันทึกเป็นชื่อแสดงของผู้ดูแลที่มีอยู่แล้ว
+        ครั้งถัดไปใช้เฉพาะรหัสสิทธิ์ได้ ชื่อในเครื่องนี้ไม่ใช่สิทธิ์การเข้าถึงและไม่สร้างบัญชีใหม่
       </p>
-      <Field label="ชื่อผู้ดูแล" hint="ตั้งชื่อได้ตามต้องการ และระบบจะบันทึกไว้ในบัญชี">
+      {needsDisplayName ? <Field label="ชื่อผู้ดูแล" hint="ตั้งชื่อได้ตามต้องการ และระบบจะบันทึกไว้ในบัญชี">
         <input
           autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)}
           placeholder="เช่น ผู้ดูแลระบบ Smart Classroom" required
         />
-      </Field>
+      </Field> : <div className="field-hint">เครื่องนี้เคยบันทึกชื่อผู้ดูแลแล้ว ระบบจะใช้ชื่อเดิมจากเซิร์ฟเวอร์</div>}
       <Field label="รหัสสิทธิ์">
         <input
           type="password" autoComplete="one-time-code" value={accessCode}
@@ -63,7 +72,7 @@ function DevSignIn() {
         />
       </Field>
       {error && <div className="alert error" role="alert">{error}</div>}
-      <Button variant="primary" loading={busy} disabled={accessCode.length < 4 || displayName.trim().length < 1}>เข้าใช้งาน</Button>
+      <Button variant="primary" loading={busy} disabled={accessCode.length < 4 || (needsDisplayName && displayName.trim().length < 1)}>เข้าใช้งาน</Button>
       <p className="fine-print">ทุกครั้งที่เข้าทางนี้จะถูกบันทึกไว้ในบันทึกความปลอดภัยของแพลตฟอร์ม</p>
     </form>
   );

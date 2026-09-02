@@ -199,9 +199,11 @@ describe('the development sign-in', () => {
   it('saves the operator display name without using it as authority', () => {
     expect(devGateway).toContain('body.displayName');
     expect(devGateway).toContain("from('user_profiles')");
-    expect(devGateway).toContain('display_name: displayName');
+    expect(devGateway).toContain('const displayName = suppliedDisplayName ||');
+    expect(devGateway).toContain('display_name: suppliedDisplayName');
     expect(consoleApp).toContain('ชื่อผู้ดูแล');
-    expect(consoleApp).toContain('devSignIn(accessCode, displayName)');
+    expect(consoleApp).toContain('devSignIn(accessCode, needsDisplayName ? displayName : undefined)');
+    expect(consoleApp).toContain('PLATFORM_OPERATOR_DEVICE_KEY');
     // Production now has a separate existing-admin password form. The development shortcut still
     // uses a one-time platform code and never persists a password.
     expect(consoleApp).toContain('autoComplete="current-password"');

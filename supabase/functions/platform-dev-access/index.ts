@@ -51,7 +51,11 @@ Deno.serve(async (request) => {
   const url = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const expected = Deno.env.get('PLATFORM_ADMIN_CODE_HASH')?.trim().toLowerCase();
+  // Keep the operator code server-side. ADMIN_ACCESS_CODE_HASH is the production name used by
+  // the owner's deployment; the older name remains a compatibility fallback.
+  const expected = (Deno.env.get('ADMIN_ACCESS_CODE_HASH')?.trim()
+    || Deno.env.get('PLATFORM_ADMIN_CODE_HASH')?.trim()
+    || '').toLowerCase();
   if (!url || !anonKey || !serviceKey || !expected || !/^[a-f0-9]{64}$/.test(expected)) {
     return json({ code: 'SERVER_CONFIGURATION_ERROR' }, 503, headers);
   }
@@ -80,11 +84,7 @@ Deno.serve(async (request) => {
 
   try {
     const body = await request.json() as Record<string, unknown>;
-    const displayName = String(body.displayName ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
-    if (!displayName) {
-      await record(false);
-      return json({ code: GENERIC_FAILURE }, 400, headers);
-    }
+    const suppliedDisplayName = String(body.displayName ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
     const supplied = await sha256(String(body.accessCode ?? '').trim());
     if (!constantTimeEqual(supplied, expected)) {
       await record(false);
@@ -105,12 +105,22 @@ Deno.serve(async (request) => {
     }
 
     // The name is profile data, not authority. The code still has to match and the target must be
-    // an active platform operator before this update is allowed. Saving it server-side means the
-    // chosen name is available to the Operations Center and survives a new browser session.
-    const { error: profileError } = await service.from('user_profiles')
-      .update({ display_name: displayName, updated_at: new Date().toISOString() })
-      .eq('id', target);
-    if (profileError) return json({ code: GENERIC_FAILURE }, 400, headers);
+    // an active platform operator. The first device may provide a display name; later visits can
+    // omit it and reuse the server-saved name. The local device flag is only a UI hint.
+    const { data: profile, error: profileReadError } = await service.from('user_profiles')
+      .select('display_name').eq('id', target).maybeSingle();
+    if (profileReadError) return json({ code: GENERIC_FAILURE }, 400, headers);
+    const displayName = suppliedDisplayName || String(profile?.display_name ?? '').trim();
+    if (!displayName) {
+      await record(false);
+      return json({ code: 'PLATFORM_DISPLAY_NAME_REQUIRED' }, 400, headers);
+    }
+    if (suppliedDisplayName) {
+      const { error: profileError } = await service.from('user_profiles')
+        .update({ display_name: suppliedDisplayName, updated_at: new Date().toISOString() })
+        .eq('id', target);
+      if (profileError) return json({ code: GENERIC_FAILURE }, 400, headers);
+    }
 
     const { data: account } = await service.auth.admin.getUserById(target);
     const email = account?.user?.email;

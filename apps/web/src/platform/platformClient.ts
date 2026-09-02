@@ -274,6 +274,7 @@ export const isDevSignInAvailable: boolean =
 const devSignInMessages: Record<string, string> = {
   PLATFORM_DEV_SIGN_IN_DISABLED: 'เซิร์ฟเวอร์นี้ปิดการเข้าสู่ระบบแบบนักพัฒนาไว้',
   SERVER_CONFIGURATION_ERROR: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสแพลตฟอร์ม กรุณาตั้ง PLATFORM_ADMIN_CODE_HASH ก่อน',
+  PLATFORM_DISPLAY_NAME_REQUIRED: 'การเข้าเครื่องนี้ครั้งแรกต้องกรอกชื่อผู้ดูแล',
   PLATFORM_NO_OPERATOR: 'ยังไม่มีผู้ดูแลแพลตฟอร์มในระบบ กรุณาเข้าด้วยชื่อกับรหัสผ่านแล้วยืนยันสิทธิ์ก่อน',
   PLATFORM_OPERATOR_AMBIGUOUS: 'มีผู้ดูแลแพลตฟอร์มมากกว่าหนึ่งคน ต้องระบุ PLATFORM_DEV_OPERATOR ที่เซิร์ฟเวอร์',
   PLATFORM_ACCESS_LOCKED: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที',
@@ -287,9 +288,9 @@ const devSignInMessages: Record<string, string> = {
  * hash enrolment uses, so this screen decides nothing — it is a shortcut past typing a name and a
  * password on a development machine, not a shortcut past authorisation.
  */
-export async function devSignIn(accessCode: string, displayName: string): Promise<{ accessToken: string; refreshToken: string }> {
+export async function devSignIn(accessCode: string, displayName?: string): Promise<{ accessToken: string; refreshToken: string }> {
   const { data, error } = await requireSupabase().functions.invoke('platform-dev-access', {
-    body: { accessCode, displayName: displayName.trim() }
+    body: { accessCode, ...(displayName?.trim() ? { displayName: displayName.trim() } : {}) }
   });
   if (error) {
     const context = (error as { context?: Response }).context;
