@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
+import { Icon } from '../../ui/Icon';
 import {
   Badge, Button, Card, CardHeader, EmptyState, ErrorState, Field, PageHeader, Skeleton, Stat, Toolbar
 } from '../../ui/components';
 import { QuestionEditor } from './QuestionEditor';
+import { QuestionImportPanel } from './QuestionImportPanel';
 import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 import {
   archiveBankQuestion, difficultyLabels, difficultyTone, duplicateDraft, emptyDraft,
@@ -38,6 +40,7 @@ export function QuestionBankPage() {
   const [editorError, setEditorError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showCategories, setShowCategories] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const subjects = useMemo(
     () => [...snapshot.subjects].filter((subject) => subject.status === 'active')
@@ -133,12 +136,23 @@ export function QuestionBankPage() {
             {canEditBank && <Button onClick={() => setShowCategories((value) => !value)}>
               {showCategories ? 'ซ่อนหมวดหมู่' : 'จัดการหมวดหมู่'}
             </Button>}
+            {canEditBank && <Button onClick={() => setImporting(true)}>นำเข้าจากไฟล์</Button>}
             {canEditBank && <Button variant="primary" onClick={() => { setEditorError(null); setDraft(emptyDraft(filter.subjectId ?? editableSubjects[0]?.id ?? null)); }}>
               เพิ่มคำถาม
             </Button>}
           </>
         }
       />
+
+      {importing && (
+        <QuestionImportPanel
+          schoolId={schoolId}
+          subjects={editableSubjects}
+          categories={categories}
+          onClose={() => setImporting(false)}
+          onImported={(summary) => { setMessage(summary); void load(); }}
+        />
+      )}
 
       {message && <div className="alert success" role="status">{message}</div>}
       {error && <ErrorState message={error} onRetry={() => void load()} />}
@@ -306,7 +320,7 @@ export function QuestionBankPage() {
         </div>
       ) : (
         <EmptyState
-          icon="✎"
+          icon={<Icon name="edit" size={28} />}
           title={filter.status === 'archived' ? 'ไม่มีคำถามที่เก็บไว้' : 'ยังไม่มีคำถามที่ตรงเงื่อนไข'}
           description="ลองล้างตัวกรอง หรือกด “เพิ่มคำถาม” เพื่อเริ่มสร้างคลังของโรงเรียน"
           action={canEditBank && <Button variant="primary" onClick={() => setDraft(emptyDraft(filter.subjectId ?? editableSubjects[0]?.id ?? null))}>เพิ่มคำถาม</Button>}
@@ -411,8 +425,8 @@ function CategoryManager({ schoolId, categories, subjects, onChanged, onMessage 
                 </span>
               </div>
               <div className="category-actions">
-                <Button size="sm" variant="ghost" disabled={busy || index === 0} onClick={() => void move(category, -1)} aria-label="เลื่อนขึ้น">↑</Button>
-                <Button size="sm" variant="ghost" disabled={busy || index === ordered.length - 1} onClick={() => void move(category, 1)} aria-label="เลื่อนลง">↓</Button>
+                <Button size="sm" variant="ghost" disabled={busy || index === 0} onClick={() => void move(category, -1)} aria-label="เลื่อนขึ้น"><Icon name="arrow-up" size={14} /></Button>
+                <Button size="sm" variant="ghost" disabled={busy || index === ordered.length - 1} onClick={() => void move(category, 1)} aria-label="เลื่อนลง"><Icon name="arrow-down" size={14} /></Button>
                 <Button
                   size="sm" disabled={busy}
                   onClick={() => {
