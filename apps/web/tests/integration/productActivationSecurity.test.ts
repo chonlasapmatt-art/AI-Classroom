@@ -164,3 +164,31 @@ describe('retrying a half-finished provision', () => {
     }
   });
 });
+
+/**
+ * The key verified and the school still could not be created. Two `bootstrap_school_owner`
+ * functions existed, the six-argument one carried a default, and its own call to the five-argument
+ * one matched both — so Postgres refused it as ambiguous and the customer was told to re-check a
+ * product key that had already been accepted.
+ */
+describe('creating the school the key paid for', () => {
+  const overloadMigration = read('supabase/migrations/202609030004_school_bootstrap_is_one_function.sql');
+
+  it('leaves exactly one way to call the school bootstrap', () => {
+    expect(overloadMigration).toContain('drop function if exists public.bootstrap_school_owner(uuid,text,text,text,text,text)');
+    // No default on the display name: that default is what made a five-argument call ambiguous.
+    expect(overloadMigration).toMatch(/p_display_name text\s*\n\) returns uuid/);
+    expect(overloadMigration).not.toMatch(/p_display_name text default/);
+  });
+
+  it('keeps the rebuilt bootstrap callable only by the trusted gateway', () => {
+    expect(overloadMigration).toMatch(/revoke all on function public\.bootstrap_school_owner\(uuid,text,text,text,text,text\) from public,anon,authenticated/);
+    expect(overloadMigration).toMatch(/grant execute on function public\.bootstrap_school_owner\(uuid,text,text,text,text,text\) to service_role/);
+  });
+
+  it('says what the database refused instead of blaming the key', () => {
+    expect(adminAccess).toMatch(/failureCode === 'SETUP_REJECTED' \? String\(setupError\.message/);
+    expect(activationClient).toContain('IDENTITY_NOT_FOUND');
+    expect(activationClient).toMatch(/reason \? `\$\{message\} \(\$\{reason\}\)` : message/);
+  });
+});

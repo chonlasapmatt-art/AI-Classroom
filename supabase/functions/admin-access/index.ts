@@ -165,7 +165,13 @@ Deno.serve(async (request) => {
         actor_profile_id: actorId, fingerprint_hash: fingerprintHash, succeeded: false,
         failure_reason: failureCode
       });
-      return json({ code: failureCode }, failureCode === 'AUTH_REQUIRED' ? 401 : 400, headers);
+      // `SETUP_REJECTED` is the bucket every refusal without a name falls into, and on its own it
+      // sent one customer back to re-check a product key that had already verified. The database's
+      // own words go with it: the person reading them is activating their own server, and the
+      // alternative is a message that describes the wrong step.
+      const reason = failureCode === 'SETUP_REJECTED' ? String(setupError.message ?? '').slice(0, 200) : '';
+      return json({ code: failureCode, ...(reason ? { reason } : {}) },
+        failureCode === 'AUTH_REQUIRED' ? 401 : 400, headers);
     }
 
     // Spent only now. A key spent before the school existed would be gone for good the first time a

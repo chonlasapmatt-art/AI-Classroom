@@ -26,6 +26,7 @@ const messages: Record<string, string> = {
   PRODUCT_KEY_FAILED: 'สร้างคีย์ผลิตภัณฑ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
   PRODUCT_KEY_UNREADABLE: 'เปิดคีย์เดิมของบัญชีนี้ไม่ได้ เพราะคีย์ลับของเซิร์ฟเวอร์ถูกเปลี่ยน กรุณาติดต่อผู้ดูแลระบบ',
   ACTION_NOT_SUPPORTED: 'เซิร์ฟเวอร์รุ่นนี้ยังไม่รองรับขั้นตอนนี้ กรุณาอัปเดตเซิร์ฟเวอร์แล้วลองใหม่',
+  IDENTITY_NOT_FOUND: 'บัญชีนี้ยังไม่มีข้อมูลผู้ใช้ในระบบ กรุณาสมัครบัญชีผู้ดูแลใหม่แล้วลองอีกครั้ง',
   SETUP_REJECTED: 'ตั้งค่าโรงเรียนไม่สำเร็จ กรุณาตรวจข้อมูลและรหัสเปิดใช้งาน'
 };
 
@@ -45,11 +46,16 @@ async function call(body: Record<string, unknown>): Promise<Record<string, unkno
   if (error) {
     const context = (error as { context?: Response }).context;
     const parsed = context && typeof context.json === 'function'
-      ? await context.json().catch(() => null) as { code?: string } | null
+      ? await context.json().catch(() => null) as { code?: string; reason?: string } | null
       : null;
     const rawMessage = String((error as { message?: string }).message ?? '');
     const code = parsed?.code ?? knownCodes.find((known) => rawMessage.includes(known)) ?? 'SETUP_REJECTED';
-    throw new SchoolSetupError(code, messages[code] ?? messages.SETUP_REJECTED!);
+    // A refusal the gateway could not name carries the database's own words. They are not pretty and
+    // they are the difference between a customer re-checking a key that was never the problem and
+    // one who can say what actually failed.
+    const reason = typeof parsed?.reason === 'string' ? parsed.reason.trim() : '';
+    const message = messages[code] ?? messages.SETUP_REJECTED!;
+    throw new SchoolSetupError(code, reason ? `${message} (${reason})` : message);
   }
   return (data ?? {}) as Record<string, unknown>;
 }
