@@ -3,6 +3,7 @@ import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import { useTheme } from '../../app/ThemeContext';
 import { isCompleteMemberLogin, memberLogin, type MemberAccountChoice } from './memberAccess';
+import { PasswordInput } from '../../ui/components';
 
 /** A separate, deliberately quiet entrance for the school administrator. */
 export function AdminLoginPage() {
@@ -48,7 +49,7 @@ export function AdminLoginPage() {
           </label>
           <label>
             รหัสผ่าน
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านศูนย์ควบคุม" autoComplete="current-password" required />
+            <PasswordInput value={password} onChange={setPassword} placeholder="รหัสผ่านศูนย์ควบคุม" autoComplete="current-password" required />
           </label>
           {accounts.length > 0 && (
             <label>

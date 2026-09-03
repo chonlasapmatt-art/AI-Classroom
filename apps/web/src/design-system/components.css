@@ -21,19 +21,20 @@
 }
 .ui-button:active::after { opacity: 1; transition: opacity 60ms; }
 .ui-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
-.ui-button:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: none; }
-.ui-button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+.ui-button:active:not(:disabled) { transform: translateY(0) scale(0.97); box-shadow: none; transition-duration: 60ms; }
+.ui-button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ui-button:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: grayscale(0.2); }
 .ui-size-sm { min-height: var(--control-sm); padding: 0 var(--space-3); font-size: var(--text-xs); }
 .ui-size-lg { min-height: var(--control-lg); padding: 0 var(--space-5); font-size: var(--text-base); }
 
 .ui-button-primary { color: #fff; background: var(--brand-600); box-shadow: var(--shadow-xs); }
-.ui-button-primary:hover:not(:disabled) { background: var(--brand-700); }
+.ui-button-primary:hover:not(:disabled) { background: var(--brand-700); box-shadow: 0 4px 14px color-mix(in srgb, var(--brand-600) 28%, transparent); }
 .ui-button-secondary { color: var(--brand-700); background: var(--brand-50); border-color: var(--brand-100); }
-.ui-button-secondary:hover:not(:disabled) { background: var(--brand-100); }
+.ui-button-secondary:hover:not(:disabled) { background: var(--brand-100); border-color: var(--brand-200); }
 .ui-button-ghost { color: var(--ink-600); background: transparent; }
 .ui-button-ghost:hover:not(:disabled) { background: var(--surface-sunken); color: var(--ink-900); }
 .ui-button-danger { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
-.ui-button-danger:hover:not(:disabled) { background: #fbdde2; }
+.ui-button-danger:hover:not(:disabled) { background: #fbdde2; border-color: var(--danger); }
 
 .ui-icon-button {
   width: var(--control-sm); height: var(--control-sm); display: grid; place-items: center;
@@ -57,7 +58,7 @@
   transition: border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out),
     transform var(--duration-normal) var(--ease-spring);
 }
-.ui-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-md); transform: translateY(-3px); }
+.ui-card:hover { border-color: color-mix(in srgb, var(--brand-400) 30%, var(--line-strong)); box-shadow: var(--shadow-md); transform: translateY(-3px); }
 .ui-card-padded { padding: var(--space-5); }
 .ui-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .ui-card-header h2 { margin: 0; font-size: var(--text-md); font-weight: var(--weight-strong); }
@@ -94,11 +95,23 @@
   transition: border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out),
     transform var(--duration-normal) var(--ease-out);
 }
-.ui-stat:hover { border-color: var(--line-strong); box-shadow: var(--shadow-md); transform: translateY(-3px); }
-.ui-stat-grid > .ui-stat:nth-child(2), .platform-kpi-grid > .ui-stat:nth-child(2) { animation-delay: 45ms; }
-.ui-stat-grid > .ui-stat:nth-child(3), .platform-kpi-grid > .ui-stat:nth-child(3) { animation-delay: 90ms; }
-.ui-stat-grid > .ui-stat:nth-child(4), .platform-kpi-grid > .ui-stat:nth-child(4) { animation-delay: 135ms; }
+.ui-stat:hover { border-color: color-mix(in srgb, var(--brand-400) 25%, var(--line-strong)); box-shadow: var(--shadow-md); transform: translateY(-3px); }
+.ui-stat-grid > .ui-stat:nth-child(1) { animation-delay: 0ms; }
+.ui-stat-grid > .ui-stat:nth-child(2), .platform-kpi-grid > .ui-stat:nth-child(2) { animation-delay: 60ms; }
+.ui-stat-grid > .ui-stat:nth-child(3), .platform-kpi-grid > .ui-stat:nth-child(3) { animation-delay: 120ms; }
+.ui-stat-grid > .ui-stat:nth-child(4), .platform-kpi-grid > .ui-stat:nth-child(4) { animation-delay: 180ms; }
+.ui-stat-grid > .ui-stat:nth-child(5) { animation-delay: 240ms; }
+.ui-stat-grid > .ui-stat:nth-child(6) { animation-delay: 300ms; }
 .ui-stat:after { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: currentColor; opacity: .5; }
+.ui-stat-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+/* The icon repeats what the tone already says, in a channel that survives a monochrome screen. */
+.ui-stat-icon { flex: none; color: currentColor; opacity: .55; }
+.ui-stat-status {
+  display: inline-flex; align-self: flex-start; margin-top: var(--space-1);
+  padding: 2px var(--space-2); border-radius: var(--radius-pill);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: var(--text-xs); font-weight: var(--weight-strong);
+}
 .ui-stat-brand { color: var(--brand-600); }
 .ui-stat-success { color: var(--success); }
 .ui-stat-warning { color: var(--warning); }
@@ -134,6 +147,68 @@
 .ui-field-label { color: var(--ink-700); font-weight: var(--weight-strong); }
 .ui-field-hint { color: var(--ink-400); font-size: var(--text-xs); }
 .ui-field-message { color: var(--danger); font-size: var(--text-xs); }
+/* The hint line is reserved whether or not it holds anything, so an error appearing changes the
+   colour of one line instead of shifting every control below it down the page. */
+.ui-field-foot { display: block; min-height: 1.1em; }
+.ui-field-message {
+  display: inline-block;
+  animation: ui-field-message-in var(--motion-fast) var(--motion-ease) both;
+}
+@keyframes ui-field-message-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+.ui-field-label { display: flex; align-items: center; gap: var(--space-2); }
+.ui-field-status {
+  display: inline-flex; align-items: center; gap: 3px; margin-left: auto;
+  color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-medium);
+  animation: ui-field-message-in var(--motion-fast) var(--motion-ease) both;
+}
+.ui-field-status-saved { color: var(--color-success); }
+.ui-field-saved input, .ui-field-saved select, .ui-field-saved textarea {
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
+}
+/* Disabled has to look unavailable without looking broken: the surface recedes, the cursor says so,
+   and the text stays readable — a greyed value nobody can read is not a value. */
+.ui-field input:disabled, .ui-field select:disabled, .ui-field textarea:disabled {
+  background: var(--color-surface-sunken); color: var(--color-text-muted);
+  cursor: not-allowed; border-style: dashed;
+}
+.ui-field textarea { min-height: calc(var(--control-md) * 2); resize: vertical; }
+
+/* ---------- Password ---------- */
+.ui-password { position: relative; display: block; }
+.ui-password input { width: 100%; padding-right: calc(var(--control-sm) + var(--space-2)); }
+.ui-password-toggle {
+  position: absolute; top: 50%; right: var(--space-2); translate: 0 -50%;
+  width: var(--control-sm); height: var(--control-sm); display: grid; place-items: center;
+  border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted);
+  cursor: pointer; transition: color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
+}
+.ui-password-toggle:hover { color: var(--color-text-primary); background: var(--color-surface-sunken); }
+.ui-password-toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ui-password-toggle[aria-pressed="true"] { color: var(--color-primary); }
+
+/* ---------- Connection state ---------- */
+.ui-connection {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
+  border: 1px solid transparent; font-size: var(--text-sm);
+  animation: ui-field-message-in var(--motion-normal) var(--motion-ease) both;
+}
+.ui-connection-copy { display: grid; gap: 2px; min-width: 0; }
+.ui-connection-copy strong { font-weight: var(--weight-strong); }
+.ui-connection-copy span { color: inherit; opacity: .82; font-size: var(--text-xs); }
+.ui-connection-icon { flex: none; margin-top: 2px; }
+.ui-connection-offline, .ui-connection-queued {
+  color: var(--color-offline); background: var(--offline-soft); border-color: var(--offline-line);
+}
+.ui-connection-syncing { color: var(--syncing); background: var(--syncing-soft); border-color: var(--info-line); }
+/* The only moving part in the set, and only while something is genuinely in flight. */
+.ui-connection-syncing .ui-connection-icon { animation: ui-spin 1.1s linear infinite; }
+.ui-connection-synced { color: var(--synced); background: var(--success-soft); border-color: var(--success-line); }
+.ui-connection-conflict { color: var(--conflict); background: var(--conflict-soft); border-color: var(--warning-line); }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+.ui-empty-forbidden .ui-empty-icon { color: var(--color-text-muted); }
 .ui-field input, .ui-field select, .ui-field textarea {
   width: 100%; transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out),
     background var(--duration-fast) var(--ease-out);
@@ -171,6 +246,7 @@
 .ui-modal {
   width: min(560px, 100%); max-height: 88vh; overflow: auto; padding: var(--space-5);
   background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--shadow-lg);
+  border: 1px solid var(--line);
   animation: ui-pop var(--duration-slow) var(--ease-spring) both;
 }
 .ui-modal-actions .ui-button-primary { position: relative; }
@@ -205,6 +281,12 @@
 .ui-table td { padding: var(--space-3); border-bottom: 1px solid var(--line); vertical-align: middle; font-variant-numeric: tabular-nums lining-nums; }
 .ui-table tbody tr:last-child td { border-bottom: 0; }
 .ui-table tbody tr:hover { background: var(--surface-muted); }
+
+/* ---------- Icons ---------- */
+.ui-icon {
+  flex: none; display: inline-block; vertical-align: middle;
+  transition: color var(--duration-fast) var(--ease-out);
+}
 
 .ui-visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -321,10 +403,74 @@
 }
 .ui-search input {
   padding-left: calc(var(--space-3) + 1.4rem);
+  padding-right: calc(var(--space-3) + 1.6rem);
 }
+/* Appears only with something to clear, so the control is never a dead target. The browser's own
+   clear button on `type="search"` is Chrome-only and invisible under a finger, so it is hidden and
+   this one — a real 40px target — stands in for it everywhere. */
+.ui-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.ui-search-clear {
+  position: absolute; top: 50%; right: var(--space-2); translate: 0 -50%;
+  width: var(--control-sm); height: var(--control-sm); display: grid; place-items: center;
+  border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-text-muted);
+  cursor: pointer; transition: color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
+  animation: ui-field-message-in var(--motion-fast) var(--motion-ease) both;
+}
+.ui-search-clear:hover { color: var(--color-text-primary); background: var(--color-surface-sunken); }
+.ui-search-clear:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* The page transition lives in global.css, next to the per-child delays that stagger it. Defining
+   `page-enter` here as well produced two keyframes of the same name in one document, where the last
+   stylesheet loaded silently won — so editing the one here changed nothing and looked like a
+   caching problem. One name, one definition. */
+
+/* ---------- Stagger helper ---------- */
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 50ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 150ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(6) { animation-delay: 250ms; }
+
+/* ---------- Focus ring global ---------- */
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--brand-400) 60%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-400); }
+
+/* ---------- Dialogs on a phone ---------- */
+@media (max-width: 720px) {
+  /* A centred card on a 360px screen wastes the width it has and puts its actions under the thumb's
+     reach. A sheet from the bottom uses the whole width and lands the buttons where the hand is. */
+  .ui-modal-backdrop { place-items: end center; padding: 0; }
+  .ui-modal {
+    width: 100%; max-height: 92vh; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+    animation: ui-sheet-in var(--duration-slow) var(--ease-emphasized) both;
+  }
+  /* Full-width buttons in the order they are read, primary last so it sits nearest the thumb. */
+  .ui-modal-actions { flex-direction: column-reverse; }
+  .ui-modal-actions > * { width: 100%; }
+  .ui-drawer { width: 100%; }
+}
+@keyframes ui-sheet-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   .ui-button, .ui-card, .ui-stat, .ui-progress-track span, .ui-modal-backdrop, .ui-modal, .ui-skeleton span,
   .ui-segmented button, .platform-live-dot, .ui-tooltip-bubble,
-  .ui-toast, .ui-drawer, .ui-drawer-backdrop { transition: none; animation: none; }
+  .ui-toast, .ui-drawer, .ui-drawer-backdrop, .page-content > *,
+  .ui-field-message, .ui-field-status, .ui-search-clear, .ui-connection,
+  .ui-connection-syncing .ui-connection-icon { transition: none; animation: none; }
 }
+
+/* The growing textarea manages its own height, so the manual resize grip would fight it. Horizontal
+   resizing is disabled everywhere: a textarea dragged wider than its column breaks the form. */
+.ui-autotextarea { resize: none; overflow-y: auto; transition: height var(--motion-fast) var(--motion-ease); }
+@media (prefers-reduced-motion: reduce) { .ui-autotextarea { transition: none; } }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import { isCompleteMemberRegistration, registerOwner } from './memberAccess';
 import { AdminSchoolSetupPage } from './AdminSchoolSetupPage';
+import { PasswordInput } from '../../ui/components';
 
 /**
  * Private owner-only entry. No public screen links to this route.
@@ -41,8 +42,8 @@ export function OwnerAccessPage() {
             <label>ชื่อจริง<input value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="เช่น สมชาย" required /></label>
             <label>นามสกุล<input value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="เช่น ใจดี" required /></label>
           </div>
-          <label>รหัสผ่าน<input type="password" autoComplete="new-password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="อย่างน้อย 8 ตัวอักษร" required /></label>
-          <label>ยืนยันรหัสผ่าน<input type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="พิมพ์รหัสผ่านเดิมอีกครั้ง" required /></label>
+          <label>รหัสผ่าน<PasswordInput value={password} onChange={setPassword} autoComplete="new-password" placeholder="อย่างน้อย 8 ตัวอักษร" required /></label>
+          <label>ยืนยันรหัสผ่าน<PasswordInput value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="พิมพ์รหัสผ่านเดิมอีกครั้ง" required /></label>
           {error && <div className="alert error" role="alert">{error}</div>}
           <button className="primary-button" disabled={busy || !isCompleteMemberRegistration({ firstName, lastName, password, confirmPassword })}>
             {busy ? 'กำลังสร้างบัญชี...' : 'สร้างบัญชีและไปขั้นถัดไป'}

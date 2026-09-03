@@ -16,6 +16,7 @@ import {
   isCompleteMemberLogin, memberLogin, normalizeTeacherCode, teacherLogin, type MemberAccountChoice, type MemberRole
 } from './memberAccess';
 import { isCompleteStudentLogin, studentLogin, type SchoolChoice } from './studentAccess';
+import { PasswordInput } from '../../ui/components';
 
 type Who = Exclude<MemberRole, 'admin'>;
 
@@ -224,13 +225,22 @@ export function LoginPage() {
           <p className="field-hint" id="login-name-hint">ใช้ชื่อเดียวกับที่แอดมินบันทึกไว้ (ตัวพิมพ์เล็กใหญ่และเว้นวรรคไม่มีผล)</p>
           <label>
             {who === 'teacher' ? 'รหัสครู' : who === 'student' ? 'เลขประจำตัวนักเรียน' : 'รหัสผ่าน'}
-            <input
-              name={who === 'teacher' ? 'teacherCode' : who === 'student' ? 'studentCode' : 'password'}
-              type={who === 'parent' ? 'password' : 'text'}
-              autoComplete={who === 'parent' ? 'current-password' : 'off'} value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder={who === 'teacher' ? 'เช่น SC-001' : who === 'student' ? 'เช่น 00001' : 'รหัสผ่านของคุณ'} required
-            />
+            {/* A teacher code and a student number are not secrets — they are read off a printout
+                and typed, so masking them would only hide the typo. Only a parent's password is
+                masked, and that one gets the reveal. */}
+            {who === 'parent' ? (
+              <PasswordInput
+                name="password" value={password} onChange={setPassword}
+                autoComplete="current-password" placeholder="รหัสผ่านของคุณ" required
+              />
+            ) : (
+              <input
+                name={who === 'teacher' ? 'teacherCode' : 'studentCode'}
+                type="text" autoComplete="off" value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder={who === 'teacher' ? 'เช่น SC-001' : 'เช่น 00001'} required
+              />
+            )}
           </label>
           <p className="field-hint">
             {who === 'teacher' ? 'ใช้รหัสครูที่แอดมินบันทึกไว้ ไม่ใช่รหัสผ่าน' :

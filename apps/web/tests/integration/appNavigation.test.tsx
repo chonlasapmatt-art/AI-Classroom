@@ -7,6 +7,15 @@ import { disablePreviewMode, enablePreviewMode } from '../../src/preview/preview
 
 afterEach(() => { cleanup(); disablePreviewMode(); resetFixtureRepository(); });
 
+/*
+ * The full menu, as opposed to the phone's shortcut bar.
+ *
+ * Both are real navigation and both link to the same routes, so a document-wide query for a
+ * destination now legitimately finds two. These tests are about what the MENU offers a role, which
+ * is the sidebar; scoping says so instead of relying on there having been only one nav.
+ */
+const mainMenu = () => within(screen.getByRole('navigation', { name: 'เมนูหลัก' }));
+
 function renderApp(path = '/') {
   enablePreviewMode();
   return render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>);
@@ -54,10 +63,10 @@ describe('application shell and routes', () => {
   it('gives a student the notification centre and hides teacher-only navigation', async () => {
     renderApp();
     await switchRole('preview-student');
-    await waitFor(() => expect(screen.queryByRole('link', { name: /ครู/ })).not.toBeInTheDocument());
-    expect(screen.getByRole('link', { name: /การแจ้งเตือน/ })).toBeInTheDocument();
+    await waitFor(() => expect(mainMenu().queryByRole('link', { name: /ครู/ })).not.toBeInTheDocument());
+    expect(mainMenu().getByRole('link', { name: /การแจ้งเตือน/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('link', { name: /การแจ้งเตือน/ }));
+    fireEvent.click(mainMenu().getByRole('link', { name: /การแจ้งเตือน/ }));
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('การแจ้งเตือน'));
   });
 
@@ -81,7 +90,7 @@ describe('application shell and routes', () => {
   it('lets a student open the avatar picker from their own profile', async () => {
     renderApp();
     await switchRole('preview-student');
-    fireEvent.click(await screen.findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('โปรไฟล์'));
 
     fireEvent.click(screen.getByRole('button', { name: 'เปลี่ยน Avatar' }));
@@ -139,7 +148,7 @@ describe('application shell and routes', () => {
   it.each(['preview-admin', 'preview-teacher', 'preview-parent'])('lets %s customise an avatar', async (membershipId) => {
     renderApp();
     await switchRole(membershipId);
-    fireEvent.click(await screen.findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'เปลี่ยน Avatar' })).toBeInTheDocument());
   });
 

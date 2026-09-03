@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 import { Link } from 'react-router-dom';
 // `useToast` and the tone type live in ./toastContext, which is what a screen imports to raise one.
 import { ToastContext, type ToastTone } from './toastContext';
+import { Icon } from './Icon';
 
 /**
  * The shared building blocks every screen is made of.
@@ -82,22 +83,35 @@ export function Badge({ tone = 'neutral', children, subtle = true }: { tone?: To
   return <span className={`ui-badge ui-badge-${tone} ${subtle ? '' : 'ui-badge-solid'}`.trim()}>{children}</span>;
 }
 
-export function Stat({ label, value, hint, tone = 'brand' }: { label: ReactNode; value: ReactNode; hint?: ReactNode; tone?: Tone }) {
+/**
+ * `icon` and `status` are both optional and both do a job colour alone cannot.
+ *
+ * The tone already tints the tile, and a reader who cannot separate two hues gets nothing from that.
+ * The icon gives the number a shape, and `status` puts the judgement in words — "ต้องจัดการ" beside
+ * a red 4 is a different message from a red 4 on its own.
+ */
+export function Stat({ label, value, hint, tone = 'brand', icon, status }: {
+  label: ReactNode; value: ReactNode; hint?: ReactNode; tone?: Tone; icon?: ReactNode; status?: ReactNode;
+}) {
   return (
     <article className={`ui-stat ui-stat-${tone}`}>
-      <span className="ui-stat-label">{label}</span>
+      <span className="ui-stat-top">
+        <span className="ui-stat-label">{label}</span>
+        {icon && <span className="ui-stat-icon" aria-hidden="true">{icon}</span>}
+      </span>
       <strong className="ui-stat-value">{value}</strong>
+      {status && <span className="ui-stat-status">{status}</span>}
       {hint && <span className="ui-stat-hint">{hint}</span>}
     </article>
   );
 }
 
-export function EmptyState({ icon = '✦', title, description, action }: {
+export function EmptyState({ icon, title, description, action }: {
   icon?: ReactNode; title: ReactNode; description?: ReactNode; action?: ReactNode;
 }) {
   return (
     <div className="ui-empty">
-      <span className="ui-empty-icon" aria-hidden="true">{icon}</span>
+      <span className="ui-empty-icon" aria-hidden="true">{icon ?? <Icon name="star" size={28} />}</span>
       <h3>{title}</h3>
       {description && <p>{description}</p>}
       {action}
@@ -108,10 +122,69 @@ export function EmptyState({ icon = '✦', title, description, action }: {
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="ui-empty ui-empty-error" role="alert">
-      <span className="ui-empty-icon" aria-hidden="true">!</span>
+      <span className="ui-empty-icon" aria-hidden="true"><Icon name="warning" size={28} /></span>
       <h3>ไม่สามารถโหลดข้อมูลได้</h3>
       <p>{message}</p>
       {onRetry && <Button variant="secondary" onClick={onRetry}>ลองใหม่</Button>}
+    </div>
+  );
+}
+
+/**
+ * The refusal that is about authority rather than about failure.
+ *
+ * A page that shows "โหลดข้อมูลไม่สำเร็จ" when the real answer is "this is not yours to see" sends
+ * somebody to support with a bug report about a permission working correctly. The database decides;
+ * this only says so in words a person can act on.
+ */
+export function ForbiddenState({ message = 'คุณไม่มีสิทธิ์เข้าถึงข้อมูลส่วนนี้', hint }: {
+  message?: string; hint?: ReactNode;
+}) {
+  return (
+    <div className="ui-empty ui-empty-forbidden" role="status">
+      <span className="ui-empty-icon" aria-hidden="true"><Icon name="eye" size={28} /></span>
+      <h3>{message}</h3>
+      <p>{hint ?? 'บัญชีของคุณเห็นได้เฉพาะข้อมูลตามบทบาทที่โรงเรียนกำหนดไว้'}</p>
+    </div>
+  );
+}
+
+/**
+ * Where a change currently is, between this device and the server.
+ *
+ * These are not degrees of failure. This product is local-first: a mark written on a bus is saved,
+ * correctly and completely, and will reach the server later. Painting that state in the same red as
+ * a real error taught people that the normal case is a problem — so `offline` and `queued` are calm
+ * and only `conflict`, which genuinely needs a person to choose, raises its voice.
+ *
+ * Each state carries a word as well as a colour, because a colour alone is not a status for a reader
+ * who cannot separate two hues.
+ */
+export type ConnectionState = 'offline' | 'queued' | 'syncing' | 'synced' | 'conflict';
+
+const connectionCopy: Record<ConnectionState, { icon: 'sync' | 'check' | 'warning' | 'refresh'; label: string; detail: string }> = {
+  offline: { icon: 'sync', label: 'ออฟไลน์อยู่', detail: 'ยังทำงานต่อได้ตามปกติ ระบบจะซิงก์ให้เองเมื่อกลับมาออนไลน์' },
+  queued: { icon: 'sync', label: 'บันทึกไว้ในเครื่องแล้ว', detail: 'รอซิงก์เมื่อออนไลน์ · ข้อมูลไม่หายแม้ปิดแอป' },
+  syncing: { icon: 'refresh', label: 'กำลังซิงก์ข้อมูล', detail: 'กำลังส่งการเปลี่ยนแปลงขึ้นเซิร์ฟเวอร์' },
+  synced: { icon: 'check', label: 'ซิงก์สำเร็จ', detail: 'ข้อมูลบนเครื่องนี้ตรงกับเซิร์ฟเวอร์แล้ว' },
+  conflict: { icon: 'warning', label: 'ข้อมูลนี้มีการแก้ไขจากอีกเครื่อง', detail: 'กรุณาตรวจสอบและเลือกว่าจะเก็บฉบับใด' }
+};
+
+export function ConnectionBanner({ state, action }: { state: ConnectionState; action?: ReactNode }) {
+  const copy = connectionCopy[state];
+  return (
+    <div
+      className={`ui-connection ui-connection-${state}`}
+      // Announced politely: a teacher mid-sentence in a text field should learn that the queue
+      // drained without being interrupted to hear it.
+      role="status" aria-live="polite"
+    >
+      <span className="ui-connection-icon" aria-hidden="true"><Icon name={copy.icon} size={16} /></span>
+      <span className="ui-connection-copy">
+        <strong>{copy.label}</strong>
+        <span>{copy.detail}</span>
+      </span>
+      {action}
     </div>
   );
 }
@@ -124,13 +197,42 @@ export function Skeleton({ lines = 3, className = '' }: { lines?: number; classN
   );
 }
 
-export function Field({ label, hint, error, children }: { label: ReactNode; hint?: ReactNode; error?: ReactNode; children: ReactNode }) {
+/**
+ * `status` is the state of the WRITE, not of the field.
+ *
+ * "saving" while the request is in flight, "saved" only once the server has answered — never on
+ * optimistic hope. A field that says บันทึกแล้ว before the transaction committed teaches people to
+ * trust a message that is sometimes a lie, and they stop reading it at exactly the moment it
+ * matters. The mapping to the toast rule elsewhere in the product is deliberate: the same claim is
+ * made in the same place, once, and only when it is true.
+ */
+export type FieldStatus = 'idle' | 'saving' | 'saved';
+
+export function Field({ label, hint, error, status = 'idle', children }: {
+  label: ReactNode; hint?: ReactNode; error?: ReactNode; status?: FieldStatus; children: ReactNode;
+}) {
   return (
-    <label className={`ui-field ${error ? 'ui-field-error' : ''}`.trim()}>
-      <span className="ui-field-label">{label}</span>
+    <label className={`ui-field ${error ? 'ui-field-error' : ''} ${status === 'saved' ? 'ui-field-saved' : ''}`.trim()}>
+      <span className="ui-field-label">
+        {label}
+        {status === 'saving' && <span className="ui-field-status" role="status">กำลังบันทึก…</span>}
+        {status === 'saved' && (
+          <span className="ui-field-status ui-field-status-saved" role="status">
+            <Icon name="check" size={12} />บันทึกแล้ว
+          </span>
+        )}
+      </span>
       {children}
-      {hint && !error && <span className="ui-field-hint">{hint}</span>}
-      {error && <span className="ui-field-message">{error}</span>}
+      {/*
+        The hint and the message share one line that is always present, so a validation error
+        appearing does not push everything below it down the page. Layout that jumps under a reader
+        is how somebody clicks the row beneath the one they aimed at.
+      */}
+      <span className="ui-field-foot">
+        {error
+          ? <span className="ui-field-message" role="alert">{error}</span>
+          : hint && <span className="ui-field-hint">{hint}</span>}
+      </span>
     </label>
   );
 }
@@ -164,23 +266,78 @@ export function Segmented<T extends string>({ options, value, onChange, ariaLabe
   );
 }
 
+/**
+ * A dialog that actually behaves like one.
+ *
+ * Escape used to be handled by `onKeyDown` on the backdrop, which only fires when something inside
+ * already has focus — so a dialog opened by a click, with focus still on the button behind it,
+ * ignored the key. It is a window listener now.
+ *
+ * Focus is moved in on open and returned to whatever opened it on close, and Tab is wrapped so it
+ * cannot walk out into the page underneath. Without the wrap a keyboard user tabs off the last
+ * button straight into a form they cannot see, on top of which the backdrop is still catching every
+ * click — which reads as the application having frozen.
+ */
 export function Modal({ title, description, onClose, children, actions, wide }: {
   title: ReactNode; description?: ReactNode; onClose(): void; children?: ReactNode; actions?: ReactNode; wide?: boolean;
 }) {
+  const panel = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const focusable = () => [...(panel.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ) ?? [])].filter((node) => node.offsetParent !== null || node === document.activeElement);
+
+    // The panel itself takes focus when it holds nothing focusable, so a screen reader lands on the
+    // dialog rather than staying on the page behind it.
+    (focusable()[0] ?? panel.current)?.focus();
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.stopPropagation(); onClose(); return; }
+      if (event.key !== 'Tab') return;
+      const nodes = focusable();
+      if (nodes.length === 0) { event.preventDefault(); return; }
+      const first = nodes[0]!;
+      const last = nodes[nodes.length - 1]!;
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !panel.current?.contains(active))) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      document.body.style.overflow = previousOverflow;
+      // Returning focus is what lets somebody who opened a dialog by keyboard carry on from where
+      // they were instead of at the top of the document.
+      opener?.focus?.();
+    };
+  }, [onClose]);
+
   return (
     <div
       className="ui-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }}
+      // Only a click that both started and ended on the backdrop closes it: a drag that begins on
+      // text inside the panel and releases outside is a selection, not a dismissal.
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
     >
-      <section className={`ui-modal ${wide ? 'ui-modal-wide' : ''}`.trim()}>
+      <section
+        className={`ui-modal ${wide ? 'ui-modal-wide' : ''}`.trim()}
+        role="dialog" aria-modal="true" aria-labelledby={titleId}
+        ref={panel} tabIndex={-1}
+      >
         <header className="ui-modal-header">
           <div>
-            <h2>{title}</h2>
+            <h2 id={titleId}>{title}</h2>
             {description && <p>{description}</p>}
           </div>
-          <IconButton label="ปิด" onClick={onClose}>×</IconButton>
+          <IconButton label="ปิด" onClick={onClose}><Icon name="close" size={16} /></IconButton>
         </header>
         {children && <div className="ui-modal-body">{children}</div>}
         {actions && <footer className="ui-modal-actions">{actions}</footer>}
@@ -306,11 +463,11 @@ function ToastItemView({ item, onDismiss }: { item: ToastItem; onDismiss: (id: n
     return () => { if (ref.current) clearTimeout(ref.current); };
   }, [item.duration, item.id, onDismiss]);
 
-  const icons: Record<ToastTone, string> = { info: 'ℹ', success: '✓', warning: '⚠', error: '✕' };
+  const toastIcons: Record<ToastTone, 'info' | 'success' | 'warning' | 'error'> = { info: 'info', success: 'success', warning: 'warning', error: 'error' };
 
   return (
     <div className={`ui-toast ui-toast-${item.tone} ${exiting ? 'ui-toast-exiting' : ''}`} role="status">
-      <span className="ui-toast-icon" aria-hidden="true">{icons[item.tone]}</span>
+      <span className="ui-toast-icon" aria-hidden="true"><Icon name={toastIcons[item.tone]} size={16} /></span>
       <div className="ui-toast-content">
         <div className="ui-toast-title">{item.title}</div>
         {item.message && <div className="ui-toast-message">{item.message}</div>}
@@ -405,8 +562,100 @@ export function SearchInput({ value, onChange, placeholder = 'ค้นหา...
 }) {
   return (
     <div className={`ui-search ${className}`.trim()}>
-      <span className="ui-search-icon" aria-hidden="true">🔍</span>
-      <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      <span className="ui-search-icon" aria-hidden="true"><Icon name="search" size={16} /></span>
+      <input
+        type="search" value={value} placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        // Escape clears, which is what people already press; the browser's own clear on a
+        // `type="search"` input is Chrome-only and invisible on a touch screen.
+        onKeyDown={(event) => { if (event.key === 'Escape' && value !== '') { event.preventDefault(); onChange(''); } }}
+      />
+      {value !== '' && (
+        <button type="button" className="ui-search-clear" onClick={() => onChange('')} aria-label="ล้างคำค้น">
+          <Icon name="close" size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Auto-sizing textarea ---------- */
+
+/**
+ * A textarea that grows to fit what has been typed, up to a ceiling.
+ *
+ * A fixed three-row box for a reason field, an announcement or a comment means the writer is
+ * composing through a letterbox — they cannot see the sentence they wrote two lines ago while
+ * writing the next one. Growing removes the scrollbar for the ordinary case and keeps it for the
+ * essay, which is the only case that needed one.
+ *
+ * The height is recomputed from `value`, not from keystrokes, so a programmatic change (a draft
+ * restored, a field cleared on submit) resizes too.
+ */
+export function AutoTextarea({ value, onChange, minRows = 3, maxRows = 12, ...rest }: {
+  value: string; onChange: (next: string) => void; minRows?: number; maxRows?: number;
+} & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange' | 'rows'>) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    // Collapse first: without this the box can only ever grow, because scrollHeight of an already
+    // tall element reports the height it currently has rather than the height it needs.
+    node.style.height = 'auto';
+    const line = Number.parseFloat(getComputedStyle(node).lineHeight) || 20;
+    const padding = node.offsetHeight - node.clientHeight;
+    node.style.height = `${Math.min(node.scrollHeight, line * maxRows + padding)}px`;
+  }, [value, maxRows]);
+
+  return (
+    <textarea
+      {...rest}
+      ref={ref} rows={minRows} value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className={`ui-autotextarea ${rest.className ?? ''}`.trim()}
+    />
+  );
+}
+
+/* ---------- Password input ---------- */
+
+/**
+ * A password field that can be read back.
+ *
+ * Every entrance in this product is a name and a password typed on a phone or a classroom board,
+ * where a mistyped character is invisible and the only feedback is a refusal. Being able to look at
+ * what was typed turns "รหัสผ่านไม่ถูกต้อง" from a dead end into a typo somebody can see.
+ *
+ * Revealing is per-field and resets on unmount: nothing is remembered, and the value never leaves
+ * the input it was typed into.
+ */
+export function PasswordInput({ value, onChange, placeholder, autoComplete = 'current-password', required, disabled, id, name }: {
+  value: string; onChange: (next: string) => void; placeholder?: string;
+  autoComplete?: string; required?: boolean; disabled?: boolean; id?: string; name?: string;
+}) {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <div className="ui-password">
+      <input
+        type={revealed ? 'text' : 'password'}
+        value={value} onChange={(event) => onChange(event.target.value)}
+        {...(placeholder === undefined ? {} : { placeholder })}
+        {...(id === undefined ? {} : { id })}
+        {...(name === undefined ? {} : { name })}
+        autoComplete={autoComplete} required={required} disabled={disabled}
+      />
+      <button
+        type="button" className="ui-password-toggle"
+        onClick={() => setRevealed((current) => !current)}
+        // The control announces what it will DO, not what it currently is: a reader hearing
+        // "hide password" on a masked field has been told the opposite of the truth.
+        aria-label={revealed ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+        aria-pressed={revealed}
+        disabled={disabled}
+      >
+        <Icon name="eye" size={16} />
+      </button>
     </div>
   );
 }

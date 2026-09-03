@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Icon } from '../ui/Icon';
 import {
   Badge, Button, Card, CardHeader, DataTable, EmptyState, ErrorState, Field, Skeleton, Stat, Toolbar
 } from '../ui/components';
 import { formatMoment, useDangerousAction } from './consoleHelpers';
+import { PlatformSecurityCard } from './PlatformSecurityCard';
 import { DangerousActionDialog } from './ReauthGate';
 import {
+  notificationDispatchHealth,
   platformDevices, platformErrors, platformFlagsAndReleases, platformNotificationQueue, platformOnlinePeople, platformOverview, platformSecurityLog,
   publishRelease, resolveErrorEvent, revokeDevice, setFeatureFlag,
-  type DeviceRow, type ErrorRow, type FeatureFlagRow, type NotificationQueueRow, type OnlinePerson, type PlatformOverview, type ReleaseRow,
+  type DeviceRow, type ErrorRow, type FeatureFlagRow, type NotificationDispatchHealth, type NotificationQueueRow,
+  type OnlinePerson, type PlatformOverview, type ReleaseRow,
   type SecurityEventRow
 } from './platformClient';
 
@@ -109,14 +113,14 @@ export function OverviewPage() {
                 </li>
               ))}
             </ul>
-          ) : <EmptyState icon="◉" title="ยังไม่พบผู้ใช้ออนไลน์" description="เมื่อมีอุปกรณ์ส่ง heartbeat รายชื่อจะแสดงที่นี่" />}
+          ) : <EmptyState icon={<Icon name="students" size={28} />} title="ยังไม่พบผู้ใช้ออนไลน์" description="เมื่อมีอุปกรณ์ส่ง heartbeat รายชื่อจะแสดงที่นี่" />}
         </Card>
 
         <Card className="platform-health-card">
           <CardHeader title="สุขภาพระบบ" description="ค่าประเมินจาก error, sync และอุปกรณ์ที่เชื่อมต่อ" />
           <div className={`platform-health-hero ${healthTone}`}>
             <span className="platform-health-icon" aria-label={`สถานะ ${healthLabel}`}>
-              <span aria-hidden="true">{health === 'healthy' ? '✓' : '!'}</span>
+              <Icon name={health === 'healthy' ? 'check' : 'warning'} size={22} />
             </span>
             <div><strong>{healthLabel}</strong><span>{overview.errors.openTotal} รายการที่ยังไม่ปิด</span></div>
             <Badge tone={healthTone}>{health === 'healthy' ? 'Healthy' : health === 'warning' ? 'Warning' : 'Critical'}</Badge>
@@ -155,13 +159,13 @@ export function OverviewPage() {
             <ul className="platform-activity-list">
               {data.activity.map((event) => (
                 <li key={event.id}>
-                  <span className="platform-activity-icon">↗</span>
+                  <span className="platform-activity-icon"><Icon name="external-link" size={14} /></span>
                   <span><strong>{event.actorName ?? 'ระบบ'}</strong><small>{event.action}{event.schoolName ? ` · ${event.schoolName}` : ''}</small></span>
                   <time dateTime={event.occurredAt}>{formatMoment(event.occurredAt)}</time>
                 </li>
               ))}
             </ul>
-          ) : <EmptyState icon="↗" title="ยังไม่มี activity log" description="กิจกรรมของผู้ดูแลจะแสดงที่นี่" />}
+          ) : <EmptyState icon={<Icon name="external-link" size={28} />} title="ยังไม่มี activity log" description="กิจกรรมของผู้ดูแลจะแสดงที่นี่" />}
         </Card>
       </div>
 
@@ -277,6 +281,45 @@ const queueStatusLabel: Record<NotificationQueueRow['status'], string> = {
   pending: 'รอส่ง', processing: 'กำลังส่ง', sent: 'ส่งแล้ว', failed: 'รอ retry', dead_letter: 'หยุดส่ง'
 };
 
+/**
+ * Whether the sender is alive, above the queue it is supposed to be draining.
+ *
+ * The queue alone was the whole problem: it looked healthy while nothing was reading it, so a school
+ * believed a parent had been told something that was never sent. Depth without liveness is not a
+ * status, and this banner refuses to show one without the other.
+ */
+function DispatchHealthBanner() {
+  const load = useCallback(() => notificationDispatchHealth(), []);
+  const { data, error } = useRemote<NotificationDispatchHealth>(load);
+  if (error || !data) return null;
+
+  // Ninety seconds is two missed minute-ticks. One late run is a slow function; two is a stopped one.
+  const stalled = data.lastRunAt === null || (data.lastRunSecondsAgo ?? 0) > 90;
+  const backedUp = data.pending > 0 && (data.oldestPendingSeconds ?? 0) > 900;
+  const tone = stalled && data.pending > 0 ? 'error' : stalled || backedUp || data.deadLettered > 0 ? 'warning' : 'success';
+  const headline = data.lastRunAt === null
+    ? 'ยังไม่เคยมีการส่งเลย — ตัวส่งยังไม่ถูกตั้งเวลาให้ทำงาน'
+    : stalled
+      ? `ตัวส่งเงียบไป ${Math.floor((data.lastRunSecondsAgo ?? 0) / 60)} นาที`
+      : `ตัวส่งทำงานล่าสุด ${formatMoment(data.lastRunAt)}`;
+
+  return (
+    <div className={`alert ${tone}`} role={tone === 'success' ? 'status' : 'alert'}>
+      <strong>{headline}</strong>
+      <p className="field-hint">
+        รอส่ง {data.pending} · หยุดส่งถาวร {data.deadLettered} · ชั่วโมงล่าสุดส่งได้ {data.sentLastHour} ล้มเหลว {data.failedLastHour}
+        {data.oldestPendingSeconds !== null && ` · รายการเก่าที่สุดรอมา ${Math.floor(data.oldestPendingSeconds / 60)} นาที`}
+        {data.lastRunError && ` · ข้อผิดพลาดล่าสุด ${data.lastRunError}`}
+      </p>
+      {stalled && (
+        <p className="field-hint">
+          ตั้งเวลาเรียก <code>notification-dispatch</code> ทุกนาที หรือเรียก <code>schedule_notification_dispatch</code> บนฐานข้อมูลหนึ่งครั้ง
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function NotificationsPage() {
   const [status, setStatus] = useState<NotificationQueueRow['status'] | ''>('');
   const load = useCallback(() => platformNotificationQueue(status || null), [status]);
@@ -289,6 +332,7 @@ export function NotificationsPage() {
         description="ตรวจสอบคิว LINE และการ retry โดยไม่เปิดเผยข้อมูลผู้รับหรือเนื้อหาส่วนตัว"
         action={<Button onClick={() => void refresh()}>รีเฟรช</Button>}
       />
+      <DispatchHealthBanner />
       <Toolbar>
         <Field label="สถานะ">
           <select value={status} onChange={(event) => setStatus(event.target.value as NotificationQueueRow['status'] | '')}>
@@ -451,6 +495,7 @@ export function PlatformSettingsPage() {
 
   return (
     <>
+      <PlatformSecurityCard />
       <Card>
         <CardHeader
           title="Feature Flags"

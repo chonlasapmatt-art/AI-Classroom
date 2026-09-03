@@ -7,6 +7,7 @@ import { calendarItemsFor } from '../../academic/views';
 import { timeRemainingLabel, workStateLabels, workStateTone, type WorkState } from '../../academic/workStatus';
 import { Badge, Card, CardHeader, EmptyState, Field, LinkButton, PageHeader, ProgressBar, Segmented, Stat, Toolbar } from '../../ui/components';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
+import { Icon } from '../../ui/Icon';
 
 type DetailFilter = 'all' | 'pending' | 'overdue' | 'done';
 
@@ -99,7 +100,7 @@ export function StudentDetailPage() {
     return (
       <>
         <PageHeader eyebrow="ข้อมูลตามสิทธิ์" title="ไม่สามารถเปิดข้อมูลนี้ได้" description="หน้านี้สำหรับแอดมินและครูที่ได้รับมอบหมายห้องเรียนเท่านั้น" />
-        <Card><EmptyState icon="🔒" title="ไม่มีสิทธิ์เข้าถึง" description="บัญชีของคุณเห็นได้เฉพาะข้อมูลของตนเองตามบทบาทที่กำหนด" /></Card>
+        <Card><EmptyState icon={<Icon name="eye" size={28} />} title="ไม่มีสิทธิ์เข้าถึง" description="บัญชีของคุณเห็นได้เฉพาะข้อมูลของตนเองตามบทบาทที่กำหนด" /></Card>
       </>
     );
   }
@@ -108,7 +109,7 @@ export function StudentDetailPage() {
     return (
       <>
         <PageHeader eyebrow="ติดตามรายบุคคล" title="ไม่พบข้อมูลนักเรียน" description="ข้อมูลนี้อาจอยู่นอกห้องที่คุณรับผิดชอบ หรือถูกปิดการใช้งานแล้ว" action={<LinkButton to="/assignments" variant="ghost">กลับไปติดตามงาน</LinkButton>} />
-        <Card><EmptyState icon="🔎" title="ไม่พบข้อมูลในขอบเขตของคุณ" description="ระบบจะไม่แสดงข้อมูลของนักเรียนที่อยู่นอกสิทธิ์ แม้จะเปิดลิงก์โดยตรง" /></Card>
+        <Card><EmptyState icon={<Icon name="search" size={28} />} title="ไม่พบข้อมูลในขอบเขตของคุณ" description="ระบบจะไม่แสดงข้อมูลของนักเรียนที่อยู่นอกสิทธิ์ แม้จะเปิดลิงก์โดยตรง" /></Card>
       </>
     );
   }

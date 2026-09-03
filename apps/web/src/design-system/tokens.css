@@ -40,6 +40,32 @@
   --danger:#c03a4c; --danger-soft:#fdecef; --danger-line:#f6cdd4;
   --info:#1f5fc4; --info-soft:#e6efff; --info-line:#c9dcff;
 
+  /*
+   * Connection state, which is not the same axis as success and failure.
+   *
+   * Offline is not an error — the product is local-first and a teacher taking attendance on a bus
+   * is working correctly. Giving it the danger red taught people to panic at the normal case, so
+   * it has a calm slate of its own; only a conflict, which genuinely needs a person, borrows a
+   * warning hue.
+   */
+  --offline:#5b6478; --offline-soft:#eef0f5; --offline-line:#d5dae4;
+  --syncing:#1f5fc4; --syncing-soft:#e6efff;
+  --synced:#0f7a5f;
+  --conflict:#a15c05; --conflict-soft:#fdf1dd;
+
+  /*
+   * Accents, for data and for emphasis that is not the brand.
+   *
+   * A preset moves the brand ramp; these do not. A chart that recoloured itself when a school
+   * picked a different look would make two screenshots of the same data incomparable, and a
+   * "success" mint that drifted to orange under the sunny preset would be actively misleading.
+   */
+  --accent-cyan:#0891b2; --accent-cyan-soft:#e0f7fb;
+  --accent-mint:#0d9488; --accent-mint-soft:#dcf7f3;
+  --accent-green:#15803d; --accent-green-soft:#e2f7e8;
+  --accent-gold:#a16207; --accent-gold-soft:#fdf3d7;
+  --accent-violet:#7c3aed; --accent-violet-soft:#f0e9ff;
+
   /* Spacing scale */
   --space-1:.25rem; --space-2:.5rem; --space-3:.75rem; --space-4:1rem;
   --space-5:1.5rem; --space-6:2rem; --space-7:2.5rem; --space-8:3rem; --space-10:4rem;
@@ -58,6 +84,15 @@
   --text-lg:1.25rem; --text-xl:1.6rem; --text-2xl:2rem; --text-3xl:2.6rem;
   --weight-regular:450; --weight-medium:600; --weight-strong:700; --weight-heavy:800;
   --leading-tight:1.2; --leading-normal:1.6;
+  /*
+   * Tracking, and why Thai gets its own value.
+   *
+   * Thai has no inter-word spaces and stacks vowels and tone marks above and below the line, so the
+   * negative tracking that tightens a Latin display heading closes the gap a reader uses to find
+   * where one word ends. Display text stays at zero; only the all-caps Latin eyebrows, which are
+   * never Thai, get the wide tracking.
+   */
+  --tracking-tight:0; --tracking-normal:0; --tracking-wide:.06em; --tracking-caps:.1em;
 
   /* Controls: comfortable on a mouse, still reachable on a classroom board */
   --control-sm:40px; --control-md:46px; --control-lg:56px;
@@ -65,6 +100,74 @@
 
   --duration-fast:120ms; --duration-normal:200ms; --duration-slow:420ms; --duration-page:320ms;
   --ease-out:cubic-bezier(.22,.61,.36,1); --ease-emphasized:cubic-bezier(.16,1,.3,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
+
+  /*
+   * Gradients.
+   *
+   * Built from the brand ramp with color-mix rather than from fixed hex, so a school that picks the
+   * ocean preset gets an ocean aurora instead of a violet one bolted onto a cyan product. The
+   * auroras are for the entrance screens, where there is nothing to read through them; product
+   * surfaces get the flat tokens above, because Thai with its stacked vowels needs a still ground.
+   */
+  --brand-sheen:linear-gradient(135deg, color-mix(in srgb, var(--brand-400) 22%, transparent), transparent 62%);
+  --aurora:
+    radial-gradient(120% 90% at 12% 8%, color-mix(in srgb, var(--brand-500) 34%, transparent), transparent 58%),
+    radial-gradient(100% 80% at 88% 14%, color-mix(in srgb, var(--accent-cyan) 22%, transparent), transparent 56%),
+    radial-gradient(120% 100% at 50% 108%, color-mix(in srgb, var(--brand-800) 40%, transparent), transparent 62%);
+  --surface-veil:linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, transparent), var(--surface));
+
+  /*
+   * The names the rest of the product is written against, mapped onto the ramps above.
+   *
+   * Two vocabularies for one palette is a cost, and it buys something: a screen says what a value
+   * MEANS (`--color-surface-raised`) while the ramp says what it IS (`--surface`), so a preset or a
+   * dark theme moves the ramp once and every meaning follows. Renaming the ramp instead would have
+   * touched every stylesheet in the product for no visual change, which is a diff nobody can review.
+   */
+  --color-bg:var(--canvas);
+  --color-surface:var(--surface);
+  --color-surface-raised:var(--surface-muted);
+  --color-surface-sunken:var(--surface-sunken);
+  --color-border:var(--line);
+  --color-border-strong:var(--line-strong);
+  --color-primary:var(--brand-600);
+  --color-primary-strong:var(--brand-700);
+  --color-primary-soft:var(--brand-50);
+  --color-accent:var(--accent-cyan);
+  --color-success:var(--success);
+  --color-warning:var(--warning);
+  --color-danger:var(--danger);
+  --color-info:var(--info);
+  --color-offline:var(--offline);
+  --color-text-primary:var(--ink-900);
+  --color-text-secondary:var(--ink-500);
+  --color-text-muted:var(--ink-400);
+  --color-text-inverse:var(--inverse-ink);
+  --radius-card:var(--radius-lg);
+  --radius-button:var(--radius-sm);
+  --radius-input:var(--radius-sm);
+  --radius-pill-full:var(--radius-pill);
+  --shadow-card:var(--shadow-sm);
+  --shadow-card-hover:var(--shadow-md);
+  --shadow-overlay:var(--shadow-lg);
+  --motion-fast:var(--duration-fast);
+  --motion-normal:var(--duration-normal);
+  --motion-slow:var(--duration-slow);
+  --motion-ease:var(--ease-out);
+  --motion-ease-emphasized:var(--ease-emphasized);
+
+  /*
+   * Breakpoints, recorded rather than used: CSS cannot read a custom property inside a media query,
+   * so these exist to be read by a person and copied correctly, and every media query in this
+   * product uses one of these five numbers and no others.
+   *
+   *   --bp-sm  560px   phone, landscape and larger phones
+   *   --bp-md  720px   small tablet — where two-column layouts collapse
+   *   --bp-lg 1080px   where the sidebar becomes a drawer
+   *   --bp-xl 1400px   the page-content maximum
+   *   --bp-board 1600px  interactive board — bigger controls, bigger base type
+   */
+  --bp-sm:560px; --bp-md:720px; --bp-lg:1080px; --bp-xl:1400px; --bp-board:1600px;
 
   color: var(--ink-900);
   font-family: "Noto Sans Thai", "Leelawadee UI", "Inter", system-ui, -apple-system, Tahoma, sans-serif;
@@ -143,6 +246,22 @@
     --warning-soft:#43290a; --warning-line:#6b4413; --warning:#f0b45f;
     --danger-soft:#451822; --danger-line:#6d2635; --danger:#f38ea0;
     --info-soft:#152a4d; --info-line:#25406e; --info:#7fb0ff;
+  --offline:#9aa3b6; --offline-soft:#232842; --offline-line:#39405e;
+  --syncing:#7fb0ff; --syncing-soft:#152a4d; --synced:#5fd3ae;
+  --conflict:#f0b45f; --conflict-soft:#43290a;
+  --accent-cyan:#4dd4e8; --accent-cyan-soft:#0d3742;
+  --accent-mint:#4fd6c4; --accent-mint-soft:#0c3b36;
+  --accent-green:#5fd37f; --accent-green-soft:#123b23;
+  --accent-gold:#e8bb63; --accent-gold-soft:#3d2c0b;
+  --accent-violet:#b79bff; --accent-violet-soft:#2a2150;
+    --offline:#9aa3b6; --offline-soft:#232842; --offline-line:#39405e;
+    --syncing:#7fb0ff; --syncing-soft:#152a4d; --synced:#5fd3ae;
+    --conflict:#f0b45f; --conflict-soft:#43290a;
+    --accent-cyan:#4dd4e8; --accent-cyan-soft:#0d3742;
+    --accent-mint:#4fd6c4; --accent-mint-soft:#0c3b36;
+    --accent-green:#5fd37f; --accent-green-soft:#123b23;
+    --accent-gold:#e8bb63; --accent-gold-soft:#3d2c0b;
+    --accent-violet:#b79bff; --accent-violet-soft:#2a2150;
     --nav-surface:#100d24; --topbar-surface:#1b1834e6;
     --inverse-surface:#e9e6ff; --inverse-ink:#1b1834;
     --overlay:#05030fcc;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Icon } from '../ui/Icon';
 import {
   Badge, Button, Card, CardHeader, DataTable, EmptyState, ErrorState, Field, Modal, Skeleton, Stat, Toolbar
 } from '../ui/components';
@@ -143,7 +144,7 @@ export function SchoolsPage() {
             <article key={school.schoolId} className={`school-folder school-folder-${school.health.status}`}>
               <button className="school-folder-main" type="button" onClick={() => setSelected(school.schoolId)} aria-label={`ดูรายละเอียด ${school.name}`}>
                 <div className="school-folder-top">
-                  <span className="school-folder-icon" aria-hidden="true">▱</span>
+                  <span className="school-folder-icon" aria-hidden="true"><Icon name="classes" size={20} /></span>
                   <div>
                     <strong>{school.name}</strong>
                     <span>{school.code}</span>
@@ -250,7 +251,7 @@ function SchoolDetailPanel({ schoolId, onBack, onSupport }: {
                 {detail.rooms.map((room) => (
                   <li key={room.roomId}>
                     <div className="platform-roster-main">
-                      <span className="platform-roster-icon" aria-hidden="true">⌂</span>
+                      <span className="platform-roster-icon" aria-hidden="true"><Icon name="classes" size={16} /></span>
                       <div><strong>{room.name}</strong><span>{room.gradeLevel} · ปีการศึกษา {room.academicYear} / เทอม {room.term}</span></div>
                     </div>
                     <div className="platform-roster-meta"><span>{room.teacherCount} ครู · {room.studentCount} นักเรียน</span><span>{room.assignmentCount} งาน · ใช้ล่าสุด {formatMoment(room.lastActivityAt)}</span></div>
@@ -267,7 +268,7 @@ function SchoolDetailPanel({ schoolId, onBack, onSupport }: {
                 {detail.teachers.map((teacher) => (
                   <li key={teacher.teacherId}>
                     <div className="platform-roster-main">
-                      <span className="platform-roster-icon" aria-hidden="true">✎</span>
+                      <span className="platform-roster-icon" aria-hidden="true"><Icon name="teachers" size={16} /></span>
                       <div><strong>{teacher.displayName}</strong><span>{teacher.teacherCode} · เข้าใช้ล่าสุด {formatMoment(teacher.lastLoginAt)}</span></div>
                     </div>
                     <div className="platform-roster-meta"><Badge tone={teacher.accountStatus === 'active' ? 'success' : teacher.accountStatus === 'not_provisioned' ? 'warning' : 'danger'}>{teacher.accountStatus === 'active' ? 'พร้อมใช้' : teacher.accountStatus === 'not_provisioned' ? 'ยังไม่สร้างบัญชี' : 'ต้องตรวจสอบ'}</Badge><span>{teacher.roomCount} ห้อง</span></div>

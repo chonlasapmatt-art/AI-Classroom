@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Button, Modal } from '../ui/components';
+import { Button, Modal, PasswordInput } from '../ui/components';
 import type { DangerousAction } from './consoleHelpers';
 import { hasFreshPlatformReauthentication, PlatformError, reauthenticate } from './platformClient';
+import { assuranceLevels, challenge, listFactors, MfaError } from './platformMfa';
 
 /**
  * The gate in front of every action that is hard to take back.
@@ -17,30 +18,56 @@ export function DangerousActionDialog({ action, onClose, onDone }: {
 }) {
   const [password, setPassword] = useState('');
   const [reason, setReason] = useState('');
+  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fresh, setFresh] = useState(false);
+  // Set when this account has a verified factor that this session has not answered. The password
+  // alone will be refused in that state, so asking for the code here saves a pointless round trip
+  // and, more to the point, an operator staring at a refusal that does not say what to do.
+  const [factorId, setFactorId] = useState<string | null>(null);
   const minimum = action.minimumReasonLength ?? 8;
+
   useEffect(() => {
     let mounted = true;
     void hasFreshPlatformReauthentication().then((value) => { if (mounted) setFresh(value); }).catch(() => undefined);
+    void (async () => {
+      const levels = await assuranceLevels().catch(() => null);
+      if (!mounted || !levels?.needsChallenge) return;
+      const verified = (await listFactors().catch(() => [])).find((item) => item.status === 'verified');
+      if (mounted && verified) setFactorId(verified.id);
+    })();
     return () => { mounted = false; };
   }, []);
-  const ready = (fresh || password.length >= 1) && reason.trim().length >= minimum;
+
+  const needsCode = factorId !== null;
+  const ready = (fresh || (password.length >= 1 && (!needsCode || code.trim().length >= 6)))
+    && reason.trim().length >= minimum;
 
   async function confirm() {
     setBusy(true); setError(null);
     try {
-      // Re-authenticating first means a wrong password costs nothing: the action has not started.
+      // In order, and each step cheap to fail: the second factor raises the session, the password
+      // proves the person, and only then does the action start.
+      if (!fresh && factorId) {
+        await challenge(factorId, code.trim());
+        setFactorId(null);
+      }
       if (!fresh) await reauthenticate(password);
       await action.run(reason.trim());
       onDone(`${action.confirmLabel}เรียบร้อย`);
       onClose();
     } catch (reason2) {
-      setError(reason2 instanceof PlatformError ? reason2.message : 'ดำเนินการไม่สำเร็จ');
+      const message = reason2 instanceof PlatformError || reason2 instanceof MfaError
+        ? reason2.message
+        : 'ดำเนินการไม่สำเร็จ';
+      setError(reason2 instanceof PlatformError && reason2.code === 'MFA_REQUIRED'
+        ? 'บัญชีนี้ตั้งตัวยืนยันสองชั้นไว้ กรุณากรอกรหัส 6 หลักจากแอปก่อน'
+        : message);
     } finally {
       setBusy(false);
       setPassword('');
+      setCode('');
     }
   }
 
@@ -76,12 +103,24 @@ export function DangerousActionDialog({ action, onClose, onDone }: {
         <>
           <label>
             รหัสผ่านของคุณ
-            <input
-              type="password" autoComplete="current-password" value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="ยืนยันว่าเป็นคุณจริง" required
+            <PasswordInput
+              value={password} onChange={setPassword}
+              autoComplete="current-password" placeholder="ยืนยันว่าเป็นคุณจริง" required
             />
           </label>
+          {needsCode && (
+            <>
+              <label>
+                รหัส 6 หลักจากแอปยืนยันตัวตน
+                <input
+                  inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code}
+                  onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
+                  placeholder="000000" required
+                />
+              </label>
+              <p className="field-hint">บัญชีนี้ตั้งตัวยืนยันสองชั้นไว้ · รหัสผ่านอย่างเดียวจะถูกปฏิเสธ</p>
+            </>
+          )}
           <p className="field-hint">ยืนยันรหัสผ่านมีอายุ 15 นาที ใช้ได้กับรายการที่ต้องยืนยันทุกรายการในช่วงนั้น</p>
         </>
       )}

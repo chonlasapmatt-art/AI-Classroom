@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../../src/app/App';
@@ -29,9 +29,16 @@ describe('preview mode', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('สวัสดี'));
     expect(screen.getByText('นักเรียนทั้งหมด')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /ครู/ })).toBeInTheDocument();
+
+    /*
+     * Scoped to the menu. The dashboard's shortcut row mentions ครู in ordinary copy
+     * ("คะแนนที่ครูเผยแพร่แล้ว"), so a document-wide search for the word no longer means "the teacher
+     * entry". What this test is about is what the MENU offers each role.
+     */
+    const menu = () => within(screen.getByRole('navigation', { name: 'เมนูหลัก' }));
+    expect(menu().getByRole('link', { name: /ครู/ })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('เลือกบทบาท'), { target: { value: 'preview-student' } });
-    await waitFor(() => expect(screen.queryByRole('link', { name: /ครู/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(menu().queryByRole('link', { name: /ครู/ })).not.toBeInTheDocument());
   });
 });

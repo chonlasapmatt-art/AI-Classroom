@@ -128,6 +128,44 @@ export interface ReleaseRow {
   releasedAt: string; isCurrent: boolean;
 }
 
+export interface ProductKeyRow {
+  keyId: string; hint: string; status: 'issued' | 'consumed' | 'replaced';
+  issuedAt: string; consumedAt: string | null;
+  actorProfileId: string; actorName: string | null;
+  schoolId: string | null; schoolName: string | null; schoolCode: string | null;
+  /** False for keys drawn before keys were sealed. Those can never be read back by anybody. */
+  recoverable: boolean;
+  lastRevealedAt: string | null; revealCount: number;
+}
+
+export interface SchoolAccountRow {
+  profileId: string; displayName: string; role: 'admin' | 'teacher' | 'parent';
+  membershipStatus: string; accountStatus: string; isPlatformAdmin: boolean;
+}
+
+/**
+ * Whether messages are actually leaving the building.
+ *
+ * Queue depth and sender liveness travel together on purpose. An empty queue proves nothing if the
+ * sender died an hour ago, and a busy sender proves nothing if the oldest message has been waiting
+ * since this morning.
+ */
+export interface NotificationDispatchHealth {
+  pending: number; deadLettered: number;
+  oldestPendingAt: string | null; oldestPendingSeconds: number | null;
+  lastRunAt: string | null; lastRunSecondsAgo: number | null; lastRunError: string | null;
+  sentLastHour: number; failedLastHour: number; scheduled: boolean;
+}
+
+export interface PlatformMfaStatus {
+  enrolled: boolean;
+  sessionAal: string;
+  operators: {
+    profileId: string; displayName: string | null; enrolled: boolean;
+    lastReauthAt: string | null; lastReauthAal: string | null;
+  }[];
+}
+
 export class PlatformError extends Error {
   constructor(public readonly code: string, message: string) {
     super(message);
@@ -145,7 +183,13 @@ const messages: Record<string, string> = {
   ROLE_CONFLICT: 'บัญชีนี้ถูกผูกกับบทบาทอื่นอยู่แล้ว',
   ADMIN_ACCOUNT_FAILED: 'สร้างบัญชีแอดมินไม่สำเร็จ กรุณาลองใหม่',
   LAST_PLATFORM_ADMIN: 'เพิกถอนไม่ได้ เพราะจะไม่เหลือผู้ดูแลแพลตฟอร์มเลย',
-  NOT_FOUND: 'ไม่พบรายการที่ต้องการ'
+  NOT_FOUND: 'ไม่พบรายการที่ต้องการ',
+  KEY_NOT_RECOVERABLE: 'คีย์นี้ออกก่อนระบบจะเก็บสำเนาที่เปิดอ่านได้ จึงกู้คืนไม่ได้',
+  PRODUCT_KEY_UNREADABLE: 'เปิดคีย์ไม่ได้ เพราะ PRODUCT_KEY_SECRET ถูกเปลี่ยนหลังออกคีย์นี้',
+  TARGET_IS_PLATFORM_ADMIN: 'รีเซ็ตรหัสผ่านของผู้ดูแลแพลตฟอร์มด้วยกันไม่ได้',
+  PASSWORD_RESET_FAILED: 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ กรุณาลองใหม่',
+  SERVER_CONFIGURATION_ERROR: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งค่า PRODUCT_KEY_SECRET',
+  MFA_REQUIRED: 'บัญชีนี้เปิดตัวยืนยันสองชั้นไว้ กรุณากรอกรหัส 6 หลักจากแอปก่อน'
 };
 
 /** Turns a Postgres error into one the console can show, keeping the machine code for the caller. */
@@ -176,6 +220,13 @@ export const platformFlagsAndReleases = () =>
   rpc<{ flags: FeatureFlagRow[]; releases: ReleaseRow[] }>('platform_flags_and_releases');
 export const platformNotificationQueue = (status: NotificationQueueRow['status'] | null = null, limit = 200) =>
   rpc<NotificationQueueRow[]>('platform_notification_queue', { p_status: status, p_limit: limit });
+export const notificationDispatchHealth = () =>
+  rpc<NotificationDispatchHealth>('notification_dispatch_health');
+export const platformProductKeys = (limit = 200) =>
+  rpc<ProductKeyRow[]>('platform_product_keys', { p_limit: limit });
+export const platformSchoolAccounts = (schoolId: string) =>
+  rpc<SchoolAccountRow[]>('platform_school_accounts', { p_school_id: schoolId });
+export const platformMfaStatus = () => rpc<PlatformMfaStatus>('platform_mfa_status');
 
 export function platformErrors(input: {
   schoolId?: string | null; severity?: string | null; days?: number; limit?: number;
@@ -351,6 +402,38 @@ export interface ProvisionSchoolAdminResult {
 
 export async function provisionSchoolAdmin(input: ProvisionSchoolAdminInput): Promise<ProvisionSchoolAdminResult> {
   return await gateway({ action: 'provision-school-admin', ...input }) as unknown as ProvisionSchoolAdminResult;
+}
+
+export interface RevealedProductKey {
+  productKey: string; hint: string; status: string; schoolId: string | null;
+}
+
+/**
+ * Opens one customer's product key.
+ *
+ * The plaintext arrives once, in this response, and is deliberately not cached anywhere: an operator
+ * who needs it again asks again, and the ask is recorded again. The reason is mandatory because a
+ * key read without one is indistinguishable afterwards from a key taken.
+ */
+export async function revealProductKey(input: { keyId: string; reason: string }): Promise<RevealedProductKey> {
+  return await gateway({ action: 'reveal-product-key', ...input }) as unknown as RevealedProductKey;
+}
+
+export interface MemberPasswordReset {
+  password: string; displayName: string; role: string; schoolId: string | null;
+}
+
+/**
+ * Issues a new password for one school account.
+ *
+ * Not a reveal, and there is no reveal to offer instead: GoTrue stores a bcrypt hash, so the
+ * password somebody forgot is gone for everybody including the operator. What can be done is set a
+ * new one and read it back to them, which is what this does.
+ */
+export async function resetMemberPassword(
+  input: { profileId: string; schoolId?: string | null; reason: string }
+): Promise<MemberPasswordReset> {
+  return await gateway({ action: 'reset-member-password', ...input }) as unknown as MemberPasswordReset;
 }
 
 /** Minutes and seconds left on a support session, for a banner that has to be believed. */

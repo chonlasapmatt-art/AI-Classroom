@@ -9,12 +9,13 @@ import { StudentQuizPanel } from '../features/quiz/StudentQuizPanel';
 import { TeacherCodeFirstRun } from '../features/teachers/TeacherCodeFirstRun';
 import { ProfileAvatar } from '../features/avatars/ProfileAvatar';
 import { useSyncStatus } from '../sync/SyncStatusContext';
+import { Icon, type IconName } from '../ui/Icon';
 import type { Role } from '../domain/types';
 import type { SessionValue, SupportView } from '../app/SessionContext';
 
 const roleLabels: Record<Role, string> = { admin: 'ผู้ดูแลระบบ', teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง' };
 
-interface NavItem { to: string; label: string; icon: string; roles: Role[] }
+interface NavItem { to: string; label: string; icon: IconName; roles: Role[] }
 interface NavGroup { key: string; label: string; items: NavItem[] }
 
 /** Sync state is shown as one calm pill; colour never carries the meaning on its own. */
@@ -24,39 +25,39 @@ const syncPillTone: Record<string, string> = {
 
 const navigationGroups: NavGroup[] = [
   { key: 'overview', label: 'ภาพรวมและการสื่อสาร', items: [
-  { to: '/', label: 'ภาพรวม', icon: '◫', roles: ['admin', 'teacher', 'student', 'parent'] },
-  { to: '/announcements', label: 'ประกาศรวม', icon: '📣', roles: ['admin', 'teacher', 'student', 'parent'] },
-  { to: '/calendar', label: 'ปฏิทิน', icon: '▦', roles: ['admin', 'teacher', 'student'] },
-  { to: '/timetable', label: 'ตารางสอน', icon: '▤', roles: ['admin', 'teacher', 'student', 'parent'] },
-  { to: '/notifications', label: 'การแจ้งเตือน', icon: '🔔', roles: ['student'] }] },
+  { to: '/', label: 'ภาพรวม', icon: 'dashboard', roles: ['admin', 'teacher', 'student', 'parent'] },
+  { to: '/announcements', label: 'ประกาศรวม', icon: 'announcements', roles: ['admin', 'teacher', 'student', 'parent'] },
+  { to: '/calendar', label: 'ปฏิทิน', icon: 'calendar', roles: ['admin', 'teacher', 'student'] },
+  { to: '/timetable', label: 'ตารางสอน', icon: 'timetable', roles: ['admin', 'teacher', 'student', 'parent'] },
+  { to: '/notifications', label: 'การแจ้งเตือน', icon: 'bell', roles: ['student'] }] },
   { key: 'school', label: 'จัดการโรงเรียน', items: [
-  { to: '/students', label: 'นักเรียน', icon: '◉', roles: ['admin', 'teacher', 'student'] },
-  { to: '/classes', label: 'ห้องเรียน', icon: '▦', roles: ['admin', 'teacher'] },
-  { to: '/subjects', label: 'รายวิชา', icon: '◆', roles: ['admin', 'teacher'] },
-  { to: '/teachers', label: 'ครู', icon: '✎', roles: ['admin'] },
-  { to: '/parents', label: 'ผู้ปกครอง', icon: '♧', roles: ['admin', 'teacher', 'parent'] },
-  { to: '/import', label: 'นำเข้ารายชื่อ', icon: '↥', roles: ['admin', 'teacher'] },
-  { to: '/promotion', label: 'ปีการศึกษา', icon: '⇪', roles: ['admin', 'teacher'] }] },
+  { to: '/students', label: 'นักเรียน', icon: 'students', roles: ['admin', 'teacher', 'student'] },
+  { to: '/classes', label: 'ห้องเรียน', icon: 'classes', roles: ['admin', 'teacher'] },
+  { to: '/subjects', label: 'รายวิชา', icon: 'subjects', roles: ['admin', 'teacher'] },
+  { to: '/teachers', label: 'ครู', icon: 'teachers', roles: ['admin'] },
+  { to: '/parents', label: 'ผู้ปกครอง', icon: 'parents', roles: ['admin', 'teacher', 'parent'] },
+  { to: '/import', label: 'นำเข้ารายชื่อ', icon: 'import', roles: ['admin', 'teacher'] },
+  { to: '/promotion', label: 'ปีการศึกษา', icon: 'promotion', roles: ['admin', 'teacher'] }] },
   { key: 'learning', label: 'การเรียนการสอน', items: [
-  { to: '/attendance', label: 'เช็กชื่อ / การเข้าเรียน', icon: '✓', roles: ['admin', 'teacher', 'parent'] },
-  { to: '/assignments', label: 'งานและกิจกรรม', icon: '▤', roles: ['admin', 'teacher', 'student'] },
-  { to: '/scores', label: 'คะแนนและเกรด', icon: '☆', roles: ['admin', 'teacher', 'student'] },
-  { to: '/gradebook', label: 'สมุดเกรด', icon: '▩', roles: ['admin', 'teacher', 'student'] },
-  { to: '/grade-editor', label: 'แก้ไขคะแนน', icon: '✎', roles: ['admin', 'teacher'] }] },
+  { to: '/attendance', label: 'เช็กชื่อ / การเข้าเรียน', icon: 'attendance', roles: ['admin', 'teacher', 'parent'] },
+  { to: '/assignments', label: 'งานและกิจกรรม', icon: 'assignments', roles: ['admin', 'teacher', 'student'] },
+  { to: '/scores', label: 'คะแนนและเกรด', icon: 'scores', roles: ['admin', 'teacher', 'student'] },
+  { to: '/gradebook', label: 'สมุดเกรด', icon: 'gradebook', roles: ['admin', 'teacher', 'student'] },
+  { to: '/grade-editor', label: 'แก้ไขคะแนน', icon: 'grade-edit', roles: ['admin', 'teacher'] }] },
   { key: 'assessment', label: 'ข้อสอบและการประเมิน', items: [
-  { to: '/question-bank', label: 'คลังข้อสอบ', icon: '✎', roles: ['admin', 'teacher'] },
-  { to: '/quiz', label: 'Quiz Challenge', icon: '◈', roles: ['admin', 'teacher'] },
-  { to: '/exams', label: 'ข้อสอบ', icon: '▤', roles: ['admin', 'teacher'] },
-  { to: '/sit-exam', label: 'สอบ', icon: '✐', roles: ['student'] }] },
+  { to: '/question-bank', label: 'คลังข้อสอบ', icon: 'question-bank', roles: ['admin', 'teacher'] },
+  { to: '/quiz', label: 'Quiz Challenge', icon: 'quiz', roles: ['admin', 'teacher'] },
+  { to: '/exams', label: 'ข้อสอบ', icon: 'exams', roles: ['admin', 'teacher'] },
+  { to: '/sit-exam', label: 'สอบ', icon: 'sit-exam', roles: ['student'] }] },
   { key: 'reports', label: 'ผลลัพธ์และระบบ', items: [
-  { to: '/leaderboard', label: 'Leaderboard', icon: '♕', roles: ['admin', 'teacher', 'student'] },
-  { to: '/achievements', label: 'เหรียญรางวัล', icon: '✦', roles: ['admin', 'teacher', 'student', 'parent'] },
-  { to: '/my-children', label: 'ลูกของฉัน', icon: '♡', roles: ['parent'] },
-  { to: '/reports', label: 'รายงาน', icon: '▥', roles: ['admin', 'teacher'] },
-  { to: '/operations', label: 'Sync & Backup', icon: '↻', roles: ['admin'] }] },
+  { to: '/leaderboard', label: 'Leaderboard', icon: 'leaderboard', roles: ['admin', 'teacher', 'student'] },
+  { to: '/achievements', label: 'เหรียญรางวัล', icon: 'achievements', roles: ['admin', 'teacher', 'student', 'parent'] },
+  { to: '/my-children', label: 'ลูกของฉัน', icon: 'children', roles: ['parent'] },
+  { to: '/reports', label: 'รายงาน', icon: 'reports', roles: ['admin', 'teacher'] },
+  { to: '/operations', label: 'Sync & Backup', icon: 'operations', roles: ['admin'] }] },
   { key: 'account', label: 'บัญชีและเครื่องมือ', items: [
-  { to: '/settings', label: 'ตั้งค่า', icon: '⚙', roles: ['admin', 'teacher', 'student', 'parent'] },
-  { to: '/profile', label: 'โปรไฟล์ของฉัน', icon: '☺', roles: ['admin', 'teacher', 'student', 'parent'] }] }
+  { to: '/settings', label: 'ตั้งค่า', icon: 'settings', roles: ['admin', 'teacher', 'student', 'parent'] },
+  { to: '/profile', label: 'โปรไฟล์ของฉัน', icon: 'profile', roles: ['admin', 'teacher', 'student', 'parent'] }] }
 ];
 
 const sidebarStorageKey = (role: Role) => `smart-classroom.sidebar-groups.${role}`;
@@ -162,7 +163,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (isPreviewModeAvailable && session.mode === 'preview') {
       groups.push({
         key: 'preview', label: 'ชุดเดโม Preview',
-        items: [{ to: '/preview-demo', label: 'คู่มือทดสอบระบบ', icon: '✦', roles: ['admin', 'teacher', 'student', 'parent'] }]
+        items: [{ to: '/preview-demo', label: 'คู่มือทดสอบระบบ', icon: 'preview-demo', roles: ['admin', 'teacher', 'student', 'parent'] }]
       });
     }
     return groups.filter((group) => group.items.length > 0);
@@ -177,11 +178,73 @@ export function AppShell({ children }: { children: ReactNode }) {
     setOwnAvatarId(recall(avatarStorageKey(membership.profileId)));
   }, [location.pathname, membership.profileId, membership.role, visibleGroups]);
 
+  /*
+   * The drawer had a scrim in the stylesheet and nothing rendering it, so on a phone it opened
+   * over the page with no way back except finding the menu button again underneath it. Escape and
+   * a tap outside are the two exits people try first; both close it now.
+   *
+   * The page behind is frozen while it is open. Without that, scrolling the drawer at its end
+   * scrolls the page underneath, and the reader loses their place in a list they were halfway
+   * through — on a phone that reads as the app throwing their work away.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   useEffect(() => {
     const refreshAvatar = () => setOwnAvatarId(recall(avatarStorageKey(membership.profileId)));
     window.addEventListener('smart-classroom:avatar-changed', refreshAvatar);
     return () => window.removeEventListener('smart-classroom:avatar-changed', refreshAvatar);
   }, [membership.profileId]);
+
+  /*
+   * Which navigation entry the current URL belongs to.
+   *
+   * The sidebar already highlights it, and on a phone the sidebar is not on screen — so the one
+   * place that always answered "where am I" was hidden exactly where the question is hardest. The
+   * top bar now carries the answer at every width.
+   *
+   * Longest match wins: `/my-children/:id` has to resolve to "ลูกของฉัน" rather than to `/`, and a
+   * first-match scan over a list whose first entry is `/` would answer with the dashboard for every
+   * page in the product.
+   */
+  const currentPage = useMemo(() => {
+    const path = location.pathname;
+    let best: { group: string; item: NavItem } | null = null;
+    for (const group of visibleGroups) {
+      for (const item of group.items) {
+        const matches = item.to === '/' ? path === '/' : path === item.to || path.startsWith(`${item.to}/`);
+        if (matches && (!best || item.to.length > best.item.to.length)) best = { group: group.label, item };
+      }
+    }
+    return best;
+  }, [location.pathname, visibleGroups]);
+
+  /*
+   * The phone's bottom bar: the five destinations this role opens most, and nothing else.
+   *
+   * It is a shortcut, never the whole menu — every one of these is still in the drawer, and the
+   * drawer is still the complete list. Five is the ceiling because a sixth target on a 360px screen
+   * is narrower than a thumb, and a bar people mis-tap is worse than one entry fewer.
+   */
+  const quickNav = useMemo(() => {
+    const wanted: Record<Role, string[]> = {
+      admin: ['/', '/students', '/attendance', '/reports', '/settings'],
+      teacher: ['/', '/attendance', '/assignments', '/scores', '/announcements'],
+      student: ['/', '/assignments', '/scores', '/notifications', '/profile'],
+      parent: ['/', '/my-children', '/attendance', '/announcements', '/profile']
+    };
+    const available = new Map(visibleGroups.flatMap((group) => group.items.map((item) => [item.to, item])));
+    return wanted[membership.role].map((to) => available.get(to)).filter((item): item is NavItem => Boolean(item));
+  }, [membership.role, visibleGroups]);
 
   function toggleGroup(key: string) {
     setExpandedGroups((current) => {
@@ -193,7 +256,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-frame">
-      <aside className={`sidebar ${open ? 'open' : ''}`}>
+      {open && (
+        <div
+          className="sidebar-overlay"
+          role="presentation"
+          onClick={() => setOpen(false)}
+        />
+      )}
+      <aside className={`sidebar ${open ? 'open' : ''}`} aria-hidden={undefined}>
         <div className="sidebar-brand">
           <div className="brand-mark small">SC</div>
           <div><strong>Smart Classroom</strong><span>{membership.schoolName}</span></div>
@@ -207,12 +277,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                 aria-expanded={expandedGroups[group.key] ?? true}
                 onClick={() => toggleGroup(group.key)}
               >
-                <span>{group.label}</span><span aria-hidden="true">{expandedGroups[group.key] ? '⌃' : '⌄'}</span>
+                <span>{group.label}</span><Icon name={expandedGroups[group.key] ? 'chevron-up' : 'chevron-down'} size={14} />
               </button>
               {expandedGroups[group.key] && <div className="sidebar-section-items">
                 {group.items.map((item) => (
                   <NavLink key={item.to} to={item.to} end={item.to === '/'} onClick={() => setOpen(false)}>
-                    <span aria-hidden="true">{item.icon}</span>
+                    <Icon name={item.icon} size={18} />
                     {item.label}
                     {item.to === '/notifications' && unread > 0 && <span className="nav-badge">{unread}</span>}
                   </NavLink>
@@ -224,7 +294,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <section className="sidebar-section">
               <div className="sidebar-section-items">
                 <NavLink to="/avatar-gallery" onClick={() => setOpen(false)}>
-                  <span aria-hidden="true">☺</span>Avatar Gallery
+                  <Icon name="avatar-gallery" size={18} />Avatar Gallery
                 </NavLink>
               </div>
             </section>
@@ -233,13 +303,30 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebar-user">
           <ProfileAvatar displayName={membership.displayName} avatarId={visibleAvatarId} avatarPhotoId={ownAvatarPhotoId} size={40} />
           <div><strong>{membership.displayName}</strong><span>{roleLabels[membership.role]}</span></div>
-          <button onClick={() => void session.signOut()} aria-label={session.mode === 'preview' ? 'ออกจากโหมด Preview' : 'ออกจากระบบ'}>↪</button>
+          <button onClick={() => void session.signOut()} aria-label={session.mode === 'preview' ? 'ออกจากโหมด Preview' : 'ออกจากระบบ'}><Icon name="logout" size={18} /></button>
         </div>
       </aside>
 
       <div className="app-content">
         <header className="topbar">
-          <button className="menu-button" onClick={() => setOpen((value) => !value)} aria-label="เปิดเมนู">☰</button>
+          <button
+            className="menu-button"
+            onClick={() => setOpen((value) => !value)}
+            aria-label={open ? 'ปิดเมนู' : 'เปิดเมนู'}
+            aria-expanded={open}
+          >
+            <Icon name={open ? 'close' : 'menu'} size={22} />
+          </button>
+          {/* School, then section, then page — the same order the sidebar reads, so the bar is a
+              reminder rather than a second way of describing the product. The section is dropped on
+              a narrow screen by CSS rather than by JavaScript, so no width is ever mid-measurement. */}
+          <div className="topbar-context">
+            <span className="topbar-school">{membership.schoolName}</span>
+            <span className="topbar-crumbs">
+              {currentPage && <span className="topbar-section">{currentPage.group}</span>}
+              <strong>{currentPage?.item.label ?? 'ภาพรวม'}</strong>
+            </span>
+          </div>
           {session.mode === 'preview' ? (
             <div className="sync-pill preview"><span />Preview / Development Only · ไม่ใช่ข้อมูลจริง</div>
           ) : (
@@ -271,6 +358,18 @@ export function AppShell({ children }: { children: ReactNode }) {
               </label>
             )}
           </div>
+          {/* The role is stated, not inferred from which buttons happen to be on screen. A guardian
+              and a teacher see different products; saying which one this is prevents the support
+              call that starts "the button isn't there". */}
+          <div className="topbar-identity">
+            <span className="topbar-role">{roleLabels[membership.role]}</span>
+            <NavLink to="/profile" className="topbar-avatar" aria-label={`โปรไฟล์ของ ${membership.displayName}`}>
+              <ProfileAvatar
+                displayName={membership.displayName} avatarId={visibleAvatarId}
+                avatarPhotoId={ownAvatarPhotoId} size={34}
+              />
+            </NavLink>
+          </div>
         </header>
         {/* An operator working inside a school through the ordinary screens must never be mistaken
             for the school's own administrator — by the school, or by themselves. */}
@@ -285,6 +384,22 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* A round running in this student's class reaches them wherever they are in the app: the
             invitation is the enrolment, not a code somebody has to read off a board. */}
         <main className="page-content"><StudentQuizPanel />{children}</main>
+        {/* Shown only under the drawer breakpoint, by CSS. Rendering it at every width and hiding
+            it in the stylesheet keeps one DOM for every screen size — a bar that mounted on resize
+            would move focus and lose a half-typed field on a tablet being rotated. */}
+        {quickNav.length > 0 && (
+          <nav className="bottom-nav" aria-label="เมนูลัด">
+            {quickNav.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+                <span className="bottom-nav-icon">
+                  <Icon name={item.icon} size={20} />
+                  {item.to === '/notifications' && unread > 0 && <span className="bottom-nav-badge" aria-hidden="true" />}
+                </span>
+                <span className="bottom-nav-label">{item.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+        )}
         <TeacherCodeFirstRun />
       </div>
     </div>
