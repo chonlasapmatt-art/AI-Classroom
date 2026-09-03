@@ -11,9 +11,13 @@ import { timeRemainingLabel, workStateLabels, workStateTone } from '../../academ
 import { buildGradebook, categoryWeightsFrom, gradeDistribution } from '../../academic/gradebook';
 import { gradeSchemeFrom } from '../../academic/gradeScheme';
 import { followUpInsights } from '../../academic/workload';
-import { Badge, Card, CardHeader, EmptyState, LinkButton, PageHeader, ProgressBar, Stat } from '../../ui/components';
+import { Badge, Card, CardHeader, EmptyState, LinkButton, PageHeader, ProgressBar, Skeleton, Stat } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
+import { useSyncStatus } from '../../sync/SyncStatusContext';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { ActivityCard, AlertStack, AnnouncementCard, QuickActions, SyncLine } from './dashboardSignals';
+import { dashboardAlerts, quickActionsFor, recentActivity, recentAnnouncements } from './dashboardData';
 
 const avatarStorageKey = (profileId: string) => 'smart-classroom.avatar.' + profileId;
 
@@ -21,6 +25,7 @@ const avatarStorageKey = (profileId: string) => 'smart-classroom.avatar.' + prof
 export function DashboardPage() {
   const { membership } = useSession();
   const snapshot = useSchoolSnapshot();
+  const sync = useSyncStatus();
   const classes = activeClasses(snapshot);
   const subjects = activeSubjects(snapshot);
   const scheme = gradeSchemeFrom(snapshot.settings);
@@ -61,6 +66,27 @@ export function DashboardPage() {
     scheme
   }), [roster, snapshot, classId, scheme]);
 
+  /*
+   * The snapshot arrives asynchronously from IndexedDB. Before this the page rendered its real
+   * layout against empty arrays, so on a slow device the first paint was a dashboard confidently
+   * reporting zero of everything — which is a different claim from "not loaded yet", and the one a
+   * teacher acts on.
+   */
+  if (!snapshot.ready) {
+    return (
+      <>
+        <PageHeader eyebrow="กำลังโหลด" title="กำลังโหลดข้อมูล" description="ดึงข้อมูลของโรงเรียนจากเครื่องนี้" />
+        <div className="ui-stat-grid" aria-hidden="true">
+          {[0, 1, 2, 3].map((slot) => <div key={slot} className="ui-stat ui-stat-loading"><Skeleton lines={2} /></div>)}
+        </div>
+        <div className="dashboard-columns">
+          <Card><Skeleton lines={5} /></Card>
+          <Card><Skeleton lines={5} /></Card>
+        </div>
+      </>
+    );
+  }
+
   if (membership.role === 'student') {
     const mine = items.filter((item) => item.work.status === 'published');
     const todo = mine.filter((item) => ['upcoming', 'soon', 'urgent', 'revision_requested'].includes(item.state));
@@ -90,12 +116,32 @@ export function DashboardPage() {
           />
         </section>
 
+        <AlertStack alerts={dashboardAlerts(snapshot, sync, { overdue: overdue.length, role: 'student' })} />
+        <QuickActions actions={quickActionsFor('student', false)} />
+
         <div className="ui-stat-grid">
-          <Stat label="งานที่ต้องทำ" value={todo.length} hint="รวมงานที่ครูขอให้แก้ไข" tone="brand" />
-          <Stat label="ใกล้ส่ง" value={dueSoon.length} hint="ภายใน 24 ชั่วโมง" tone="warning" />
-          <Stat label="เลยกำหนด" value={overdue.length} hint="รีบส่งให้ครูตรวจ" tone={overdue.length > 0 ? 'danger' : 'neutral'} />
-          <Stat label="ตรวจแล้ว" value={graded.length} hint={myRow?.grade ? `เกรดรวม ${myRow.grade}` : 'ยังไม่มีเกรดรวม'} tone="success" />
+          <Stat
+            label="งานที่ต้องทำ" value={todo.length} hint="รวมงานที่ครูขอให้แก้ไข" tone="brand"
+            icon={<Icon name="assignments" size={18} />}
+          />
+          <Stat
+            label="ใกล้ส่ง" value={dueSoon.length} hint="ภายใน 24 ชั่วโมง" tone="warning"
+            icon={<Icon name="calendar" size={18} />}
+            {...(dueSoon.length > 0 ? { status: 'ควรทำวันนี้' } : {})}
+          />
+          <Stat
+            label="เลยกำหนด" value={overdue.length} hint="รีบส่งให้ครูตรวจ"
+            tone={overdue.length > 0 ? 'danger' : 'neutral'}
+            icon={<Icon name="warning" size={18} />}
+            status={overdue.length > 0 ? 'ต้องจัดการ' : 'ไม่มีค้าง'}
+          />
+          <Stat
+            label="ตรวจแล้ว" value={graded.length}
+            hint={myRow?.grade ? `เกรดรวม ${myRow.grade}` : 'ยังไม่มีเกรดรวม'} tone="success"
+            icon={<Icon name="check" size={18} />}
+          />
         </div>
+        <SyncLine sync={sync} pending={snapshot.pendingSync} />
 
         <div className="dashboard-columns">
           <Card>
@@ -142,6 +188,11 @@ export function DashboardPage() {
             )}
           </Card>
         </div>
+
+        <AnnouncementCard
+          announcements={recentAnnouncements(snapshot, [classId], student?.id ?? null)}
+          action={<LinkButton to="/announcements" size="sm" variant="ghost">ดูทั้งหมด</LinkButton>}
+        />
       </>
     );
   }
@@ -151,6 +202,8 @@ export function DashboardPage() {
     return (
       <>
         <PageHeader eyebrow="ผู้ปกครอง" title="สรุปของบุตรหลาน" description="สรุปรายสัปดาห์เฉพาะบุตรหลานที่เชื่อมบัญชีและให้ความยินยอมแล้ว" />
+        <AlertStack alerts={dashboardAlerts(snapshot, sync, { overdue: 0, role: 'parent' })} />
+        <QuickActions actions={quickActionsFor('parent', false)} />
         {children.length === 0 ? (
           <Card><EmptyState title="ยังไม่มีบุตรหลานที่เชื่อมบัญชี" description="ติดต่อครูประจำชั้นเพื่อขอรหัสผูกบัญชี" /></Card>
         ) : (
@@ -191,6 +244,16 @@ export function DashboardPage() {
             })}
           </div>
         )}
+
+        <AnnouncementCard
+          announcements={recentAnnouncements(
+            snapshot,
+            children.map((child) => classIdOfStudent(snapshot, child.id) ?? ''),
+            null
+          )}
+          action={<LinkButton to="/announcements" size="sm" variant="ghost">ดูทั้งหมด</LinkButton>}
+        />
+        <SyncLine sync={sync} pending={snapshot.pendingSync} />
       </>
     );
   }
@@ -202,6 +265,13 @@ export function DashboardPage() {
   const overdueWork = items.filter((item) => item.state === 'overdue');
   const insights = followUpInsights(roster, snapshot.assignments.filter((work) => work.classId === classId), snapshot.submissions);
   const distribution = gradeDistribution(gradebook, scheme);
+  const gradedCount = gradebook.filter((row) => row.percentage !== null).length;
+  /* The audit stores a profile id; a name is what a person recognises. Unknown ids stay honest
+     rather than being guessed at — a wrong name on an audit line is worse than no name. */
+  const resolveActorName = (profileId: string): string =>
+    snapshot.teachers.find((teacher) => teacher.profileId === profileId)?.displayName
+      ?? (profileId === membership.profileId ? membership.displayName : 'บุคลากรของโรงเรียน');
+  const todayAttendance = attendanceDailySummary(snapshot, membership.role === 'admin' ? {} : { classId });
   const averagePercentage = gradebook.filter((row) => row.percentage !== null).length > 0
     ? Math.round(gradebook.reduce((sum, row) => sum + (row.percentage ?? 0), 0) / gradebook.filter((row) => row.percentage !== null).length)
     : 0;
@@ -217,13 +287,38 @@ export function DashboardPage() {
         action={canCreateWork && <LinkButton to="/assignments" variant="primary">+ สร้างงาน</LinkButton>}
       />
 
+      <AlertStack alerts={dashboardAlerts(snapshot, sync, { overdue: overdueWork.length, role: membership.role })} />
+      <QuickActions actions={quickActionsFor(membership.role, canCreateWork)} />
+
       <div className="ui-stat-grid">
-        <Stat label="นักเรียนทั้งหมด" value={membership.role === 'admin' ? snapshot.students.length : roster.length}
-          hint={classroom ? `ความจุ ${classroom.capacity} คน` : undefined} tone="brand" />
-        <Stat label="งานรอตรวจ" value={pendingReview.length} hint="มีนักเรียนส่งแล้ว" tone="info" />
-        <Stat label="งานเลยกำหนด" value={overdueWork.length} hint="ยังมีนักเรียนไม่ส่ง" tone={overdueWork.length > 0 ? 'warning' : 'neutral'} />
-        <Stat label="คะแนนเฉลี่ยห้อง" value={`${averagePercentage}%`} hint="เฉพาะคะแนนที่เผยแพร่" tone="success" />
+        <Stat
+          label="นักเรียนทั้งหมด" value={membership.role === 'admin' ? snapshot.students.length : roster.length}
+          {...(classroom ? { hint: `ความจุ ${classroom.capacity} คน` } : {})} tone="brand"
+          icon={<Icon name="students" size={18} />}
+        />
+        <Stat
+          label="มาเรียนวันนี้" value={`${todayAttendance.presentRate}%`}
+          hint={`ขาด ${todayAttendance.absent} · สาย ${todayAttendance.late}`}
+          tone={todayAttendance.presentRate >= 90 ? 'success' : todayAttendance.presentRate >= 75 ? 'warning' : 'danger'}
+          icon={<Icon name="attendance" size={18} />}
+        />
+        <Stat
+          label="งานรอตรวจ" value={pendingReview.length} hint="มีนักเรียนส่งแล้ว" tone="info"
+          icon={<Icon name="assignments" size={18} />}
+          {...(pendingReview.length > 0 ? { status: 'รอคุณครู' } : {})}
+        />
+        <Stat
+          label="งานเลยกำหนด" value={overdueWork.length} hint="ยังมีนักเรียนไม่ส่ง"
+          tone={overdueWork.length > 0 ? 'warning' : 'neutral'}
+          icon={<Icon name="warning" size={18} />}
+          status={overdueWork.length > 0 ? 'ควรติดตาม' : 'ตามทัน'}
+        />
+        <Stat
+          label="คะแนนเฉลี่ยห้อง" value={`${averagePercentage}%`} hint="เฉพาะคะแนนที่เผยแพร่" tone="success"
+          icon={<Icon name="scores" size={18} />}
+        />
       </div>
+      <SyncLine sync={sync} pending={snapshot.pendingSync} />
 
       <div className="dashboard-columns">
         <Card>
@@ -279,21 +374,64 @@ export function DashboardPage() {
         </Card>
       </div>
 
+      <div className="dashboard-columns">
+        <AnnouncementCard
+          announcements={recentAnnouncements(
+            snapshot,
+            membership.role === 'admin' ? classes.map((item) => item.id) : [classId],
+            null
+          )}
+          action={<LinkButton to="/announcements" size="sm" variant="ghost">ดูทั้งหมด</LinkButton>}
+        />
+        <ActivityCard
+          entries={recentActivity(snapshot)}
+          resolveName={resolveActorName}
+        />
+      </div>
+
       <Card>
-        <CardHeader title="การกระจายเกรด" description={classroom ? `${classroom.name} · คิดจากคะแนนที่เผยแพร่แล้ว` : undefined} />
-        <div className="distribution-bar">
-          {distribution.map((entry) => (
-            <div
-              key={entry.grade}
-              className={`distribution-slice grade-${entry.grade.replace('+', 'plus')}`}
-              style={{ flexGrow: Math.max(entry.count, 0.04) }}
-              title={`${entry.grade}: ${entry.count} คน`}
-            >
-              <strong>{entry.grade}</strong>
-              <span>{entry.share}%</span>
+        <CardHeader
+          title="การกระจายเกรด"
+          {...(classroom ? { description: `${classroom.name} · คิดจากคะแนนที่เผยแพร่แล้ว` } : {})}
+        />
+        {gradedCount === 0 ? (
+          <EmptyState
+            icon={<Icon name="gradebook" size={28} />}
+            title="ยังไม่มีคะแนนที่เผยแพร่"
+            description="กราฟจะขึ้นเมื่อมีคะแนนอย่างน้อยหนึ่งรายการถูกเผยแพร่แล้ว"
+          />
+        ) : (
+          <>
+            {/*
+              A bar chart of nine grades is read by people who cannot separate two hues, so every
+              slice carries its grade and its share as text inside it, and the whole thing is also
+              published as a table below for a screen reader. Colour is the fastest way in, never
+              the only one.
+            */}
+            <div className="distribution-bar" role="img" aria-label={`การกระจายเกรดของนักเรียน ${gradedCount} คน`}>
+              {distribution.map((entry) => (
+                <div
+                  key={entry.grade}
+                  className={`distribution-slice grade-${entry.grade.replace('+', 'plus')}`}
+                  style={{ flexGrow: Math.max(entry.count, 0.04) }}
+                  title={`${entry.grade}: ${entry.count} คน (${entry.share}%)`}
+                >
+                  <strong>{entry.grade}</strong>
+                  <span>{entry.share}%</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+            <ul className="distribution-legend">
+              {distribution.filter((entry) => entry.count > 0).map((entry) => (
+                <li key={entry.grade}>
+                  <span className={`distribution-key grade-${entry.grade.replace('+', 'plus')}`} aria-hidden="true" />
+                  <strong>{entry.grade}</strong>
+                  <span>{entry.count} คน · {entry.share}%</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </Card>
     </>
   );
