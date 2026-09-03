@@ -50,8 +50,25 @@ Deno.serve(async (request) => {
   if (typeof body.limit === 'number') limit = Math.min(MAX_BATCH, Math.max(1, Math.floor(body.limit)));
 
   const { service } = clients(request);
+  const startedAt = Date.now();
+
+  // Every invocation leaves a trace, including one that delivered nothing. A queue nobody drains is
+  // only dangerous while it is invisible, and the operations console reads these rows to see it.
+  const recordRun = async (
+    counts: { claimed: number; sent: number; retried: number; deadLettered: number },
+    errorCode: string | null
+  ) => {
+    await service.rpc('record_notification_dispatch_run', {
+      p_claimed: counts.claimed, p_sent: counts.sent, p_retried: counts.retried,
+      p_dead_lettered: counts.deadLettered, p_duration_ms: Date.now() - startedAt, p_error_code: errorCode
+    });
+  };
+
   const { data, error } = await service.rpc('claim_notification_outbox', { p_limit: limit });
-  if (error) return json({ code: 'QUEUE_CLAIM_FAILED' }, 500, headers);
+  if (error) {
+    await recordRun({ claimed: 0, sent: 0, retried: 0, deadLettered: 0 }, 'QUEUE_CLAIM_FAILED');
+    return json({ code: 'QUEUE_CLAIM_FAILED' }, 500, headers);
+  }
 
   let sent = 0; let retried = 0; let deadLettered = 0;
   for (const job of (data ?? []) as NotificationJob[]) {
@@ -74,5 +91,7 @@ Deno.serve(async (request) => {
     else if (result.retryable && job.retryCount < 5) retried += 1;
     else deadLettered += 1;
   }
-  return json({ accepted: (data ?? []).length, sent, retried, deadLettered }, 200, headers);
+  const accepted = (data ?? []).length;
+  await recordRun({ claimed: accepted, sent, retried, deadLettered }, null);
+  return json({ accepted, sent, retried, deadLettered }, 200, headers);
 });

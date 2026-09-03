@@ -60,6 +60,7 @@ script.
 | `probe-quiz.js` | A whole live round: join, join twice, answer, answer again, a closed question, the bonus, the bonus twice |
 | `probe-exam.js` | Compose, schedule, start, resume, answer, submit, submit twice, a second attempt, and editing a sat paper |
 | `probe-conflict.js` | A manufactured conflict resolved both ways, and resolved twice |
+| `probe-notifications.js` | The gap that mattered most: a queued message driven through the real dispatcher with the real secret, and the queue read back afterwards. Also refuses a caller with no secret and one with the wrong secret |
 | `quiz-fixture.js` | `up` creates the questions and enrolment a probe needs; `down` removes them |
 
 ## The rule about probe data
@@ -69,3 +70,11 @@ confirmed empty afterwards — a probe that leaves a fake teacher on a roster or
 class nobody put them in has done more harm than the bug it was looking for.
 
 `quiz-fixture.js down` exists for exactly this. Use it, then check.
+
+## What a probe cannot tell you
+
+`probe-notifications.js` checks that the dispatcher is reachable, refuses the wrong secret, drains
+the queue and records the run. It cannot tell you whether anything is *calling* it every minute --
+that is a schedule, not a request. Read `notification_dispatch_health` for that: it reports how long
+ago the last run was beside how deep the queue is, and a queue with no recent run is the alarm.
+
