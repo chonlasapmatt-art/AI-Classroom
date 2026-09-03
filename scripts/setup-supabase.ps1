@@ -122,6 +122,9 @@ if ($SkipSecrets) {
   $studentSecret = New-RandomSecret
   $memberAccessSecret = New-RandomSecret
   $notificationDispatchSecret = New-RandomSecret
+  # Seals every product activation key. Without it a key can be drawn and never recovered, which is
+  # the one failure the key is meant to prevent, so first-run refuses to issue one until it is set.
+  $productKeySecret = New-RandomSecret
 
   $ownerCode = Read-Secret 'Owner access code (choose a long one; you will need it to create the first school)'
   if ([string]::IsNullOrWhiteSpace($ownerCode) -or $ownerCode.Length -lt 12) {
@@ -150,6 +153,7 @@ if ($SkipSecrets) {
   Invoke-Supabase @('secrets', 'set', "STUDENT_ACCESS_HMAC_SECRET=$studentSecret")
   Invoke-Supabase @('secrets', 'set', "MEMBER_ACCESS_HMAC_SECRET=$memberAccessSecret")
   Invoke-Supabase @('secrets', 'set', "NOTIFICATION_DISPATCH_SECRET=$notificationDispatchSecret")
+  Invoke-Supabase @('secrets', 'set', "PRODUCT_KEY_SECRET=$productKeySecret")
   Invoke-Supabase @('secrets', 'set', "ALLOWED_ORIGINS=$allowedOrigins")
   if ($EnablePlatformDevSignIn) {
     Invoke-Supabase @('secrets', 'set', 'PLATFORM_DEV_SIGN_IN=true')

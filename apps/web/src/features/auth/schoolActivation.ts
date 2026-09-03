@@ -24,6 +24,7 @@ const messages: Record<string, string> = {
   AUTH_REQUIRED: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง',
   VALIDATION_ERROR: 'ข้อมูลโรงเรียนไม่ครบหรือรูปแบบไม่ถูกต้อง กรุณาตรวจชื่อ รหัสโรงเรียน ปีการศึกษา และภาคเรียน',
   PRODUCT_KEY_FAILED: 'สร้างคีย์ผลิตภัณฑ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+  PRODUCT_KEY_UNREADABLE: 'เปิดคีย์เดิมของบัญชีนี้ไม่ได้ เพราะคีย์ลับของเซิร์ฟเวอร์ถูกเปลี่ยน กรุณาติดต่อผู้ดูแลระบบ',
   ACTION_NOT_SUPPORTED: 'เซิร์ฟเวอร์รุ่นนี้ยังไม่รองรับขั้นตอนนี้ กรุณาอัปเดตเซิร์ฟเวอร์แล้วลองใหม่',
   SETUP_REJECTED: 'ตั้งค่าโรงเรียนไม่สำเร็จ กรุณาตรวจข้อมูลและรหัสเปิดใช้งาน'
 };
@@ -54,23 +55,26 @@ async function call(body: Record<string, unknown>): Promise<Record<string, unkno
 }
 
 export interface ProductKey {
-  /** Grouped for reading and copying, e.g. `SC-AB3D9-...`. Shown once and never returned again. */
+  /** Grouped for reading and copying, e.g. `SC-AB3D9-...`. */
   productKey: string;
   /** Safe to keep on screen afterwards: identifies the key without being usable. */
   hint: string;
+  /** True when this was already the account's key rather than a key drawn just now. */
+  existing: boolean;
 }
 
 /**
- * Draws this account's product key, replacing any key it drew before.
+ * Returns this account's one product key, drawing it the first time and only the first time.
  *
- * Replacing is deliberate. A customer who reloaded the page before copying the key has no way to
- * recover it — the server kept only a digest — and a fresh key is the only honest answer.
+ * Asking twice is not drawing twice. The key is sealed when it is drawn, so a customer who reloaded
+ * the wizard gets the same twenty characters back rather than a replacement — which is what stops
+ * somebody ending up with two keys in their notes and no idea which one opens their server.
  */
 export async function issueProductKey(): Promise<ProductKey> {
   const data = await call({ action: 'issue-product-key' });
   const productKey = String(data.productKey ?? '');
   if (!productKey) throw new SchoolSetupError('PRODUCT_KEY_FAILED', messages.PRODUCT_KEY_FAILED!);
-  return { productKey, hint: String(data.hint ?? '') };
+  return { productKey, hint: String(data.hint ?? ''), existing: data.existing === true };
 }
 
 export interface SchoolActivation {

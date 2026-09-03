@@ -13,10 +13,30 @@
 
 import { corsHeaders, json } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { formatProductKey, openProductKey, resolveProductKeySecret } from '../_shared/productKey.ts';
 
 const WINDOW_MINUTES = 15;
 const MAX_FAILURES = 5;
 const GENERIC_FAILURE = 'PLATFORM_ACCESS_DENIED';
+
+// Read aloud down a phone line and typed by somebody who is already locked out, so the characters
+// that get misheard are left out: no O/0, no I/l/1, no U/V.
+const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTWXYZabcdefghjkmnpqrstwxyz23456789';
+const PASSWORD_LENGTH = 14;
+
+/** A fresh password, drawn without modulo bias from the platform's cryptographic generator. */
+function generatePassword(): string {
+  const characters: string[] = [];
+  const ceiling = Math.floor(256 / PASSWORD_ALPHABET.length) * PASSWORD_ALPHABET.length;
+  while (characters.length < PASSWORD_LENGTH) {
+    for (const byte of crypto.getRandomValues(new Uint8Array(PASSWORD_LENGTH))) {
+      if (byte >= ceiling) continue;
+      characters.push(PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length]!);
+      if (characters.length === PASSWORD_LENGTH) break;
+    }
+  }
+  return characters.join('');
+}
 
 async function sha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
@@ -33,6 +53,27 @@ function constantTimeEqual(left: string, right: string): boolean {
 
 function text(body: Record<string, unknown>, key: string, max = 200): string {
   return String(body[key] ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+/**
+ * The assurance level of the caller's own session.
+ *
+ * Read from the token rather than verified again: GoTrue has already verified it by the time
+ * `getUser` returned a user, and what is wanted is one claim out of a token that is known good. A
+ * token that will not parse is treated as `aal1`, which is the conservative answer — it can only
+ * cost an operator a second factor prompt, never skip one.
+ */
+function assuranceLevel(authorization: string): 'aal1' | 'aal2' {
+  try {
+    const token = authorization.replace(/^Bearer\s+/i, '');
+    const payload = token.split('.')[1];
+    if (!payload) return 'aal1';
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')));
+    return decoded?.aal === 'aal2' ? 'aal2' : 'aal1';
+  } catch {
+    return 'aal1';
+  }
 }
 
 function splitName(displayName: string): { firstName: string; lastName: string } {
@@ -141,10 +182,21 @@ Deno.serve(async (request) => {
         await recordAttempt(false);
         return json({ code: GENERIC_FAILURE }, 401, headers);
       }
-      const { error: recordError } = await service.rpc('record_platform_reauth', { p_actor: actor });
+      // An operator who has enrolled a second factor must have cleared it on the session they are
+      // sitting in. Refusing here rather than recording `aal1` and letting the action fail later is
+      // the difference between "prove the code" and "that did not work, and we will not say why".
+      const aal = assuranceLevel(authorization);
+      const { data: hasMfa } = await service.rpc('platform_operator_has_mfa', { p_actor: actor });
+      if (hasMfa === true && aal !== 'aal2') {
+        return json({ code: 'MFA_REQUIRED' }, 403, headers);
+      }
+
+      const { error: recordError } = await service.rpc('record_platform_reauth', {
+        p_actor: actor, p_aal: aal
+      });
       if (recordError) return json({ code: GENERIC_FAILURE }, 400, headers);
       await recordAttempt(true);
-      return json({ verified: true, windowMinutes: 15 }, 200, headers);
+      return json({ verified: true, windowMinutes: 15, assuranceLevel: aal }, 200, headers);
     }
 
     if (action === 'grant') {
@@ -234,6 +286,80 @@ Deno.serve(async (request) => {
         return json({ code: 'PLATFORM_FORBIDDEN' }, 403, headers);
       }
       return json({ revoked: true }, 200, headers);
+    }
+
+    // The operator who sold the server reading back the key that activates it.
+    //
+    // The database releases the sealed key and records that it did; the plaintext is assembled here,
+    // in the only environment holding the secret, and returned once. It is never stored by the
+    // console and never written to a log — the record says which key was opened, by whom and why,
+    // which is the part that has to survive.
+    if (action === 'reveal-product-key') {
+      const keyId = String(body.keyId ?? '');
+      const reason = text(body, 'reason', 400);
+      if (!keyId || reason.length < 8) return json({ code: 'VALIDATION_ERROR' }, 400, headers);
+
+      const secret = resolveProductKeySecret((name) => Deno.env.get(name));
+      if (!secret) return json({ code: 'SERVER_CONFIGURATION_ERROR' }, 503, headers);
+
+      const { data, error } = await service.rpc('reveal_product_activation_key', {
+        p_actor: actor, p_key_id: keyId, p_reason: reason
+      });
+      if (error) {
+        const message = String(error.message ?? '');
+        const code = message.includes('REAUTHENTICATION_REQUIRED') ? 'REAUTHENTICATION_REQUIRED'
+          : message.includes('KEY_NOT_RECOVERABLE') ? 'KEY_NOT_RECOVERABLE'
+            : message.includes('NOT_FOUND') ? 'NOT_FOUND'
+              : message.includes('VALIDATION_ERROR') ? 'VALIDATION_ERROR' : 'PLATFORM_FORBIDDEN';
+        return json({ code }, code === 'NOT_FOUND' ? 404 : code === 'VALIDATION_ERROR' ? 400 : 403, headers);
+      }
+
+      const record = (data ?? {}) as { keyCipher?: string; hint?: string; status?: string; schoolId?: string | null };
+      const opened = record.keyCipher ? await openProductKey(record.keyCipher, secret) : null;
+      // The seal will not open under the configured secret: it was rotated after this key was
+      // sealed. An operator needs to know that rather than be told the key does not exist.
+      if (!opened) return json({ code: 'KEY_NOT_RECOVERABLE' }, 409, headers);
+      return json({
+        productKey: formatProductKey(opened), hint: record.hint ?? '',
+        status: record.status ?? '', schoolId: record.schoolId ?? null
+      }, 200, headers);
+    }
+
+    // A school administrator locked out of their own school. There is no rank above them inside it,
+    // so the platform operator is the only one who can help.
+    //
+    // This issues a new password. It does not reveal the old one, and nothing in this system can:
+    // GoTrue holds a one-way hash of it, which is the right thing for it to hold. The database
+    // authorises and records the reset before GoTrue is asked to change anything, so a reset that
+    // half-fails leaves evidence rather than silence.
+    if (action === 'reset-member-password') {
+      const targetProfileId = String(body.profileId ?? '');
+      const schoolId = text(body, 'schoolId', 80) || null;
+      const reason = text(body, 'reason', 400);
+      if (!targetProfileId || reason.length < 8) return json({ code: 'VALIDATION_ERROR' }, 400, headers);
+
+      const { data: authorized, error: authorizeError } = await service.rpc('authorize_member_password_reset', {
+        p_actor: actor, p_profile_id: targetProfileId, p_school_id: schoolId, p_reason: reason
+      });
+      if (authorizeError) {
+        const message = String(authorizeError.message ?? '');
+        const code = message.includes('REAUTHENTICATION_REQUIRED') ? 'REAUTHENTICATION_REQUIRED'
+          : message.includes('TARGET_IS_PLATFORM_ADMIN') ? 'TARGET_IS_PLATFORM_ADMIN'
+            : message.includes('NOT_FOUND') ? 'NOT_FOUND'
+              : message.includes('VALIDATION_ERROR') ? 'VALIDATION_ERROR' : 'PLATFORM_FORBIDDEN';
+        return json({ code }, code === 'NOT_FOUND' ? 404 : code === 'VALIDATION_ERROR' ? 400 : 403, headers);
+      }
+
+      const password = generatePassword();
+      const { error: updateError } = await service.auth.admin.updateUserById(targetProfileId, { password });
+      if (updateError) return json({ code: 'PASSWORD_RESET_FAILED' }, 400, headers);
+
+      const record = (authorized ?? {}) as { displayName?: string; role?: string; schoolId?: string };
+      // Shown once, to the operator, to read back to the person who is locked out.
+      return json({
+        password, displayName: record.displayName ?? '', role: record.role ?? '',
+        schoolId: record.schoolId ?? null
+      }, 200, headers);
     }
 
     return json({ code: 'UNSUPPORTED_ACTION' }, 400, headers);

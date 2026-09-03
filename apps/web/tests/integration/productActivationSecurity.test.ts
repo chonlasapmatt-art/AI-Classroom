@@ -10,6 +10,7 @@ const keyMigration = read('supabase/migrations/202609020004_product_activation_k
 const claimMigration = read('supabase/migrations/202609020005_teacher_code_claim_active_row.sql');
 const lookupMigration = read('supabase/migrations/202609020006_find_auth_user_by_email.sql');
 const adminAccess = read('supabase/functions/admin-access/index.ts');
+const productKeyModule = read('supabase/functions/_shared/productKey.ts');
 const memberAccess = read('supabase/functions/member-access/index.ts');
 const setupPage = read('apps/web/src/features/auth/AdminSchoolSetupPage.tsx');
 const activationClient = read('apps/web/src/features/auth/schoolActivation.ts');
@@ -58,12 +59,16 @@ describe('product activation keys', () => {
     expect(keyMigration).toMatch(/school_memberships where profile_id=p_actor[\s\S]*ALREADY_HAS_MEMBERSHIP/);
   });
 
-  it('draws the key on the server and returns the plaintext exactly once', () => {
+  it('draws the key on the server and never writes it anywhere', () => {
     expect(adminAccess).toContain("action === 'issue-product-key'");
-    expect(adminAccess).toContain('crypto.getRandomValues');
-    expect(adminAccess).toContain('p_key_hash: await sha256(normalizeProductKey(key))');
-    // The response is the only place the key exists; nothing stores or logs it.
-    expect(adminAccess).toContain('productKey: formatProductKey(key)');
+    // Generation moved into `_shared/productKey.ts` once the console needed to open a sealed key
+    // too. Both halves now read one module, which is the arrangement that stops the two drifting
+    // apart — the failure that broke every teacher code once already.
+    expect(productKeyModule).toContain('crypto.getRandomValues');
+    expect(productKeyModule).toContain('function generateProductKey');
+    expect(adminAccess).toContain('generateProductKey()');
+    // The response is the only place the key reaches the customer; nothing logs it.
+    expect(adminAccess).toContain('productKey: formatProductKey(drawn)');
     expect(adminAccess).not.toMatch(/console\.(log|info|warn|error)/);
   });
 
@@ -72,8 +77,10 @@ describe('product activation keys', () => {
     // typed back in the shown form. Hashing the drawn form while normalising only the punctuation
     // out of the typed form left an `SC` on one side of the comparison and not the other, so every
     // key copied with the button on the previous screen was refused.
-    expect(adminAccess).toContain('p_key_hash: await sha256(normalizeProductKey(key))');
-    expect(adminAccess).toContain("cleaned.length === length + 2 && cleaned.startsWith('SC') ? cleaned.slice(2) : cleaned");
+    expect(adminAccess).toContain('p_key_hash: await sha256(normalizeProductKey(drawn))');
+    expect(productKeyModule).toContain(
+      "cleaned.length === KEY_LENGTH + 2 && cleaned.startsWith('SC') ? cleaned.slice(2) : cleaned"
+    );
     expect(adminAccess).toContain('p_key_hash: await sha256(normalizeProductKey(accessCode))');
   });
 

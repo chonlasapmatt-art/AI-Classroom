@@ -14,16 +14,14 @@
 
 import { corsHeaders, json } from '../_shared/http.ts';
 import { clients } from '../_shared/clients.ts';
+import {
+  formatProductKey, generateProductKey, normalizeProductKey, openProductKey,
+  productKeyHint, resolveProductKeySecret, sealProductKey, sha256Hex as sha256
+} from '../_shared/productKey.ts';
 
 const WINDOW_MINUTES = 15;
 const MAX_FAILURES = 5;
 const LOCK_MINUTES = 30;
-
-// No O/0, I/1 or U/V: the key is read off a screen and typed back on the very next page, so a
-// character somebody can misread is a support call waiting to happen.
-const KEY_ALPHABET = 'ABCDEFGHJKLMNPQRSTWXYZ23456789';
-const KEY_GROUPS = 4;
-const KEY_GROUP_LENGTH = 5;
 
 function setupFailureCode(error: { code?: string; message?: string }): string {
   const code = String(error.code ?? '').toUpperCase();
@@ -35,68 +33,11 @@ function setupFailureCode(error: { code?: string; message?: string }): string {
   return 'SETUP_REJECTED';
 }
 
-async function sha256(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return [...new Uint8Array(digest)].map((part) => part.toString(16).padStart(2, '0')).join('');
-}
-
 function constantTimeEqual(left: string, right: string): boolean {
   if (left.length !== right.length) return false;
   let difference = 0;
   for (let index = 0; index < left.length; index += 1) difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
   return difference === 0;
-}
-
-/**
- * What a typed product key means, with the presentation removed.
- *
- * The key is shown grouped and is retyped from a clipboard, a chat message or a photograph of a
- * screen, so the dashes, the spaces and the case are decoration. Hashing the normalised form is what
- * lets `sc a1b2c 3d4e5` and `SC-A1B2C-3D4E5` be the one key they plainly are.
- *
- * The `SC-` is decoration too, and forgetting that broke every activation. The key is drawn as the
- * twenty characters and hashed as the twenty characters; it is only *shown* with the prefix. Stripping
- * punctuation alone left the `SC` attached, so what came back from the customer hashed to something
- * twenty-two characters long that matched nothing, and a key copied with the button on the previous
- * screen was refused as wrong.
- *
- * Dropping the prefix is unambiguous rather than a guess, because the two forms have different
- * lengths: a bare key is twenty characters and a prefixed one is twenty-two. A key whose own first
- * two characters happen to be `SC` is therefore still read correctly.
- */
-function normalizeProductKey(value: string): string {
-  const cleaned = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  const length = KEY_GROUPS * KEY_GROUP_LENGTH;
-  return cleaned.length === length + 2 && cleaned.startsWith('SC') ? cleaned.slice(2) : cleaned;
-}
-
-/** Groups a key for reading aloud and copying. Purely presentational; never hashed in this form. */
-function formatProductKey(normalized: string): string {
-  return `SC-${(normalized.match(/.{1,5}/g) ?? []).join('-')}`;
-}
-
-/** Enough to confirm which key somebody is holding, and not enough to use it. */
-function productKeyHint(normalized: string): string {
-  return `SC-****-****-${normalized.slice(-KEY_GROUP_LENGTH)}`;
-}
-
-/** A fresh key, drawn from the platform's cryptographic generator with no modulo bias. */
-function generateProductKey(): string {
-  const length = KEY_GROUPS * KEY_GROUP_LENGTH;
-  const characters: string[] = [];
-  // 256 is not a multiple of the alphabet, so bytes above the last whole multiple are redrawn
-  // rather than folded — folding them would make the low characters fractionally more likely.
-  const ceiling = Math.floor(256 / KEY_ALPHABET.length) * KEY_ALPHABET.length;
-  while (characters.length < length) {
-    const bytes = crypto.getRandomValues(new Uint8Array(length));
-    for (const byte of bytes) {
-      if (byte >= ceiling) continue;
-      characters.push(KEY_ALPHABET[byte % KEY_ALPHABET.length]!);
-      if (characters.length === length) break;
-    }
-  }
-  return characters.join('');
 }
 
 Deno.serve(async (request) => {
@@ -125,24 +66,44 @@ Deno.serve(async (request) => {
 
     // Drawing a key is the step before any code is typed, so it is rate limited on its own terms:
     // an account being hammered is not handed an endless supply of fresh keys to try against.
+    //
+    // Asking twice is not drawing twice. A customer who reloads the wizard, or comes back to it a
+    // week later, gets the key they were sold — the same twenty characters, opened from the seal
+    // rather than generated again. A key that changes under somebody who wrote it down is a key
+    // they no longer trust.
     if (action === 'issue-product-key') {
       if (locked || failureCount >= MAX_FAILURES) {
         return json({ code: 'TEMPORARILY_LOCKED' }, 429, headers);
       }
-      const key = generateProductKey();
-      const { error: issueError } = await service.rpc('issue_product_activation_key', {
+      const secret = resolveProductKeySecret((name) => Deno.env.get(name));
+      // Without the sealing secret a key could still be drawn, and could never be recovered by
+      // anybody — which is the failure this whole path exists to remove. Refusing here is a
+      // configuration error the installer can fix in one command; an unrecoverable key is not.
+      if (!secret) return json({ code: 'SERVER_CONFIGURATION_ERROR' }, 503, headers);
+
+      const drawn = generateProductKey();
+      const { data: issued, error: issueError } = await service.rpc('issue_product_activation_key', {
         // Hashed through the same normaliser the activation step uses, so the two can never drift
         // apart again: whatever `formatProductKey` shows reduces back to exactly this.
-        p_actor: actorId, p_key_hash: await sha256(normalizeProductKey(key)), p_key_hint: productKeyHint(key)
+        p_actor: actorId, p_key_hash: await sha256(normalizeProductKey(drawn)),
+        p_key_cipher: await sealProductKey(drawn, secret), p_key_hint: productKeyHint(drawn)
       });
       if (issueError) {
         const message = String(issueError.message ?? '');
         if (message.includes('ALREADY_HAS_MEMBERSHIP')) return json({ code: 'ALREADY_HAS_MEMBERSHIP' }, 409, headers);
         return json({ code: 'PRODUCT_KEY_FAILED' }, 400, headers);
       }
-      // The only moment this key exists in plaintext anywhere. It is not written to the log, not
-      // returned again, and not recoverable — drawing another one is the only way back.
-      return json({ productKey: formatProductKey(key), hint: productKeyHint(key) }, 201, headers);
+
+      const record = (issued ?? {}) as { existing?: boolean; keyCipher?: string; hint?: string };
+      if (record.existing && record.keyCipher) {
+        const opened = await openProductKey(record.keyCipher, secret);
+        // A seal that will not open under the configured secret means the secret was rotated. Saying
+        // so beats handing back a different key and letting the customer discover the swap later.
+        if (!opened) return json({ code: 'PRODUCT_KEY_UNREADABLE' }, 409, headers);
+        return json({ productKey: formatProductKey(opened), hint: productKeyHint(opened), existing: true }, 200, headers);
+      }
+
+      return json({ productKey: formatProductKey(drawn), hint: productKeyHint(drawn), existing: false }, 201, headers);
     }
 
     if (action !== 'activate') return json({ code: 'ACTION_NOT_SUPPORTED' }, 400, headers);

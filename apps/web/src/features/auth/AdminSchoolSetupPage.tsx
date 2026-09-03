@@ -133,20 +133,25 @@ export function AdminSchoolSetupPage() {
             <span className="ui-eyebrow">STEP 02 · PRODUCT KEY</span>
             <h2>คีย์ผลิตภัณฑ์ของคุณ</h2>
             <p className="form-intro">
-              ระบบสุ่มคีย์นี้ให้เซิร์ฟของคุณโดยเฉพาะ แสดงครั้งเดียวเท่านั้น กรุณาคัดลอกเก็บไว้ในที่ปลอดภัย
-              แล้วนำไปกรอกในขั้นถัดไปเพื่อเปิดใช้งาน
+              ระบบสุ่มคีย์นี้ให้เซิร์ฟของคุณโดยเฉพาะ หนึ่งบัญชีมีคีย์เดียวและสุ่มใหม่ไม่ได้
+              กรุณาคัดลอกเก็บไว้ในที่ปลอดภัย แล้วนำไปกรอกในขั้นถัดไปเพื่อเปิดใช้งาน
             </p>
             <div className="access-code-display">
               <strong className="access-code-value">{drawing ? 'กำลังสุ่มคีย์...' : productKey?.productKey ?? '—'}</strong>
-              {productKey && <p className="field-hint">เก็บคีย์นี้ไว้ใช้ยืนยันการเปิดใช้งาน · ระบบไม่เก็บคีย์ตัวเต็มไว้ที่ใด</p>}
+              {productKey && <p className="field-hint">เก็บคีย์นี้ไว้ใช้ยืนยันการเปิดใช้งาน · เปิดหน้านี้ใหม่จะได้คีย์เดิมเสมอ</p>}
             </div>
             <div className="admin-setup-actions">
               <button type="button" className="primary-button" onClick={() => void copyKey()} disabled={!productKey || drawing}>
                 {copied ? 'คัดลอกแล้ว' : 'คัดลอกคีย์'}
               </button>
-              <button type="button" className="text-button" onClick={() => void draw()} disabled={drawing}>สุ่มคีย์ใหม่</button>
             </div>
-            <p className="fine-print">สุ่มคีย์ใหม่จะยกเลิกคีย์เดิมทันที คีย์เดิมที่คัดลอกไว้จะใช้ไม่ได้อีก</p>
+            {/*
+              There is no "draw again". A key that changes under somebody who wrote it down is a key
+              they stop trusting, and two keys in a customer's notes with one that works is the
+              support call this screen exists to prevent. Losing it is recoverable a different way:
+              the operator who sold the server can read this exact key back.
+            */}
+            <p className="fine-print">คีย์นี้ผูกกับบัญชีของคุณถาวร · หากทำหาย ติดต่อผู้ดูแลระบบเพื่อขอดูคีย์เดิมได้</p>
             {error && <div className="alert error" role="alert">{error}</div>}
             <div className="admin-setup-actions">
               <button type="button" className="text-button" onClick={() => { setError(null); setStep(1); }}>ย้อนกลับ</button>
