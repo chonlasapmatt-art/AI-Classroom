@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { attendanceDailySummary, classIdOfStudent, consentedStudents, privacyPolicyFrom, standingsFor } from '../../data/selectors';
@@ -59,7 +60,7 @@ export function MyChildrenPage() {
               const summary = attendanceDailySummary(snapshot, { studentId: student.id });
               const standing = standingsFor(snapshot, classId).find((entry) => entry.student.id === student.id);
               return (
-                <article key={student.id} className="student-card">
+                <Link key={student.id} to={`/my-children/${student.id}`} className="student-card child-card-link">
                   <ProfileAvatar displayName={student.displayName} avatarId={student.avatarId} avatarIndex={student.avatarIndex} avatarConfig={student.avatarConfig} size={64} />
                   <div>
                     <strong>{student.displayName}</strong>
@@ -69,8 +70,9 @@ export function MyChildrenPage() {
                         ? `คะแนนรวม ${standing.total.toFixed(2)} · เกรด ${standing.grade}`
                         : 'โรงเรียนปิดการแชร์คะแนนกับผู้ปกครอง'}
                     </span>
+                    <span className="child-card-more">ดูรายละเอียด</span>
                   </div>
-                </article>
+                </Link>
               );
             })}
           </div>

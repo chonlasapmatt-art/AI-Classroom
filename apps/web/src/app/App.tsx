@@ -33,6 +33,7 @@ import { ExamsPage } from '../features/exams/ExamsPage';
 import { StudentExamPage } from '../features/exams/StudentExamPage';
 import { QuizChallengePage } from '../features/quiz/QuizChallengePage';
 import { ParentsPage } from '../features/parents/ParentsPage';
+import { ChildDetailPage } from '../features/parents/ChildDetailPage';
 import { MyChildrenPage } from '../features/parents/MyChildrenPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="sit-exam" element={<StudentExamPage />} />
         <Route path="parents" element={<ParentsPage />} />
         <Route path="my-children" element={<MyChildrenPage />} />
+        <Route path="my-children/:studentId" element={<ChildDetailPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="operations" element={<OperationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
