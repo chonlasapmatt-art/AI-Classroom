@@ -14,7 +14,10 @@
     "test:security": "npm run test:security --workspace @smart-classroom/web",
     "test:e2e": "npm run test:e2e --workspace @smart-classroom/web",
     "test:e2e:student": "npm run test:e2e:student --workspace @smart-classroom/web",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "android:add": "npm run android:add --workspace @smart-classroom/web",
+    "android:sync": "npm run android:sync --workspace @smart-classroom/web",
+    "android:open": "npm run android:open --workspace @smart-classroom/web"
   },
   "engines": { "node": ">=22" }
 }

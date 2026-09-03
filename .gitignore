@@ -20,3 +20,14 @@ tmp/
 
 .vercel
 .env*
+
+# Capacitor generates the native project from capacitor.config.ts; it is a build artefact of a
+# particular Capacitor version rather than source. Run `npm run android:add` on the build machine.
+apps/web/android/
+apps/web/ios/
+
+# Signing material never enters a public repository. Losing an upload key means losing the ability
+# to update the app for its installed users, so it lives in a password manager and Play App Signing.
+*.keystore
+*.jks
+keystore.properties
