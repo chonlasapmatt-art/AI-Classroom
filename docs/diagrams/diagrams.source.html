@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>AI Smart Classroom · ผังการทำงานระบบ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  /* A4 at 96dpi, printed by Chrome. Margins are set in the print call, not here, so the page box
+     stays honest about how much room the content actually has. */
+  :root {
+    --brand:#5b3df5; --brand-deep:#3a259f; --brand-soft:#f5f3ff; --brand-line:#dcd3ff;
+    --ink:#161327; --ink-2:#3a3552; --ink-3:#6f6a86; --ink-4:#8e89a3;
+    --line:#eceaf4; --surface:#fff; --sunken:#f7f7fb;
+    --ok:#0f7a5f; --ok-soft:#e3f7ef; --warn:#a15c05; --warn-soft:#fdf1dd;
+    --danger:#c03a4c; --danger-soft:#fdecef; --info:#1f5fc4; --info-soft:#e6efff;
+    --cyan:#0891b2; --gold:#a16207;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Noto Sans Thai", "Leelawadee UI", system-ui, sans-serif;
+    color: var(--ink); background: #fff; font-size: 10.5pt; line-height: 1.6;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .page { page-break-after: always; padding: 0 0 6mm; }
+  .page:last-child { page-break-after: auto; }
+
+  /* ---- cover ---- */
+  .cover {
+    height: 247mm; display: flex; flex-direction: column; justify-content: center;
+    padding: 0 6mm; background:
+      radial-gradient(120% 80% at 10% 6%, #ece7ff 0%, transparent 55%),
+      radial-gradient(90% 70% at 92% 12%, #e0f7fb 0%, transparent 52%),
+      radial-gradient(110% 90% at 50% 104%, #ede9ff 0%, transparent 58%);
+    border-radius: 6mm;
+  }
+  .cover-mark {
+    width: 62px; height: 62px; display: grid; place-items: center; border-radius: 18px;
+    background: linear-gradient(135deg, #6c4df6, #3a259f); color: #fff;
+    font-weight: 800; font-size: 22px; letter-spacing: .04em; margin-bottom: 10mm;
+  }
+  .cover h1 { margin: 0; font-size: 30pt; line-height: 1.15; letter-spacing: -.01em; }
+  .cover .sub { margin: 4mm 0 0; font-size: 13pt; color: var(--ink-2); max-width: 130mm; }
+  .cover .eyebrow {
+    font-size: 8.5pt; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--brand); margin-bottom: 3mm;
+  }
+  .cover-meta {
+    margin-top: 14mm; padding-top: 6mm; border-top: 1px solid var(--brand-line);
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; font-size: 9pt;
+  }
+  .cover-meta div span { display: block; color: var(--ink-4); font-size: 8pt; }
+  .cover-meta div strong { display: block; margin-top: 1mm; font-size: 12pt; color: var(--brand-deep); }
+
+  /* ---- page furniture ---- */
+  h2 {
+    margin: 0 0 2mm; font-size: 17pt; letter-spacing: -.01em;
+    padding-bottom: 3mm; border-bottom: 2px solid var(--brand-line);
+  }
+  h2 .num {
+    display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 3mm;
+    border-radius: 9px; background: var(--brand); color: #fff; font-size: 11pt; vertical-align: -4px;
+  }
+  .lead { margin: 3mm 0 6mm; color: var(--ink-2); font-size: 10pt; max-width: 155mm; }
+  h3 { margin: 7mm 0 2mm; font-size: 12pt; }
+  figure { margin: 0 0 5mm; }
+  figcaption {
+    margin-top: 2.5mm; color: var(--ink-3); font-size: 8.5pt; font-style: normal;
+    padding-left: 3mm; border-left: 2px solid var(--brand-line);
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .note {
+    margin: 5mm 0 0; padding: 4mm 5mm; border-radius: 4mm;
+    background: var(--brand-soft); border: 1px solid var(--brand-line); font-size: 9.5pt;
+  }
+  .note strong { color: var(--brand-deep); }
+  .warn-note { background: var(--warn-soft); border-color: #f6ddb6; }
+  .warn-note strong { color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 4mm; }
+  th {
+    text-align: left; padding: 2.5mm 3mm; background: var(--sunken);
+    border-bottom: 1.5px solid var(--brand-line); font-size: 8pt;
+    text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3);
+  }
+  td { padding: 2.5mm 3mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  code {
+    font-family: "Cascadia Mono", Consolas, monospace; font-size: 8.5pt;
+    background: var(--sunken); padding: .5mm 1.5mm; border-radius: 2mm;
+  }
+  .legend { display: flex; flex-wrap: wrap; gap: 2mm 6mm; margin-top: 3mm; font-size: 8.5pt; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 2mm; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<!-- ============================= COVER ============================= -->
+<section class="page cover">
+  <div class="cover-mark">SC</div>
+  <div class="eyebrow">AI Classroom Operating System</div>
+  <h1>ผังการทำงานระบบ<br>AI Smart Classroom</h1>
+  <p class="sub">
+    เอกสารภาพรวมทางเทคนิค: สถาปัตยกรรม เส้นทางข้อมูล ชั้นของสิทธิ์
+    การซิงก์แบบ local-first และสายการแจ้งเตือนผู้ปกครอง
+  </p>
+  <div class="cover-meta">
+    <div><span>เวอร์ชัน</span><strong>3.1.0</strong></div>
+    <div><span>Migrations</span><strong>68</strong></div>
+    <div><span>Edge Functions</span><strong>15</strong></div>
+    <div><span>Automated tests</span><strong>667</strong></div>
+  </div>
+  <p style="margin-top:8mm;font-size:9pt;color:var(--ink-4)">
+    ปรับปรุง 3 กันยายน 2569 · สาขา <code>continuation/claude-completion</code><br>
+    ตัวเลขทุกตัวตรวจกับโค้ดจริง ไม่ได้อ้างจากเอกสารเดิม
+  </p>
+</section>
+
+<!-- ============================= 1. ARCHITECTURE ============================= -->
+<section class="page">
+  <h2><span class="num">1</span>สถาปัตยกรรมภาพรวม</h2>
+  <p class="lead">
+    สามชั้นที่แยกหน้าที่กันชัดเจน หน้าจอเขียนลงเครื่องก่อนเสมอ งานที่ต้องเชื่อถือผ่าน Edge Function
+    และการตัดสินใจเรื่องสิทธิ์ทุกครั้งเกิดขึ้นในฐานข้อมูล
+  </p>
+
+  <figure>
+  <!-- The viewBox starts above the origin so the direct-read arc has room of its own; routing it
+       through the boxes put its label on top of a heading. -->
+  <svg viewBox="0 -40 900 510" role="img" aria-label="แผนภาพสถาปัตยกรรมสามชั้น">
+    <defs>
+      <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#6f6a86"/>
+      </marker>
+      <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#5b3df5"/>
+      </marker>
+      <linearGradient id="dev" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#f5f3ff"/><stop offset="1" stop-color="#ece7ff"/>
+      </linearGradient>
+    </defs>
+
+    <!-- device -->
+    <rect x="12" y="14" width="240" height="392" rx="16" fill="url(#dev)" stroke="#dcd3ff" stroke-width="1.5"/>
+    <text x="30" y="42" font-size="13" font-weight="800" fill="#3a259f">เครื่องผู้ใช้</text>
+    <text x="30" y="59" font-size="10" fill="#6f6a86">เบราว์เซอร์ · PWA · Android</text>
+
+    <rect x="30" y="78" width="204" height="66" rx="11" fill="#fff" stroke="#dcd3ff"/>
+    <text x="44" y="102" font-size="11.5" font-weight="700" fill="#161327">หน้าจอ React 19</text>
+    <text x="44" y="120" font-size="9.5" fill="#6f6a86">features/ · 39 เส้นทาง</text>
+    <text x="44" y="135" font-size="9.5" fill="#6f6a86">4 บทบาท + ศูนย์ควบคุม</text>
+
+    <rect x="30" y="160" width="204" height="72" rx="11" fill="#ece7ff" stroke="#8f74ff"/>
+    <text x="44" y="184" font-size="11.5" font-weight="700" fill="#3a259f">IndexedDB · Dexie</text>
+    <text x="44" y="202" font-size="9.5" fill="#514c6b">ข้อมูลโรงเรียนทั้งชุด</text>
+    <text x="44" y="217" font-size="9.5" fill="#514c6b">+ คิวการแก้ไขที่รอซิงก์</text>
+
+    <rect x="30" y="248" width="204" height="56" rx="11" fill="#fff" stroke="#dcd3ff"/>
+    <text x="44" y="271" font-size="11.5" font-weight="700" fill="#161327">Service Worker</text>
+    <text x="44" y="289" font-size="9.5" fill="#6f6a86">เปลือกแอปออฟไลน์</text>
+
+    <rect x="30" y="320" width="204" height="66" rx="11" fill="#fff" stroke="#dcd3ff" stroke-dasharray="4 3"/>
+    <text x="44" y="343" font-size="11.5" font-weight="700" fill="#161327">Capacitor 8</text>
+    <text x="44" y="361" font-size="9.5" fill="#6f6a86">ห่อ build เดียวกันเป็น Android</text>
+    <text x="44" y="376" font-size="9.5" fill="#a15c05">ยังไม่เคย build จริง</text>
+
+    <!-- edge -->
+    <rect x="300" y="14" width="250" height="240" rx="16" fill="#e0f7fb" stroke="#7dd3e0" stroke-width="1.5"/>
+    <text x="318" y="42" font-size="13" font-weight="800" fill="#0e6a80">Edge Functions</text>
+    <text x="318" y="59" font-size="10" fill="#0e6a80">Deno · 15 ตัว</text>
+
+    <rect x="318" y="76" width="214" height="52" rx="10" fill="#fff" stroke="#7dd3e0"/>
+    <text x="331" y="97" font-size="10.5" font-weight="700" fill="#161327">ทางเข้าระบบ</text>
+    <text x="331" y="114" font-size="9" fill="#6f6a86">member · student · admin · platform</text>
+
+    <rect x="318" y="138" width="214" height="46" rx="10" fill="#fff" stroke="#7dd3e0"/>
+    <text x="331" y="158" font-size="10.5" font-weight="700" fill="#161327">sync-push</text>
+    <text x="331" y="174" font-size="9" fill="#6f6a86">รับคิวการแก้ไขจากเครื่อง</text>
+
+    <rect x="318" y="194" width="214" height="46" rx="10" fill="#fff" stroke="#7dd3e0"/>
+    <text x="331" y="214" font-size="10.5" font-weight="700" fill="#161327">notification-dispatch</text>
+    <text x="331" y="230" font-size="9" fill="#6f6a86">ระบายคิวแจ้งเตือนออก LINE</text>
+
+    <!-- postgres -->
+    <rect x="598" y="14" width="290" height="330" rx="16" fill="#e3f7ef" stroke="#8fd4bd" stroke-width="1.5"/>
+    <text x="616" y="42" font-size="13" font-weight="800" fill="#0b5c47">Supabase Postgres</text>
+    <text x="616" y="59" font-size="10" fill="#0b5c47">ผู้ตัดสินสิทธิ์ตัวจริง</text>
+
+    <rect x="616" y="76" width="254" height="52" rx="10" fill="#fff" stroke="#8fd4bd"/>
+    <text x="629" y="97" font-size="10.5" font-weight="700" fill="#161327">RLS policies</text>
+    <text x="629" y="114" font-size="9" fill="#6f6a86">กรองแถวตามบทบาทและโรงเรียน</text>
+
+    <rect x="616" y="138" width="254" height="60" rx="10" fill="#fff" stroke="#8fd4bd"/>
+    <text x="629" y="159" font-size="10.5" font-weight="700" fill="#161327">security-definer functions</text>
+    <text x="629" y="176" font-size="9" fill="#6f6a86">ตรวจสิทธิ์ด้วยตัวเอง สำหรับตาราง</text>
+    <text x="629" y="190" font-size="9" fill="#6f6a86">ที่ revoke จาก authenticated</text>
+
+    <rect x="616" y="208" width="254" height="52" rx="10" fill="#0f7a5f"/>
+    <text x="629" y="230" font-size="10.5" font-weight="700" fill="#fff">66 ตาราง</text>
+    <text x="629" y="247" font-size="9" fill="#d6f2e8">68 migrations · immutable</text>
+
+    <rect x="616" y="272" width="254" height="52" rx="10" fill="#fff" stroke="#8fd4bd"/>
+    <text x="629" y="293" font-size="10.5" font-weight="700" fill="#161327">audit_log · platform_security_events</text>
+    <text x="629" y="310" font-size="9" fill="#6f6a86">ทุกการกระทำสำคัญมีร่องรอย</text>
+
+    <!-- LINE -->
+    <rect x="598" y="364" width="290" height="52" rx="12" fill="#fdf1dd" stroke="#f0c987"/>
+    <text x="616" y="386" font-size="11.5" font-weight="700" fill="#8a4f04">LINE Messaging API</text>
+    <text x="616" y="403" font-size="9" fill="#a15c05">ช่องทางแจ้งผู้ปกครอง</text>
+
+    <!-- arrows -->
+    <path d="M234 110 L318 100" stroke="#5b3df5" stroke-width="2" fill="none" marker-end="url(#a2)"/>
+    <text x="243" y="90" font-size="8.5" fill="#5b3df5">เข้าระบบ</text>
+
+    <path d="M234 196 L318 160" stroke="#5b3df5" stroke-width="2" fill="none" marker-end="url(#a2)"/>
+    <text x="240" y="182" font-size="8.5" fill="#5b3df5">คิวซิงก์</text>
+
+    <path d="M132 144 L132 160" stroke="#6f6a86" stroke-width="2" fill="none" marker-end="url(#a1)"/>
+    <text x="140" y="156" font-size="8.5" fill="#6f6a86">เขียนทันที</text>
+
+    <path d="M532 100 L616 100" stroke="#6f6a86" stroke-width="2" fill="none" marker-end="url(#a1)"/>
+    <path d="M532 162 L616 162" stroke="#6f6a86" stroke-width="2" fill="none" marker-end="url(#a1)"/>
+    <path d="M532 218 L598 380" stroke="#a15c05" stroke-width="2" fill="none" marker-end="url(#a1)"/>
+
+    <path d="M132 78 C 132 -18, 660 -18, 743 10" stroke="#0f7a5f" stroke-width="1.6" fill="none"
+          stroke-dasharray="5 4" marker-end="url(#a1)"/>
+    <rect x="300" y="-36" width="300" height="20" rx="6" fill="#e3f7ef"/>
+    <text x="450" y="-22" font-size="8.5" fill="#0b5c47" text-anchor="middle">
+      อ่านตรงผ่าน RLS · ไม่ผ่าน Edge Function
+    </text>
+
+    <path d="M700 260 L700 272" stroke="#6f6a86" stroke-width="2" fill="none" marker-end="url(#a1)"/>
+
+    <!-- footer band -->
+    <rect x="12" y="424" width="876" height="34" rx="10" fill="#f7f7fb" stroke="#eceaf4"/>
+    <text x="30" y="446" font-size="9.5" fill="#3a3552">
+      หลักการ: หน้าจออาจซ่อนปุ่มเพื่อความสะดวก · การปฏิเสธที่มีผลจริงเกิดในฐานข้อมูลเสมอ
+    </text>
+  </svg>
+  <figcaption>
+    เส้นทึบคือคำขอที่ผ่าน Edge Function · เส้นประเขียวคือการอ่านตรงจากเบราว์เซอร์ซึ่ง RLS เป็นผู้กรอง
+  </figcaption>
+  </figure>
+
+  <div class="note">
+    <strong>ทำไมต้องมีสองเส้นทาง</strong> — การอ่านธรรมดาผ่าน RLS ได้เลยเพราะ policy กรองแถวให้แล้ว
+    ส่วนงานที่ต้องถือความลับ (ออกรหัส เข้าระบบ ระบายคิวแจ้งเตือน) ต้องผ่าน Edge Function
+    เพราะ secret อยู่ที่นั่นและต้องไม่มีวันไปอยู่ในเบราว์เซอร์
+  </div>
+</section>
+
+<!-- ============================= 2. WRITE PATH ============================= -->
+<section class="page">
+  <h2><span class="num">2</span>เส้นทางของการเขียนหนึ่งครั้ง</h2>
+  <p class="lead">
+    ระบบเป็น local-first ทุกการเขียนลงเครื่องก่อนเสมอแล้วค่อยเข้าคิว
+    ครูที่เช็กชื่อตอนไม่มีสัญญาณกำลังทำงานถูกต้อง ไม่ใช่กำลังเจอข้อผิดพลาด
+  </p>
+
+  <figure>
+  <svg viewBox="0 0 900 430" role="img" aria-label="ลำดับการเขียนข้อมูลหนึ่งครั้ง">
+    <defs>
+      <marker id="s1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#3a3552"/>
+      </marker>
+      <marker id="s2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#0f7a5f"/>
+      </marker>
+      <marker id="s3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#a15c05"/>
+      </marker>
+    </defs>
+
+    <!-- lanes -->
+    <g font-size="10.5" font-weight="700" fill="#161327">
+      <rect x="14" y="12" width="130" height="30" rx="9" fill="#f5f3ff" stroke="#dcd3ff"/><text x="42" y="32">ครู</text>
+      <rect x="172" y="12" width="130" height="30" rx="9" fill="#f5f3ff" stroke="#dcd3ff"/><text x="196" y="32">หน้าจอ</text>
+      <rect x="330" y="12" width="150" height="30" rx="9" fill="#ece7ff" stroke="#8f74ff"/><text x="350" y="32">Dexie + คิว</text>
+      <rect x="508" y="12" width="150" height="30" rx="9" fill="#e0f7fb" stroke="#7dd3e0"/><text x="530" y="32">sync-push</text>
+      <rect x="686" y="12" width="200" height="30" rx="9" fill="#e3f7ef" stroke="#8fd4bd"/><text x="712" y="32">Postgres</text>
+    </g>
+    <g stroke="#eceaf4" stroke-width="1.5" stroke-dasharray="3 4">
+      <line x1="79" y1="46" x2="79" y2="404"/><line x1="237" y1="46" x2="237" y2="404"/>
+      <line x1="405" y1="46" x2="405" y2="404"/><line x1="583" y1="46" x2="583" y2="404"/>
+      <line x1="786" y1="46" x2="786" y2="404"/>
+    </g>
+
+    <g font-size="9" fill="#3a3552">
+      <path d="M79 70 L237 70" stroke="#3a3552" stroke-width="1.8" marker-end="url(#s1)"/>
+      <text x="92" y="64">1 · เช็กชื่อนักเรียน</text>
+
+      <path d="M237 100 L405 100" stroke="#5b3df5" stroke-width="1.8" marker-end="url(#a2)"/>
+      <text x="250" y="94" fill="#5b3df5">2 · เขียนลง IndexedDB ทันที</text>
+
+      <path d="M237 130 L405 130" stroke="#5b3df5" stroke-width="1.8" marker-end="url(#a2)"/>
+      <text x="250" y="124" fill="#5b3df5">3 · เข้าคิว พร้อม idempotency key</text>
+
+      <path d="M237 160 L79 160" stroke="#0f7a5f" stroke-width="1.8" marker-end="url(#s2)"/>
+      <text x="92" y="154" fill="#0f7a5f">4 · “บันทึกไว้ในเครื่องแล้ว”</text>
+    </g>
+
+    <rect x="14" y="172" width="872" height="26" rx="7" fill="#fdf1dd" stroke="#f0c987"/>
+    <text x="28" y="190" font-size="9" fill="#8a4f04">
+      ยังไม่บอกว่า “ซิงก์สำเร็จ” เพราะยังไม่จริง — ข้อความที่บางครั้งเป็นเท็จ คือข้อความที่คนเลิกอ่าน
+    </text>
+
+    <!-- online branch -->
+    <rect x="14" y="212" width="872" height="118" rx="10" fill="#fbfaff" stroke="#dcd3ff"/>
+    <text x="28" y="230" font-size="9.5" font-weight="800" fill="#3a259f">เมื่อออนไลน์</text>
+    <g font-size="9" fill="#3a3552">
+      <path d="M405 252 L583 252" stroke="#3a3552" stroke-width="1.8" marker-end="url(#s1)"/>
+      <text x="418" y="246">5 · ส่ง mutation + เวอร์ชันที่เห็น</text>
+
+      <path d="M583 278 L786 278" stroke="#3a3552" stroke-width="1.8" marker-end="url(#s1)"/>
+      <text x="596" y="272">6 · apply_sync_mutation()</text>
+
+      <path d="M786 306 L405 306" stroke="#0f7a5f" stroke-width="1.8" marker-end="url(#s2)"/>
+      <text x="470" y="300" fill="#0f7a5f">7ก · เวอร์ชันตรง → ack, ลบออกจากคิว, “ซิงก์สำเร็จ”</text>
+
+      <path d="M786 322 L405 322" stroke="#a15c05" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#s3)"/>
+      <text x="440" y="336" fill="#a15c05">7ข · อีกเครื่องแก้ไปแล้ว → บันทึกลง sync_conflicts</text>
+    </g>
+
+    <!-- offline branch -->
+    <rect x="14" y="344" width="430" height="62" rx="10" fill="#eef0f5" stroke="#d5dae4"/>
+    <text x="28" y="363" font-size="9.5" font-weight="800" fill="#4a5265">เมื่อออฟไลน์</text>
+    <text x="28" y="380" font-size="9" fill="#4a5265">คิวรออยู่ใน IndexedDB · retry แบบ exponential backoff</text>
+    <text x="28" y="395" font-size="9" fill="#4a5265">ปิดแอปหรือแบตหมดแล้วเปิดใหม่ คิวยังอยู่ครบ</text>
+
+    <rect x="456" y="344" width="430" height="62" rx="10" fill="#fdf1dd" stroke="#f0c987"/>
+    <text x="470" y="363" font-size="9.5" font-weight="800" fill="#8a4f04">เมื่อขัดแย้ง</text>
+    <text x="470" y="380" font-size="9" fill="#8a4f04">ผู้ดูแลเปิด /operations เทียบทีละช่อง เฉพาะช่องที่ต่างกัน</text>
+    <text x="470" y="395" font-size="9" fill="#8a4f04">ระบบไม่ตั้งค่าเริ่มต้นให้ — การเดาแทนคนที่รู้ คือทำข้อมูลพังเงียบ ๆ</text>
+  </svg>
+  <figcaption>
+    ขั้นที่ 4 เกิดขึ้นก่อนขั้นที่ 5 เสมอ นั่นคือเหตุผลที่ระบบทำงานต่อได้เมื่อไม่มีสัญญาณ
+  </figcaption>
+  </figure>
+
+  <div class="note">
+    <strong>idempotency key</strong> — คิวส่งซ้ำได้โดยไม่เกิดรายการซ้ำ
+    เครื่องที่ส่งไปแล้วแต่ไม่ได้รับคำตอบ (สัญญาณหลุดกลางทาง) ส่งใหม่ได้อย่างปลอดภัย
+  </div>
+</section>
+
+<!-- ============================= 3. AUTHORITY ============================= -->
+<section class="page">
+  <h2><span class="num">3</span>ชั้นของสิทธิ์</h2>
+  <p class="lead">
+    คำขอหนึ่งครั้งผ่านด่านอะไรบ้าง และด่านไหนคือด่านที่มีผลจริง
+  </p>
+
+  <figure>
+  <svg viewBox="0 0 900 400" role="img" aria-label="ชั้นการตรวจสอบสิทธิ์">
+    <defs>
+      <marker id="f1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#6f6a86"/>
+      </marker>
+    </defs>
+
+    <rect x="330" y="14" width="240" height="46" rx="12" fill="#fff" stroke="#dcd3ff" stroke-width="1.5"/>
+    <text x="450" y="42" font-size="11.5" font-weight="700" fill="#161327" text-anchor="middle">คำขอจากเบราว์เซอร์</text>
+
+    <path d="M450 60 L450 84" stroke="#6f6a86" stroke-width="2" marker-end="url(#f1)"/>
+
+    <rect x="300" y="84" width="300" height="56" rx="12" fill="#f7f7fb" stroke="#eceaf4" stroke-dasharray="5 4"/>
+    <text x="450" y="108" font-size="11" font-weight="700" fill="#8e89a3" text-anchor="middle">หน้าจอซ่อนปุ่มหรือไม่</text>
+    <text x="450" y="126" font-size="9" fill="#8e89a3" text-anchor="middle">ความสะดวกเท่านั้น · ไม่ใช่การป้องกัน</text>
+
+    <path d="M450 140 L450 168" stroke="#6f6a86" stroke-width="2" marker-end="url(#f1)"/>
+
+    <rect x="300" y="168" width="300" height="52" rx="12" fill="#fff" stroke="#8f74ff" stroke-width="1.8"/>
+    <text x="450" y="190" font-size="11" font-weight="700" fill="#3a259f" text-anchor="middle">ตารางนี้ให้สิทธิ์ authenticated หรือไม่</text>
+    <text x="450" y="209" font-size="9" fill="#6f6a86" text-anchor="middle">ถามที่ระดับ privilege ก่อน policy</text>
+
+    <!-- left: revoked -->
+    <path d="M300 194 L150 194 L150 236" stroke="#6f6a86" stroke-width="2" fill="none" marker-end="url(#f1)"/>
+    <text x="152" y="188" font-size="8.5" fill="#c03a4c">revoke ทั้งหมด</text>
+
+    <rect x="20" y="236" width="260" height="88" rx="12" fill="#fdecef" stroke="#f0b3bd"/>
+    <text x="36" y="258" font-size="10.5" font-weight="700" fill="#a02a3c">ตารางที่ถือเฉลย/ความลับ</text>
+    <text x="36" y="277" font-size="8.8" fill="#8f2334">question_bank · quiz_* · exam_questions</text>
+    <text x="36" y="292" font-size="8.8" fill="#8f2334">teacher_access_codes · platform_admins</text>
+    <text x="36" y="307" font-size="8.8" fill="#8f2334">support_sessions · member_login_identities</text>
+
+    <path d="M150 324 L150 348 L340 348" stroke="#6f6a86" stroke-width="2" fill="none" marker-end="url(#f1)"/>
+
+    <!-- right: granted -->
+    <path d="M600 194 L750 194 L750 236" stroke="#6f6a86" stroke-width="2" fill="none" marker-end="url(#f1)"/>
+    <text x="640" y="188" font-size="8.5" fill="#0f7a5f">ให้สิทธิ์</text>
+
+    <rect x="620" y="236" width="260" height="88" rx="12" fill="#e3f7ef" stroke="#8fd4bd"/>
+    <text x="636" y="258" font-size="10.5" font-weight="700" fill="#0b5c47">RLS policy กรองแถว</text>
+    <text x="636" y="277" font-size="8.8" fill="#0b5c47">โรงเรียนของตัวเอง · ห้องที่รับผิดชอบ</text>
+    <text x="636" y="292" font-size="8.8" fill="#0b5c47">ลูกที่ผูกและยินยอมแล้ว</text>
+    <text x="636" y="307" font-size="8.8" fill="#0b5c47">ข้อมูลของตัวเอง</text>
+
+    <path d="M750 324 L750 348 L560 348" stroke="#6f6a86" stroke-width="2" fill="none" marker-end="url(#f1)"/>
+
+    <rect x="340" y="330" width="220" height="52" rx="12" fill="#fff" stroke="#8f74ff" stroke-width="1.8"/>
+    <text x="450" y="352" font-size="11" font-weight="700" fill="#3a259f" text-anchor="middle">security-definer function</text>
+    <text x="450" y="370" font-size="8.8" fill="#6f6a86" text-anchor="middle">ตรวจสิทธิ์ด้วยตัวเอง แล้วอนุญาตหรือปฏิเสธ</text>
+  </svg>
+  <figcaption>
+    ตารางที่ถือเฉลยถูกปฏิเสธด้วย privilege ไม่ใช่ด้วย policy — เพราะการปฏิเสธด้วย privilege
+    ไม่ต้องพึ่งว่ามีใครเขียน policy ถูกทุกครั้ง
+  </figcaption>
+  </figure>
+
+  <h3>สิทธิ์ของครู ขึ้นกับความรับผิดชอบ ไม่ใช่ตำแหน่ง</h3>
+  <table>
+    <thead><tr><th>ความรับผิดชอบ</th><th>เขียนงาน/คะแนนของวิชานั้น</th><th>ดูข้อมูลทั้งห้อง</th></tr></thead>
+    <tbody>
+      <tr><td>ครูเจ้าของวิชา (subject owner)</td><td>ได้</td><td>ได้</td></tr>
+      <tr><td>ครูร่วมสอน (co-teacher)</td><td>ไม่ได้</td><td>ได้</td></tr>
+      <tr><td>ครูประจำชั้น (advisor)</td><td>ไม่ได้</td><td>ได้</td></tr>
+      <tr><td>ครูผู้ช่วยประจำชั้น (assistant)</td><td>ไม่ได้</td><td>ได้</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================= 4. NOTIFICATIONS ============================= -->
+<section class="page">
+  <h2><span class="num">4</span>สายการแจ้งเตือนผู้ปกครอง</h2>
+  <p class="lead">
+    เหตุการณ์ในโรงเรียนเข้าคิวโดยอัตโนมัติผ่าน trigger ตัวส่งระบายคิวออก LINE
+    และทุกครั้งที่ตัวส่งทำงานจะบันทึกไว้ — เพื่อให้ “ตัวส่งตาย” เป็นสิ่งที่มองเห็น ไม่ใช่ความเงียบ
+  </p>
+
+  <figure>
+  <svg viewBox="0 0 900 330" role="img" aria-label="สายการแจ้งเตือนผู้ปกครอง">
+    <defs>
+      <marker id="n1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#6f6a86"/>
+      </marker>
+      <marker id="n2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#a15c05"/>
+      </marker>
+    </defs>
+
+    <rect x="14" y="30" width="164" height="86" rx="12" fill="#fff" stroke="#dcd3ff"/>
+    <text x="30" y="54" font-size="10.5" font-weight="700" fill="#161327">เหตุการณ์</text>
+    <text x="30" y="72" font-size="8.8" fill="#6f6a86">เผยแพร่งานใหม่</text>
+    <text x="30" y="87" font-size="8.8" fill="#6f6a86">ขาดเรียน / มาสาย</text>
+    <text x="30" y="102" font-size="8.8" fill="#6f6a86">ประกาศคะแนน</text>
+
+    <path d="M178 73 L216 73" stroke="#6f6a86" stroke-width="2" marker-end="url(#n1)"/>
+
+    <rect x="216" y="30" width="170" height="86" rx="12" fill="#e3f7ef" stroke="#8fd4bd"/>
+    <text x="232" y="54" font-size="10.5" font-weight="700" fill="#0b5c47">trigger บนตาราง</text>
+    <text x="232" y="72" font-size="8.5" fill="#0b5c47">enqueue_parent_notification</text>
+    <text x="232" y="88" font-size="8.5" fill="#0b5c47">เคารพ notification_preferences</text>
+    <text x="232" y="103" font-size="8.5" fill="#0b5c47">กันซ้ำด้วย idempotency_key</text>
+
+    <path d="M386 73 L424 73" stroke="#6f6a86" stroke-width="2" marker-end="url(#n1)"/>
+
+    <rect x="424" y="30" width="150" height="86" rx="12" fill="#fdf1dd" stroke="#f0c987"/>
+    <text x="440" y="54" font-size="10.5" font-weight="700" fill="#8a4f04">notification_outbox</text>
+    <text x="440" y="72" font-size="8.8" fill="#a15c05">pending → processing</text>
+    <text x="440" y="87" font-size="8.8" fill="#a15c05">→ sent | failed</text>
+    <text x="440" y="102" font-size="8.8" fill="#a15c05">→ dead_letter (retry 5 ครั้ง)</text>
+
+    <rect x="424" y="152" width="150" height="66" rx="12" fill="#fff" stroke="#c03a4c" stroke-width="1.8" stroke-dasharray="6 4"/>
+    <text x="499" y="176" font-size="10.5" font-weight="700" fill="#a02a3c" text-anchor="middle">ตัวตั้งเวลา</text>
+    <text x="499" y="193" font-size="8.5" fill="#a02a3c" text-anchor="middle">pg_cron หรือ scheduler ภายนอก</text>
+    <text x="499" y="208" font-size="8.5" fill="#a02a3c" text-anchor="middle">ต้องตั้งค่าตอน deploy</text>
+
+    <path d="M499 152 L499 122" stroke="#a15c05" stroke-width="2" marker-end="url(#n2)"/>
+    <path d="M574 185 L616 185" stroke="#a15c05" stroke-width="2" marker-end="url(#n2)"/>
+    <text x="512" y="240" font-size="8.5" fill="#a02a3c" text-anchor="middle">เรียกทุกนาที + secret</text>
+
+    <rect x="616" y="152" width="270" height="66" rx="12" fill="#e0f7fb" stroke="#7dd3e0"/>
+    <text x="632" y="176" font-size="10.5" font-weight="700" fill="#0e6a80">notification-dispatch</text>
+    <text x="632" y="193" font-size="8.5" fill="#0e6a80">claim → ส่ง LINE → complete</text>
+    <text x="632" y="208" font-size="8.5" fill="#0e6a80">SKIP LOCKED · ทำพร้อมกันได้ปลอดภัย</text>
+
+    <path d="M751 152 L751 122" stroke="#6f6a86" stroke-width="2" marker-end="url(#n1)"/>
+
+    <rect x="616" y="30" width="270" height="86" rx="12" fill="#fdf1dd" stroke="#f0c987"/>
+    <text x="632" y="54" font-size="10.5" font-weight="700" fill="#8a4f04">LINE Messaging API</text>
+    <text x="632" y="72" font-size="8.5" fill="#a15c05">ผู้ปกครองที่ผูก LINE แล้วเท่านั้น</text>
+    <text x="632" y="88" font-size="8.5" fill="#a15c05">ไม่ผูก = NO_LINE_LINK (ไม่ retry)</text>
+    <text x="632" y="103" font-size="8.5" fill="#a15c05">HTTP 5xx/429 = retryable</text>
+
+    <path d="M616 240 L574 240" stroke="#6f6a86" stroke-width="2" marker-end="url(#n1)"/>
+
+    <rect x="14" y="248" width="560" height="66" rx="12" fill="#e6efff" stroke="#a8c6f0"/>
+    <text x="30" y="272" font-size="10.5" font-weight="700" fill="#174a9c">notification_dispatch_runs + notifications_log</text>
+    <text x="30" y="290" font-size="8.8" fill="#174a9c">ทุกครั้งที่ตัวส่งทำงานบันทึกหนึ่งแถว แม้ส่งไม่ได้อะไรเลย</text>
+    <text x="30" y="305" font-size="8.8" fill="#174a9c">→ /platform/notifications แสดง “คิวลึกแค่ไหน” คู่กับ “ตัวส่งเงียบไปกี่นาที”</text>
+
+    <rect x="616" y="248" width="270" height="66" rx="12" fill="#f7f7fb" stroke="#eceaf4"/>
+    <text x="632" y="272" font-size="9" font-weight="700" fill="#3a3552">ทำไมต้องดูสองตัวเลขคู่กัน</text>
+    <text x="632" y="289" font-size="8.3" fill="#514c6b">คิวว่าง + ตัวส่งตาย = ดูเหมือนปกติ แต่ไม่ปกติ</text>
+    <text x="632" y="303" font-size="8.3" fill="#514c6b">ตัวส่งขยัน + คิวเก่าค้าง = ก็ยังผิด</text>
+  </svg>
+  <figcaption>
+    กรอบเส้นประแดงคือส่วนเดียวที่ repo ทำแทนไม่ได้ — ต้องตั้งค่าบน project จริง
+  </figcaption>
+  </figure>
+
+  <div class="note warn-note">
+    <strong>จุดที่เคยพลาดมาแล้ว</strong> — โค้ดตัวส่งเขียนเสร็จและถูกต้อง แต่ไม่มีอะไรเรียกมัน
+    ข้อความจึงค้างในคิวโดยที่ทุกหน้าจอดูปกติ และโรงเรียนเข้าใจว่าแจ้งผู้ปกครองไปแล้ว
+    ตอนนี้ปิดช่องนี้ด้วยสองอย่าง: ฟังก์ชันตั้งเวลาให้ pg_cron และการบันทึกทุกครั้งที่ตัวส่งทำงาน
+  </div>
+</section>
+
+<!-- ============================= 5. DATA MODEL ============================= -->
+<section class="page">
+  <h2><span class="num">5</span>ความสัมพันธ์ของข้อมูลหลัก</h2>
+  <p class="lead">
+    66 ตารางจัดกลุ่มได้เป็นห้าวง — โครงสร้างโรงเรียน คน การเรียนการสอน การประเมิน และระบบ
+  </p>
+
+  <figure>
+  <svg viewBox="0 0 900 430" role="img" aria-label="ผังความสัมพันธ์ของข้อมูล">
+    <g stroke="#c9c4de" stroke-width="1.4" fill="none">
+      <path d="M172 92 L286 92"/><path d="M172 118 L286 150"/>
+      <path d="M430 92 L500 92"/><path d="M430 150 L500 150"/>
+      <path d="M286 214 L286 240"/><path d="M644 92 L644 240"/>
+      <path d="M430 214 L430 240"/><path d="M172 300 L286 300"/>
+    </g>
+
+    <!-- school structure -->
+    <rect x="14" y="60" width="158" height="120" rx="12" fill="#f5f3ff" stroke="#8f74ff" stroke-width="1.5"/>
+    <text x="30" y="46" font-size="9" font-weight="800" fill="#3a259f" letter-spacing="1.5">โครงสร้างโรงเรียน</text>
+    <text x="30" y="84" font-size="9.5" fill="#161327">schools</text>
+    <text x="30" y="102" font-size="9.5" fill="#161327">academic_terms</text>
+    <text x="30" y="120" font-size="9.5" fill="#161327">classes</text>
+    <text x="30" y="138" font-size="9.5" fill="#161327">subjects</text>
+    <text x="30" y="156" font-size="9.5" fill="#161327">settings</text>
+    <text x="30" y="172" font-size="8.3" fill="#8e89a3">ทุกแถวมี school_id</text>
+
+    <!-- people -->
+    <rect x="286" y="60" width="144" height="154" rx="12" fill="#e0f7fb" stroke="#7dd3e0" stroke-width="1.5"/>
+    <text x="302" y="46" font-size="9" font-weight="800" fill="#0e6a80" letter-spacing="1.5">คน</text>
+    <text x="302" y="84" font-size="9.5" fill="#161327">user_profiles</text>
+    <text x="302" y="102" font-size="9.5" fill="#161327">school_memberships</text>
+    <text x="302" y="120" font-size="9.5" fill="#161327">students · teachers</text>
+    <text x="302" y="138" font-size="9.5" fill="#161327">parents</text>
+    <text x="302" y="156" font-size="9.5" fill="#161327">parent_student_links</text>
+    <text x="302" y="174" font-size="9.5" fill="#161327">student_class_enrollments</text>
+    <text x="302" y="192" font-size="9.5" fill="#161327">class_teachers</text>
+    <text x="302" y="207" font-size="8.3" fill="#6f6a86">4 ความรับผิดชอบ</text>
+
+    <!-- teaching -->
+    <rect x="500" y="60" width="144" height="154" rx="12" fill="#e3f7ef" stroke="#8fd4bd" stroke-width="1.5"/>
+    <text x="516" y="46" font-size="9" font-weight="800" fill="#0b5c47" letter-spacing="1.5">การเรียนการสอน</text>
+    <text x="516" y="84" font-size="9.5" fill="#161327">assignments</text>
+    <text x="516" y="102" font-size="9.5" fill="#161327">submissions</text>
+    <text x="516" y="120" font-size="9.5" fill="#161327">attendance</text>
+    <text x="516" y="138" font-size="9.5" fill="#161327">activities · rubrics</text>
+    <text x="516" y="156" font-size="9.5" fill="#161327">timetable_entries</text>
+    <text x="516" y="174" font-size="9.5" fill="#161327">announcements</text>
+    <text x="516" y="192" font-size="9.5" fill="#161327">deadline_extensions</text>
+
+    <!-- assessment -->
+    <rect x="700" y="60" width="186" height="154" rx="12" fill="#fdf3d7" stroke="#e6c46a" stroke-width="1.5"/>
+    <text x="716" y="46" font-size="9" font-weight="800" fill="#8a4f04" letter-spacing="1.5">การประเมิน</text>
+    <text x="716" y="84" font-size="9.5" fill="#161327">question_bank · categories</text>
+    <text x="716" y="102" font-size="9.5" fill="#161327">tests → exam_questions</text>
+    <text x="716" y="120" font-size="9.5" fill="#161327">exam_attempts</text>
+    <text x="716" y="138" font-size="9.5" fill="#161327">quiz_sessions → quiz_questions</text>
+    <text x="716" y="156" font-size="9.5" fill="#161327">quiz_participants · quiz_answers</text>
+    <text x="716" y="174" font-size="9.5" fill="#161327">score_events</text>
+    <text x="716" y="192" font-size="8.3" fill="#8a4f04">คัดลอกคำถาม ไม่ใช่ชี้ไปหา</text>
+
+    <!-- system -->
+    <rect x="14" y="240" width="872" height="96" rx="12" fill="#f7f7fb" stroke="#dbd8e8" stroke-width="1.5"/>
+    <text x="30" y="264" font-size="9" font-weight="800" fill="#3a3552" letter-spacing="1.5">ระบบและความปลอดภัย</text>
+    <g font-size="9.3" fill="#161327">
+      <text x="30" y="288">sync_changes · sync_conflicts · sync_idempotency · devices</text>
+      <text x="30" y="308">notification_outbox · notifications_log · notification_dispatch_runs</text>
+      <text x="30" y="328">audit_log · platform_security_events · support_sessions</text>
+      <text x="470" y="288">platform_admins · platform_error_events · platform_releases</text>
+      <text x="470" y="308">product_activation_keys · teacher_access_codes</text>
+      <text x="470" y="328">member_login_identities · feature_flags</text>
+    </g>
+
+    <rect x="14" y="352" width="872" height="62" rx="12" fill="#ece7ff" stroke="#8f74ff"/>
+    <text x="30" y="374" font-size="10" font-weight="800" fill="#3a259f">กฎที่ผูกทั้งผังไว้ด้วยกัน</text>
+    <text x="30" y="392" font-size="9" fill="#3a3552">
+      · ทุกอย่างที่ให้คะแนน เขียนลง score_events เดียว พร้อมเหตุผล ผู้ให้ และแหล่งที่มา
+    </text>
+    <text x="30" y="407" font-size="9" fill="#3a3552">
+      · ไม่ลบข้อมูล ใช้ status แทน — ประวัติยังอ่านย้อนหลังได้เสมอ
+    </text>
+  </svg>
+  <figcaption>
+    exam_questions และ quiz_questions <em>คัดลอก</em> คำถามจาก question_bank
+    การแก้คลังข้อสอบเทอมหน้าจึงไม่เปลี่ยนข้อสอบที่ห้องหนึ่งสอบไปแล้ว
+  </figcaption>
+  </figure>
+
+  <div class="legend">
+    <span><i class="swatch" style="background:#8f74ff"></i>โครงสร้างโรงเรียน</span>
+    <span><i class="swatch" style="background:#7dd3e0"></i>คน</span>
+    <span><i class="swatch" style="background:#8fd4bd"></i>การเรียนการสอน</span>
+    <span><i class="swatch" style="background:#e6c46a"></i>การประเมิน</span>
+    <span><i class="swatch" style="background:#dbd8e8"></i>ระบบและความปลอดภัย</span>
+  </div>
+</section>
+
+<!-- ============================= 6. ROLES & DEPLOY ============================= -->
+<section class="page">
+  <h2><span class="num">6</span>บทบาทและสิ่งที่ต้องทำตอน deploy</h2>
+
+  <h3>ใครเข้าระบบด้วยอะไร</h3>
+  <p class="lead" style="margin-top:2mm">ไม่มีทางเข้าไหนถามอีเมล · อีเมลใช้เพื่อกู้รหัสผ่านเท่านั้น</p>
+  <table>
+    <thead><tr><th>บทบาท</th><th>ใช้อะไรเข้าระบบ</th><th>หน้าจอ</th><th>เห็นอะไร</th></tr></thead>
+    <tbody>
+      <tr><td>ครู</td><td>ชื่อ + รหัสครู</td><td><code>/login</code></td><td>ห้องและวิชาที่รับผิดชอบ</td></tr>
+      <tr><td>ผู้ปกครอง</td><td>ชื่อ + รหัสผ่าน</td><td><code>/login</code></td><td>เฉพาะลูกที่ยืนยันและยินยอมแล้ว</td></tr>
+      <tr><td>นักเรียน</td><td>ชื่อ + เลขประจำตัว</td><td><code>/login</code></td><td>งาน คะแนน และประกาศของตัวเอง</td></tr>
+      <tr><td>ผู้ดูแลโรงเรียน</td><td>ชื่อ + รหัสผ่าน</td><td><code>/admin-access</code></td><td>ทุกอย่างในโรงเรียนของตัวเอง</td></tr>
+      <tr><td>ผู้ดูแลแพลตฟอร์ม</td><td>ชื่อ + รหัสผ่าน + รหัสสิทธิ์ (+ MFA)</td><td><code>/platform</code></td><td>สุขภาพระบบทุกโรงเรียน · ไม่เห็นคะแนนเด็ก</td></tr>
+    </tbody>
+  </table>
+
+  <h3>สิ่งที่ต้องตั้งค่าบน project จริง</h3>
+  <p class="lead" style="margin-top:2mm">โค้ดพร้อมทั้งหมด รายการนี้คือสิ่งที่ repo ทำแทนไม่ได้</p>
+  <table>
+    <thead><tr><th style="width:8%">#</th><th style="width:42%">สิ่งที่ต้องทำ</th><th>ถ้าไม่ทำจะเป็นอย่างไร</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>ตั้ง <code>PRODUCT_KEY_SECRET</code> (≥32 ตัวอักษร)</td><td>ลูกค้าเปิดใช้งานครั้งแรกไม่ได้ ระบบปฏิเสธออกคีย์</td></tr>
+      <tr><td>2</td><td>ตั้ง <code>NOTIFICATION_DISPATCH_SECRET</code></td><td>ตัวส่งแจ้งเตือนปฏิเสธทุกคำขอ</td></tr>
+      <tr><td>3</td><td><strong>ตั้งเวลาเรียก <code>notification-dispatch</code></strong></td><td>ข้อความค้างในคิว โรงเรียนเข้าใจว่าแจ้งไปแล้ว</td></tr>
+      <tr><td>4</td><td><code>supabase db push</code> + deploy Edge Functions</td><td>migration ใหม่ยังไม่มีผล</td></tr>
+      <tr><td>5</td><td>ตั้ง <code>ALLOWED_ORIGINS</code> ให้ตรงโดเมนจริง</td><td>ทุกคำขอถูก CORS ปฏิเสธ</td></tr>
+      <tr><td>6</td><td><strong>ทดสอบกู้คืนข้อมูลจริง</strong></td><td>มีไฟล์สำรองที่ไม่มีใครรู้ว่ากู้ได้จริงหรือไม่</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note warn-note" style="margin-top:6mm">
+    <strong>สถานะ: CONDITIONALLY READY</strong> — ข้อ 3 และข้อ 6 เป็นขั้นตอน deploy ไม่ใช่โค้ดที่ขาด
+    แต่ทั้งสองข้อต้องทำจริงบน project จริงก่อนเปิดใช้กับครอบครัวจริง
+    เอกสารนี้ไม่ประกาศว่าระบบ production ready เพราะยังไม่ได้ทดสอบครบบนเครื่องจริงทุกขนาดจอ
+  </div>
+
+  <p style="margin-top:8mm;font-size:8.5pt;color:var(--ink-4);border-top:1px solid var(--line);padding-top:4mm">
+    อ่านต่อ: <code>docs/31_APP_GUIDE_AND_DATA_MAP.md</code> (คู่มือใช้งานฉบับเต็ม) ·
+    <code>AGENTS.md</code> (ข้อห้ามที่แตะไม่ได้) ·
+    <code>docs/21_DEPLOYMENT_RUNBOOK.md</code> (ขั้นตอน deploy) ·
+    <code>scripts/probes/README.md</code> (ตรวจระบบกับฐานข้อมูลจริง)
+  </p>
+</section>
+
+</body>
+</html>

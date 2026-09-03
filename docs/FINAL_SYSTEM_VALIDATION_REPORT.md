@@ -1,5 +1,108 @@
 # Final System Validation Report
 
+## Pass of 2026-09-03
+
+**Branch:** `continuation/claude-completion`
+**Validated by:** the four local gates, run on this tree. Nothing in this pass has been deployed.
+
+| | |
+| --- | --- |
+| Migrations | 68 (last: `202609030003`) |
+| Edge Functions | 15 |
+| Test files | 62 |
+| Automated tests | 639, all passing |
+
+Gates: `typecheck` PASS · `lint` PASS (`--max-warnings 0`) · `test` PASS (639) · `build` PASS.
+
+**The numbers in the 2026-09-01 pass below were already stale when this pass began** — it reported 32
+migrations and 512 tests against an actual 65 and 583, and `AGENTS.md` reported 29 migrations and 489
+tests. Both have been corrected. Treat a count in a report as evidence of when it was written.
+
+### What this pass changed
+
+**The notification sender now has a schedule, and a pulse.** The dispatcher was written, correct and
+never called: the runbook asked an operator to remember to invoke it every minute, and the queue
+looked healthy from every screen while nobody read it. Two separate things close that.
+`schedule_notification_dispatch` puts a pg_cron job on the function, taking the URL and secret from
+the operator and keeping them in the vault — this repository is public, so neither can live in a
+migration. And every invocation now writes a row to `notification_dispatch_runs`, so
+`notification_dispatch_health` can report *how long ago the sender last ran* beside *how deep the
+queue is*. Either number alone misleads. The console's notification page shows both, and a queue with
+no recent run is an alarm rather than a silence. `scripts/probes/probe-notifications.js` drives the
+real endpoint with the real secret.
+
+Still not closed: a *particular deployment* must actually run one of those two schedules. That is a
+deployment step, not missing code, and the health banner is what makes forgetting it visible.
+
+**One product key per customer, recoverable by the operator who sold it.** Drawing a key used to
+replace the previous one, so a customer who pressed the button twice had two keys in their notes and
+one that worked. Keys are now sealed with AES-GCM under `PRODUCT_KEY_SECRET` alongside the digest
+activation checks, asking twice returns the same key, and the setup wizard has no "draw again"
+button. The operations console lists every key and can open one — behind platform authority, a fresh
+password, a written reason, and a `PRODUCT_KEY_REVEALED` record that counts the opens.
+
+The trade is stated rather than hidden: a key is recoverable by somebody holding both the database
+and the secret. Neither alone suffices, and the alternative was a paying customer whose activation is
+unrecoverable.
+
+**A password reset the school cannot perform for itself.** A school administrator is the top of their
+own school; when they lose their password there is nobody inside it to ask. The platform operator can
+now issue a new one, with a reason, a fresh password of their own and a record written before GoTrue
+is asked to change anything. It is a *reset*, never a reveal: GoTrue holds a one-way hash and no
+function here or anywhere else can read a password back. One operator cannot reset another's.
+
+**MFA for platform operators — PASS (new).** Previously listed as an outstanding risk. TOTP through
+GoTrue, so the assurance level is a claim inside the token rather than a boolean a screen sets. The
+check deliberately does not live inside `platform_reauth_fresh` reading `auth.jwt()`: half of that
+function's callers are the gateway holding `p_actor` with no operator session, where such a check
+would pass for every one of them. The level is recorded when the gateway proves the password and read
+back afterwards. An operator who has enrolled must use it; one who has not is not locked out of the
+screen that would enrol them, and the console shows which operators have not.
+
+**Question bank import — PASS (new).** Previously a named barrier: every question typed one at a
+time. The roster importer's CSV/TSV/XLSX reader is reused, Thai and English headers are recognised,
+and an answer written as a letter, a number or the option's own text all read correctly — because all
+three are what turns up in a school's existing workbook. Rows the reader cannot make sense of stay on
+screen with the reason rather than being dropped. Every accepted row goes through `saveBankQuestion`,
+so the subject-owner check and the audit trail are unchanged.
+
+**Parent portal — PASS (was PARTIAL).** Attendance detail, outstanding and late work, per-subject
+results and the calendar were all missing for guardians. They are now one child-shaped screen at
+`/my-children/:studentId`, which resolves the child from `consentedStudents` and can render nothing
+else — a class-shaped screen with a parent in it is one filter bug away from showing another family's
+child. Marks remain gated by the school's own `shareScoresWithParents`, and when it is off they are
+absent rather than hidden in the browser.
+
+**Realtime — PARTIAL (was NOT IMPLEMENTED).** The live classroom round moved on a two-second poll
+from thirty devices at once. It now moves on a Realtime broadcast, with a ten-second poll underneath
+as the floor for a dropped socket or a sleeping phone. The channel deliberately carries a nudge and
+no rows: subscribing to `postgres_changes` on a `quiz_*` table would be a grant on rows holding the
+answer key, which is exactly what revoking those tables from `authenticated` exists to prevent. Every
+client re-fetches through the same security-definer RPC it already used, so what a student may see is
+decided where it always was. Nothing else was converted — the remaining intervals are local clock
+ticks and the background sync, both correct as they are.
+
+**Android — CONFIGURED, NOT RELEASED (was FAIL).** Capacitor 8, an application id
+(`th.ac.smartclassroom.app`, permanent once Play binds a listing to it), `androidScheme: 'https'` so
+the WebView is a secure origin and IndexedDB is not silently cleared, three npm scripts and
+`docs/30_ANDROID_BUILD.md`. `webDir` is `dist`, so an Android release ships the bundle the four gates
+already passed rather than a second build that can drift.
+
+What is deliberately absent: the generated `android/` project, which `npm run android:add` writes on
+the build machine, and the keystore — this repository is public, and a signing key in it is a signing
+key that has to be replaced, which Play does not allow for an existing listing. No release has been
+built or uploaded, so this is configuration verified by the gates rather than a shipped application.
+
+### What this pass did not change
+
+OCR import, practice mode and the unbuilt question types, and the operations console's
+Jobs/Tickets/Plans sections. All still as described below. A live restore has still never been run,
+and no Android build has ever been produced.
+
+---
+
+## Pass of 2026-09-01
+
 **Date:** 2026-09-01
 **Branch:** `continuation/claude-completion` (merged to `main`)
 **Supabase project:** the deployment this branch is linked to (see `supabase/.temp/project-ref`, which is not committed)
@@ -130,7 +233,7 @@ no email field, invitation step or teacher self-registration is required. Multip
 stored on the roster entry, and class assignments can carry a subject responsibility or remain a
 class-advisor assignment. Audit and account-event rows are written by trusted server functions.
 
-## PARENT — PARTIAL
+## PARENT — PARTIAL (completed 2026-09-03; see the pass above)
 
 Registration now records the selected school, child search is school-scoped, and a valid child match
 is linked immediately. Legacy pending links remain readable. The portal itself covers linked
@@ -231,7 +334,7 @@ attempt refused; a second submit returned the first; editing the paper afterward
 Device records carry client version, protocol version, last seen and last successful sync. Revoking
 a device stops it re-registering itself, which is what makes revocation mean something.
 
-## NOTIFICATIONS — FAIL
+## NOTIFICATIONS — FAIL (closed 2026-09-03; see the pass above)
 
 `notification_outbox`, preferences and the log all exist and are written to. **No Edge Function reads
 the outbox and delivers anything.** Messages queue and stay queued.
@@ -264,7 +367,7 @@ The development sign-in is a separate Edge Function a production project simply 
 is inert unless the server sets `PLATFORM_DEV_SIGN_IN`, still requires the platform code, signs in
 only as an operator who already exists, and records every use.
 
-**MFA is not implemented.** Re-authentication is a password within a window, not a second factor.
+**MFA is not implemented.** (implemented 2026-09-03; see the pass above) Re-authentication is a password within a window, not a second factor.
 
 ## RLS — PASS
 
@@ -289,12 +392,12 @@ Installable, offline shell, prompted updates. The operations console is excluded
 worker precache: an operations tool answering from yesterday's cache during an incident is worse than
 no console.
 
-## ANDROID READINESS — FAIL
+## ANDROID READINESS — FAIL (configured 2026-09-03; see the pass above)
 
 No Capacitor configuration, no application id, no version code, no signing strategy. The product is
 web and installed PWA only.
 
-## REALTIME — NOT IMPLEMENTED
+## REALTIME — NOT IMPLEMENTED (partial 2026-09-03; see the pass above)
 
 Supabase Realtime is not used anywhere. Live surfaces poll every two seconds. This is adequate for
 one classroom and will not scale to many schools.
