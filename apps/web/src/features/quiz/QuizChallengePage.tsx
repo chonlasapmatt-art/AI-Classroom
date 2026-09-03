@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
+import { nudgeRoom, subscribeToRoom } from './quizLive';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses } from '../../data/selectors';
 import {
@@ -71,14 +72,23 @@ export function QuizChallengePage() {
       }
     };
     void tick();
-    const timer = window.setInterval(() => void tick(), 2000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    // Realtime moves the board the moment it moves; the interval is the floor underneath it for
+    // a dropped socket, a sleeping phone or a backgrounded tab. Ten seconds rather than two,
+    // because it is now a safety net rather than the mechanism.
+    const stopListening = subscribeToRoom(sessionId, () => void tick());
+    const timer = window.setInterval(() => void tick(), 10_000);
+    return () => { cancelled = true; window.clearInterval(timer); stopListening(); };
   }, [sessionId]);
 
   async function command(next: 'start' | 'next' | 'pause' | 'resume' | 'end') {
     if (!sessionId) return;
     setBusy(true); setError(null);
-    try { await controlQuiz(sessionId, next); }
+    try {
+      await controlQuiz(sessionId, next);
+      // The room is told after the change landed, never before: a nudge for a change that then
+      // failed would have every device re-reading the state it already had.
+      nudgeRoom(sessionId);
+    }
     catch (reason) { setError(reason instanceof QuizError ? reason.message : 'สั่งงานไม่สำเร็จ'); }
     finally { setBusy(false); }
   }

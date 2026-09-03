@@ -5,6 +5,7 @@ import {
   joinQuiz, quizView, quizWaitingForMe, secondsRemaining, submitQuizAnswer, QuizError,
   type StudentQuizView
 } from './quizChallenge';
+import { nudgeRoom, subscribeToRoom } from './quizLive';
 
 /**
  * The student's side of a live round.
@@ -58,9 +59,20 @@ export function StudentQuizPanel() {
   useEffect(() => {
     if (!active) return;
     void poll();
-    const timer = window.setInterval(() => void poll(), 2000);
+    const timer = window.setInterval(() => void poll(), 10_000);
     return () => window.clearInterval(timer);
   }, [active, poll]);
+
+  // Listening needs a round to listen to, and the poll above is what discovers one. Once there
+  // is, the teacher's nudge is what moves this panel and the interval is only the floor beneath.
+  useEffect(() => {
+    if (!active || !sessionId) return;
+    return subscribeToRoom(sessionId, (kind) => {
+      // Another student answering changes the teacher's tally and nothing on this screen.
+      if (kind === 'answers') return;
+      void poll();
+    });
+  }, [active, sessionId, poll]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 500);
@@ -79,6 +91,9 @@ export function StudentQuizPanel() {
       await joinQuiz(sessionId);
       setJoined(true);
       setView(await quizView(sessionId)); setReceivedAt(Date.now());
+      // The teacher's board counts answers as they arrive. Nudging it here is what makes that
+      // count move while the room watches, rather than on the next sweep of the fallback poll.
+      nudgeRoom(sessionId, 'answers');
     } catch (reason) {
       setError(reason instanceof QuizError ? reason.message : 'เข้าร่วมไม่สำเร็จ');
     } finally { setBusy(false); }
