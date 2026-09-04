@@ -72,20 +72,27 @@ export function ReportView({
     <>
       {controls}
 
+      {/*
+        * Two tiles reading the same number is not a summary.
+        *
+        * "แถวทั้งหมด 24" beside "แถวที่แสดงอยู่ 24" tells a reader nothing until a filter is on, so
+        * the second appears only once the two can differ. The rest of the row is the largest few
+        * categories the chart found — a fact about the data rather than about the table.
+        */}
       <div className="ui-stat-grid">
         <Stat
           label="จำนวนแถวทั้งหมด" value={rows.length.toLocaleString('th-TH')}
           hint={title} tone="brand" icon={<Icon name="reports" size={18} />}
         />
-        <Stat
-          label="แถวที่แสดงอยู่" value={filtered.length.toLocaleString('th-TH')}
-          hint={query.trim() ? `กรองด้วย "${query.trim()}"` : 'ยังไม่ได้กรอง'}
-          tone={filtered.length === rows.length ? 'neutral' : 'info'}
-          icon={<Icon name="filter" size={18} />}
-        />
-        {chart?.bars.slice(0, 2).map((bar) => (
+        {filtered.length !== rows.length && (
           <Stat
-            key={bar.label} label={bar.label} value={bar.value.toLocaleString('th-TH')}
+            label="แถวที่แสดงอยู่" value={filtered.length.toLocaleString('th-TH')}
+            hint={`กรองด้วย "${query.trim()}"`} tone="info" icon={<Icon name="filter" size={18} />}
+          />
+        )}
+        {chart && [...chart.bars].sort((left, right) => right.value - left.value).slice(0, 3).map((bar) => (
+          <Stat
+            key={bar.label} label={bar.label} value={`${bar.value.toLocaleString('th-TH')} ${chart.unit}`}
             hint={chart.caption} tone="neutral" icon={<Icon name="star" size={18} />}
           />
         ))}

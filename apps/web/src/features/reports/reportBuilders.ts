@@ -262,8 +262,21 @@ function longest(bars: Array<{ label: string; value: number }>, keep = 8): Array
   return [...bars].sort((left, right) => right.value - left.value).slice(0, keep);
 }
 
+/**
+ * A chart of one category is not a chart.
+ *
+ * "24 นักเรียน, all กำลังศึกษา" drawn as a single full-width bar says nothing the number beside it
+ * did not, and a one-bar bar chart reads as a broken chart rather than as a complete one. The
+ * summary tiles already carry that case.
+ */
+const worthDrawing = (chart: ReportChart): ReportChart | null => chart.bars.length >= 2 ? chart : null;
+
 export function reportChart(report: ReportTable): ReportChart | null {
   if (report.rows.length === 0) return null;
+  return worthDrawing(buildChart(report));
+}
+
+function buildChart(report: ReportTable): ReportChart {
   switch (report.id) {
     case 'student':
       return { caption: 'นักเรียนแยกตามสถานะ', unit: 'คน', bars: countBy(report.rows, 3) };
@@ -287,6 +300,10 @@ export function reportChart(report: ReportTable): ReportChart | null {
 
 export function personalReportChart(report: PersonalReportTable): ReportChart | null {
   if (report.rows.length === 0) return null;
+  return worthDrawing(buildPersonalChart(report));
+}
+
+function buildPersonalChart(report: PersonalReportTable): ReportChart {
   switch (report.id) {
     case 'attendance':
       return { caption: 'จำนวนคาบแยกตามสถานะ', unit: 'คาบ', bars: countBy(report.rows, 4) };

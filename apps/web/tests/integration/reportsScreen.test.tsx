@@ -25,15 +25,26 @@ function renderReports() {
 const bodyRows = () => document.querySelectorAll('.ui-table tbody tr');
 
 describe('a report on screen', () => {
+  it('draws no chart for a report with one category', async () => {
+    renderReports();
+    // The roster opens first and every student in it is กำลังศึกษา. One full-width bar says nothing
+    // the number beside it did not, and reads as a broken chart rather than a complete one.
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('รายชื่อนักเรียน'));
+    expect(document.querySelector('.report-chart')).toBeNull();
+  });
+
   it('draws one bar per category with the value beside it', async () => {
     renderReports();
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('รายชื่อนักเรียน'));
+    await waitFor(() => expect(bodyRows().length).toBeGreaterThan(0));
+    const picker = screen.getByLabelText('รายงาน') as HTMLSelectElement;
+    fireEvent.change(picker, { target: { value: 'attendance' } });
+
+    await waitFor(() => expect(document.querySelector('.report-chart')).not.toBeNull());
     const chart = document.querySelector('.report-chart')!;
-    expect(chart).not.toBeNull();
     // Printed values, not a hover-only tooltip: a chart that needs a pointer is unreadable on a
     // phone and in print, which is where these reports are most often looked at.
     expect(chart.querySelectorAll('.report-chart-value').length).toBe(chart.querySelectorAll('.report-chart-bar').length);
-    expect(chart.querySelectorAll('.report-chart-bar').length).toBeGreaterThan(0);
+    expect(chart.querySelectorAll('.report-chart-bar').length).toBeGreaterThan(1);
   });
 
   it('finds a row without asking which column to look in', async () => {
