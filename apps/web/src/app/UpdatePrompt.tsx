@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button } from '../ui/components';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db } from '../db/database';
 import { APP_VERSION, prepareForUpdate, readLastCheckedAt, shouldCheckNow, UPDATE_CHECK_INTERVAL_MS, writeLastCheckedAt } from './appUpdate';
@@ -80,7 +81,7 @@ export function UpdatePrompt() {
         </div>
         <div className="update-actions">
           <button className="text-button" disabled={preparing} onClick={() => { setNeedRefresh(false); setDismissed(true); }}>ภายหลัง</button>
-          <button className="primary-button" disabled={preparing} onClick={() => void applyUpdateSafely()}>{preparing ? 'กำลังซิงก์...' : 'อัปเดตตอนนี้'}</button>
+          <Button variant="primary" loading={preparing} onClick={() => void applyUpdateSafely()}>อัปเดตตอนนี้</Button>
         </div>
       </div>
     );

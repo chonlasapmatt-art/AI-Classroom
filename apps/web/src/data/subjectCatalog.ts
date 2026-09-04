@@ -21,15 +21,23 @@ export const standardSubjects: SubjectSeed[] = [
   { code: 'EN', name: 'ภาษาต่างประเทศ', nameEn: 'Foreign Languages', colorIndex: 7, iconKey: 'globe' }
 ];
 
-/** Palette used for subject chips, cards and gradebook columns. */
+/**
+ * Palette used for subject chips, cards and gradebook columns.
+ *
+ * Each `solid` has to be readable twice: as the label of an unselected chip sitting on its own
+ * `soft`, and as the fill behind white when the chip is selected. Three of them cleared the second
+ * and missed the first — Thai, Occupations and Social Studies measured 4.39, 4.43 and 4.45 against
+ * a 4.5 requirement, which is exactly the kind of miss nobody sees by looking. They are a shade
+ * deeper now and every pair is checked in the test beside this file.
+ */
 export const subjectColors = [
-  { solid: '#c2410c', soft: '#ffe8d8' },
+  { solid: '#ad390b', soft: '#ffe8d8' },
   { solid: '#4930d1', soft: '#e8e1ff' },
   { solid: '#0f766e', soft: '#ccfbef' },
-  { solid: '#b45309', soft: '#fdf0d5' },
+  { solid: '#9c4a08', soft: '#fdf0d5' },
   { solid: '#0369a1', soft: '#dbeeff' },
   { solid: '#be185d', soft: '#ffe4f0' },
-  { solid: '#4d7c0f', soft: '#e8f7cf' },
+  { solid: '#456d0d', soft: '#e8f7cf' },
   { solid: '#7c3aed', soft: '#efe6ff' }
 ] as const;
 

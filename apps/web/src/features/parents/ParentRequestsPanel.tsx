@@ -8,6 +8,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { requireSupabase } from '../../services/supabase';
 import { completeMemberPasswordReset, MEMBER_PASSWORD_MINIMUM } from '../auth/memberAccess';
+import { Badge, Button, Card, CardHeader, EmptyState } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 
 interface LinkRequest {
@@ -99,71 +101,92 @@ export function ParentRequestsPanel({ schoolId }: { schoolId: string }) {
 
   return (
     <>
-      <section className="panel data-panel">
-        <div className="panel-heading">
-          <h2>คำขอเชื่อมบัญชีผู้ปกครอง</h2>
-          <p>{pending.length} รายการรออนุมัติ จากทั้งหมด {links.length} รายการ</p>
-        </div>
+      <Card>
+        <CardHeader
+          title="คำขอเชื่อมบัญชีผู้ปกครอง"
+          description="ผู้ปกครองที่เพิ่มลูกด้วยชื่ออย่างเดียวจะยังไม่เห็นข้อมูลใด ๆ จนกว่าจะอนุมัติที่นี่"
+          action={<Badge tone={pending.length > 0 ? 'warning' : 'success'}>
+            {pending.length > 0 ? `${pending.length} รออนุมัติ` : 'ไม่มีค้าง'}
+          </Badge>}
+        />
         {links.length === 0 ? (
-          <div className="empty-state"><span>♧</span><h3>ยังไม่มีคำขอ</h3><p>ผู้ปกครองที่เพิ่มลูกด้วยชื่อจะปรากฏที่นี่</p></div>
+          <EmptyState
+            icon={<Icon name="parents" size={28} />}
+            title="ยังไม่มีคำขอ"
+            description="ผู้ปกครองที่เพิ่มลูกด้วยชื่อจะปรากฏที่นี่ พร้อมชื่อนักเรียนและห้องให้ตรวจก่อนอนุมัติ"
+          />
         ) : (
-          <ul className="record-list">
+          <ul className="request-list">
             {links.map((request) => (
               <li key={request.linkId}>
-                <div className="record-main">
-                  <div>
-                    <strong>{request.parentName}</strong>
-                    <span>{request.relationship} ของ {request.studentName}{request.className ? ` · ${request.className}` : ''}</span>
-                    <span>{request.requestedAt ? new Date(request.requestedAt).toLocaleString('th-TH') : ''}</span>
-                  </div>
-                  <span className={`status-chip ${request.status === 'linked' ? 'success' : request.status === 'pending' ? 'warning' : 'danger'}`}>
-                    {statusLabels[request.status] ?? request.status}
-                  </span>
+                <div className="request-main">
+                  <strong>{request.parentName}</strong>
+                  <span>{request.relationship} ของ {request.studentName}{request.className ? ` · ${request.className}` : ''}</span>
+                  <span>{request.requestedAt ? new Date(request.requestedAt).toLocaleString('th-TH') : ''}</span>
                 </div>
-                <div className="record-actions">
+                <Badge tone={request.status === 'linked' ? 'success' : request.status === 'pending' ? 'warning' : 'danger'}>
+                  {statusLabels[request.status] ?? request.status}
+                </Badge>
+                <div className="request-actions">
                   {request.status !== 'linked' && (
-                    <button className="secondary-button" disabled={busy} onClick={() => void decide(request.linkId, request.status === 'revoked' ? 'restore' : 'approve')}>
+                    <Button variant="primary" size="sm" disabled={busy} onClick={() => void decide(request.linkId, request.status === 'revoked' ? 'restore' : 'approve')}>
                       {request.status === 'revoked' ? 'คืนสิทธิ์' : 'อนุมัติ'}
-                    </button>
+                    </Button>
                   )}
                   {request.status !== 'revoked' && (
-                    <button className="text-button" disabled={busy} onClick={() => void decide(request.linkId, 'revoke')}>ยกเลิก</button>
+                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => void decide(request.linkId, 'revoke')}>ยกเลิก</Button>
                   )}
                 </div>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </Card>
 
-      <section className="panel data-panel">
-        <div className="panel-heading">
-          <h2>คำขอตั้งรหัสผ่านใหม่</h2>
-          <p>ระบบไม่แสดงรหัสผ่านเดิม ตั้งรหัสใหม่แล้วแจ้งเจ้าของบัญชีโดยตรง</p>
-        </div>
+      <Card>
+        <CardHeader
+          title="คำขอตั้งรหัสผ่านใหม่"
+          description="ระบบไม่แสดงรหัสผ่านเดิมและไม่มีใครอ่านได้ · ตั้งรหัสใหม่แล้วแจ้งเจ้าของบัญชีโดยตรง"
+          action={<Badge tone={resets.length > 0 ? 'warning' : 'success'}>
+            {resets.length > 0 ? `${resets.length} รอดำเนินการ` : 'ไม่มีค้าง'}
+          </Badge>}
+        />
         {resets.length === 0 ? (
-          <div className="empty-state"><span>✎</span><h3>ยังไม่มีคำขอ</h3><p>คำขอจากครูและผู้ปกครองจะปรากฏที่นี่</p></div>
+          <EmptyState
+            icon={<Icon name="profile" size={28} />}
+            title="ยังไม่มีคำขอ"
+            description="คำขอจากครูและผู้ปกครองที่เข้าระบบไม่ได้จะปรากฏที่นี่"
+          />
         ) : (
-          <ul className="record-list">
+          <ul className="request-list">
             {resets.map((request) => (
               <li key={request.id}>
-                <div className="record-main">
-                  <div>
-                    <strong>{request.displayName}</strong>
-                    <span>{request.role === 'teacher' ? 'ครู' : 'ผู้ปกครอง'} · {request.requestedAt ? new Date(request.requestedAt).toLocaleString('th-TH') : ''}</span>
-                    {issued[request.id] && <span className="issued-password">รหัสผ่านใหม่: {issued[request.id]}</span>}
-                  </div>
+                <div className="request-main">
+                  <strong>{request.displayName}</strong>
+                  <span>{request.role === 'teacher' ? 'ครู' : 'ผู้ปกครอง'} · {request.requestedAt ? new Date(request.requestedAt).toLocaleString('th-TH') : ''}</span>
+                  {issued[request.id] && (
+                    // Shown once and never stored. It stays on screen deliberately: reloading the
+                    // queue would take the only copy away before anyone could pass it on.
+                    <span className="issued-password">
+                      <Icon name="info" size={14} />
+                      รหัสผ่านใหม่: <code>{issued[request.id]}</code>
+                    </span>
+                  )}
                 </div>
-                <div className="record-actions">
-                  <button className="secondary-button" disabled={busy || Boolean(issued[request.id])} onClick={() => void resetPassword(request)}>
+                <div className="request-actions">
+                  <Button
+                    variant={issued[request.id] ? 'ghost' : 'primary'} size="sm"
+                    disabled={busy || Boolean(issued[request.id])}
+                    onClick={() => void resetPassword(request)}
+                  >
                     {issued[request.id] ? 'ตั้งรหัสผ่านใหม่แล้ว' : 'ตั้งรหัสผ่านใหม่'}
-                  </button>
+                  </Button>
                 </div>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </Card>
 
     </>
   );

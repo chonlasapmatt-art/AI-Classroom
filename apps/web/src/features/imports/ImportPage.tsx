@@ -4,6 +4,10 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { matchColumn, type SheetTable } from '../../data/spreadsheet';
 import { acceptedImportExtensions, readImportFile, type ParsedImportFile } from '../../data/importParsing';
 import { StudentImportPanel } from './StudentImportPanel';
+import {
+  Badge, Button, Card, CardHeader, DataTable, EmptyState, Field, PageHeader, Segmented, Stat, Toolbar
+} from '../../ui/components';
+import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 
 type ImportTarget = 'student' | 'teacher' | 'parent';
@@ -179,83 +183,145 @@ export function ImportPage() {
     }
   }
 
+  /**
+   * Why one row will not be written, in the words of the person reading the table.
+   *
+   * The import used to count these silently and report "ข้าม 12 แถว" once it was over, which told
+   * nobody which twelve or what was wrong with them. Now the row says so while it can still be
+   * fixed in place.
+   */
+  function rowProblem(row: DraftRow): string | null {
+    if (!spec) return null;
+    const missing = spec.fields.filter((field) => field.required && !(row[field.key] ?? '').trim());
+    if (missing.length > 0) return `ยังไม่มี${missing.map((field) => field.label).join(' และ ')}`;
+    if (target === 'parent') {
+      const code = (row.studentCode ?? '').trim();
+      if (!snapshot.students.some((item) => item.studentCode === code)) return `ไม่พบนักเรียนรหัส ${code} ในโรงเรียนนี้`;
+    }
+    return null;
+  }
+
+  const problems = rows.map(rowProblem);
+  const readyCount = problems.filter((problem) => problem === null).length;
+
   return (
     <>
-      <section className="page-heading">
-        <div>
-          <span className="eyebrow">นำเข้าข้อมูล</span>
-          <h1>นำเข้ารายชื่อ</h1>
-          <p>อ่านไฟล์ให้อัตโนมัติ · ตรวจแก้ได้ทุกช่องก่อนบันทึก · บันทึกผ่านระบบนักเรียนเดิม</p>
-        </div>
-      </section>
+      <PageHeader
+        eyebrow="นำเข้าข้อมูล"
+        title="นำเข้ารายชื่อ"
+        description="อ่านไฟล์ให้อัตโนมัติ · ตรวจแก้ได้ทุกช่องก่อนบันทึก · บันทึกผ่านระบบเดิมทั้งหมด"
+      />
 
-      <div className="toolbar">
-        <div className="segmented">
-          {(Object.keys(targetLabels) as ImportTarget[]).map((key) => (
-            <button
-              key={key}
-              className={target === key ? 'active present' : ''}
-              onClick={() => { setTarget(key); setRows([]); setTable(null); setParsedFile(null); setFileName(''); setHeaderless(false); }}
-            >
-              {targetLabels[key]}
-            </button>
-          ))}
-        </div>
-        {spec && (
-          <label className="upload-button">
-            เลือกไฟล์
-            <input type="file" accept={acceptedImportExtensions} onChange={(event) => void pickFile(event)} disabled={!canImport} />
-          </label>
-        )}
-      </div>
+      <Toolbar>
+        {/* Was three hand-built buttons whose selected state borrowed the attendance "present" green,
+            so the chosen tab looked like somebody had been marked in. */}
+        <Segmented
+          ariaLabel="ประเภทรายชื่อที่จะนำเข้า"
+          value={target}
+          onChange={(next) => { setTarget(next); setRows([]); setTable(null); setParsedFile(null); setFileName(''); setHeaderless(false); }}
+          options={(Object.keys(targetLabels) as ImportTarget[]).map((key) => ({ value: key, label: targetLabels[key] }))}
+        />
+      </Toolbar>
 
       {target === 'student' ? <StudentImportPanel /> : (
         <>
-          <section className="panel">
-            <div className="panel-heading">
-              <h2>นำเข้ารายชื่อ{fileName ? ` · ${fileName}` : ''}</h2>
-              <span className="status-chip">{spec!.hint}</span>
-            </div>
-            {table && <p className="muted">คอลัมน์ที่พบในไฟล์: {table.columns.join(', ') || '—'}</p>}
+          <Card>
+            <CardHeader
+              title={`นำเข้ารายชื่อ${targetLabels[target]}`}
+              description={spec!.hint}
+              {...(fileName ? { action: <Badge tone="info">{fileName}</Badge> } : {})}
+            />
+            <Field label="ไฟล์รายชื่อ" hint="รองรับ Excel, CSV, TSV, TXT, Word และ PDF ที่มีตัวอักษร (ไม่ใช่ภาพสแกน)">
+              <input type="file" accept={acceptedImportExtensions} onChange={(event) => void pickFile(event)} disabled={!canImport} />
+            </Field>
+            {table && <p className="field-hint">คอลัมน์ที่พบในไฟล์: {table.columns.join(', ') || '—'}</p>}
             {parsedFile?.notes.map((note) => <p key={note} className="field-hint">{note}</p>)}
-            {headerless && <p className="field-hint">ไฟล์นี้ไม่มีหัวตาราง ระบบเดาคอลัมน์จากข้อมูลให้แล้ว กรุณาตรวจสอบก่อนบันทึก</p>}
-            {!table && <p className="muted">ยังไม่ได้เลือกไฟล์ · รองรับ Excel, CSV, TSV, TXT, Word และ PDF ที่มีตัวอักษร</p>}
-          </section>
+            {headerless && (
+              <p className="import-guess-note">
+                <Icon name="info" size={16} />
+                ไฟล์นี้ไม่มีหัวตาราง ระบบเดาคอลัมน์จากข้อมูลให้แล้ว กรุณาตรวจสอบก่อนบันทึก
+              </p>
+            )}
+            {!table && (
+              <EmptyState
+                icon={<Icon name="import" size={28} />}
+                title="ยังไม่ได้เลือกไฟล์"
+                description="เลือกไฟล์รายชื่อด้านบน ระบบจะอ่านและจับคู่คอลัมน์ให้เอง แล้วให้ตรวจแก้ก่อนบันทึกเสมอ"
+              />
+            )}
+          </Card>
 
           {rows.length > 0 && (
-            <section className="panel data-panel">
-              <div className="panel-heading">
-                <h2>ตรวจสอบ {rows.length} แถว</h2>
-                <button className="primary-button" disabled={busy || !canImport} onClick={() => void runImport()}>
-                  {busy ? 'กำลังนำเข้า...' : `นำเข้า ${rows.length} รายการ`}
-                </button>
+            <>
+              <div className="ui-stat-grid">
+                <Stat label="แถวในไฟล์" value={rows.length} hint="ไม่นับแถวว่าง" tone="brand" icon={<Icon name="import" size={18} />} />
+                <Stat label="พร้อมนำเข้า" value={readyCount} hint="ข้อมูลครบตามที่ต้องการ" tone={readyCount > 0 ? 'success' : 'neutral'} icon={<Icon name="check" size={18} />} />
+                <Stat
+                  label="ต้องแก้ก่อน"
+                  value={rows.length - readyCount}
+                  hint={rows.length === readyCount ? 'ไม่มีแถวที่ติดปัญหา' : 'ดูเหตุผลท้ายแถว'}
+                  tone={rows.length === readyCount ? 'success' : 'warning'}
+                  icon={<Icon name="warning" size={18} />}
+                />
               </div>
-              <div className="table-scroll">
-                <table className="grid-table">
-                  <thead>
+
+              <Card>
+                <CardHeader
+                  title={`ตรวจสอบ ${rows.length} แถว`}
+                  description="แก้ไขในตารางได้ทันที แถวที่ยังติดปัญหาจะไม่ถูกบันทึกและไม่กระทบแถวอื่น"
+                  action={(
+                    <Button
+                      variant="primary"
+                      loading={busy}
+                      disabled={!canImport || readyCount === 0}
+                      icon={<Icon name="upload" size={16} />}
+                      onClick={() => void runImport()}
+                    >
+                      นำเข้า {readyCount} รายการ
+                    </Button>
+                  )}
+                />
+                <DataTable
+                  caption={`รายชื่อ${targetLabels[target]}ที่กำลังจะนำเข้า`}
+                  head={(
                     <tr>
                       {spec!.fields.map((field) => <th key={field.key}>{field.label}{field.required ? ' *' : ''}</th>)}
+                      <th>สถานะ</th>
                       <th>จัดการ</th>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr key={row.rowId}>
+                  )}
+                >
+                  {rows.map((row, index) => {
+                    const problem = problems[index] ?? null;
+                    return (
+                      <tr key={row.rowId} className={problem ? 'import-row-problem' : ''}>
                         {spec!.fields.map((field) => (
                           <td key={field.key}>
                             <input
                               value={row[field.key] ?? ''}
+                              // Without this every cell in the column announced itself identically,
+                              // so there was no way to hear which row was being edited.
+                              aria-label={`${field.label} แถวที่ ${index + 1}`}
                               onChange={(event) => editCell(row.rowId, field.key, event.target.value)}
                             />
                           </td>
                         ))}
-                        <td><button className="text-button" onClick={() => removeRow(row.rowId)}>ลบแถว</button></td>
+                        <td>
+                          {problem
+                            ? <Badge tone="warning">{problem}</Badge>
+                            : <Badge tone="success">พร้อม</Badge>}
+                        </td>
+                        <td>
+                          <Button variant="ghost" size="sm" icon={<Icon name="trash" size={14} />} onClick={() => removeRow(row.rowId)}>
+                            ลบแถว
+                          </Button>
+                        </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+                    );
+                  })}
+                </DataTable>
+              </Card>
+            </>
           )}
         </>
       )}

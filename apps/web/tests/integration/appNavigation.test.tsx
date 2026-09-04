@@ -130,12 +130,14 @@ describe('application shell and routes', () => {
     renderApp('/scores');
     await switchRole('preview-student');
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('คะแนนของฉัน'));
-    expect(screen.getByText('คะแนนของฉันแยกตามรายวิชา')).toBeInTheDocument();
+    expect(screen.getByText('คะแนนแยกตามรายวิชา')).toBeInTheDocument();
     expect(screen.queryByText('นักเรียนรวม')).not.toBeInTheDocument();
     const subjectCard = screen.getAllByRole('button', { name: /ดูรายละเอียดวิชา/ })[0]!;
     fireEvent.click(subjectCard);
-    expect(await screen.findByText(/รายละเอียดคะแนน ·/)).toBeInTheDocument();
-    expect(screen.getByText('คะแนนที่ได้')).toBeInTheDocument();
+    // The breakdown opens as a drawer over the page: below the fold on a phone, an inline panel
+    // looked like the tap had done nothing at all.
+    const detail = await screen.findByRole('dialog');
+    expect(within(detail).getByText('คะแนนที่ได้')).toBeInTheDocument();
   });
 
   it('provides a Preview Demo Center with quick links for the current role', async () => {
@@ -169,9 +171,12 @@ describe('application shell and routes', () => {
     renderApp('/classes');
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ห้องเรียน'));
     expect(screen.getAllByRole('progressbar').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: '+ เพิ่มห้องเรียน' }));
-    expect(await screen.findByRole('button', { name: 'กำหนดเอง' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '100' })).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'เพิ่มห้องเรียน' })[0]!);
+    // The form opens over the list rather than unfolding above it, so the rooms an administrator was
+    // reading do not move down the page the moment they press the button.
+    const form = await screen.findByRole('dialog');
+    expect(within(form).getByRole('button', { name: 'กำหนดเอง' })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: '100 คน' })).toBeInTheDocument();
   });
 
   it('renders the gradebook with category columns', async () => {

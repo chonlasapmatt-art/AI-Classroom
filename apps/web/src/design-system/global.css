@@ -118,7 +118,9 @@ input:focus,select:focus,textarea:focus { border-color:var(--brand-500); }
 .student-card { gap:1.4rem; }
 .student-card label { font-size:1.02rem; }
 .student-card input,.student-card select { min-height:58px; font-size:1.12rem; }
-.big-button { min-height:60px; font-size:1.12rem; }
+/* The entrance button. Two classes so it outranks the size scale rather than racing it: 60px is a
+   deliberate target for a nine-year-old on a shared tablet, not a value to be flattened. */
+.ui-button.big-button, .big-button { min-height:60px; font-size:1.12rem; }
 .school-suggestions { list-style:none; margin:0; padding:.3rem; border:1px solid var(--line); border-radius:var(--radius-md); display:grid; gap:.15rem; max-height:220px; overflow-y:auto; }
 .school-suggestions button { width:100%; text-align:left; min-height:46px; padding:0 .6rem; }.role-choice legend { padding:0 .4rem; color:var(--ink-500); font-size:.82rem; }.role-choice label { min-height:48px; display:flex; align-items:center; justify-content:center; gap:.5rem; border:1px solid var(--line); border-radius:var(--radius-sm); cursor:pointer; }.role-choice input { width:auto; }
 .account-state { max-width:650px; margin:auto; padding:2rem; gap:1rem; }.account-state .brand-mark { margin:0 auto; }.account-state .text-button { margin-top:.5rem; }
@@ -180,8 +182,12 @@ input:focus,select:focus,textarea:focus { border-color:var(--brand-500); }
 .sync-pill.preview { color:#7a3d00; background:#ffe8bd; }
 .sync-pill.preview span { background:#b46806; }
 .panel-heading.spaced { margin-top:1.5rem; }
-.checkbox-row { flex-direction:row; align-items:center; gap:.6rem; margin:.6rem 0; }
-.checkbox-row input { min-height:auto; width:20px; height:20px; }
+.checkbox-row { display:flex; flex-direction:row; align-items:flex-start; gap:.6rem; margin:.6rem 0; }
+.checkbox-row input { min-height:auto; width:20px; height:20px; flex:none; margin-top:2px; }
+/* A switch whose consequence is not obvious needs the consequence written under it, not in a manual. */
+.checkbox-row > span { display:flex; flex-direction:column; gap:2px; }
+.checkbox-row strong { color:var(--ink-900); font-weight:var(--weight-strong); }
+.checkbox-row small { color:var(--ink-500); font-size:var(--text-xs); line-height:1.5; }
 textarea { min-height:110px; resize:vertical; }
 .role-switch-label { font-size:.7rem; gap:.25rem; }
 .support-role-switch { display:flex; align-items:flex-end; gap:.5rem; }

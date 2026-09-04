@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import {
-  Badge, Button, Card, CardHeader, EmptyState, ErrorState, PageHeader, ProgressBar, Skeleton, Stat
+  Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, ErrorState, PageHeader, ProgressBar, Skeleton, Stat
 } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import {
@@ -31,6 +31,7 @@ export function StudentExamPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [confirmUnanswered, setConfirmUnanswered] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -62,7 +63,7 @@ export function StudentExamPage() {
   // zero the honest thing is to send what is on screen and let it be recorded as a timeout.
   useEffect(() => {
     if (!sitting || !remaining || remaining.seconds > 0 || busy) return;
-    void submit(true);
+    void submit();
     // Submitting is what this effect does; re-running it on every dependency change would resubmit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining?.seconds === 0]);
@@ -87,14 +88,25 @@ export function StudentExamPage() {
     catch { /* the next save or the final submit carries it; nothing typed is lost on screen */ }
   }
 
-  async function submit(automatic = false) {
+  /**
+   * The button a student presses. Asks first if anything is unanswered.
+   *
+   * The question used to be put by window.confirm — the browser's own box, over an exam that is
+   * being timed, with a default button the page cannot choose and text it cannot lay out. A student
+   * hurrying at the end of a paper deserves the count in front of them, not in a system alert.
+   */
+  function requestSubmit() {
     if (!sitting) return;
-    if (!automatic) {
-      const done = answeredCount(sitting.paper, answers);
-      if (done < sitting.paper.questions.length && !window.confirm(
-        `ยังไม่ได้ตอบ ${sitting.paper.questions.length - done} ข้อ\n\nส่งข้อสอบเลยหรือไม่? ส่งแล้วแก้ไม่ได้`
-      )) return;
-    }
+    const done = answeredCount(sitting.paper, answers);
+    const unanswered = sitting.paper.questions.length - done;
+    if (unanswered > 0) { setConfirmUnanswered(unanswered); return; }
+    void submit();
+  }
+
+  /** Sends what is on screen. Whether that counts as a timeout is the server's reading, not ours. */
+  async function submit() {
+    if (!sitting) return;
+    setConfirmUnanswered(null);
     setBusy(true);
     try {
       const result = await submitExamAttempt(sitting.paper.attemptId, answers, true);
@@ -116,7 +128,7 @@ export function StudentExamPage() {
           eyebrow="กำลังสอบ" title={sitting.exam.title}
           description={`ตอบแล้ว ${done} จาก ${sitting.paper.questions.length} ข้อ`}
           action={
-            <Button variant="primary" loading={busy} onClick={() => void submit()}>ส่งข้อสอบ</Button>
+            <Button variant="primary" loading={busy} onClick={requestSubmit}>ส่งข้อสอบ</Button>
           }
         />
         <Card>
@@ -173,8 +185,20 @@ export function StudentExamPage() {
           </Card>
         ))}
 
-        <Button variant="primary" size="lg" loading={busy} onClick={() => void submit()}>ส่งข้อสอบ</Button>
+        <Button variant="primary" size="lg" loading={busy} onClick={requestSubmit}>ส่งข้อสอบ</Button>
         {error && <div className="alert error" role="alert">{error}</div>}
+
+        {confirmUnanswered !== null && (
+          <ConfirmDialog
+            title={`ยังไม่ได้ตอบ ${confirmUnanswered} ข้อ`}
+            description={`ตอบแล้ว ${done} จาก ${sitting.paper.questions.length} ข้อ · ส่งแล้วกลับมาแก้ไม่ได้ ข้อที่ไม่ได้ตอบจะไม่ได้คะแนน`}
+            confirmLabel="ส่งข้อสอบเลย"
+            cancelLabel="กลับไปทำต่อ"
+            tone="warning"
+            onCancel={() => setConfirmUnanswered(null)}
+            onConfirm={() => void submit()}
+          />
+        )}
       </>
     );
   }

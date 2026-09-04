@@ -130,7 +130,7 @@ export function WelcomePage() {
             type="button" className="text-button"
             onClick={() => { enablePreviewMode(); window.location.reload(); }}
           >
-            เข้าสู่โหมด Preview (สำหรับการพัฒนาเท่านั้น — ไม่ใช่ข้อมูลจริง)
+            เข้าสู่โหมดตัวอย่าง (สำหรับการพัฒนาเท่านั้น — ไม่ใช่ข้อมูลจริง)
           </button>
         )}
       </footer>

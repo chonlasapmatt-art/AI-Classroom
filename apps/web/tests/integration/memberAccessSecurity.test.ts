@@ -157,8 +157,11 @@ describe('linking a child by name alone', () => {
 
   it('asks a parent for the child name and nothing else', () => {
     expect(childPanel).toContain('ชื่อจริงของลูก');
-    expect(childPanel).toContain('+ เพิ่มลูก');
+    expect(childPanel).toContain('เพิ่มลูก');
     expect(childPanel).not.toMatch(/type="password"|type="email"/);
+    // The fields are declared by their label rather than wrapped in one now, so the check follows
+    // the label text wherever it is written: nothing here may ask for a credential or an id number.
+    expect(childPanel).not.toMatch(/label=("|{`)[^"`]{0,40}(อีเมล|รหัสผ่าน|รหัสคำเชิญ|เลขประจำตัว)/);
     expect(childPanel).not.toMatch(/<label>[\s\S]{0,80}(อีเมล|รหัสผ่าน|รหัสคำเชิญ|เลขประจำตัว)/);
   });
 

@@ -20,7 +20,7 @@ describe('preview mode', () => {
     expect(screen.getByText('เชื่อมต่อ Supabase')).toBeInTheDocument();
     expect(screen.getByText('สำหรับการพัฒนาเท่านั้น — ไม่ใช่ข้อมูลจริง')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'เข้าสู่โหมด Preview' }));
+    fireEvent.click(screen.getByRole('button', { name: 'เข้าสู่โหมดตัวอย่าง' }));
     expect(isPreviewActive()).toBe(true);
   });
 

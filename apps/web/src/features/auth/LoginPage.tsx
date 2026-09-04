@@ -17,7 +17,7 @@ import {
   isCompleteMemberLogin, memberLogin, normalizeTeacherCode, teacherLogin, type MemberAccountChoice, type MemberRole
 } from './memberAccess';
 import { isCompleteStudentLogin, studentLogin, type SchoolChoice } from './studentAccess';
-import { PasswordInput } from '../../ui/components';
+import { Button, PasswordInput } from '../../ui/components';
 
 type Who = Exclude<MemberRole, 'admin'>;
 
@@ -241,7 +241,7 @@ export function LoginPage() {
               hidden — hiding it only means the operator types the URL from memory — and it sits last
               because a teacher who lands here should never think it is one of their choices. */}
           <a className="text-button login-platform-link" href="/platform/">เข้าสู่ Platform Console (ผู้ดูแลระบบส่วนกลาง)</a>
-          {isPreviewModeAvailable && <button type="button" className="text-button" onClick={() => { enablePreviewMode(); window.location.reload(); }}>เข้าสู่โหมด Preview (สำหรับการพัฒนาเท่านั้น — ไม่ใช่ข้อมูลจริง)</button>}
+          {isPreviewModeAvailable && <button type="button" className="text-button" onClick={() => { enablePreviewMode(); window.location.reload(); }}>เข้าสู่โหมดตัวอย่าง (สำหรับการพัฒนาเท่านั้น — ไม่ใช่ข้อมูลจริง)</button>}
         </div>
       ) : (
         <form className="auth-card" onSubmit={(event) => void submit(event)}>
@@ -303,16 +303,16 @@ export function LoginPage() {
             </label>
           )}
           {error && <div className="alert error" role="alert">{error}</div>}
-          <button
-            className="primary-button big-button"
-            disabled={busy || !(who === 'teacher'
+          <Button
+            variant="primary" size="lg" className="big-button" loading={busy}
+            disabled={!(who === 'teacher'
               ? displayName.trim().length >= 2 && normalizeTeacherCode(password).length >= 1
               : who === 'student'
                 ? isCompleteStudentLogin(displayName, password)
                 : isCompleteMemberLogin(displayName, password))}
           >
-            {busy ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
-          </button>
+            เข้าสู่ระบบ
+          </Button>
           <p className="fine-print">หากเข้าระบบไม่ได้ ให้ติดต่อแอดมินเพื่อกำหนดรหัสผ่านใหม่</p>
           <button type="button" className="text-button" onClick={() => setWho(null)}>เปลี่ยนประเภทผู้ใช้</button>
         </form>

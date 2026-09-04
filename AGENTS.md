@@ -18,7 +18,7 @@ With no `.env.local` at all, the app offers **Preview Mode** on the configuratio
 product rendered from a 460-line fixture, with working role switching between administrator, teacher,
 student and parent. No Supabase project, no account, no keys.
 
-That is enough to build screens, change behaviour, run all 777 tests and see the result. Most work on
+That is enough to build screens, change behaviour, run all 783 tests and see the result. Most work on
 this codebase needs nothing more.
 
 You need a real project only to push migrations, deploy Edge Functions, or run anything in
@@ -46,7 +46,7 @@ build stays free of developer tooling. Not by hiding a menu; by not shipping the
 ```bash
 npm run typecheck   # tsc -b
 npm run lint        # eslint --max-warnings 0
-npm run test        # vitest, 777 tests
+npm run test        # vitest, 783 tests
 npm run build
 ```
 

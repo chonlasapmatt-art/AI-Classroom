@@ -78,10 +78,13 @@
    * picked a different look would make two screenshots of the same data incomparable, and a
    * "success" mint that drifted to orange under the sunny preset would be actively misleading.
    */
-  --accent-cyan:#0891b2; --accent-cyan-soft:#e0f7fb;
-  --accent-mint:#0d9488; --accent-mint-soft:#dcf7f3;
+  /* Each accent is used as ink on its own -soft, so that pair is what decides the value. Cyan and
+     mint measured 3.31 and 3.32 against a 4.5 requirement — comfortably failing, and invisible to
+     anyone who was not measuring. Dark mode already passed and is unchanged. */
+  --accent-cyan:#0e7490; --accent-cyan-soft:#e0f7fb;
+  --accent-mint:#0f766e; --accent-mint-soft:#dcf7f3;
   --accent-green:#12702f; --accent-green-soft:#e2f7e8;
-  --accent-gold:#a16207; --accent-gold-soft:#fdf3d7;
+  --accent-gold:#8a5308; --accent-gold-soft:#fdf3d7;
   --accent-violet:#7c3aed; --accent-violet-soft:#f0e9ff;
 
   /* Spacing scale */

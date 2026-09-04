@@ -6,6 +6,7 @@
 // consulted; if the device is offline it queues like every other write and syncs on reconnect.
 
 import { useState, type FormEvent } from 'react';
+import { Button } from '../../ui/components';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { scoreEventsFor } from '../../data/selectors';
 import type { Role, ScoreCategory, Student } from '../../domain/types';
@@ -129,7 +130,7 @@ export function QuickScorePanel({ student, classId, subjectId, actorProfileId, a
             inputMode="decimal" placeholder="เช่น 10 หรือ -2"
           />
         </label>
-        <button className="secondary-button" disabled={!canAward || busy || custom.trim().length === 0}>ให้คะแนน</button>
+        <Button variant="secondary" loading={busy} disabled={!canAward || custom.trim().length === 0}>ให้คะแนน</Button>
       </form>
 
       {error && <div className="alert error" role="alert">{error}</div>}

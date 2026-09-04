@@ -2,31 +2,35 @@ import { useState } from 'react';
 import type { AvatarAnimation } from '../../domain/types';
 import { animationLabels, avatarAnimations, avatarThemes, AVATAR_VARIANT_COUNT, configFromIndex } from './avatarThemes';
 import { ThemedAvatar } from './ThemedAvatar';
+import { Badge, Card, CardHeader, PageHeader, Segmented } from '../../ui/components';
 
 /** Development-only gallery: every shipped theme against every animation state. */
 export function AvatarGalleryPage() {
   const [animation, setAnimation] = useState<AvatarAnimation>('idle');
   return (
     <>
-      <section className="page-heading">
-        <div>
-          <span className="eyebrow">Preview / Development Only</span>
-          <h1>Avatar Gallery</h1>
-          <p>{avatarThemes.length} บุคลิก · รวมกันได้ {AVATAR_VARIANT_COUNT.toLocaleString('th-TH')} แบบ</p>
-        </div>
-      </section>
+      <PageHeader
+        eyebrow="สำหรับนักพัฒนาเท่านั้น"
+        title="คลังตัวละคร"
+        description={`${avatarThemes.length} บุคลิก · รวมกันได้ ${AVATAR_VARIANT_COUNT.toLocaleString('th-TH')} แบบ`}
+        action={<Badge tone="warning">DEVELOPMENT ONLY</Badge>}
+      />
 
-      <section className="panel">
-        <div className="panel-heading">
-          <h2>สถานะแอนิเมชัน</h2>
-          <div className="segmented">
-            {avatarAnimations.map((state) => (
-              <button key={state} className={state === animation ? 'active present' : ''} onClick={() => setAnimation(state)}>
-                {animationLabels[state]}
-              </button>
-            ))}
-          </div>
-        </div>
+      <Card>
+        <CardHeader
+          title="สถานะแอนิเมชัน"
+          description="เลือกสถานะแล้วดูว่าทุกบุคลิกแสดงผลอย่างไรในสถานะเดียวกัน"
+          action={(
+            // Was three hand-built buttons whose selected state reused the attendance "present"
+            // green, so the chosen state looked like a student had been marked in.
+            <Segmented
+              ariaLabel="สถานะแอนิเมชันของตัวละคร"
+              value={animation}
+              onChange={setAnimation}
+              options={avatarAnimations.map((state) => ({ value: state, label: animationLabels[state] }))}
+            />
+          )}
+        />
         <div className="avatar-gallery">
           {avatarThemes.map((theme, index) => (
             <article key={theme.id} className="avatar-card">
@@ -36,10 +40,10 @@ export function AvatarGalleryPage() {
             </article>
           ))}
         </div>
-      </section>
+      </Card>
 
-      <section className="panel">
-        <div className="panel-heading"><h2>ทุกสถานะของธีมเดียว</h2></div>
+      <Card>
+        <CardHeader title="ทุกสถานะของธีมเดียว" description="บุคลิกแรก แสดงครบทุกสถานะพร้อมกัน" />
         <div className="avatar-gallery">
           {avatarAnimations.map((state) => (
             <article key={state} className="avatar-card">
@@ -49,7 +53,7 @@ export function AvatarGalleryPage() {
             </article>
           ))}
         </div>
-      </section>
+      </Card>
     </>
   );
 }

@@ -3,7 +3,7 @@ import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import { useTheme } from '../../app/ThemeContext';
 import { isCompleteMemberLogin, memberLogin, type MemberAccountChoice } from './memberAccess';
-import { PasswordInput } from '../../ui/components';
+import { Button, PasswordInput } from '../../ui/components';
 
 /** A separate, deliberately quiet entrance for the school administrator. */
 export function AdminLoginPage() {
@@ -61,9 +61,9 @@ export function AdminLoginPage() {
             </label>
           )}
           {error && <div className="alert error" role="alert">{error}</div>}
-          <button className="primary-button big-button" disabled={busy || !isCompleteMemberLogin(displayName, password)}>
-            {busy ? 'กำลังตรวจสอบสิทธิ์...' : 'เข้าสู่ศูนย์ควบคุม'}
-          </button>
+          <Button variant="primary" size="lg" className="big-button" loading={busy} disabled={!isCompleteMemberLogin(displayName, password)}>
+            เข้าสู่ศูนย์ควบคุม
+          </Button>
           <p className="admin-access-security"><span aria-hidden="true">◆</span> ตรวจสอบสิทธิ์จากระบบจริง · ผู้ใช้ทั่วไปไม่มีสิทธิ์เข้าพื้นที่นี้</p>
           <Link className="text-button admin-access-back" to="/login">กลับไปหน้าเข้าสู่ระบบทั่วไป</Link>
         </form>
