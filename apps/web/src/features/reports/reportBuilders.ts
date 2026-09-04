@@ -210,3 +210,94 @@ export interface PersonalReportTable { id: PersonalReportId; title: string; colu
 export function personalToCsv(report: PersonalReportTable): string {
   return toCsv({ id: 'student', title: report.title, columns: report.columns, rows: report.rows });
 }
+
+/**
+ * The picture over the table, built from the table's own rows.
+ *
+ * Deriving it from the rendered rows rather than from the snapshot is the point: whatever the reader
+ * has filtered the table down to is what the chart draws, so the two can never disagree about what
+ * is on screen. It also means a report gains a chart by describing which of its columns carries the
+ * magnitude, not by growing a second query.
+ *
+ * Every one of these is a single series, so every bar is the same hue. Colouring bars darker where
+ * they are longer would spend the only free channel restating the length.
+ */
+export interface ReportChart { caption: string; unit: string; bars: Array<{ label: string; value: number }> }
+
+const number = (cell: string | number): number => typeof cell === 'number' ? cell : Number(cell) || 0;
+const text = (cell: string | number | undefined): string => String(cell ?? '-');
+
+/** Counts how many rows share the value in one column, in first-seen order. */
+function countBy(rows: (string | number)[][], index: number, split?: string): Array<{ label: string; value: number }> {
+  const tally = new Map<string, number>();
+  for (const row of rows) {
+    const raw = text(row[index]);
+    for (const label of (split ? raw.split(split) : [raw]).map((item) => item.trim()).filter(Boolean)) {
+      tally.set(label, (tally.get(label) ?? 0) + 1);
+    }
+  }
+  return [...tally].map(([label, value]) => ({ label, value }));
+}
+
+/**
+ * Five bands, named by what they mean rather than by their edges alone.
+ *
+ * A bar per student is not a distribution — it is the table again, drawn wider. Bands answer the
+ * question a distribution is for: how many are near the bottom.
+ */
+function bands(rows: (string | number)[][], index: number, unit: string): Array<{ label: string; value: number }> {
+  const edges = [90, 80, 70, 60];
+  const labels = [`90–100${unit}`, `80–89${unit}`, `70–79${unit}`, `60–69${unit}`, `ต่ำกว่า 60${unit}`];
+  const counts = [0, 0, 0, 0, 0];
+  for (const row of rows) {
+    const value = number(row[index] ?? 0);
+    const slot = edges.findIndex((edge) => value >= edge);
+    counts[slot === -1 ? 4 : slot] = (counts[slot === -1 ? 4 : slot] ?? 0) + 1;
+  }
+  return labels.map((label, slot) => ({ label, value: counts[slot] ?? 0 }));
+}
+
+/** The longest bars only: a chart with forty rows is a table that has stopped being readable. */
+function longest(bars: Array<{ label: string; value: number }>, keep = 8): Array<{ label: string; value: number }> {
+  return [...bars].sort((left, right) => right.value - left.value).slice(0, keep);
+}
+
+export function reportChart(report: ReportTable): ReportChart | null {
+  if (report.rows.length === 0) return null;
+  switch (report.id) {
+    case 'student':
+      return { caption: 'นักเรียนแยกตามสถานะ', unit: 'คน', bars: countBy(report.rows, 3) };
+    case 'class':
+      return { caption: 'อัตราเข้าเรียนรายห้อง', unit: '%', bars: longest(report.rows.map((row) => ({ label: text(row[0]), value: number(row[3] ?? 0) }))) };
+    case 'attendance':
+      return { caption: 'การกระจายอัตราเข้าเรียน', unit: 'คน', bars: bands(report.rows, 6, '%') };
+    case 'score':
+      return { caption: 'การกระจายคะแนนรวม', unit: 'คน', bars: bands(report.rows, 3, ' คะแนน') };
+    case 'grade':
+      return { caption: 'จำนวนนักเรียนแต่ละเกรด', unit: 'คน', bars: report.rows.map((row) => ({ label: text(row[0]), value: number(row[1] ?? 0) })) };
+    case 'missing':
+      return { caption: 'นักเรียนที่มีงานค้างมากที่สุด', unit: 'ชิ้น', bars: longest(report.rows.map((row) => ({ label: text(row[1]), value: number(row[2] ?? 0) }))) };
+    case 'at-risk':
+    default:
+      // One student can be at risk for more than one reason, so the bars total more than the rows
+      // and the caption says which count this is.
+      return { caption: 'จำนวนครั้งที่เข้าเกณฑ์เสี่ยง แยกตามเหตุผล', unit: 'ครั้ง', bars: countBy(report.rows, 5, '/') };
+  }
+}
+
+export function personalReportChart(report: PersonalReportTable): ReportChart | null {
+  if (report.rows.length === 0) return null;
+  switch (report.id) {
+    case 'attendance':
+      return { caption: 'จำนวนคาบแยกตามสถานะ', unit: 'คาบ', bars: countBy(report.rows, 4) };
+    case 'work':
+      return { caption: 'งานแยกตามสถานะการส่ง', unit: 'ชิ้น', bars: countBy(report.rows, 3) };
+    case 'scores': {
+      const tally = new Map<string, number>();
+      for (const row of report.rows) tally.set(text(row[2]), (tally.get(text(row[2])) ?? 0) + number(row[3] ?? 0));
+      return { caption: 'แต้มรวมแยกตามประเภท', unit: 'แต้ม', bars: [...tally].map(([label, value]) => ({ label, value })) };
+    }
+    default:
+      return { caption: 'เหรียญที่ได้รับ', unit: 'ครั้ง', bars: countBy(report.rows, 1) };
+  }
+}

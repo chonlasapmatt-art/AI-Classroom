@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../app/SessionContext';
-import { recall, recallRecord, rememberRecord } from '../app/deviceMemory';
+import { recall, recallRecord, remember, rememberRecord } from '../app/deviceMemory';
 import { useSchoolSnapshot } from '../data/RepositoryContext';
 import { unreadCount } from '../academic/views';
 import { isPreviewModeAvailable } from '../preview/previewMode';
@@ -24,6 +24,7 @@ const syncPillTone: Record<string, string> = {
 
 
 const sidebarStorageKey = (role: Role) => `smart-classroom.sidebar-groups.${role}`;
+const sidebarWidthKey = 'smart-classroom.sidebar-collapsed';
 const avatarStorageKey = (profileId: string) => `smart-classroom.avatar.${profileId}`;
 
 const supportRoleOptions: { role: Role; label: string }[] = [
@@ -114,6 +115,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const sync = useSyncStatus();
   const [open, setOpen] = useState(false);
+  /*
+   * The rail, on a desktop.
+   *
+   * A 268px menu beside a timetable or a gradebook is 268px the table does not get, and those are
+   * exactly the screens somebody keeps open all day. Collapsing keeps every destination one click
+   * away as an icon rather than hiding them behind the drawer, and the choice is remembered per
+   * device because it is about the screen in front of the person, not about their account.
+   *
+   * Below the drawer breakpoint this class does nothing: there the sidebar is already off-screen,
+   * and a half-width drawer would be the worst of both.
+   */
+  const [collapsed, setCollapsed] = useState(() => recall(sidebarWidthKey) === 'true');
   const { membership } = session;
   // Two memberships of the same school are two roles; two schools are two servers. The switcher says
   // whichever of those it actually is, because "ผู้ดูแลระบบ · ครูสมชาย" twice over names neither.
@@ -227,8 +240,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     });
   }
 
+  function toggleCollapsed() {
+    setCollapsed((current) => {
+      remember(sidebarWidthKey, String(!current));
+      return !current;
+    });
+  }
+
   return (
-    <div className="app-frame">
+    <div className={`app-frame ${collapsed ? 'rail' : ''}`.trim()}>
       {open && (
         <div
           className="sidebar-overlay"
@@ -240,6 +260,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebar-brand">
           <div className="brand-mark small">SC</div>
           <div><strong>Smart Classroom</strong><span>{membership.schoolName}</span></div>
+          {/* Named for what it does next, not for what the menu currently is: a control announced as
+              "ย่อเมนู" while the menu is already narrow has told the reader the opposite. */}
+          <button
+            type="button"
+            className="sidebar-collapse"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? 'ขยายเมนู' : 'ย่อเมนู'}
+            aria-pressed={collapsed}
+            title={collapsed ? 'ขยายเมนู' : 'ย่อเมนู'}
+          >
+            <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={16} />
+          </button>
         </div>
         <nav aria-label="เมนูหลัก">
           {/* A menu of seven sections is still seven sections to open when somebody knows the name of
@@ -263,7 +295,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       onClick={() => { setOpen(false); setMenuQuery(''); }}
                     >
                       <Icon name={item.icon} size={18} />
-                      {item.label}
+                      <span className="nav-label">{item.label}</span>
                     </NavLink>
                   ))}
               </div>
@@ -278,14 +310,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <span>{group.label}</span><Icon name={expandedGroups[group.key] ? 'chevron-up' : 'chevron-down'} size={14} />
               </button>
-              {expandedGroups[group.key] && <div className="sidebar-section-items">
+              {/* A collapsed section in the rail would be unreachable: its heading is hidden there,
+                  so there is nothing left to click to open it. */}
+              {(collapsed || expandedGroups[group.key]) && <div className="sidebar-section-items">
                 {group.items.map((item) => (
                   <NavLink
                     key={item.to} to={item.to} end={item.to === '/'} title={item.label}
                     onClick={() => setOpen(false)}
                   >
                     <Icon name={item.icon} size={18} />
-                    {item.label}
+                    <span className="nav-label">{item.label}</span>
                     {item.to === '/notifications' && unread > 0 && <span className="nav-badge">{unread}</span>}
                   </NavLink>
                 ))}
@@ -295,8 +329,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           {isPreviewModeAvailable && session.mode === 'preview' && (
             <section className="sidebar-section">
               <div className="sidebar-section-items">
-                <NavLink to="/avatar-gallery" onClick={() => setOpen(false)}>
-                  <Icon name="avatar-gallery" size={18} />Avatar Gallery
+                <NavLink to="/avatar-gallery" onClick={() => setOpen(false)} title="Avatar Gallery">
+                  <Icon name="avatar-gallery" size={18} /><span className="nav-label">Avatar Gallery</span>
                 </NavLink>
               </div>
             </section>

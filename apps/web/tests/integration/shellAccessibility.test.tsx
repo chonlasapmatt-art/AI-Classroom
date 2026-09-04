@@ -8,7 +8,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../../src/app/App';
 import { resetFixtureRepository } from '../../src/data/fixtureSchoolRepository';
 import { disablePreviewMode, enablePreviewMode } from '../../src/preview/previewMode';
@@ -129,5 +129,74 @@ describe('the phone shortcut bar', () => {
     for (const href of quickLinks) expect(menuLinks).toContain(href);
     // Five is the ceiling: a sixth target on a 360px screen is narrower than a thumb.
     expect(quickLinks.length).toBeLessThanOrEqual(5);
+  });
+});
+
+/*
+ * The rail.
+ *
+ * A 268px menu beside a gradebook is 268px the table does not get, and those are the screens people
+ * keep open all day. Collapsing is only worth having if nothing becomes unreachable by it — so what
+ * is held here is that every destination keeps its name and every section keeps its entries, which
+ * are the two ways an icon rail usually goes wrong.
+ */
+describe('the collapsed sidebar', () => {
+  // The choice is remembered per device, so each of these has to start from the same width.
+  beforeEach(() => window.localStorage.removeItem('smart-classroom.sidebar-collapsed'));
+
+  it('keeps every destination named, so it is not a column of anonymous icons', async () => {
+    renderApp();
+    await enterPreview();
+
+    const menu = () => within(screen.getByRole('navigation', { name: 'เมนูหลัก' }));
+    const named = () => menu().getAllByRole('link').filter((link) => (link.textContent ?? '').trim() !== '');
+    const before = named().length;
+    expect(before).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'ย่อเมนู' }));
+    // The label is hidden by CSS rather than removed, so the accessible name survives the collapse.
+    await waitFor(() => expect(document.querySelector('.app-frame.rail')).not.toBeNull());
+    expect(named().length).toBe(before);
+  });
+
+  it('opens every section, because a collapsed one would have no heading left to click', async () => {
+    renderApp();
+    await enterPreview();
+
+    const menu = () => within(screen.getByRole('navigation', { name: 'เมนูหลัก' }));
+    const sections = screen.getByRole('navigation', { name: 'เมนูหลัก' }).querySelectorAll('.sidebar-section-toggle');
+    fireEvent.click(sections[0]!);
+    const whileFolded = menu().getAllByRole('link').length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'ย่อเมนู' }));
+    await waitFor(() => expect(menu().getAllByRole('link').length).toBeGreaterThan(whileFolded));
+  });
+
+  it('says what it will do next, not what the menu currently is', async () => {
+    renderApp();
+    await enterPreview();
+
+    fireEvent.click(screen.getByRole('button', { name: 'ย่อเมนู' }));
+    // Announcing "ย่อเมนู" on an already-narrow menu tells the reader the opposite of the truth.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ขยายเมนู' })).toHaveAttribute('aria-pressed', 'true'));
+  });
+});
+
+describe('the remembered menu width', () => {
+  beforeEach(() => window.localStorage.removeItem('smart-classroom.sidebar-collapsed'));
+  afterEach(() => window.localStorage.removeItem('smart-classroom.sidebar-collapsed'));
+
+  it('opens the next session at the width the last one was left at', async () => {
+    renderApp();
+    await enterPreview();
+    fireEvent.click(screen.getByRole('button', { name: 'ย่อเมนู' }));
+    await waitFor(() => expect(document.querySelector('.app-frame.rail')).not.toBeNull());
+
+    cleanup();
+    renderApp();
+    await enterPreview();
+    // It is a property of the screen in front of the person, not of their account, which is why it
+    // lives on the device rather than travelling with the sign-in.
+    expect(document.querySelector('.app-frame.rail')).not.toBeNull();
   });
 });
