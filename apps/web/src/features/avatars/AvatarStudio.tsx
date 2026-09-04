@@ -52,7 +52,7 @@ export function AvatarStudio({ avatarIndex, config, studentName, onSave, onClose
             <span>{identity.theme.description}</span>
             <span className="variant-count">เลือกได้ {AVATAR_VARIANT_COUNT.toLocaleString('th-TH')} แบบ</span>
             <div className="studio-preview-actions">
-              <button className="secondary-button" onClick={() => setDraft(randomConfig())}>สุ่มแบบใหม่</button>
+              <Button variant="secondary" onClick={() => setDraft(randomConfig())}>สุ่มแบบใหม่</Button>
               <button className="text-button" onClick={() => setDraft(configFromIndex(avatarIndex))}>คืนค่าเริ่มต้น</button>
             </div>
           </aside>

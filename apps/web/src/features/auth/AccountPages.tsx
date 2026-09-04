@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth, type PublicRegistrationRole } from '../../app/AuthContext';
 import { requireSupabase } from '../../services/supabase';
 import { ChildLinkPanel } from '../parents/ChildLinkPanel';
+import { Button } from '../../ui/components';
 
 const roleLabels: Record<PublicRegistrationRole | 'admin', string> = {
   teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง', admin: 'ผู้ดูแล'
@@ -50,10 +51,10 @@ export function AwaitingMembershipPage() {
         <summary>มีรหัสคำเชิญ 8 หลักจากโรงเรียน</summary>
         <form className="invite-code-form" onSubmit={(event) => void redeem(event)}>
           <label>รหัสคำเชิญ<input inputMode="numeric" pattern="[0-9]{8}" maxLength={8} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} required /></label>
-          <button className="secondary-button" disabled={busy}>{busy ? 'กำลังตรวจสอบ...' : 'ใช้คำเชิญ'}</button>
+          <Button variant="secondary" loading={busy}>ใช้คำเชิญ</Button>
         </form>
       </details>
-      <button className="secondary-button" onClick={() => void auth.refreshMemberships()}>ตรวจสอบสถานะอีกครั้ง</button>
+      <Button variant="secondary" onClick={() => void auth.refreshMemberships()}>ตรวจสอบสถานะอีกครั้ง</Button>
       <Link className="text-button" to="/login">กลับไปหน้าเข้าสู่ระบบ</Link>
     </main>
   );

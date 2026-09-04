@@ -88,7 +88,7 @@ export function PreviewDemoPage() {
           <li><strong>นักเรียน</strong> เปิด <LinkButton to="/scores" size="sm" variant="ghost">คะแนนของฉัน</LinkButton> แล้วกดรายวิชาเพื่อดูรายละเอียด</li>
           <li><strong>ทุก role</strong> เปิด <LinkButton to="/profile" size="sm" variant="ghost">โปรไฟล์</LinkButton> เพื่อเปลี่ยน Avatar และตรวจว่าบันทึกแล้ว</li>
         </ol>
-        {mode !== 'preview' && <p className="field-hint">หน้านี้มีไว้สำหรับโหมด Preview เท่านั้น</p>}
+        {mode !== 'preview' && <p className="field-hint">หน้านี้มีไว้สำหรับโหมดตัวอย่างเท่านั้น</p>}
       </Card>
     </>
   );

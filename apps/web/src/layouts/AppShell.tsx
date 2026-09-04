@@ -342,7 +342,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebar-user">
           <ProfileAvatar displayName={membership.displayName} avatarId={visibleAvatarId} avatarPhotoId={ownAvatarPhotoId} size={40} />
           <div><strong>{membership.displayName}</strong><span>{roleLabels[membership.role]}</span></div>
-          <button onClick={() => void session.signOut()} aria-label={session.mode === 'preview' ? 'ออกจากโหมด Preview' : 'ออกจากระบบ'}><Icon name="logout" size={18} /></button>
+          <button onClick={() => void session.signOut()} aria-label={session.mode === 'preview' ? 'ออกจากโหมดตัวอย่าง' : 'ออกจากระบบ'}><Icon name="logout" size={18} /></button>
         </div>
       </aside>
 
