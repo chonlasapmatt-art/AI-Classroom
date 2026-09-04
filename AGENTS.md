@@ -183,6 +183,27 @@ above the administrator · TOTP for platform operators.
 
 In the order they matter:
 
+0. **The deployment is not reachable, and does not update itself.** Three separate facts, all about
+   the hosting rather than the code, and all of them checked rather than assumed:
+
+   - **Vercel Authentication is on.** Every URL — the school app included, not only `/platform/` —
+     answers `302` to `vercel.com/sso-api` and sets a `_vercel_sso_nonce` cookie. Nobody outside the
+     Vercel team can open the product at all. Turn it off under the project's *or the team's*
+     Deployment Protection; a team-level setting overrides the project, which is the likelier place
+     for it to still be on.
+   - **The Vercel project has no Git connection.** `vercel inspect` reports no branch or commit for
+     any deployment, and nothing shipped when `main` was merged. Every release so far went out by
+     somebody running `vercel --prod` by hand. Connect the repository under Settings → Git, or keep
+     deploying manually and know that merging changes nothing on its own.
+   - **The platform has no operator yet.** The first one is made through the code door, which a
+     development build always renders — so `npm run dev` against the real project is the shortest
+     path to creating it, and does not wait on the two items above.
+
+   The server side of that work *is* live: migrations through `202609040003` are applied, and
+   `platform-sign-in`, `platform-bootstrap` and `platform-access` are deployed. Each was exercised
+   against the project afterwards and refused an unknown caller correctly. Do not push or deploy
+   those again expecting a change.
+
 1. **A scheduler for the notification sender, on the deployment.** The dispatcher exists, drains the
    outbox, delivers over LINE and records every run. Nothing in this repository can make a particular
    project *call* it: run `schedule_notification_dispatch(url, secret)` once for a pg_cron job, or
@@ -208,8 +229,10 @@ In the order they matter:
 7. **Practice mode**, and the question types beyond the four implemented (matching, ordering, fill in
    the blank, image, audio, essay). The specification says not to overengineer unfinished types.
 
-Readiness: **CONDITIONALLY READY**. Items 1 and 2 are both deployment steps rather than missing code,
-and both must be done on the real project before a pilot with real families.
+Readiness: **CONDITIONALLY READY**, and item 0 is what stands between the product and anybody using
+it — the code is deployed and the database is migrated; the hosting will not let a visitor through.
+Items 1 and 2 are deployment steps rather than missing code, and both must be done on the real
+project before a pilot with real families.
 
 ---
 
