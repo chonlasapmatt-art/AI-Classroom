@@ -4,7 +4,7 @@ import type { SyncQueueItem } from '../domain/types';
 import { isRetryableStatus, nextRetryDelay } from './retry';
 import { SYNC_PROTOCOL_VERSION, type PullResponse, type PushEnvelope, type PushResponse } from './contracts';
 
-const CLIENT_VERSION = '3.1.0';
+const CLIENT_VERSION = '3.2.0';
 
 export async function pushPending(schoolId: string, deviceId: string): Promise<{ accepted: number; blocked: number }> {
   const client = requireSupabase();
