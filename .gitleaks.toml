@@ -1,0 +1,39 @@
+# What the secret scan is allowed to ignore, and why.
+#
+# The scan is the one check standing between a leaked key and a public repository, so it has to be a
+# check people read. Four findings in this tree are not secrets, and left unexplained they would make
+# every run red — and a check that is always red is a check nobody looks at, which is strictly worse
+# than not having one.
+#
+# This is the singular [allowlist] table rather than an [[allowlists]] array: on gitleaks 8.24 the
+# array form is parsed and then never consulted for rules inherited from the default config, which is
+# every rule here. Three shapes of the array form were tried and all four findings survived each one.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+Two values, neither a secret.
+
+The character alphabets — KEY_ALPHABET and PASSWORD_ALPHABET — are the set of characters a generated
+code may contain, not a value. 'ABCDEFGHJKLMNPQRSTWXYZ23456789' is every unambiguous letter and digit
+exactly once: long, no repeats, mixed with digits, which is exactly the shape entropy scoring is
+built to flag. What they generate is shown once and never written to this repository.
+
+The end-to-end placeholders point nowhere on purpose. That suite asserts what an unconfigured
+deployment shows, so its build is handed a URL and a key that cannot connect to anything. A real
+project reference there would be the bug; the obviously fake string is the fix.
+
+Filtered on the value rather than on the file: naming paths would exempt whole Edge Functions, and a
+real key hardcoded in one of those is precisely what this scan exists to catch.
+"""
+regexTarget = "line"
+regexes = [
+  '''(?i)(KEY|PASSWORD|CODE)_ALPHABET\s*=\s*['"][A-Za-z0-9]{20,80}['"]''',
+  '''e2e-placeholder'''
+]
+stopwords = [
+  "abcdefgh",
+  "placeholder"
+]
