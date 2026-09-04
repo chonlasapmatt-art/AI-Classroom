@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses, activeSubjects, classIdOfStudent, rosterFor, subjectById } from '../../data/selectors';
@@ -15,6 +15,8 @@ import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { WorkDetailPanel } from './WorkDetailPanel';
 import { WorkFormModal } from './WorkFormModal';
 import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { useToast } from '../../ui/toastContext';
+import { Icon } from '../../ui/Icon';
 
 type Filter = 'all' | 'open' | 'draft' | 'closed';
 type TrackingFilter = 'all' | 'attention' | 'late' | 'waiting' | 'complete';
@@ -58,7 +60,7 @@ export function AssignmentsPage() {
   const [turnInNote, setTurnInNote] = useState('');
   const [turnInDriveUrls, setTurnInDriveUrls] = useState<Record<string, string>>({});
   const [announcing, setAnnouncing] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const selectedClassId = ownClassId ?? classId ?? '';
   const effectiveClassId = selectedClassId || classes[0]?.id || '';
@@ -130,20 +132,20 @@ export function AssignmentsPage() {
     if (publish && input.id) {
       await repository.publishAssignment(input.id, roster.map((student) => student.id));
     }
-    setMessage(publish ? 'เผยแพร่งานให้นักเรียนแล้ว' : 'บันทึกฉบับร่างแล้ว');
+    toast(publish ? 'เผยแพร่งานให้นักเรียนแล้ว' : 'บันทึกฉบับร่างแล้ว');
   }
 
   async function turnIn(work: Assignment) {
     if (!ownStudent) return;
     const driveUrl = normalizeGoogleDriveUrl(turnInDriveUrls[work.id]);
     if (!driveUrl) {
-      setMessage('กรุณาวางลิงก์ Google Drive ที่เป็น HTTPS ก่อนส่งงาน');
+      toast('กรุณาวางลิงก์ Google Drive ที่เป็น HTTPS ก่อนส่งงาน');
       return;
     }
     await repository.submitWork(work.id, ownStudent.id, turnInNote, false, driveUrl);
     setTurnInDriveUrls((current) => ({ ...current, [work.id]: driveUrl }));
     setTurnInNote('');
-    setMessage('ส่งงานเรียบร้อยแล้ว');
+    toast('ส่งงานเรียบร้อยแล้ว');
   }
 
   return (
@@ -190,7 +192,7 @@ export function AssignmentsPage() {
       {visible.length === 0 ? (
         <Card>
           <EmptyState
-            icon="🎉"
+            icon={<Icon name="achievements" size={28} />}
             title={filter === 'all' ? 'ยังไม่มีงานในห้องนี้' : 'ไม่มีงานในหมวดนี้'}
             description={isTeacher ? 'สร้างงานแรกแล้วเผยแพร่ให้นักเรียนทั้งห้อง' : 'ทุกงานเรียบร้อยแล้ว'}
             {...(canCreateWork ? { action: <Button variant="primary" onClick={() => setFormOpen(true)}>+ สร้างงาน</Button> } : {})}
@@ -212,7 +214,7 @@ export function AssignmentsPage() {
                 <div className="work-card-head">
                   <div className="work-card-title">
                     {subject && color && (
-                      <span className="subject-tag" style={{ background: color.soft, color: color.solid }}>
+                      <span className="subject-tag subject-tint" style={{ '--subject-color': color.solid } as CSSProperties}>
                         <SubjectIcon iconKey={subject.iconKey} size={14} />{subject.name}
                       </span>
                     )}
@@ -230,7 +232,7 @@ export function AssignmentsPage() {
                       <Button
                         variant="primary" size="sm"
                         onClick={() => void repository.publishAssignment(work.id, roster.map((student) => student.id))
-                          .then(() => setMessage('เผยแพร่งานแล้ว'))}
+                          .then(() => toast('เผยแพร่งานแล้ว'))}
                       >
                         เผยแพร่
                       </Button>
@@ -278,7 +280,7 @@ export function AssignmentsPage() {
                       {!submission?.acknowledgedAt && (
                         <Button
                           variant="secondary"
-                          onClick={() => void repository.acknowledgeWork(work.id, ownStudent.id).then(() => setMessage('รับทราบงานแล้ว'))}
+                          onClick={() => void repository.acknowledgeWork(work.id, ownStudent.id).then(() => toast('รับทราบงานแล้ว'))}
                         >
                           รับทราบงานแล้ว
                         </Button>
@@ -325,7 +327,7 @@ export function AssignmentsPage() {
             action={selectedTrackingWork && <Badge tone={workStateTone[selectedTrackingWork.state]}>{selectedTrackingWork.work.title}</Badge>}
           />
           {publishedItems.length === 0 ? (
-            <EmptyState icon="◌" title="ยังไม่มีงานที่เผยแพร่" description="เผยแพร่งานจากส่วนที่ 1 แล้วสถานะของนักเรียนจะแสดงที่นี่" />
+            <EmptyState icon={<Icon name="assignments" size={28} />} title="ยังไม่มีงานที่เผยแพร่" description="เผยแพร่งานจากส่วนที่ 1 แล้วสถานะของนักเรียนจะแสดงที่นี่" />
           ) : (
             <>
               <div className="assignment-work-picker" role="tablist" aria-label="เลือกงานเพื่อติดตาม">
@@ -353,7 +355,7 @@ export function AssignmentsPage() {
                     work={selectedTrackingWork.work}
                     roster={roster}
                     actorProfileId={membership.profileId}
-                    onMessage={setMessage}
+                    onMessage={toast}
                   />
                 </>
               )}
@@ -375,7 +377,7 @@ export function AssignmentsPage() {
             <Stat label="ยังค้าง" value={publishedItems.filter((item) => ['overdue', 'urgent', 'soon', 'upcoming', 'revision_requested'].includes(item.state)).length} tone="danger" />
           </div>
           <div className="student-status-list">
-            {publishedItems.length === 0 ? <EmptyState icon="✓" title="ยังไม่มีงานที่ต้องส่ง" description="เมื่อครูเผยแพร่งาน งานจะปรากฏที่ส่วนที่ 1" /> : publishedItems.map((item) => (
+            {publishedItems.length === 0 ? <EmptyState icon={<Icon name="check" size={28} />} title="ยังไม่มีงานที่ต้องส่ง" description="เมื่อครูเผยแพร่งาน งานจะปรากฏที่ส่วนที่ 1" /> : publishedItems.map((item) => (
               <button key={item.work.id} type="button" className="student-status-row" onClick={() => setExpanded(item.work.id)}>
                 <span className="student-status-copy"><strong>{item.work.title}</strong><small>{item.dueAt ? `กำหนดส่ง ${new Date(item.dueAt).toLocaleString('th-TH')}` : 'ไม่กำหนดวันส่ง'}</small></span>
                 <Badge tone={workStateTone[item.state]}>{workStateLabels[item.state]}</Badge>
@@ -406,7 +408,7 @@ export function AssignmentsPage() {
             <Segmented ariaLabel="กรองการส่งงานของนักเรียน" value={trackingFilter} onChange={setTrackingFilter} options={trackingFilterOptions} />
           </div>
           {visibleTrackingRows.length === 0 ? (
-            <EmptyState icon="✓" title="ไม่พบรายการที่ตรงกัน" description="ลองเปลี่ยนคำค้นหาหรือตัวกรองการส่งงาน" />
+            <EmptyState icon={<Icon name="check" size={28} />} title="ไม่พบรายการที่ตรงกัน" description="ลองเปลี่ยนคำค้นหาหรือตัวกรองการส่งงาน" />
           ) : (
             <div className="tracking-list">
               {visibleTrackingRows.map((row) => (
@@ -441,6 +443,7 @@ export function AssignmentsPage() {
           rubrics={snapshot.rubrics}
           works={snapshot.assignments}
           editing={editing}
+          actorProfileId={membership.profileId}
           onClose={() => { setFormOpen(false); setEditing(null); }}
           onSave={saveWork}
         />
@@ -459,7 +462,7 @@ export function AssignmentsPage() {
                 onClick={() => {
                   const reason = (document.getElementById('cancel-reason') as HTMLInputElement | null)?.value ?? '';
                   void repository.cancelAssignment(cancelling.id, reason, membership.profileId)
-                    .then(() => { setMessage('ยกเลิกงานแล้ว'); setCancelling(null); });
+                    .then(() => { toast('ยกเลิกงานแล้ว'); setCancelling(null); });
                 }}
               >
                 ยืนยันยกเลิกงาน
@@ -486,9 +489,9 @@ export function AssignmentsPage() {
                 onClick={() => {
                   const title = (document.getElementById('announcement-title') as HTMLInputElement | null)?.value ?? '';
                   const body = (document.getElementById('announcement-body') as HTMLTextAreaElement | null)?.value ?? '';
-                  if (!title.trim()) { setMessage('ใส่หัวข้อประกาศก่อน'); return; }
+                  if (!title.trim()) { toast('ใส่หัวข้อประกาศก่อน'); return; }
                   void repository.saveAnnouncement({ classId: effectiveClassId, subjectId: subjectFilter || null, title, body })
-                    .then(() => { setAnnouncing(false); setMessage('ส่งประกาศให้นักเรียนและผู้ปกครองที่เชื่อมบัญชีแล้ว'); });
+                    .then(() => { setAnnouncing(false); toast('ส่งประกาศให้นักเรียนและผู้ปกครองที่เชื่อมบัญชีแล้ว'); });
                 }}
               >
                 ส่งประกาศ
@@ -505,7 +508,6 @@ export function AssignmentsPage() {
         </Modal>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

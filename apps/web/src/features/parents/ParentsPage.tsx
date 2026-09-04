@@ -9,6 +9,12 @@ import { activateMemberLogin, describeActivatedLogin } from '../auth/identityAct
 import { requireSupabase } from '../../services/supabase';
 import { ParentRequestsPanel } from './ParentRequestsPanel';
 import { EraseAccountButton } from '../auth/EraseAccountButton';
+import {
+  Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, Modal, PageHeader, SearchInput,
+  Stat, Toolbar
+} from '../../ui/components';
+import { Icon } from '../../ui/Icon';
+import { useToast } from '../../ui/toastContext';
 
 type PasswordTarget = {
   profileId: string | null;
@@ -93,10 +99,11 @@ export function ParentsPage() {
   const { membership, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [passwordParent, setPasswordParent] = useState<PasswordTarget | null>(null);
   const [managedParents, setManagedParents] = useState<ManagedParent[]>([]);
+  const [query, setQuery] = useState('');
   const privacy = privacyPolicyFrom(snapshot.settings);
   const canManageAccounts = membership.role === 'admin';
 
@@ -108,9 +115,9 @@ export function ParentsPage() {
     let cancelled = false;
     void loadManagedParents(membership.schoolId)
       .then((parents) => { if (!cancelled) setManagedParents(parents); })
-      .catch(() => { if (!cancelled) setMessage('โหลดรายชื่อผู้ปกครองไม่สำเร็จ กรุณากดรีเฟรช'); });
+      .catch(() => { if (!cancelled) toast('โหลดรายชื่อผู้ปกครองไม่สำเร็จ กรุณากดรีเฟรช'); });
     return () => { cancelled = true; };
-  }, [canManageAccounts, membership.schoolId, mode]);
+  }, [canManageAccounts, membership.schoolId, mode, toast]);
 
   type ParentRow = {
     key: string; parentName: string; profileId: string | null; contact: string;
@@ -174,9 +181,9 @@ export function ParentsPage() {
       });
       if (error) throw new Error(error.message);
       await refreshParents();
-      setMessage(`เชื่อมกับ ${nameOfStudent(studentId) || 'นักเรียน'} แล้ว`);
+      toast(`เชื่อมกับ ${nameOfStudent(studentId) || 'นักเรียน'} แล้ว`);
     } catch (reason) {
-      setMessage(reason instanceof Error ? `เชื่อมนักเรียนไม่สำเร็จ (${reason.message})` : 'เชื่อมนักเรียนไม่สำเร็จ');
+      toast(reason instanceof Error ? `เชื่อมนักเรียนไม่สำเร็จ (${reason.message})` : 'เชื่อมนักเรียนไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -187,9 +194,9 @@ export function ParentsPage() {
     try {
       await repository.setParentConsent(link.linkId, granted, privacy.policyVersion);
       await refreshParents();
-      setMessage(granted ? 'บันทึกความยินยอมแล้ว' : 'ถอนความยินยอมแล้ว');
+      toast(granted ? 'บันทึกความยินยอมแล้ว' : 'ถอนความยินยอมแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -200,9 +207,9 @@ export function ParentsPage() {
     try {
       await repository.revokeParentLink(link.linkId);
       await refreshParents();
-      setMessage('ยกเลิกการเชื่อมบัญชีแล้ว');
+      toast('ยกเลิกการเชื่อมบัญชีแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -210,12 +217,12 @@ export function ParentsPage() {
 
   async function activate(parentId: string) {
     try {
-      setMessage(describeActivatedLogin(await activateMemberLogin({
+      toast(describeActivatedLogin(await activateMemberLogin({
         schoolId: membership.schoolId, role: 'parent', recordId: parentId
       })));
       setManagedParents(await loadManagedParents(membership.schoolId));
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -241,10 +248,10 @@ export function ParentsPage() {
         setManagedParents(await loadManagedParents(membership.schoolId));
       }
       else await repository.saveParentLink({ studentId, parentName: displayName, relationship: String(data.get('relationship') ?? '').trim(), contact: String(data.get('phone') ?? '').trim(), status: 'linked' });
-      setMessage(`เพิ่มผู้ปกครอง ${displayName} แล้ว · ใช้ชื่อกับรหัสผ่านเข้าสู่ระบบได้เลย`);
+      toast(`เพิ่มผู้ปกครอง ${displayName} แล้ว · ใช้ชื่อกับรหัสผ่านเข้าสู่ระบบได้เลย`);
       form.reset();
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'บันทึกผู้ปกครองไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'บันทึกผู้ปกครองไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -255,143 +262,230 @@ export function ParentsPage() {
   // same thing and every change had to be made in both.
   if (membership.role === 'parent') return <Navigate to="/my-children" replace />;
 
+  const needle = query.trim().toLocaleLowerCase('th');
+  const visibleRows = needle
+    ? parentRows.filter((row) => row.parentName.toLocaleLowerCase('th').includes(needle)
+      || row.contact.toLocaleLowerCase('th').includes(needle)
+      || row.childNames.some((name) => name.toLocaleLowerCase('th').includes(needle)))
+    : parentRows;
+  const linkedCount = parentRows.filter((row) => row.childNames.length > 0).length;
+  const consentedCount = parentRows.filter((row) => row.links.some((link) => link.consented && link.status !== 'revoked')).length;
+
   return (
     <>
-      <section className="page-heading">
-        <div>
-          <span className="eyebrow">การเชื่อมบัญชีผู้ปกครอง</span>
-          <h1>ผู้ปกครอง</h1>
-          <p>{canManageAccounts
-            ? `${parentRows.length} บัญชีผู้ปกครอง · ดูและจัดการการเชื่อมโยงได้ทั้งหมด`
-            : `${parentRows.length} รายชื่อผู้ปกครองในห้องที่คุณสอน · แสดงเฉพาะชื่อผู้ปกครองและลูกที่เชื่อมแล้ว`}</p>
-        </div>
-      </section>
+      <PageHeader
+        eyebrow="การเชื่อมบัญชีผู้ปกครอง"
+        title="ผู้ปกครอง"
+        description={canManageAccounts
+          ? 'สร้างบัญชี ผูกกับนักเรียน และดูแลความยินยอมได้จากที่เดียว'
+          : 'แสดงเฉพาะชื่อผู้ปกครองและนักเรียนที่เชื่อมกับห้องที่คุณสอน'}
+      />
 
       {canManageAccounts && (
-        <form className="panel inline-form" onSubmit={(event) => void addParentAccount(event)}>
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">ส่วนที่ 1 · สร้างบัญชี</span>
-              <h2>เพิ่มผู้ปกครอง</h2>
-              <p>กำหนดชื่อและรหัสผ่านให้เข้าใช้งานได้ทันที พร้อมผูกนักเรียนตอนนี้หรือให้ผู้ปกครองผูกเองภายหลัง</p>
-            </div>
-          </div>
-          <div className="form-grid">
-            <label>
-              ผูกกับนักเรียน
-              <select name="studentId" defaultValue="">
-                <option value="">ยังไม่ผูกตอนนี้ · ให้ผู้ปกครองเพิ่มเอง</option>
-                {snapshot.students.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
-              </select>
-            </label>
-            <label>ชื่อผู้ปกครอง<input name="displayName" required minLength={2} /></label>
-            <label>ความสัมพันธ์<input name="relationship" placeholder="มารดา / บิดา / ผู้ปกครอง" required /></label>
-            <label>เบอร์ติดต่อ<input name="phone" /></label>
-            <label>รหัสผ่านเริ่มต้น<input name="password" type="password" minLength={8} autoComplete="new-password" required /></label>
-          </div>
-          <button className="primary-button" disabled={busy}>{busy ? 'กำลังบันทึก...' : 'บันทึกผู้ปกครอง'}</button>
-          <label className="check-row"><input name="grantConsent" type="checkbox" /> อนุมัติให้ผู้ปกครองรับประกาศและข้อมูลของนักเรียนทันที</label>
-          <p className="hint">ไม่ต้องใช้อีเมลหรือการสมัครเอง · ถ้ายังไม่ผูกลูก ผู้ปกครองจะกด “+ เพิ่มลูก” หลังเข้าสู่ระบบได้</p>
-        </form>
+        <div className="ui-stat-grid">
+          <Stat label="บัญชีผู้ปกครอง" value={parentRows.length} hint="ในโรงเรียนนี้" tone="brand" icon={<Icon name="parents" size={18} />} />
+          <Stat label="ผูกกับนักเรียนแล้ว" value={linkedCount} hint={`ยังไม่ผูก ${parentRows.length - linkedCount} คน`} tone={linkedCount === parentRows.length ? 'success' : 'info'} icon={<Icon name="children" size={18} />} />
+          <Stat
+            label="ให้ความยินยอมแล้ว"
+            value={consentedCount}
+            hint="เห็นคะแนนและประกาศของบุตรหลานได้"
+            tone={consentedCount > 0 ? 'success' : 'warning'}
+            icon={<Icon name="check" size={18} />}
+          />
+        </div>
       )}
 
-      <section className="panel data-panel">
-        <div className="panel-heading">
-          <div>
-            <span className="eyebrow">ส่วนที่ 2 · ภาพรวมการเชื่อมโยง</span>
-            <h2>รายชื่อผู้ปกครองทั้งหมด</h2>
-            <p>ดูได้ทันทีว่าผู้ปกครองแต่ละคนเชื่อมกับนักเรียนคนใดบ้าง</p>
-          </div>
-          <span className="status-chip">{parentRows.length} บัญชี</span>
-        </div>
-        <ul className="record-list">
-          {parentRows.map((row) => {
-            return (
-              <li key={row.key}>
-                <div className="record-main">
-                  <div>
-                    <strong>{row.parentName}</strong>
-                    <span className="parent-child-summary">เชื่อมกับ: {row.childNames.length > 0 ? row.childNames.join(' · ') : 'ยังไม่ได้เชื่อมนักเรียน'}</span>
-                    {canManageAccounts
-                      ? <span>{row.contact || 'ไม่ได้ระบุเบอร์ติดต่อ'} · {row.links.length} ความสัมพันธ์</span>
-                      : <span>ผู้ปกครองที่เชื่อมกับห้องเรียนของคุณ</span>}
+      {canManageAccounts && (
+        <Card>
+          <CardHeader
+            title="เพิ่มผู้ปกครอง"
+            description="กำหนดชื่อและรหัสผ่านให้เข้าใช้งานได้ทันที · ไม่ต้องใช้อีเมลและไม่ต้องให้ผู้ปกครองสมัครเอง"
+          />
+          <form onSubmit={(event) => void addParentAccount(event)}>
+            <FieldGroup columns={2}>
+              <Field label="ผูกกับนักเรียน" hint="เว้นไว้ก็ได้ ผู้ปกครองกด “เพิ่มลูก” เองหลังเข้าสู่ระบบ">
+                <select name="studentId" defaultValue="">
+                  <option value="">ยังไม่ผูกตอนนี้</option>
+                  {snapshot.students.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
+                </select>
+              </Field>
+              <Field label="ชื่อผู้ปกครอง" hint="ชื่อนี้ใช้เข้าสู่ระบบ"><input name="displayName" required minLength={2} /></Field>
+              <Field label="ความสัมพันธ์"><input name="relationship" placeholder="มารดา / บิดา / ผู้ปกครอง" required /></Field>
+              <Field label="เบอร์ติดต่อ" hint="ไม่บังคับ"><input name="phone" inputMode="tel" /></Field>
+              <Field label="รหัสผ่านเริ่มต้น" hint="อย่างน้อย 8 ตัวอักษร · แอดมินเปลี่ยนภายหลังได้">
+                <input name="password" type="password" minLength={8} autoComplete="new-password" required />
+              </Field>
+            </FieldGroup>
+            <label className="checkbox-row">
+              <input name="grantConsent" type="checkbox" />
+              <span>
+                <strong>อนุมัติความยินยอมให้เลย</strong>
+                <small>ผู้ปกครองจะเห็นประกาศ คะแนน และการเข้าเรียนของนักเรียนที่ผูกไว้ทันที · ถอนภายหลังได้</small>
+              </span>
+            </label>
+            <div className="ui-form-actions">
+              <Button variant="primary" loading={busy} icon={<Icon name="plus" size={16} />}>บันทึกผู้ปกครอง</Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader
+          title="รายชื่อผู้ปกครองทั้งหมด"
+          description="ดูได้ทันทีว่าผู้ปกครองแต่ละคนเชื่อมกับนักเรียนคนใดบ้าง"
+          action={<Badge tone="neutral">{visibleRows.length} บัญชี</Badge>}
+        />
+        <Toolbar>
+          <SearchInput value={query} onChange={setQuery} placeholder="ค้นหาชื่อผู้ปกครอง เบอร์ หรือชื่อนักเรียน" label="ค้นหาผู้ปกครอง" />
+        </Toolbar>
+
+        {visibleRows.length === 0 ? (
+          <EmptyState
+            icon={<Icon name={parentRows.length === 0 ? 'parents' : 'search'} size={28} />}
+            title={parentRows.length === 0 ? 'ยังไม่มีผู้ปกครองในระบบ' : 'ไม่พบผู้ปกครองที่ค้นหา'}
+            description={parentRows.length === 0
+              ? 'เพิ่มบัญชีผู้ปกครองด้านบน แล้วผูกกับนักเรียนได้ทันที'
+              : `ไม่มีชื่อ เบอร์ หรือนักเรียนที่ตรงกับ “${query}”`}
+            {...(parentRows.length > 0 ? { action: <Button variant="secondary" onClick={() => setQuery('')}>ล้างการค้นหา</Button> } : {})}
+          />
+        ) : (
+          <ul className="parent-list">
+            {visibleRows.map((row) => {
+              const activeLinks = row.links.filter((link) => link.status !== 'revoked');
+              const usable = row.status === 'active' || row.status === 'linked';
+              return (
+                <li key={row.key} className="parent-card">
+                  <div className="parent-card-top">
+                    <div className="parent-card-title">
+                      <strong>{row.parentName}</strong>
+                      <span>{canManageAccounts
+                        ? `${row.contact || 'ไม่ได้ระบุเบอร์ติดต่อ'} · ${activeLinks.length} ความสัมพันธ์`
+                        : 'ผู้ปกครองที่เชื่อมกับห้องเรียนของคุณ'}</span>
+                    </div>
+                    {/* Was hardcoded to the success colour while the text could read "ปิดใช้งาน", so a
+                        disabled account was shown in green. */}
+                    <Badge tone={canManageAccounts ? (usable ? 'success' : 'neutral') : 'success'}>
+                      {canManageAccounts ? (usable ? 'พร้อมใช้งาน' : 'ปิดใช้งาน') : 'เชื่อมแล้ว'}
+                    </Badge>
                   </div>
-                  <span className="status-chip success">{canManageAccounts
-                    ? (row.status === 'active' || row.status === 'linked' ? 'พร้อมใช้งาน' : 'ปิดใช้งาน')
-                    : 'เชื่อมแล้ว'}</span>
-                </div>
-                {canManageAccounts && mode === 'cloud' && (
-                  <div className="record-actions">
-                    <button className="secondary-button" disabled={busy} onClick={() => void activate(row.key)}>ยืนยันไอดี</button>
-                    <button className="text-button" onClick={() => setPasswordParent({ profileId: row.profileId, parentName: row.parentName, studentId: '', relationship: 'ผู้ปกครอง', contact: row.contact })}>
-                      {row.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชีเข้าใช้'}
-                    </button>
-                    {row.profileId && (
-                      <EraseAccountButton
-                        schoolId={membership.schoolId} role="parent" profileId={row.profileId}
-                        displayName={row.parentName}
-                        onDone={(text) => { setMessage(text); void refreshParents(); }}
-                      />
-                    )}
-                  </div>
-                )}
-                {row.links.map((link) => canManageAccounts && link.status !== 'revoked' && (
-                  <div className="record-actions" key={link.linkId}>
-                    <span className="hint">
-                      {nameOfStudent(link.studentId) || 'นักเรียน'} · {link.relationship} · {link.consented ? 'ยินยอมแล้ว' : 'ยังไม่ยินยอม'}
-                    </span>
-                    <button className="secondary-button" disabled={busy} onClick={() => void setConsent(link, !link.consented)}>
-                      {link.consented ? 'ถอนความยินยอม' : 'บันทึกความยินยอม'}
-                    </button>
-                    <button className="text-button" disabled={busy} onClick={() => void unlink(link)}>ยกเลิกการเชื่อม</button>
-                  </div>
-                ))}
-                {canManageAccounts && mode === 'cloud' && (
-                  // Attaching a second child used to mean filling in the create-account form again,
-                  // password and all, for an account that already had one.
-                  <form
-                    className="record-actions"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      const data = new FormData(event.currentTarget);
-                      void linkChild(row.key, String(data.get('studentId') ?? ''), String(data.get('relationship') ?? ''));
-                      event.currentTarget.reset();
-                    }}
-                  >
-                    <select name="studentId" defaultValue="" aria-label={`เชื่อมนักเรียนกับ ${row.parentName}`} required>
-                      <option value="">เพิ่มนักเรียนที่ดูแล...</option>
-                      {snapshot.students
-                        .filter((student) => !row.links.some((link) => link.studentId === student.id && link.status !== 'revoked'))
-                        .map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
-                    </select>
-                    <input name="relationship" placeholder="ความสัมพันธ์ เช่น มารดา" aria-label="ความสัมพันธ์" />
-                    <button className="secondary-button" disabled={busy}>เชื่อมนักเรียน</button>
-                  </form>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+
+                  <p className="parent-children">
+                    <Icon name="children" size={14} />
+                    {row.childNames.length > 0 ? row.childNames.join(' · ') : 'ยังไม่ได้เชื่อมนักเรียน'}
+                  </p>
+
+                  {canManageAccounts && mode === 'cloud' && (
+                    <div className="parent-card-actions">
+                      <Button variant="secondary" size="sm" disabled={busy} onClick={() => void activate(row.key)}>ยืนยันไอดี</Button>
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => setPasswordParent({ profileId: row.profileId, parentName: row.parentName, studentId: '', relationship: 'ผู้ปกครอง', contact: row.contact })}
+                      >
+                        {row.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชีเข้าใช้'}
+                      </Button>
+                      {row.profileId && (
+                        <EraseAccountButton
+                          schoolId={membership.schoolId} role="parent" profileId={row.profileId}
+                          displayName={row.parentName}
+                          onDone={(text) => { toast(text); void refreshParents(); }}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {canManageAccounts && activeLinks.length > 0 && (
+                    <ul className="parent-link-list">
+                      {activeLinks.map((link) => (
+                        <li key={link.linkId}>
+                          <span className="parent-link-who">
+                            <strong>{nameOfStudent(link.studentId) || 'นักเรียน'}</strong>
+                            <small>{link.relationship}</small>
+                          </span>
+                          <Badge tone={link.consented ? 'success' : 'warning'}>{link.consented ? 'ยินยอมแล้ว' : 'ยังไม่ยินยอม'}</Badge>
+                          <span className="parent-link-actions">
+                            <Button variant="secondary" size="sm" disabled={busy} onClick={() => void setConsent(link, !link.consented)}>
+                              {link.consented ? 'ถอนความยินยอม' : 'บันทึกความยินยอม'}
+                            </Button>
+                            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void unlink(link)}>ยกเลิกการเชื่อม</Button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {canManageAccounts && mode === 'cloud' && (
+                    // Attaching a second child used to mean filling in the create-account form again,
+                    // password and all, for an account that already had one.
+                    <form
+                      className="parent-add-child"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const data = new FormData(event.currentTarget);
+                        void linkChild(row.key, String(data.get('studentId') ?? ''), String(data.get('relationship') ?? ''));
+                        event.currentTarget.reset();
+                      }}
+                    >
+                      <select name="studentId" defaultValue="" aria-label={`เพิ่มนักเรียนที่ ${row.parentName} ดูแล`} required>
+                        <option value="">เพิ่มนักเรียนที่ดูแล…</option>
+                        {snapshot.students
+                          .filter((student) => !row.links.some((link) => link.studentId === student.id && link.status !== 'revoked'))
+                          .map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
+                      </select>
+                      <input name="relationship" placeholder="ความสัมพันธ์ เช่น มารดา" aria-label={`ความสัมพันธ์ของ ${row.parentName}`} />
+                      <Button variant="secondary" size="sm" disabled={busy} icon={<Icon name="plus" size={14} />}>เชื่อมนักเรียน</Button>
+                    </form>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
 
       {/* A guardian who adds a child by name is a claim, and this is where staff answer it. The panel
           existed and was never rendered, so every one of those requests waited for a screen that was
           not in the application. */}
       {mode === 'cloud' && <ParentRequestsPanel schoolId={membership.schoolId} />}
 
+      {/* Was a hand-built backdrop with no focus trap, no Escape and no focus returned. */}
       {passwordParent && canManageAccounts && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ตั้งรหัสผ่านผู้ปกครอง">
-          <section className="modal-card">
-            <div className="panel-heading"><h2>{passwordParent.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · {passwordParent.parentName}</h2><button type="button" className="icon-button" onClick={() => setPasswordParent(null)} aria-label="ปิด">×</button></div>
-            <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { setMessage(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } const action = passwordParent.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'parent', profileId: passwordParent.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'parent', recordId: crypto.randomUUID(), ...(passwordParent.studentId ? { studentId: passwordParent.studentId } : {}), displayName: passwordParent.parentName, password, relationship: passwordParent.relationship, phone: passwordParent.contact }); void action.then(() => { setPasswordParent(null); setMessage('บันทึกรหัสผ่านผู้ปกครองแล้ว'); }).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ')); }}>
-              <ManagedPasswordFields />
-              <div className="modal-actions"><button type="button" className="text-button" onClick={() => setPasswordParent(null)}>ยกเลิก</button><button className="primary-button">บันทึก</button></div>
-            </form>
-          </section>
-        </div>
+        <Modal
+          title={`${passwordParent.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · ${passwordParent.parentName}`}
+          onClose={() => setPasswordParent(null)}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget);
+              const password = String(data.get('password') ?? '');
+              const confirm = String(data.get('confirm') ?? '');
+              if (password.length < 8 || password !== confirm) {
+                toast(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร', { tone: 'error' });
+                return;
+              }
+              const action = passwordParent.profileId
+                ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'parent', profileId: passwordParent.profileId, password })
+                : provisionManagedAccount({
+                  schoolId: membership.schoolId, role: 'parent', recordId: crypto.randomUUID(),
+                  ...(passwordParent.studentId ? { studentId: passwordParent.studentId } : {}),
+                  displayName: passwordParent.parentName, password,
+                  relationship: passwordParent.relationship, phone: passwordParent.contact
+                });
+              void action
+                .then(() => { setPasswordParent(null); toast('บันทึกรหัสผ่านผู้ปกครองแล้ว', { tone: 'success' }); })
+                .catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ', { tone: 'error' }));
+            }}
+          >
+            <ManagedPasswordFields />
+            <div className="ui-page-actions">
+              <Button variant="ghost" type="button" onClick={() => setPasswordParent(null)}>ยกเลิก</Button>
+              <Button variant="primary" type="submit">บันทึก</Button>
+            </div>
+          </form>
+        </Modal>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

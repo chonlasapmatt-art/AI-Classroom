@@ -14,6 +14,11 @@ import {
 } from '../../data/importParsing';
 import type { ImportRun } from '../../domain/types';
 import {
+  Badge, Button, Card, CardHeader, DataTable, EmptyState, Field, LinkButton, Skeleton, Stat, Toolbar,
+  type Tone
+} from '../../ui/components';
+import { Icon } from '../../ui/Icon';
+import {
   buildDraftRows, buildErrorReport, classifyRows, displayNameOf, isRunnable, looksLikeHeaderRow,
   studentImportFields, suggestMapping, summarize,
   type ColumnMapping, type DraftRow, type MappingTarget, type RowAction
@@ -22,8 +27,8 @@ import {
 const statusLabels: Record<DraftRow['status'], string> = {
   new: 'ใหม่', existing: 'มีอยู่แล้ว', changed: 'ข้อมูลเปลี่ยน', review: 'ต้องตรวจสอบ'
 };
-const statusTone: Record<DraftRow['status'], string> = {
-  new: 'success', existing: '', changed: 'warning', review: 'danger'
+const statusTone: Record<DraftRow['status'], Tone> = {
+  new: 'success', existing: 'neutral', changed: 'warning', review: 'danger'
 };
 const actionLabels: Record<RowAction, string> = {
   create: 'สร้างใหม่', update: 'อัปเดตข้อมูลเดิม', skip: 'ข้าม'
@@ -199,7 +204,7 @@ export function StudentImportPanel() {
         onDragLeave={() => setDragging(false)}
         onDrop={drop}
       >
-        <span aria-hidden="true">↥</span>
+        <Icon name="upload" size={28} />
         <strong>ลากไฟล์มาวางที่นี่</strong>
         <p>รองรับ Excel (.xlsx), CSV, TSV, TXT, Word (.docx) และ PDF ที่มีตัวอักษร</p>
         <label className="upload-button">
@@ -209,23 +214,44 @@ export function StudentImportPanel() {
         {mode === 'cloud' && <p className="field-hint">อ่านไฟล์และเตรียมรายชื่อได้แม้ไม่มีอินเทอร์เน็ต ข้อมูลจะซิงก์ให้เองเมื่อกลับมาออนไลน์</p>}
       </div>
 
-      {reading && <section className="panel"><p>ระบบกำลังอ่านรายชื่อ...</p></section>}
+      {reading && <Card><Skeleton lines={4} /></Card>}
       {error && <div className="alert error" role="alert">{error}</div>}
 
       {parsed && rows.length > 0 && (
         <>
-          <section className="panel">
-            <div className="panel-heading">
-              <h2>พบข้อมูลนักเรียน {rows.length} คน</h2>
-              <button className="text-button" onClick={reset}>เลือกไฟล์ใหม่</button>
-            </div>
-            <p className="muted">{fileName}</p>
-            {headerIsData && <p className="field-hint">ไฟล์นี้ไม่มีหัวตาราง ระบบเดาความหมายของแต่ละคอลัมน์จากข้อมูล กรุณาตรวจสอบก่อนบันทึก</p>}
-            {parsed.notes.map((note) => <p key={note} className="field-hint">{note}</p>)}
-          </section>
+          <div className="ui-stat-grid">
+            <Stat label="พบในไฟล์" value={rows.length} hint={fileName || 'รายชื่อนักเรียน'} tone="brand" icon={<Icon name="students" size={18} />} />
+            <Stat label="จะสร้างใหม่" value={summary.create} hint="ยังไม่มีในระบบ" tone={summary.create > 0 ? 'success' : 'neutral'} icon={<Icon name="plus" size={18} />} />
+            <Stat label="จะอัปเดต" value={summary.update} hint="มีอยู่แล้วและข้อมูลเปลี่ยน" tone={summary.update > 0 ? 'info' : 'neutral'} icon={<Icon name="edit" size={18} />} />
+            <Stat
+              label="ต้องตรวจสอบ"
+              value={summary.review}
+              hint={summary.review === 0 ? 'ไม่มีแถวที่ติดปัญหา' : 'ดูเหตุผลในคอลัมน์สถานะ'}
+              tone={summary.review === 0 ? 'success' : 'warning'}
+              icon={<Icon name="warning" size={18} />}
+            />
+          </div>
 
-          <section className="panel">
-            <div className="panel-heading"><h2>จับคู่คอลัมน์</h2></div>
+          <Card>
+            <CardHeader
+              title={`พบข้อมูลนักเรียน ${rows.length} คน`}
+              description={fileName}
+              action={<Button variant="ghost" onClick={reset} icon={<Icon name="refresh" size={16} />}>เลือกไฟล์ใหม่</Button>}
+            />
+            {headerIsData && (
+              <p className="import-guess-note">
+                <Icon name="info" size={16} />
+                ไฟล์นี้ไม่มีหัวตาราง ระบบเดาความหมายของแต่ละคอลัมน์จากข้อมูล กรุณาตรวจสอบก่อนบันทึก
+              </p>
+            )}
+            {parsed.notes.map((note) => <p key={note} className="field-hint">{note}</p>)}
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="จับคู่คอลัมน์"
+              description="เลือกว่าคอลัมน์ไหนในไฟล์คือข้อมูลอะไร · หนึ่งข้อมูลมาจากคอลัมน์เดียวเท่านั้น"
+            />
             <div className="mapping-grid">
               {Array.from({ length: columnCount }, (_, index) => {
                 const mapping = mappings.find((item) => item.index === index);
@@ -247,93 +273,129 @@ export function StudentImportPanel() {
                 );
               })}
             </div>
-          </section>
+          </Card>
 
-          <section className="panel data-panel">
-            <div className="panel-heading">
-              <h2>ตรวจสอบก่อนบันทึก</h2>
-              <span className="status-chip">สร้าง {summary.create} · อัปเดต {summary.update} · ข้าม {summary.skip} · ตรวจสอบ {summary.review}</span>
-            </div>
-            <div className="toolbar">
-              <label>
-                ห้องเรียนปลายทาง (ใช้เมื่อไฟล์ไม่ได้ระบุห้อง)
+          <Card>
+            <CardHeader
+              title="ตรวจสอบก่อนบันทึก"
+              description="แก้ไขในตารางได้ทันที · แถวที่ตั้งเป็น “ข้าม” จะไม่ถูกบันทึกและไม่กระทบแถวอื่น"
+              action={(
+                <Button
+                  variant="primary"
+                  loading={busy}
+                  disabled={!canImport || summary.create + summary.update === 0}
+                  icon={<Icon name="check" size={16} />}
+                  onClick={() => void runImport()}
+                >
+                  บันทึก {summary.create + summary.update} รายการ
+                </Button>
+              )}
+            />
+            <Toolbar>
+              <Field label="ห้องเรียนปลายทาง" hint="ใช้เมื่อไฟล์ไม่ได้ระบุห้องของนักเรียนคนนั้น">
                 <select value={selectedClassId} onChange={(event) => setClassId(event.target.value)}>
                   {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
-              </label>
-              <button className="primary-button" disabled={busy || !canImport || summary.create + summary.update === 0} onClick={() => void runImport()}>
-                {busy ? 'กำลังบันทึก...' : `บันทึก ${summary.create + summary.update} รายการ`}
-              </button>
-            </div>
-            <div className="table-scroll">
-              <table className="grid-table">
-                <thead>
-                  <tr>
-                    <th>#</th><th>รหัสนักเรียน</th><th>ชื่อ</th><th>นามสกุล</th><th>ห้อง</th>
-                    <th>สถานะ</th><th>จะทำอะไร</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, index) => (
-                    <tr key={row.rowId} className={row.status === 'review' ? 'row-warning' : ''}>
-                      <td>{index + 1}</td>
-                      <td><input value={row.studentCode} onChange={(event) => editCell(row.rowId, 'studentCode', event.target.value)} /></td>
-                      <td><input value={row.firstName} onChange={(event) => editCell(row.rowId, 'firstName', event.target.value)} /></td>
-                      <td><input value={row.lastName} onChange={(event) => editCell(row.rowId, 'lastName', event.target.value)} /></td>
-                      <td><input value={row.className} onChange={(event) => editCell(row.rowId, 'className', event.target.value)} /></td>
-                      <td>
-                        <span className={`status-chip ${statusTone[row.status]}`}>{statusLabels[row.status]}</span>
-                        {row.issues.map((issue) => <small key={issue} className="row-issue">⚠ {issue}</small>)}
-                      </td>
-                      <td>
-                        <select value={row.action} onChange={(event) => setAction(row.rowId, event.target.value as RowAction)}>
-                          <option value="create">{actionLabels.create}</option>
-                          {row.matchedStudentId && <option value="update">{actionLabels.update}</option>}
-                          <option value="skip">{actionLabels.skip}</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+              </Field>
+            </Toolbar>
+            <DataTable
+              caption="รายชื่อนักเรียนที่กำลังจะนำเข้า"
+              head={(
+                <tr>
+                  <th>#</th><th>รหัสนักเรียน</th><th>ชื่อ</th><th>นามสกุล</th><th>ห้อง</th>
+                  <th>สถานะ</th><th>จะทำอะไร</th>
+                </tr>
+              )}
+            >
+              {rows.map((row, index) => (
+                <tr key={row.rowId} className={row.status === 'review' ? 'import-row-problem' : ''}>
+                  <td className="import-row-number">{index + 1}</td>
+                  {/*
+                    Every editable cell names its own row. Five columns of unlabelled inputs sounded
+                    identical to a screen reader, so there was no way to hear whose row was open.
+                  */}
+                  <td><input value={row.studentCode} aria-label={`รหัสนักเรียน แถวที่ ${index + 1}`} onChange={(event) => editCell(row.rowId, 'studentCode', event.target.value)} /></td>
+                  <td><input value={row.firstName} aria-label={`ชื่อ แถวที่ ${index + 1}`} onChange={(event) => editCell(row.rowId, 'firstName', event.target.value)} /></td>
+                  <td><input value={row.lastName} aria-label={`นามสกุล แถวที่ ${index + 1}`} onChange={(event) => editCell(row.rowId, 'lastName', event.target.value)} /></td>
+                  <td><input value={row.className} aria-label={`ห้อง แถวที่ ${index + 1}`} onChange={(event) => editCell(row.rowId, 'className', event.target.value)} /></td>
+                  <td>
+                    <Badge tone={statusTone[row.status]}>{statusLabels[row.status]}</Badge>
+                    {row.issues.map((issue) => (
+                      <small key={issue} className="row-issue"><Icon name="warning" size={12} />{issue}</small>
+                    ))}
+                  </td>
+                  <td>
+                    <select
+                      value={row.action}
+                      aria-label={`จะทำอะไรกับ แถวที่ ${index + 1}`}
+                      onChange={(event) => setAction(row.rowId, event.target.value as RowAction)}
+                    >
+                      <option value="create">{actionLabels.create}</option>
+                      {row.matchedStudentId && <option value="update">{actionLabels.update}</option>}
+                      <option value="skip">{actionLabels.skip}</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </DataTable>
+          </Card>
         </>
       )}
 
       {result && (
-        <section className="panel">
-          <div className="panel-heading"><h2>ผลการนำเข้า</h2></div>
-          <ul className="result-list">
-            <li>นำเข้าสำเร็จ {result.created} คน</li>
-            <li>อัปเดตข้อมูลเดิม {result.updated} คน</li>
-            <li>ข้าม {result.skipped} คน</li>
-            {result.failed > 0 && <li>บันทึกไม่สำเร็จ {result.failed} คน</li>}
-          </ul>
-          <div className="record-actions">
-            <a className="secondary-button" href="/students">ดูรายชื่อนักเรียน</a>
-            <button className="text-button" onClick={downloadReport}>ดาวน์โหลดรายงานข้อผิดพลาด</button>
+        <Card>
+          <CardHeader
+            title="ผลการนำเข้า"
+            description="รายชื่อที่บันทึกแล้วอยู่ในหน้ารายชื่อนักเรียนทันที"
+            action={<Badge tone={result.failed > 0 ? 'warning' : 'success'}>{result.created + result.updated} รายการสำเร็จ</Badge>}
+          />
+          <div className="ui-stat-grid">
+            <Stat label="นำเข้าใหม่" value={result.created} hint="คน" tone="success" icon={<Icon name="plus" size={18} />} />
+            <Stat label="อัปเดตข้อมูลเดิม" value={result.updated} hint="คน" tone="info" icon={<Icon name="edit" size={18} />} />
+            <Stat label="ข้าม" value={result.skipped} hint="ตั้งไว้ว่าไม่บันทึก" tone="neutral" icon={<Icon name="close" size={18} />} />
+            <Stat
+              label="บันทึกไม่สำเร็จ"
+              value={result.failed}
+              hint={result.failed === 0 ? 'ไม่มีแถวที่พลาด' : 'ดาวน์โหลดรายงานเพื่อดูสาเหตุ'}
+              tone={result.failed === 0 ? 'success' : 'danger'}
+              icon={<Icon name="warning" size={18} />}
+            />
           </div>
-        </section>
+          <div className="ui-form-actions">
+            {/* Was a plain <a href>, which reloaded the whole application and threw away the unsynced
+                queue's in-memory state to move one screen. */}
+            <Button variant="ghost" onClick={downloadReport} icon={<Icon name="download" size={16} />}>ดาวน์โหลดรายงานข้อผิดพลาด</Button>
+            <LinkButton to="/students" variant="primary">ดูรายชื่อนักเรียน</LinkButton>
+          </div>
+        </Card>
       )}
 
       {history.length > 0 && (
-        <section className="panel data-panel">
-          <div className="panel-heading"><h2>ประวัติการนำเข้า</h2></div>
-          <ul className="record-list">
+        <Card>
+          <CardHeader title="ประวัติการนำเข้า" description="ห้าครั้งล่าสุดของโรงเรียนนี้" action={<Badge tone="neutral">{history.length} ครั้ง</Badge>} />
+          <ul className="import-history-list">
             {history.map((run) => (
               <li key={run.id}>
-                <div className="record-main">
-                  <div>
-                    <strong>{run.fileName || 'ไม่ทราบชื่อไฟล์'}</strong>
-                    <span>{new Date(run.startedAt).toLocaleString('th-TH')} · {run.fileKind}</span>
-                    <span>พบ {run.rowsDetected} แถว · สร้าง {run.created} · อัปเดต {run.updated} · ข้าม {run.skipped}{run.failed > 0 ? ` · ไม่สำเร็จ ${run.failed}` : ''}</span>
-                  </div>
+                <div className="import-history-main">
+                  <strong>{run.fileName || 'ไม่ทราบชื่อไฟล์'}</strong>
+                  <span>{new Date(run.startedAt).toLocaleString('th-TH')} · {run.fileKind}</span>
                 </div>
+                <span className="import-history-counts">
+                  พบ {run.rowsDetected} แถว · สร้าง {run.created} · อัปเดต {run.updated} · ข้าม {run.skipped}
+                  {run.failed > 0 ? ` · ไม่สำเร็จ ${run.failed}` : ''}
+                </span>
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
+      )}
+
+      {!parsed && !reading && !result && (
+        <EmptyState
+          icon={<Icon name="import" size={28} />}
+          title="ยังไม่ได้เลือกไฟล์รายชื่อ"
+          description="ลากไฟล์มาวางด้านบน หรือกดเลือกไฟล์ · ระบบจะอ่านและให้ตรวจแก้ก่อนบันทึกเสมอ ไม่มีอะไรถูกเขียนโดยที่ยังไม่ได้ดู"
+        />
       )}
     </>
   );

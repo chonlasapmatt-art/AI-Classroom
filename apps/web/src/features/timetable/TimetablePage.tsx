@@ -3,6 +3,9 @@ import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { TimetableEntry } from '../../domain/types';
 import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { Button, Card, CardHeader, EmptyState, Field, FieldGroup, Modal, PageHeader, Stat } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
+import { useToast } from '../../ui/toastContext';
 
 const dayNames = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
 const teachingDays = [1, 2, 3, 4, 5];
@@ -22,7 +25,7 @@ export function TimetablePage() {
   const { membership } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [draft, setDraft] = useState<SlotDraft | null>(null);
 
   const activeTerm = snapshot.terms.find((term) => term.status === 'active') ?? snapshot.terms[0] ?? null;
@@ -73,9 +76,9 @@ export function TimetablePage() {
         room: String(values.get('room') ?? '')
       });
       setDraft(null);
-      setMessage('บันทึกคาบเรียนแล้ว');
+      toast('บันทึกคาบเรียนแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'บันทึกคาบเรียนไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'บันทึกคาบเรียนไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -83,77 +86,89 @@ export function TimetablePage() {
     try {
       await repository.removeTimetableEntry(entry.id);
       setDraft(null);
-      setMessage('ลบคาบเรียนแล้ว');
+      toast('ลบคาบเรียนแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ลบคาบเรียนไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ลบคาบเรียนไม่สำเร็จ', { tone: 'error' });
     }
   }
 
   if (!activeTerm) {
     return (
-      <section className="page-heading">
-        <div><h1>ตารางสอน</h1><p>ยังไม่มีปีการศึกษาที่เปิดใช้งาน จึงยังจัดตารางสอนไม่ได้</p></div>
-      </section>
+      <>
+        <PageHeader eyebrow="ตารางเรียน" title="ตารางสอน" />
+        <Card>
+          <EmptyState
+            icon={<Icon name="calendar" size={28} />}
+            title="ยังไม่มีปีการศึกษาที่เปิดใช้งาน"
+            description="ตารางสอนผูกกับปีการศึกษา · เปิดปีการศึกษาที่หน้า “เลื่อนชั้น” ก่อน แล้วกลับมาที่นี่"
+          />
+        </Card>
+      </>
     );
   }
 
   return (
     <>
-      <section className="page-heading timetable-page-heading">
-        <div className="timetable-title-wrap">
-          <div className="timetable-title-icon" aria-hidden="true">▦</div>
-          <div>
-            <span className="eyebrow">ตารางเรียน</span>
-            <h1>ตารางสอน</h1>
-            <p>ปีการศึกษา {activeTerm.academicYear} · ภาคเรียนที่ {activeTerm.term} · อัปเดตตามห้องที่เลือก</p>
-          </div>
-        </div>
-        {visibleClasses.length > 1 && (
-          <label className="inline-select">
-            ห้องเรียน
+      <PageHeader
+        eyebrow="ตารางเรียน"
+        title="ตารางสอน"
+        description={`ปีการศึกษา ${activeTerm.academicYear} · ภาคเรียนที่ ${activeTerm.term}`}
+        action={visibleClasses.length > 1 ? (
+          <Field label="ห้องเรียน">
             <select value={selectedClassId} onChange={(event) => setClassId(event.target.value)}>
               {visibleClasses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
-          </label>
-        )}
-      </section>
+          </Field>
+        ) : undefined}
+      />
 
       {visibleClasses.length > 0 && (
-        <section className="timetable-summary" aria-label="สรุปตารางสอน">
-          <article className="timetable-summary-card brand">
-            <span className="timetable-summary-icon" aria-hidden="true">◷</span>
-            <div><span>คาบที่จัดไว้</span><strong>{slots.size}</strong><small>จาก {totalSlots} ช่องในสัปดาห์</small></div>
-          </article>
-          <article className="timetable-summary-card mint">
-            <span className="timetable-summary-icon" aria-hidden="true">◆</span>
-            <div><span>รายวิชา</span><strong>{subjectCount}</strong><small>วิชาที่อยู่ในตาราง</small></div>
-          </article>
-          <article className="timetable-summary-card amber">
-            <span className="timetable-summary-icon" aria-hidden="true">✎</span>
-            <div><span>ครูผู้สอน</span><strong>{teacherCount}</strong><small>คนที่ได้รับมอบหมาย</small></div>
-          </article>
-          <article className="timetable-summary-card slate">
-            <span className="timetable-summary-icon" aria-hidden="true">⌁</span>
-            <div><span>ห้องเรียน</span><strong>{selectedClass?.name ?? '—'}</strong><small>{canEdit ? 'คลิกช่องเพื่อจัดตาราง' : 'ตารางของห้องของคุณ'}</small></div>
-          </article>
-        </section>
+        <div className="ui-stat-grid">
+          <Stat
+            label="คาบที่จัดไว้"
+            value={slots.size}
+            hint={`จาก ${totalSlots} ช่องในสัปดาห์`}
+            tone={slots.size > 0 ? 'brand' : 'neutral'}
+            icon={<Icon name="timetable" size={18} />}
+          />
+          <Stat label="รายวิชา" value={subjectCount} hint="วิชาที่อยู่ในตาราง" tone="info" icon={<Icon name="subjects" size={18} />} />
+          <Stat
+            label="ครูผู้สอน"
+            value={teacherCount}
+            hint="คนที่ได้รับมอบหมาย"
+            tone={teacherCount > 0 ? 'success' : 'warning'}
+            icon={<Icon name="teachers" size={18} />}
+          />
+          <Stat
+            label="ห้องเรียน"
+            value={selectedClass?.name ?? '—'}
+            hint={canEdit ? 'กดช่องในตารางเพื่อจัดคาบ' : 'ตารางของห้องที่คุณสังกัด'}
+            tone="neutral"
+            icon={<Icon name="classes" size={18} />}
+          />
+        </div>
       )}
 
       {visibleClasses.length === 0 ? (
-        <section className="panel timetable-empty-panel"><div className="timetable-empty-icon" aria-hidden="true">▦</div><h2>ยังไม่มีห้องเรียน</h2><p>ยังไม่มีห้องเรียนที่คุณมีสิทธิ์ดูตารางได้</p></section>
+        <Card>
+          <EmptyState
+            icon={<Icon name="timetable" size={28} />}
+            title="ยังไม่มีห้องเรียน"
+            description="ยังไม่มีห้องเรียนที่คุณมีสิทธิ์ดูตารางได้ · ถ้าคิดว่าผิด กรุณาแจ้งผู้ดูแลโรงเรียน"
+          />
+        </Card>
       ) : (
-        <section className="panel timetable-panel">
-          <div className="timetable-panel-heading">
-            <div>
-              <span className="status-chip success">{selectedClass?.name ?? 'ห้องเรียนของฉัน'}</span>
-              <h2>ตารางประจำสัปดาห์</h2>
-              <p>{canEdit ? 'คลิกช่องว่างเพื่อเพิ่มคาบ หรือคลิกคาบเดิมเพื่อแก้ไข' : 'แสดงเฉพาะตารางของห้องที่คุณสังกัด'}</p>
-            </div>
-            <div className="timetable-legend" aria-label="คำอธิบายสี">
-              <span><i className="legend-dot filled" aria-hidden="true" />มีเรียน</span>
-              <span><i className="legend-dot empty" aria-hidden="true" />ว่าง</span>
-            </div>
-          </div>
+        <Card className="timetable-panel">
+          <CardHeader
+            title="ตารางประจำสัปดาห์"
+            description={canEdit ? 'กดช่องว่างเพื่อเพิ่มคาบ หรือกดคาบเดิมเพื่อแก้ไข' : 'แสดงเฉพาะตารางของห้องที่คุณสังกัด'}
+            action={(
+              <div className="timetable-legend" aria-label="คำอธิบายสี">
+                <span><i className="legend-dot filled" aria-hidden="true" />มีเรียน</span>
+                <span><i className="legend-dot empty" aria-hidden="true" />ว่าง</span>
+              </div>
+            )}
+          />
           <div className="scroll-x timetable-scroll">
             <table className="timetable-grid">
             <thead>
@@ -175,7 +190,13 @@ export function TimetablePage() {
                     const teacher = entry ? snapshot.teachers.find((row) => row.id === entry.teacherId) : undefined;
                     const content = entry ? (
                       <>
-                        <div className="slot-topline"><span className="slot-period-label">คาบ {period}</span><span className="slot-status">มีเรียน</span></div>
+                        {/* The dot is the visual; the word inside it is for a reader who cannot see
+                            a dot. It was being clipped rather than hidden, so it was real text
+                            painted at the size of a full stop in whatever colour it inherited. */}
+                        <div className="slot-topline">
+                          <span className="slot-period-label">คาบ {period}</span>
+                          <span className="slot-status"><span>มีเรียน</span></span>
+                        </div>
                         <strong>{subject?.name ?? 'ไม่ระบุวิชา'}</strong>
                         <span>{teacher?.displayName ?? 'ยังไม่กำหนดครู'}</span>
                         {entry.room && <span>{entry.room}</span>}
@@ -183,7 +204,9 @@ export function TimetablePage() {
                       </>
                     ) : (
                       <>
-                        <span className="slot-empty-icon" aria-hidden="true">＋</span>
+                        {/* Was the full-width plus sign "＋", which is a different glyph from the
+                            ordinary one and renders at a different size in most Thai fonts. */}
+                        <span className="slot-empty-icon" aria-hidden="true"><Icon name="plus" size={16} /></span>
                         <span className="slot-empty">ว่าง</span>
                         {canEdit && <small>เพิ่มคาบเรียน</small>}
                       </>
@@ -203,45 +226,51 @@ export function TimetablePage() {
             </tbody>
             </table>
           </div>
-        </section>
+        </Card>
       )}
 
+      {/* Was a hand-built backdrop with no focus trap, no Escape and no focus returned — on a form
+          a teacher opens dozens of times while laying out a week. */}
       {draft && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="แก้ไขคาบเรียน">
-          <form className="modal-card" onSubmit={(event) => void save(event)}>
-            <h2>{dayNames[draft.dayOfWeek - 1]} · คาบ {draft.period}</h2>
-            <div className="form-grid">
-              <label>
-                รายวิชา
+        <Modal
+          title={`${dayNames[draft.dayOfWeek - 1]} · คาบ ${draft.period}`}
+          description="เวลาที่ตั้งไว้ที่นี่คือเวลาที่หน้าเช็กชื่อใช้แยกคาบของวันนั้น"
+          onClose={() => setDraft(null)}
+        >
+          <form onSubmit={(event) => void save(event)}>
+            <FieldGroup>
+              <Field label="รายวิชา">
                 <select name="subjectId" defaultValue={draft.entry?.subjectId ?? ''}>
                   <option value="">ไม่ระบุ</option>
                   {snapshot.subjects.filter((row) => row.status === 'active')
                     .map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
                 </select>
-              </label>
-              <label>
-                ครูผู้สอน
+              </Field>
+              <Field label="ครูผู้สอน">
                 <select name="teacherId" defaultValue={draft.entry?.teacherId ?? ''}>
                   <option value="">ไม่ระบุ</option>
                   {snapshot.teachers.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}
                 </select>
-              </label>
-              <label>เวลาเริ่ม<input name="startTime" type="time" required defaultValue={draft.entry?.startTime ?? periodClock[draft.period]?.startTime ?? '08:30'} /></label>
-              <label>เวลาสิ้นสุด<input name="endTime" type="time" required defaultValue={draft.entry?.endTime ?? periodClock[draft.period]?.endTime ?? '09:20'} /></label>
-              <label>ห้อง<input name="room" defaultValue={draft.entry?.room ?? ''} /></label>
-            </div>
-            <div className="modal-actions">
-              <button className="primary-button" type="submit">บันทึก</button>
+              </Field>
+              <Field label="เวลาเริ่ม">
+                <input name="startTime" type="time" required defaultValue={draft.entry?.startTime ?? periodClock[draft.period]?.startTime ?? '08:30'} />
+              </Field>
+              <Field label="เวลาสิ้นสุด">
+                <input name="endTime" type="time" required defaultValue={draft.entry?.endTime ?? periodClock[draft.period]?.endTime ?? '09:20'} />
+              </Field>
+              <Field label="ห้อง" hint="ไม่บังคับ"><input name="room" defaultValue={draft.entry?.room ?? ''} /></Field>
+            </FieldGroup>
+            <div className="ui-page-actions">
+              <Button variant="ghost" type="button" onClick={() => setDraft(null)}>ยกเลิก</Button>
               {draft.entry && (
-                <button className="danger-button" type="button" onClick={() => void remove(draft.entry!)}>ลบคาบนี้</button>
+                <Button variant="danger" type="button" onClick={() => void remove(draft.entry!)}>ลบคาบนี้</Button>
               )}
-              <button className="text-button" type="button" onClick={() => setDraft(null)}>ยกเลิก</button>
+              <Button variant="primary" type="submit">บันทึก</Button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

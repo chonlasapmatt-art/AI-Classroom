@@ -4,9 +4,13 @@ import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses, consentedStudents } from '../../data/selectors';
 import { achievementFor } from '../achievements/achievementCatalog';
 import type { AchievementKey } from '../../domain/types';
+import { Card, EmptyState, PageHeader, Toolbar } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
+import { ReportView } from './ReportView';
 import {
-  buildPersonalReport, buildReport, personalReportTitles, personalToCsv, reportTitles, toCsv,
-  type PersonalReportId, type ReportId
+  buildPersonalReport, buildReport, personalReportChart, personalReportTitles, personalToCsv,
+  reportChart, reportTitles, toCsv,
+  type PersonalReportId, type PersonalReportTable, type ReportId, type ReportTable
 } from './reportBuilders';
 
 const reportIds = Object.keys(reportTitles) as ReportId[];
@@ -23,28 +27,11 @@ function download(name: string, csv: string) {
   URL.revokeObjectURL(url);
 }
 
-function ReportTableView({ columns, rows }: { columns: string[]; rows: (string | number)[][] }) {
-  if (rows.length === 0) {
-    return (
-      <section className="panel data-panel">
-        <div className="empty-state"><span>▥</span><h3>ไม่มีข้อมูลในรายงานนี้</h3><p>ลองเลือกรายงานอื่นหรือช่วงเวลาอื่น</p></div>
-      </section>
-    );
-  }
-  return (
-    <section className="panel data-panel">
-      <div className="table-scroll">
-        <table className="grid-table">
-          <thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
-          <tbody>
-            {rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
+export function ReportsPage() {
+  const { membership } = useSession();
+  if (membership.role === 'student') return <StudentReports />;
+  if (membership.role === 'parent') return <ParentReports />;
+  return <StaffReports />;
 }
 
 /**
@@ -63,42 +50,48 @@ function PersonalReports({ studentId, students, onSelect, audience }: {
   const snapshot = useSchoolSnapshot();
   const [reportId, setReportId] = useState<PersonalReportId>('attendance');
   const badgeLabel = (key: string) => achievementFor(key as AchievementKey).label;
-  const report = useMemo(
+  const report: PersonalReportTable = useMemo(
     () => buildPersonalReport(reportId, snapshot, studentId, badgeLabel),
     [reportId, snapshot, studentId]
   );
+  const chart = useMemo(() => personalReportChart(report), [report]);
   const owner = students.find((item) => item.id === studentId);
 
   return (
     <>
-      <section className="page-heading">
-        <div>
-          <span className="eyebrow">{audience === 'parent' ? 'รายงานของลูก · ดูอย่างเดียว' : 'รายงานของฉัน'}</span>
-          <h1>{report.title}</h1>
-          <p>{owner ? `${owner.displayName} · ` : ''}{report.rows.length} รายการ</p>
-        </div>
-        <button className="primary-button" disabled={report.rows.length === 0}
-          onClick={() => download(`${report.id}-${studentId}.csv`, personalToCsv(report))}>ส่งออก CSV</button>
-      </section>
-
-      <div className="toolbar">
-        <label>
-          รายงาน
-          <select value={reportId} onChange={(event) => setReportId(event.target.value as PersonalReportId)}>
-            {personalReportIds.map((id) => <option key={id} value={id}>{personalReportTitles[id]}</option>)}
-          </select>
-        </label>
-        {onSelect && (
-          <label>
-            นักเรียน
-            <select value={studentId} onChange={(event) => onSelect(event.target.value)}>
-              {students.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
-            </select>
-          </label>
-        )}
-      </div>
-
-      <ReportTableView columns={report.columns} rows={report.rows} />
+      <PageHeader
+        eyebrow={audience === 'parent' ? 'รายงานของลูก · ดูอย่างเดียว' : 'รายงานของฉัน'}
+        title={report.title}
+        description={owner ? `${owner.displayName} · ข้อมูลเฉพาะของบัญชีนี้เท่านั้น` : 'ข้อมูลเฉพาะของบัญชีนี้เท่านั้น'}
+      />
+      <ReportView
+        title={report.title}
+        eyebrow={`${report.rows.length} รายการ`}
+        columns={report.columns}
+        rows={report.rows}
+        chart={chart}
+        onExport={(rows) => download(`${report.id}-${studentId}.csv`, personalToCsv({ ...report, rows }))}
+        emptyTitle="ยังไม่มีข้อมูลในรายงานนี้"
+        emptyDescription="เมื่อครูบันทึกข้อมูลแล้ว รายการจะแสดงที่นี่"
+        controls={
+          <Toolbar>
+            <label>
+              รายงาน
+              <select value={reportId} onChange={(event) => setReportId(event.target.value as PersonalReportId)}>
+                {personalReportIds.map((id) => <option key={id} value={id}>{personalReportTitles[id]}</option>)}
+              </select>
+            </label>
+            {onSelect && (
+              <label>
+                นักเรียน
+                <select value={studentId} onChange={(event) => onSelect(event.target.value)}>
+                  {students.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+                </select>
+              </label>
+            )}
+          </Toolbar>
+        }
+      />
     </>
   );
 }
@@ -109,10 +102,16 @@ function StudentReports() {
   const me = snapshot.students.find((item) => item.profileId === membership.profileId);
   if (!me) {
     return (
-      <section className="panel">
-        <div className="empty-state"><span>▥</span><h3>ยังไม่มีข้อมูลของคุณ</h3>
-          <p>เมื่อครูบันทึกการเข้าเรียนหรือคะแนนแล้ว รายงานของคุณจะแสดงที่นี่</p></div>
-      </section>
+      <>
+        <PageHeader eyebrow="รายงานของฉัน" title="รายงานของฉัน" />
+        <Card>
+          <EmptyState
+            icon={<Icon name="reports" size={28} />}
+            title="ยังไม่มีข้อมูลของคุณ"
+            description="เมื่อครูบันทึกการเข้าเรียนหรือคะแนนแล้ว รายงานของคุณจะแสดงที่นี่"
+          />
+        </Card>
+      </>
     );
   }
   return <PersonalReports studentId={me.id} students={[me]} audience="student" />;
@@ -125,20 +124,19 @@ function ParentReports() {
   const selected = studentId || children[0]?.id || '';
   if (!selected) {
     return (
-      <section className="panel">
-        <div className="empty-state"><span>▥</span><h3>ยังไม่มีนักเรียนที่เชื่อมไว้</h3>
-          <p>เมื่อโรงเรียนเชื่อมบัญชีและบันทึกความยินยอมแล้ว รายงานของลูกจะแสดงที่นี่</p></div>
-      </section>
+      <>
+        <PageHeader eyebrow="รายงานของลูก · ดูอย่างเดียว" title="รายงานของลูก" />
+        <Card>
+          <EmptyState
+            icon={<Icon name="children" size={28} />}
+            title="ยังไม่มีนักเรียนที่เชื่อมไว้"
+            description="เมื่อโรงเรียนเชื่อมบัญชีและบันทึกความยินยอมแล้ว รายงานของลูกจะแสดงที่นี่"
+          />
+        </Card>
+      </>
     );
   }
   return <PersonalReports studentId={selected} students={children} onSelect={setStudentId} audience="parent" />;
-}
-
-export function ReportsPage() {
-  const { membership } = useSession();
-  if (membership.role === 'student') return <StudentReports />;
-  if (membership.role === 'parent') return <ParentReports />;
-  return <StaffReports />;
 }
 
 function StaffReports() {
@@ -147,39 +145,43 @@ function StaffReports() {
   const [reportId, setReportId] = useState<ReportId>('student');
   const [classId, setClassId] = useState('');
   const selectedClassId = classId || classes[0]?.id || '';
-  const report = useMemo(() => buildReport(reportId, snapshot, selectedClassId), [reportId, snapshot, selectedClassId]);
-
-  function exportCsv() {
-    download(`${report.id}-${selectedClassId || 'school'}.csv`, toCsv(report));
-  }
+  const report: ReportTable = useMemo(
+    () => buildReport(reportId, snapshot, selectedClassId),
+    [reportId, snapshot, selectedClassId]
+  );
+  const chart = useMemo(() => reportChart(report), [report]);
 
   return (
     <>
-      <section className="page-heading">
-        <div>
-          <span className="eyebrow">รายงาน</span>
-          <h1>{report.title}</h1>
-          <p>{report.rows.length} แถว · ข้อมูลคำนวณจากสิทธิ์ที่คุณเข้าถึงได้</p>
-        </div>
-        <button className="primary-button" onClick={exportCsv} disabled={report.rows.length === 0}>ส่งออก CSV</button>
-      </section>
-
-      <div className="toolbar">
-        <label>
-          รายงาน
-          <select value={reportId} onChange={(event) => setReportId(event.target.value as ReportId)}>
-            {reportIds.map((id) => <option key={id} value={id}>{reportTitles[id]}</option>)}
-          </select>
-        </label>
-        <label>
-          ห้องเรียน
-          <select value={selectedClassId} onChange={(event) => setClassId(event.target.value)}>
-            {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
-        </label>
-      </div>
-
-      <ReportTableView columns={report.columns} rows={report.rows} />
+      <PageHeader
+        eyebrow="รายงาน"
+        title={report.title}
+        description="ข้อมูลคำนวณจากสิทธิ์ที่คุณเข้าถึงได้ · ส่งออก CSV ได้เฉพาะแถวที่กรองไว้"
+      />
+      <ReportView
+        title={report.title}
+        eyebrow={`${report.rows.length} แถว`}
+        columns={report.columns}
+        rows={report.rows}
+        chart={chart}
+        onExport={(rows) => download(`${report.id}-${selectedClassId || 'school'}.csv`, toCsv({ ...report, rows }))}
+        controls={
+          <Toolbar>
+            <label>
+              รายงาน
+              <select value={reportId} onChange={(event) => setReportId(event.target.value as ReportId)}>
+                {reportIds.map((id) => <option key={id} value={id}>{reportTitles[id]}</option>)}
+              </select>
+            </label>
+            <label>
+              ห้องเรียน
+              <select value={selectedClassId} onChange={(event) => setClassId(event.target.value)}>
+                {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+          </Toolbar>
+        }
+      />
     </>
   );
 }

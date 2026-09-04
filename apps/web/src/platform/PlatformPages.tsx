@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Icon } from '../ui/Icon';
 import {
-  Badge, Button, Card, CardHeader, DataTable, EmptyState, ErrorState, Field, Skeleton, Stat, Toolbar
+  Badge, Button, Card, CardHeader, DataTable, EmptyState, ErrorState, Field, PromptDialog, Skeleton, Stat, Toolbar
 } from '../ui/components';
 import { formatMoment, useDangerousAction } from './consoleHelpers';
 import { PlatformSecurityCard } from './PlatformSecurityCard';
@@ -204,10 +204,11 @@ export function ErrorsPage() {
   );
   const { data, error, loading, refresh } = useRemote<ErrorRow[]>(load);
   const [message, setMessage] = useState<string | null>(null);
+  const [resolving, setResolving] = useState<ErrorRow | null>(null);
 
-  async function resolve(row: ErrorRow) {
-    const note = window.prompt(`ปิดข้อผิดพลาด: ${row.message}\n\nบันทึกสั้น ๆ ว่าแก้ไขอย่างไร`, '');
-    if (note === null) return;
+  /* The note goes into the platform audit trail, so it is written in a field the console owns. */
+  async function resolve(row: ErrorRow, note: string) {
+    setResolving(null);
     try {
       await resolveErrorEvent(row.id, note);
       setMessage('ปิดรายการแล้ว');
@@ -262,12 +263,27 @@ export function ErrorsPage() {
               <td>
                 {row.resolvedAt
                   ? <Badge tone="success">ปิดแล้ว</Badge>
-                  : <Button size="sm" onClick={() => void resolve(row)}>ปิดรายการ</Button>}
+                  : <Button size="sm" onClick={() => setResolving(row)}>ปิดรายการ</Button>}
               </td>
             </tr>
           ))}
         </DataTable>
       ) : <EmptyState title="ไม่มีข้อผิดพลาดในช่วงที่เลือก" description="ลองขยายช่วงเวลาหรือเปลี่ยนระดับความรุนแรง" />)}
+
+      {resolving && (
+        <PromptDialog
+          title="ปิดรายการข้อผิดพลาด"
+          description={resolving.message}
+          label="บันทึกสั้น ๆ ว่าแก้ไขอย่างไร"
+          hint="อ่านโดยผู้ดูแลแพลตฟอร์มคนอื่นเมื่อเรื่องนี้กลับมาอีก"
+          placeholder="เช่น แก้ที่ตั้งค่าโรงเรียนแล้ว ไม่พบซ้ำใน 24 ชั่วโมง"
+          minLength={4}
+          multiline
+          confirmLabel="ปิดรายการ"
+          onCancel={() => setResolving(null)}
+          onConfirm={(note) => void resolve(resolving, note)}
+        />
+      )}
     </Card>
   );
 }

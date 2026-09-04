@@ -3,6 +3,7 @@ import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { consentedStudents } from '../../data/selectors';
 import { Badge, Card, EmptyState, PageHeader } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
 
 /** Shared announcement inbox for the school. Parents only receive announcements for linked children. */
 export function AnnouncementsPage() {
@@ -32,7 +33,13 @@ export function AnnouncementsPage() {
           : 'ประกาศจากครูและโรงเรียนในห้องเรียนที่คุณมีสิทธิ์ดู'}
       />
       {announcements.length === 0 ? (
-        <Card><EmptyState icon="📣" title="ยังไม่มีประกาศ" description="เมื่อครูส่งข่าวสาร ประกาศจะแสดงที่หน้านี้" /></Card>
+        <Card>
+          <EmptyState
+            icon={<Icon name="announcements" size={28} />}
+            title="ยังไม่มีประกาศ"
+            description="เมื่อครูส่งข่าวสาร ประกาศจะแสดงที่หน้านี้"
+          />
+        </Card>
       ) : (
         <div className="announcement-list">
           {announcements

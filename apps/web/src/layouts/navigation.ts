@@ -166,3 +166,24 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     ] }
   ]
 };
+
+/**
+ * Whether a role may open a path, decided by the menu it was given.
+ *
+ * The menu above is already the statement of what each role is offered, so reading authority out of
+ * it means a screen can never be hidden from a menu and still reachable by typing its address —
+ * which is what happened before: every route was mounted for every role, and a student who typed
+ * `/teachers` got the staff roster rendered against a snapshot that merely happened to be empty.
+ *
+ * This is a convenience and a piece of honesty, not the refusal that matters. The database decides
+ * what any account can read; this only stops the product from offering a door it will not open.
+ *
+ * Longest match is unnecessary here — only membership matters — but the prefix rule is: a detail
+ * screen belongs to whoever was given its list, so `/students/:id` follows `/students` and
+ * `/my-children/:id` follows `/my-children` without either having to be named twice.
+ */
+export function isRouteAllowed(role: Role, path: string): boolean {
+  return navigationByRole[role].some((group) => group.items.some((item) => (
+    item.to === '/' ? path === '/' : path === item.to || path.startsWith(`${item.to}/`)
+  )));
+}

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import { isCompleteMemberRegistration, registerOwner } from './memberAccess';
 import { AdminSchoolSetupPage } from './AdminSchoolSetupPage';
-import { PasswordInput } from '../../ui/components';
+import { Button, PasswordInput } from '../../ui/components';
 
 /**
  * Private owner-only entry. No public screen links to this route.
@@ -45,9 +45,9 @@ export function OwnerAccessPage() {
           <label>รหัสผ่าน<PasswordInput value={password} onChange={setPassword} autoComplete="new-password" placeholder="อย่างน้อย 8 ตัวอักษร" required /></label>
           <label>ยืนยันรหัสผ่าน<PasswordInput value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="พิมพ์รหัสผ่านเดิมอีกครั้ง" required /></label>
           {error && <div className="alert error" role="alert">{error}</div>}
-          <button className="primary-button" disabled={busy || !isCompleteMemberRegistration({ firstName, lastName, password, confirmPassword })}>
-            {busy ? 'กำลังสร้างบัญชี...' : 'สร้างบัญชีและไปขั้นถัดไป'}
-          </button>
+          <Button variant="primary" size="lg" loading={busy} disabled={!isCompleteMemberRegistration({ firstName, lastName, password, confirmPassword })}>
+            สร้างบัญชีและไปขั้นถัดไป
+          </Button>
           <div className="owner-access-existing">
             <p className="fine-print">มีบัญชีแอดมินอยู่แล้ว?</p>
             <Link className="text-button" to="/admin-access">เข้าสู่ระบบแอดมิน</Link>

@@ -6,6 +6,7 @@ import {
   type StudentQuizView
 } from './quizChallenge';
 import { nudgeRoom, subscribeToRoom } from './quizLive';
+import { Icon } from '../../ui/Icon';
 
 /**
  * The student's side of a live round.
@@ -153,7 +154,7 @@ export function StudentQuizPanel() {
 
       {view.status === 'paused' && <div className="alert warning" role="status">ครูพักกิจกรรมชั่วคราว</div>}
       {view.status === 'ended' && (
-        <EmptyState icon="✦" title="จบกิจกรรมแล้ว" description={`ได้ ${view.me.correct} จาก ${view.questionCount} ข้อ`} />
+        <EmptyState icon={<Icon name="achievements" size={28} />} title="จบกิจกรรมแล้ว" description={`ได้ ${view.me.correct} จาก ${view.questionCount} ข้อ`} />
       )}
 
       {view.question && view.status !== 'ended' && (

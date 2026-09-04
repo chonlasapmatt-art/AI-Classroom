@@ -6,6 +6,7 @@
 // schools genuinely issued the same student number to a same-named child.
 
 import { useState, type FormEvent } from 'react';
+import { Button } from '../../ui/components';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import {
@@ -88,9 +89,9 @@ export function StudentLoginPage() {
           </label>
         )}
         {error && <div className="alert error" role="alert">{error}</div>}
-        <button className="primary-button big-button" disabled={busy || !isCompleteStudentLogin(displayName, studentCode)}>
-          {busy ? 'กำลังเข้าใช้งาน...' : 'เข้าใช้งาน'}
-        </button>
+        <Button variant="primary" size="lg" className="big-button" loading={busy} disabled={!isCompleteStudentLogin(displayName, studentCode)}>
+          เข้าใช้งาน
+        </Button>
         <div className="auth-links">
           <span className="fine-print">บัญชีนักเรียนจัดเตรียมโดยครูหรือผู้ดูแลโรงเรียน</span>
           <Link to="/login">ฉันเป็นครูหรือผู้ปกครอง</Link>

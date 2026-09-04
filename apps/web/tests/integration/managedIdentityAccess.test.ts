@@ -36,7 +36,10 @@ describe('managed roster identity flows', () => {
   it('lets an admin choose an existing subject or type a new subject and save it', () => {
     expect(teacherPage).toContain('name="subject"');
     expect(teacherPage).toContain('list="teacher-subject-options"');
-    expect(teacherPage).toContain('พิมพ์ชื่อวิชาใหม่ของโรงเรียนแล้วกดบันทึก');
+    // The mechanism is a datalist — pick one or type one — and the screen has to say the second
+    // half out loud, or an admin assumes the list is the whole set. The exact sentence is not the
+    // property; that a hint names typing a new subject is.
+    expect(teacherPage).toMatch(/hint=(\{`|")[^"`]*พิมพ์ชื่อวิชาใหม่/);
     expect(teacherPage).toContain('repository.saveSubject');
     expect(teacherPage).not.toContain('type="checkbox"');
     expect(subjectMigration).toContain('subject_id');

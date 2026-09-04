@@ -91,7 +91,14 @@ export function configForAvatarId(avatarId: string | null | undefined): AvatarCo
 
 /** Fallback used whenever an avatar id is missing or no longer in the catalogue. */
 export function initialsFor(displayName: string): string {
-  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  /*
+   * Only the parts that are actually name-shaped.
+   *
+   * A parenthetical or any punctuation-led token is not a name, and taking its first character
+   * produced avatars reading "ผ(" for "ผู้ดูแลระบบ (Preview)" — which is what a support operator
+   * and every Preview session saw in the top bar.
+   */
+  const parts = displayName.trim().split(/\s+/).filter((part) => /^[\p{L}\p{N}]/u.test(part));
   if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0]!.slice(0, 2);
   return `${parts[0]!.charAt(0)}${parts[1]!.charAt(0)}`;

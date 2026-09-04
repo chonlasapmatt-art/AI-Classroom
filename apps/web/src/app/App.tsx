@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
-import { SessionProvider, type SessionValue, type SupportView } from './SessionContext';
+import { SessionProvider, useSession, type SessionValue, type SupportView } from './SessionContext';
 import { RepositoryProvider } from '../data/RepositoryContext';
 import { createDexieRepository } from '../data/dexieSchoolRepository';
 import { ConfigurationScreen } from '../features/auth/ConfigurationScreen';
@@ -10,6 +10,7 @@ import { AdminLoginPage } from '../features/auth/AdminLoginPage';
 import { AwaitingMembershipPage } from '../features/auth/AccountPages';
 import { AdminSchoolSetupPage } from '../features/auth/AdminSchoolSetupPage';
 import { OwnerAccessPage } from '../features/auth/OwnerAccessPage';
+import { WelcomePage } from '../features/auth/WelcomePage';
 import { AppShell } from '../layouts/AppShell';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
@@ -43,52 +44,96 @@ import { TimetablePage } from '../features/timetable/TimetablePage';
 import { AchievementsPage } from '../features/achievements/AchievementsPage';
 import { PromotionPage } from '../features/promotion/PromotionPage';
 import { AvatarGalleryPage } from '../features/avatars/AvatarGalleryPage';
+import { ForbiddenPage } from '../features/errors/ForbiddenPage';
+import { NotFoundPage } from '../features/errors/NotFoundPage';
+import { isRouteAllowed } from '../layouts/navigation';
 import { PreviewDemoPage } from '../preview/PreviewDemoPage';
+import { ToastProvider } from '../ui/components';
 import { isCloudConfigured, requireSupabase } from '../services/supabase';
 import { useBackgroundSync } from '../sync/useBackgroundSync';
 import { SyncStatusProvider } from '../sync/SyncStatusContext';
 import { PreviewProviders } from '../preview/PreviewProviders';
 import { disablePreviewMode, enablePreviewMode, isPreviewActive, isPreviewModeAvailable } from '../preview/previewMode';
 
+/**
+ * Every screen behind the shell, as data rather than as thirty hand-written elements.
+ *
+ * Writing them out lets one wrapper decide access for all of them, instead of each route being
+ * trusted to remember. `index` is the dashboard; every other path is relative, because this table
+ * is mounted underneath `/*` and an absolute child would not match.
+ *
+ * `open` marks the two screens that are not in anybody's menu: they exist only in Preview Mode and
+ * are mounted only when it is available, so there is nothing for a role check to read.
+ */
+interface AppRoute { path: string; element: ReactElement; index?: true; open?: true }
+
+const appRoutes: AppRoute[] = [
+  { path: '/', index: true, element: <DashboardPage /> },
+  { path: 'students', element: <StudentsPage /> },
+  { path: 'students/:studentId', element: <StudentDetailPage /> },
+  { path: 'classes', element: <ClassesPage /> },
+  { path: 'subjects', element: <SubjectsPage /> },
+  { path: 'gradebook', element: <GradebookPage /> },
+  { path: 'grade-editor', element: <GradeEditorPage /> },
+  { path: 'calendar', element: <CalendarPage /> },
+  { path: 'timetable', element: <TimetablePage /> },
+  { path: 'achievements', element: <AchievementsPage /> },
+  { path: 'promotion', element: <PromotionPage /> },
+  { path: 'notifications', element: <NotificationCenterPage /> },
+  { path: 'announcements', element: <AnnouncementsPage /> },
+  { path: 'profile', element: <ProfilePage /> },
+  { path: 'import', element: <ImportPage /> },
+  { path: 'teachers', element: <TeachersPage /> },
+  { path: 'attendance', element: <AttendancePage /> },
+  { path: 'classroom', element: <ClassroomLivePage /> },
+  { path: 'assignments', element: <AssignmentsPage /> },
+  { path: 'scores', element: <ScoresPage /> },
+  { path: 'leaderboard', element: <LeaderboardPage /> },
+  { path: 'question-bank', element: <QuestionBankPage /> },
+  { path: 'quiz', element: <QuizChallengePage /> },
+  { path: 'exams', element: <ExamsPage /> },
+  { path: 'sit-exam', element: <StudentExamPage /> },
+  { path: 'parents', element: <ParentsPage /> },
+  { path: 'my-children', element: <MyChildrenPage /> },
+  { path: 'my-children/:studentId', element: <ChildDetailPage /> },
+  { path: 'reports', element: <ReportsPage /> },
+  { path: 'operations', element: <OperationsPage /> },
+  { path: 'settings', element: <SettingsPage /> },
+  ...(isPreviewModeAvailable ? [
+    { path: 'avatar-gallery', element: <AvatarGalleryPage />, open: true as const },
+    { path: 'preview-demo', element: <PreviewDemoPage />, open: true as const }
+  ] : [])
+];
+
+/**
+ * The screen a role was not offered says so, rather than rendering.
+ *
+ * Every route used to be mounted for every role, so the menu was the only thing keeping a student
+ * out of the staff roster — and a typed address walked straight past it into a page written for
+ * somebody else's job. This is still only a convenience: the database refuses what matters, and
+ * this refuses to pretend the door exists.
+ */
+function Guarded({ children }: { children: ReactElement }) {
+  const { membership } = useSession();
+  const location = useLocation();
+  if (!isRouteAllowed(membership.role, location.pathname)) return <ForbiddenPage />;
+  return children;
+}
+
 /** Every screen behind the shell. Identical for the cloud session and for Preview Mode. */
 function AppRoutes() {
   return (
     <AppShell>
       <Routes>
-        <Route index element={<DashboardPage />} />
-        <Route path="students" element={<StudentsPage />} />
-        <Route path="students/:studentId" element={<StudentDetailPage />} />
-        <Route path="classes" element={<ClassesPage />} />
-        <Route path="subjects" element={<SubjectsPage />} />
-        <Route path="gradebook" element={<GradebookPage />} />
-        <Route path="grade-editor" element={<GradeEditorPage />} />
-        <Route path="calendar" element={<CalendarPage />} />
-        <Route path="timetable" element={<TimetablePage />} />
-        <Route path="achievements" element={<AchievementsPage />} />
-        <Route path="promotion" element={<PromotionPage />} />
-        <Route path="notifications" element={<NotificationCenterPage />} />
-        <Route path="announcements" element={<AnnouncementsPage />} />
-        <Route path="profile" element={<ProfilePage />} />
-        <Route path="import" element={<ImportPage />} />
-        <Route path="teachers" element={<TeachersPage />} />
-        <Route path="attendance" element={<AttendancePage />} />
-        <Route path="classroom" element={<ClassroomLivePage />} />
-        <Route path="assignments" element={<AssignmentsPage />} />
-        <Route path="scores" element={<ScoresPage />} />
-        <Route path="leaderboard" element={<LeaderboardPage />} />
-        <Route path="question-bank" element={<QuestionBankPage />} />
-        <Route path="quiz" element={<QuizChallengePage />} />
-        <Route path="exams" element={<ExamsPage />} />
-        <Route path="sit-exam" element={<StudentExamPage />} />
-        <Route path="parents" element={<ParentsPage />} />
-        <Route path="my-children" element={<MyChildrenPage />} />
-        <Route path="my-children/:studentId" element={<ChildDetailPage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="operations" element={<OperationsPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-        {isPreviewModeAvailable && <Route path="avatar-gallery" element={<AvatarGalleryPage />} />}
-        {isPreviewModeAvailable && <Route path="preview-demo" element={<PreviewDemoPage />} />}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {appRoutes.map((route) => {
+          const element = route.open ? route.element : <Guarded>{route.element}</Guarded>;
+          return route.index
+            ? <Route key={route.path} index element={element} />
+            : <Route key={route.path} path={route.path} element={element} />;
+        })}
+        {/* An address that names nothing is a different answer from one this role may not open, and
+            conflating the two sent people to support with the wrong question. */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AppShell>
   );
@@ -96,6 +141,7 @@ function AppRoutes() {
 
 function CloudRoutes() {
   const auth = useAuth();
+  const location = useLocation();
   const active = auth.active;
   const schoolId = active?.schoolId ?? '';
   const supportActive = Boolean(active?.membershipId.startsWith('support:'));
@@ -131,7 +177,13 @@ function CloudRoutes() {
   } : null), [active, effectiveActive, endSupport, memberships, selectMembership, signOut, supportActive, supportView]);
 
   if (auth.loading) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบเซสชัน...</p></main>;
-  if (!auth.session) return <Navigate to="/login" replace />;
+  /*
+   * Arriving at the root with no session is somebody opening the app, not somebody following a
+   * link into a screen. They get the signpost, which names the five doors and says which one is
+   * theirs; every other address goes straight to the form, because a deep link already knows where
+   * it was going and a detour through a welcome page is a step backwards.
+   */
+  if (!auth.session) return <Navigate to={location.pathname === '/' ? '/welcome' : '/login'} replace />;
   if (!session) {
     const requestedRole = auth.session.user.user_metadata.requested_role;
     if (requestedRole === 'admin') return <AdminSchoolSetupPage />;
@@ -161,7 +213,20 @@ function SyncedShell({ schoolId }: { schoolId: string }) {
   return <SyncStatusProvider value={status}><AppRoutes /></SyncStatusProvider>;
 }
 
+/**
+ * One place that raises a confirmation, for every screen.
+ *
+ * `ToastProvider` shipped with the component set and was never mounted, so `useToast` threw and
+ * twenty screens each grew a floating message element of their own — twenty stacking contexts, twenty
+ * dismissal behaviours, and a message that appeared in a different corner depending on which screen
+ * you were on. It wraps everything, including the entrance screens, so a screen never has to know
+ * whether it is inside a session before it can tell somebody their work was saved.
+ */
 export function App() {
+  return <ToastProvider><AppRoot /></ToastProvider>;
+}
+
+function AppRoot() {
   const [preview, setPreview] = useState(isPreviewActive());
   const enterPreview = useCallback(() => { enablePreviewMode(); setPreview(true); }, []);
   const exitPreview = useCallback(() => { disablePreviewMode(); setPreview(false); }, []);
@@ -177,6 +242,7 @@ export function App() {
   return (
     <AuthProvider>
       <Routes>
+        <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin-access" element={<AdminLoginPage />} />
         <Route path="/register" element={<Navigate to="/login" replace />} />

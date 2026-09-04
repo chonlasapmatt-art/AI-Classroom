@@ -189,6 +189,31 @@ export function ConnectionBanner({ state, action }: { state: ConnectionState; ac
   );
 }
 
+/**
+ * The shape of a screen before its data has arrived.
+ *
+ * The snapshot is read from IndexedDB, so for the first frames every screen holds empty arrays. A
+ * page that renders its real layout against those is a roster confidently reporting no students, a
+ * gradebook reporting no marks and a calendar reporting an empty term — which is a different claim
+ * from "not loaded yet", and the one a teacher acts on.
+ *
+ * It repeats the shape most screens have — a heading, a row of figures, then a list — because a
+ * skeleton that does not resemble what follows makes the page jump when it arrives, and reserving
+ * the space is the whole point.
+ */
+export function PageLoading({ label = 'กำลังโหลดข้อมูล' }: { label?: string }) {
+  return (
+    <div className="ui-page-loading" role="status" aria-busy="true" aria-live="polite">
+      <span className="ui-visually-hidden">{label}</span>
+      <div className="ui-page-loading-head" aria-hidden="true"><Skeleton lines={2} /></div>
+      <div className="ui-stat-grid" aria-hidden="true">
+        {[0, 1, 2, 3].map((slot) => <div key={slot} className="ui-stat ui-stat-loading"><Skeleton lines={2} /></div>)}
+      </div>
+      <div className="ui-card ui-card-padded" aria-hidden="true"><Skeleton lines={6} /></div>
+    </div>
+  );
+}
+
 export function Skeleton({ lines = 3, className = '' }: { lines?: number; className?: string }) {
   return (
     <div className={`ui-skeleton ${className}`.trim()} aria-hidden="true">
@@ -399,11 +424,70 @@ export function ConfirmDialog({ title, description, confirmLabel = 'ยืนย
 }
 
 /** Tooltip wrapper that shows hint text on hover or focus. */
-export function Tooltip({ children, tip }: { children: ReactNode; tip: ReactNode }) {
+/**
+ * Asks for one short piece of text, where window.prompt used to.
+ *
+ * Four screens collected a category name, two audit reasons and a resolution note that way. The
+ * browser's box cannot lay the request out, cannot show a minimum length while it is being typed,
+ * cannot be styled to match the school's theme, and is suppressed outright by several browsers
+ * inside an installed PWA — where a suppressed prompt returns null and reads to the caller as
+ * "cancelled", so the action silently does nothing at all.
+ */
+export function PromptDialog({
+  title, description, label, hint, defaultValue = '', placeholder, minLength = 1,
+  confirmLabel = 'ยืนยัน', multiline = false, onConfirm, onCancel
+}: {
+  title: ReactNode; description?: ReactNode; label: ReactNode; hint?: ReactNode;
+  defaultValue?: string; placeholder?: string; minLength?: number; confirmLabel?: string;
+  multiline?: boolean; onConfirm: (value: string) => void; onCancel: () => void;
+}) {
+  const [value, setValue] = useState(defaultValue);
+  const trimmed = value.trim();
+  const tooShort = trimmed.length < minLength;
+  const submit = () => { if (!tooShort) onConfirm(trimmed); };
+
   return (
-    <span className="ui-tooltip-wrap" title={typeof tip === 'string' ? tip : undefined}>
+    <Modal title={title} {...(description ? { description } : {})} onClose={onCancel}>
+      <Field
+        label={label}
+        {...(hint ? { hint } : {})}
+        {...(value !== '' && tooShort ? { error: `ต้องยาวอย่างน้อย ${minLength} ตัวอักษร` } : {})}
+      >
+        {multiline ? (
+          <AutoTextarea value={value} onChange={setValue} minRows={3} {...(placeholder ? { placeholder } : {})} />
+        ) : (
+          <input
+            value={value}
+            placeholder={placeholder ?? ''}
+            onChange={(event) => setValue(event.target.value)}
+            // Enter is what somebody typing one line expects to submit with.
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); submit(); } }}
+          />
+        )}
+      </Field>
+      <div className="ui-form-actions">
+        <Button type="button" variant="ghost" onClick={onCancel}>ยกเลิก</Button>
+        <Button type="button" variant="primary" disabled={tooShort} onClick={submit}>{confirmLabel}</Button>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * A hint attached to something on screen.
+ *
+ * A string tip used to be handed to the `title` attribute instead of drawn. That looks like a
+ * tooltip on a desktop and is nothing at all on a phone or a tablet — no long-press, no tap, no
+ * way to reach it — so on the screens where the hint carries the meaning (why a badge was awarded,
+ * for one) half the readers were shown a label with no explanation behind it. Every tip is drawn
+ * now, and the element it belongs to points at it with aria-describedby.
+ */
+export function Tooltip({ children, tip }: { children: ReactNode; tip: ReactNode }) {
+  const tipId = useId();
+  return (
+    <span className="ui-tooltip-wrap" aria-describedby={tipId} tabIndex={0}>
       {children}
-      {typeof tip !== 'string' && <span className="ui-tooltip-bubble" role="tooltip">{tip}</span>}
+      <span className="ui-tooltip-bubble" role="tooltip" id={tipId}>{tip}</span>
     </span>
   );
 }
@@ -422,6 +506,19 @@ let toastId = 0;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
+
+  /*
+   * Dismissing and removing are two steps, and both have to exist.
+   *
+   * `dismiss` starts the exit by zeroing the duration; `remove` is what actually takes the node out
+   * once that animation has run. With only the first, every message a session ever raised stayed in
+   * the document — invisible, but still a `role="status"` node in the live region, and a container
+   * that grew for as long as the tab was open. Nothing caught it because the provider was never
+   * mounted anywhere until now.
+   */
+  const remove = useCallback((id: number) => {
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  }, []);
 
   const dismiss = useCallback((id: number) => {
     setItems((prev) => prev.map((t) => (t.id === id ? { ...t, duration: 0 } : t)));
@@ -442,26 +539,31 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="ui-toast-container" aria-live="polite" aria-relevant="additions removals">
         {items.map((item) => (
-          <ToastItemView key={item.id} item={item} onDismiss={dismiss} />
+          <ToastItemView key={item.id} item={item} onDismiss={dismiss} onRemoved={remove} />
         ))}
       </div>
     </ToastContext.Provider>
   );
 }
 
-function ToastItemView({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) => void }) {
+function ToastItemView({ item, onDismiss, onRemoved }: {
+  item: ToastItem; onDismiss: (id: number) => void; onRemoved: (id: number) => void;
+}) {
   const [exiting, setExiting] = useState(false);
   const ref = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
+    // A duration of zero means the exit has been asked for — by the close button, or by the timer
+    // below having run out. Both funnel through the same path so a message leaves the same way
+    // whether a person dismissed it or it expired.
     if (item.duration <= 0) {
       setExiting(true);
-      const t = setTimeout(() => onDismiss(item.id), 200);
+      const t = setTimeout(() => onRemoved(item.id), 200);
       return () => clearTimeout(t);
     }
-    ref.current = setTimeout(() => setExiting(true), item.duration);
+    ref.current = setTimeout(() => onDismiss(item.id), item.duration);
     return () => { if (ref.current) clearTimeout(ref.current); };
-  }, [item.duration, item.id, onDismiss]);
+  }, [item.duration, item.id, onDismiss, onRemoved]);
 
   const toastIcons: Record<ToastTone, 'info' | 'success' | 'warning' | 'error'> = { info: 'info', success: 'success', warning: 'warning', error: 'error' };
 
@@ -557,13 +659,17 @@ export function Pagination({ page, totalPages, onChange }: {
 
 /* ---------- Search input ---------- */
 
-export function SearchInput({ value, onChange, placeholder = 'ค้นหา...', className = '' }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; className?: string;
+export function SearchInput({ value, onChange, placeholder = 'ค้นหา...', label, className = '' }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; label?: string; className?: string;
 }) {
   return (
     <div className={`ui-search ${className}`.trim()}>
       <span className="ui-search-icon" aria-hidden="true"><Icon name="search" size={16} /></span>
       <input
+        // A placeholder is not a name: it is gone as soon as anybody types, and a screen reader
+        // announces the field as "search, edit text" with nothing to say which search. The
+        // placeholder is the default because every one of these already reads as an instruction.
+        aria-label={label ?? placeholder}
         type="search" value={value} placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         // Escape clears, which is what people already press; the browser's own clear on a

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { requireSupabase } from '../../services/supabase';
 import { Badge, Button, Card, CardHeader, EmptyState, Field, Skeleton } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
 import {
   conflictEntityLabels, differingFields, displayValue, type SyncConflict
 } from './conflicts';
@@ -70,7 +71,7 @@ export function ConflictPanel() {
       {error && <div className="alert error" role="alert">{error}</div>}
 
       {!conflicts ? <Skeleton lines={3} /> : (conflicts.length === 0 ? (
-        <EmptyState icon="✓" title="ไม่มีข้อมูลขัดแย้ง" description="ทุกอย่างซิงก์ตรงกันหมด" />
+        <EmptyState icon={<Icon name="check" size={28} />} title="ไม่มีข้อมูลขัดแย้ง" description="ทุกอย่างซิงก์ตรงกันหมด" />
       ) : (
         <ul className="conflict-list">
           {conflicts.map((conflict) => {

@@ -115,17 +115,19 @@ describe('what a teacher sees under Sync', () => {
     renderApp('/operations');
     await switchRole('preview-teacher');
     await waitFor(() => expect(page().getByText('สถานะข้อมูลของคุณ')).toBeInTheDocument());
-    expect(page().getByText('รอซิงก์')).toBeInTheDocument();
-    expect(page().getByRole('button', { name: /Sync Now|ปิดใช้งานในโหมด Preview/ })).toBeInTheDocument();
+    expect(page().getByText('รอส่งขึ้นเซิร์ฟเวอร์')).toBeInTheDocument();
+    expect(page().getByRole('button', { name: /ซิงก์ตอนนี้|ใช้ไม่ได้ในโหมดตัวอย่าง/ })).toBeInTheDocument();
     expect(screen.queryByText('กู้คืนจากไฟล์สำรอง')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'ล้างแล้วกู้คืนทั้งหมด' })).not.toBeInTheDocument();
+    // A teacher may read the queue; sealing or rewriting the school's local database is not theirs.
+    expect(screen.queryByRole('button', { name: /สร้างไฟล์สำรอง/ })).not.toBeInTheDocument();
   });
 
   it('keeps the full panel for an admin', async () => {
     renderApp('/operations');
     await switchRole('preview-admin');
     await waitFor(() => expect(screen.getByText('กู้คืนจากไฟล์สำรอง')).toBeInTheDocument());
-    expect(screen.getByText('สำรองข้อมูลแบบเข้ารหัส')).toBeInTheDocument();
+    expect(screen.getByText('สร้างไฟล์สำรองแบบเข้ารหัส')).toBeInTheDocument();
   });
 });
 

@@ -17,6 +17,7 @@ import {
   type BankQuestion, type QuestionCategory
 } from '../questions/questionBank';
 import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { Icon } from '../../ui/Icon';
 
 const LENGTHS = [5, 10, 15, 20];
 const TIMERS: { value: string; label: string }[] = [
@@ -419,7 +420,7 @@ function TeacherBoard({ board, receivedAt, busy, onCommand }: {
 
       {board.status === 'lobby' && (
         <EmptyState
-          icon="◷"
+          icon={<Icon name="quiz" size={28} />}
           title="รอนักเรียนเข้าร่วม"
           description="นักเรียนในห้องนี้จะเห็นปุ่ม “เข้าร่วม” ที่หน้าภาพรวมของตัวเอง ไม่ต้องกรอกรหัสอะไร"
         />

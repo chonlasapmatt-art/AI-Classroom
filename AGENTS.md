@@ -18,7 +18,7 @@ With no `.env.local` at all, the app offers **Preview Mode** on the configuratio
 product rendered from a 460-line fixture, with working role switching between administrator, teacher,
 student and parent. No Supabase project, no account, no keys.
 
-That is enough to build screens, change behaviour, run all 639 tests and see the result. Most work on
+That is enough to build screens, change behaviour, run all 783 tests and see the result. Most work on
 this codebase needs nothing more.
 
 You need a real project only to push migrations, deploy Edge Functions, or run anything in
@@ -46,7 +46,7 @@ build stays free of developer tooling. Not by hiding a menu; by not shipping the
 ```bash
 npm run typecheck   # tsc -b
 npm run lint        # eslint --max-warnings 0
-npm run test        # vitest, 639 tests
+npm run test        # vitest, 783 tests
 npm run build
 ```
 
@@ -107,7 +107,7 @@ by a parameter each function could forget to pass.
 teacher codes: all have a status. History stays readable.
 
 **Migrations are immutable.** Never edit one that has been applied. Every repair is a new migration.
-There are 68; the last is `202609030003`. Replacing a function in a *new* migration is the repair
+There are 71; the last is `202609040001`. Replacing a function in a *new* migration is the repair
 path and is not an exception to this — `platform_reauth_fresh` has been replaced twice that way.
 
 **Snapshots, not pointers.** Exams and quiz rounds copy each question they use. Editing the bank next
@@ -146,7 +146,7 @@ apps/web/src/
   sync/           push, pull, retry, protocol contracts
   ui/             the shared component set every screen composes
 supabase/
-  migrations/     68 immutable migrations
+  migrations/     71 immutable migrations
   functions/      15 Edge Functions; _shared holds the crypto and client helpers
 scripts/probes/   live verification scripts — read the README
 docs/             specification and the validation report

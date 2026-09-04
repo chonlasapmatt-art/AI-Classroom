@@ -32,6 +32,10 @@ describe('avatar catalogue', () => {
     expect(initialsFor('ธนกร ศรีสุวรรณ')).toBe('ธศ');
     expect(initialsFor('Somchai')).toBe('So');
     expect(initialsFor('   ')).toBe('?');
+    // A parenthetical is not a name. Taking its first character put "ผ(" in the top bar of every
+    // Preview session and of every support operator's screen.
+    expect(initialsFor('ผู้ดูแลระบบ (Preview)')).toBe('ผู');
+    expect(initialsFor('(Preview)')).toBe('?');
   });
 
   it('searches by id, name, keyword and category', () => {

@@ -3,7 +3,8 @@ import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { Icon } from '../../ui/Icon';
 import {
-  Badge, Button, Card, CardHeader, EmptyState, ErrorState, Field, PageHeader, Skeleton, Stat, Toolbar
+  Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, ErrorState, Field, PageHeader,
+  PromptDialog, Skeleton, Stat, Toolbar
 } from '../../ui/components';
 import { QuestionEditor } from './QuestionEditor';
 import { QuestionImportPanel } from './QuestionImportPanel';
@@ -41,6 +42,7 @@ export function QuestionBankPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [showCategories, setShowCategories] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState<BankQuestion | null>(null);
 
   const subjects = useMemo(
     () => [...snapshot.subjects].filter((subject) => subject.status === 'active')
@@ -92,11 +94,12 @@ export function QuestionBankPage() {
     } finally { setBusy(false); }
   }
 
+  /*
+    Asked by the product rather than by window.confirm, which could not lay the question out and
+    read the whole prompt back as one unbroken line in a system box.
+  */
   async function archive(question: BankQuestion) {
-    if (!window.confirm(
-      `เก็บคำถามนี้เข้าคลังเก่า\n\n${question.prompt}\n\n` +
-      'ข้อสอบและกิจกรรมที่ใช้คำถามนี้ไปแล้วไม่กระทบ · เลือกดู “เก็บแล้ว” เพื่อเรียกกลับมาได้'
-    )) return;
+    setConfirmArchive(null);
     try {
       await archiveBankQuestion(question.id);
       setMessage('เก็บคำถามเข้าคลังเก่าแล้ว');
@@ -311,7 +314,7 @@ export function QuestionBankPage() {
                   {canEditQuestion && <Button size="sm" onClick={() => { setEditorError(null); setDraft(toDraft(question)); }}>แก้ไข</Button>}
                   {canEditQuestion && <Button size="sm" onClick={() => { setEditorError(null); setDraft(duplicateDraft(question)); }}>ทำสำเนา</Button>}
                   {canEditQuestion && question.status === 'active' && (
-                    <Button size="sm" variant="ghost" onClick={() => void archive(question)}>เก็บเข้าคลังเก่า</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setConfirmArchive(question)}>เก็บเข้าคลังเก่า</Button>
                   )}
                 </div>
               </Card>
@@ -332,6 +335,21 @@ export function QuestionBankPage() {
           draft={draft} subjects={editableSubjects} categories={categories}
           onChange={setDraft} onSave={() => void save()} onClose={() => setDraft(null)}
           busy={busy} error={editorError}
+        />
+      )}
+
+      {confirmArchive && (
+        <ConfirmDialog
+          title="เก็บคำถามนี้เข้าคลังเก่า"
+          description={
+            `“${confirmArchive.prompt}” · `
+            + 'ข้อสอบและกิจกรรมที่ใช้คำถามนี้ไปแล้วไม่กระทบ เพราะแต่ละชุดเก็บสำเนาของคำถามไว้ตอนสร้าง · '
+            + 'เรียกกลับมาได้ทุกเมื่อจากตัวกรอง “เก็บแล้ว”'
+          }
+          confirmLabel="เก็บเข้าคลังเก่า"
+          tone="warning"
+          onCancel={() => setConfirmArchive(null)}
+          onConfirm={() => void archive(confirmArchive)}
         />
       )}
     </>
@@ -356,6 +374,7 @@ function CategoryManager({ schoolId, categories, subjects, onChanged, onMessage 
   const [subjectId, setSubjectId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<QuestionCategory | null>(null);
 
   const ordered = [...categories].sort((a, b) => a.position - b.position);
 
@@ -429,18 +448,7 @@ function CategoryManager({ schoolId, categories, subjects, onChanged, onMessage 
                 <Button size="sm" variant="ghost" disabled={busy || index === ordered.length - 1} onClick={() => void move(category, 1)} aria-label="เลื่อนลง"><Icon name="arrow-down" size={14} /></Button>
                 <Button
                   size="sm" disabled={busy}
-                  onClick={() => {
-                    const next = window.prompt('เปลี่ยนชื่อหมวดหมู่', category.name);
-                    if (next === null || next.trim() === '') return;
-                    void run(
-                      async () => {
-                        await saveQuestionCategory({
-                          schoolId, categoryId: category.id, subjectId: category.subjectId, name: next
-                        });
-                      },
-                      'เปลี่ยนชื่อหมวดหมู่แล้ว'
-                    );
-                  }}
+                  onClick={() => setRenaming(category)}
                 >
                   เปลี่ยนชื่อ
                 </Button>
@@ -457,6 +465,29 @@ function CategoryManager({ schoolId, categories, subjects, onChanged, onMessage 
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Renaming reaches every question that carries the category, so the dialog says so and shows
+          the current name to edit rather than asking for it blind in a browser box. */}
+      {renaming && (
+        <PromptDialog
+          title="เปลี่ยนชื่อหมวดหมู่"
+          description="ชื่อใหม่จะแสดงทุกที่ที่หมวดหมู่นี้ถูกใช้ · คำถามเดิมไม่ถูกแก้ไข"
+          label="ชื่อหมวดหมู่"
+          hint="อย่างน้อย 2 ตัวอักษร"
+          defaultValue={renaming.name}
+          minLength={2}
+          confirmLabel="เปลี่ยนชื่อ"
+          onCancel={() => setRenaming(null)}
+          onConfirm={(name) => {
+            const target = renaming;
+            setRenaming(null);
+            void run(
+              async () => { await saveQuestionCategory({ schoolId, categoryId: target.id, subjectId: target.subjectId, name }); },
+              'เปลี่ยนชื่อหมวดหมู่แล้ว'
+            );
+          }}
+        />
       )}
     </Card>
   );

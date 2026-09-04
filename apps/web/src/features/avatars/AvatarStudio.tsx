@@ -5,6 +5,7 @@ import {
   hairStyles, resolveAvatar, skinTones
 } from './avatarThemes';
 import { ThemedAvatar } from './ThemedAvatar';
+import { Button, Modal } from '../../ui/components';
 
 interface Props {
   avatarIndex: number;
@@ -31,16 +32,19 @@ export function AvatarStudio({ avatarIndex, config, studentName, onSave, onClose
   const set = (part: Part, value: number) => setDraft((current) => ({ ...current, [part]: value }));
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`ปรับแต่งอวตารของ ${studentName}`}>
-      <section className="modal-card avatar-studio">
-        <div className="panel-heading">
-          <div>
-            <span className="eyebrow">Avatar Studio</span>
-            <h2>ปรับแต่งอวตารของ {studentName}</h2>
-          </div>
-          <button className="icon-button" onClick={onClose} aria-label="ปิด">×</button>
-        </div>
-
+    <Modal
+      wide
+      title={`ปรับแต่งอวตารของ ${studentName}`}
+      description="เลือกส่วนประกอบทีละอย่าง ตัวอย่างด้านซ้ายอัปเดตทันที"
+      onClose={onClose}
+      actions={
+        <>
+          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+          <Button variant="primary" onClick={() => onSave(draft)}>บันทึกอวตาร</Button>
+        </>
+      }
+    >
+      <div className="avatar-studio">
         <div className="studio-layout">
           <aside className="studio-preview">
             <ThemedAvatar avatarIndex={avatarIndex} config={draft} animation="wave" size={180} />
@@ -48,7 +52,7 @@ export function AvatarStudio({ avatarIndex, config, studentName, onSave, onClose
             <span>{identity.theme.description}</span>
             <span className="variant-count">เลือกได้ {AVATAR_VARIANT_COUNT.toLocaleString('th-TH')} แบบ</span>
             <div className="studio-preview-actions">
-              <button className="secondary-button" onClick={() => setDraft(randomConfig())}>สุ่มแบบใหม่</button>
+              <Button variant="secondary" onClick={() => setDraft(randomConfig())}>สุ่มแบบใหม่</Button>
               <button className="text-button" onClick={() => setDraft(configFromIndex(avatarIndex))}>คืนค่าเริ่มต้น</button>
             </div>
           </aside>
@@ -137,12 +141,7 @@ export function AvatarStudio({ avatarIndex, config, studentName, onSave, onClose
             </fieldset>
           </div>
         </div>
-
-        <div className="modal-actions">
-          <button className="text-button" onClick={onClose}>ยกเลิก</button>
-          <button className="primary-button" onClick={() => onSave(draft)}>บันทึกอวตาร</button>
-        </div>
-      </section>
-    </div>
+      </div>
+    </Modal>
   );
 }
