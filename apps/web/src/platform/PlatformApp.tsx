@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from '../app/AuthContext';
 import { recall, remember } from '../app/deviceMemory';
 import { isCompleteMemberLogin, memberLogin, type MemberAccountChoice } from '../features/auth/memberAccess';
 import { isCloudConfigured } from '../services/supabase';
-import { Button, Card, CardHeader, Field } from '../ui/components';
+import { Badge, Button, Card, CardHeader, Field } from '../ui/components';
 import { ChangelogPage } from './ChangelogPage';
 import { PlatformAdminAccountsPage } from './PlatformAdminAccounts';
 import { DevicesPage, ErrorsPage, NotificationsPage, OverviewPage, PlatformSettingsPage, SecurityPage } from './PlatformPages';
@@ -55,30 +55,56 @@ function DevSignIn() {
     } finally { setBusy(false); }
   }
 
+  /*
+   * The code is short, so the button says why it is not ready yet.
+   *
+   * A primary button greyed to 45% with nothing beside it reads as broken rather than as waiting,
+   * and this is the only control on the only door into the console.
+   */
+  const missing = needsDisplayName && displayName.trim().length < 1
+    ? 'กรอกชื่อผู้ดูแลก่อน'
+    : accessCode.length < 4 ? 'กรอกรหัสสิทธิ์ก่อน' : null;
+
   return (
-    <form className="configuration-card dev-sign-in" onSubmit={(event) => void submit(event)}>
-      <span className="eyebrow">DEVELOPMENT ONLY</span>
-      <h2>เข้าด้วยรหัสสิทธิ์อย่างเดียว</h2>
-      <p className="field-hint">
-        ครั้งแรกของเครื่องนี้กรอกชื่อเพื่อบันทึกเป็นชื่อแสดงของผู้ดูแลที่มีอยู่แล้ว
-        ครั้งถัดไปใช้เฉพาะรหัสสิทธิ์ได้ ชื่อในเครื่องนี้ไม่ใช่สิทธิ์การเข้าถึงและไม่สร้างบัญชีใหม่
-      </p>
-      {needsDisplayName ? <Field label="ชื่อผู้ดูแล" hint="ตั้งชื่อได้ตามต้องการ และระบบจะบันทึกไว้ในบัญชี">
-        <input
-          autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)}
-          placeholder="เช่น ผู้ดูแลระบบ Smart Classroom" required
-        />
-      </Field> : <div className="field-hint">เครื่องนี้เคยบันทึกชื่อผู้ดูแลแล้ว ระบบจะใช้ชื่อเดิมจากเซิร์ฟเวอร์</div>}
-      <Field label="รหัสสิทธิ์">
+    <form className="platform-gate-card" onSubmit={(event) => void submit(event)}>
+      <header className="platform-gate-head">
+        <Badge tone="warning">DEVELOPMENT ONLY</Badge>
+        <h1>เข้าสู่ศูนย์ปฏิบัติการ</h1>
+        <p>
+          ศูนย์นี้ดูแลทุกโรงเรียนบนแพลตฟอร์ม จึงเข้าได้ด้วยรหัสสิทธิ์ที่ตั้งไว้ฝั่งเซิร์ฟเวอร์เท่านั้น
+          — ไม่ใช่รหัสผ่านของบัญชีใด และการเข้าทางนี้ไม่สร้างบัญชีใหม่
+        </p>
+      </header>
+
+      {needsDisplayName ? (
+        <Field label="ชื่อผู้ดูแล" hint="ตั้งได้ตามต้องการ · บันทึกไว้กับผู้ดูแลที่มีอยู่แล้ว ไม่ใช่การสร้างบัญชี">
+          <input
+            autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)}
+            placeholder="เช่น ทีมปฏิบัติการ" required
+          />
+        </Field>
+      ) : (
+        <p className="ui-field-hint">เครื่องนี้เคยบันทึกชื่อผู้ดูแลแล้ว ระบบจะใช้ชื่อเดิมจากเซิร์ฟเวอร์</p>
+      )}
+
+      <Field label="รหัสสิทธิ์" hint="ตรวจสอบที่เซิร์ฟเวอร์ และจำกัดไว้ 5 ครั้งต่อ 15 นาทีต่อเครื่อง">
         <input
           type="password" autoComplete="one-time-code" value={accessCode}
           onChange={(event) => setAccessCode(event.target.value)}
-          placeholder="รหัสเดียวกับที่ใช้ยืนยันสิทธิ์แพลตฟอร์ม" required
+          placeholder="รหัสที่ตั้งไว้ตอนติดตั้งระบบ" required
         />
       </Field>
+
       {error && <div className="alert error" role="alert">{error}</div>}
-      <Button variant="primary" loading={busy} disabled={accessCode.length < 4 || (needsDisplayName && displayName.trim().length < 1)}>เข้าใช้งาน</Button>
-      <p className="fine-print">ทุกครั้งที่เข้าทางนี้จะถูกบันทึกไว้ในบันทึกความปลอดภัยของแพลตฟอร์ม</p>
+
+      <div className="platform-gate-actions">
+        <Button variant="primary" size="lg" loading={busy} disabled={Boolean(missing)}>เข้าใช้งาน</Button>
+        {missing && <span className="ui-field-hint">{missing}</span>}
+      </div>
+
+      <p className="platform-gate-foot">
+        ทุกครั้งที่เข้าทางนี้ถูกบันทึกไว้ในบันทึกความปลอดภัยของแพลตฟอร์ม พร้อมชื่อผู้ดูแลที่ใช้เข้า
+      </p>
     </form>
   );
 }

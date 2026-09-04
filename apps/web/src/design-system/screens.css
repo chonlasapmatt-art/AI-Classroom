@@ -1777,3 +1777,31 @@ tr.row-warning td { background: var(--warning-soft); }
   background: color-mix(in srgb, var(--subject-color, var(--brand-500)) 22%, var(--surface));
   color: color-mix(in srgb, var(--subject-color, var(--brand-500)) 40%, #ffffff);
 }
+
+/* ---------- Operations console: the door ---------- */
+/*
+ * The only entrance to the console, so it is built like a destination rather than like a warning.
+ *
+ * It used to be the amber "development only" card and nothing else — the same styling the product
+ * uses for something going wrong — which made the one way in look like an error state. The badge
+ * still says what it is; the card itself is a surface.
+ */
+.platform-gate-card {
+  width: min(460px, 100%); display: flex; flex-direction: column; gap: var(--space-4);
+  padding: clamp(var(--space-5), 5vw, var(--space-7));
+  border: 1px solid var(--color-border); border-radius: var(--radius-xl);
+  background: var(--color-surface); box-shadow: var(--shadow-lg);
+}
+.platform-gate-head { display: flex; flex-direction: column; gap: var(--space-3); }
+.platform-gate-head h1 { margin: 0; font-size: var(--text-xl); line-height: var(--leading-tight); }
+.platform-gate-head p {
+  margin: 0; max-inline-size: 44ch;
+  color: var(--color-text-secondary); font-size: var(--text-sm); line-height: var(--leading-normal);
+}
+.platform-gate-head .ui-badge { align-self: flex-start; }
+.platform-gate-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.platform-gate-actions .ui-button { flex: 0 1 auto; min-width: 10rem; }
+.platform-gate-foot {
+  margin: 0; padding-top: var(--space-4); border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted); font-size: var(--text-xs); line-height: var(--leading-normal);
+}

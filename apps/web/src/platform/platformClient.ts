@@ -340,7 +340,13 @@ const devSignInMessages: Record<string, string> = {
   PLATFORM_DEV_SIGN_IN_DISABLED: 'เซิร์ฟเวอร์นี้ปิดการเข้าสู่ระบบแบบนักพัฒนาไว้',
   SERVER_CONFIGURATION_ERROR: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสแพลตฟอร์ม กรุณาตั้ง PLATFORM_ADMIN_CODE_HASH ก่อน',
   PLATFORM_DISPLAY_NAME_REQUIRED: 'การเข้าเครื่องนี้ครั้งแรกต้องกรอกชื่อผู้ดูแล',
-  PLATFORM_NO_OPERATOR: 'ยังไม่มีผู้ดูแลแพลตฟอร์มในระบบ กรุณาเข้าด้วยชื่อกับรหัสผ่านแล้วยืนยันสิทธิ์ก่อน',
+  /*
+   * This used to say "sign in with a name and password, then confirm the code" — a door the console
+   * no longer renders. So the one message somebody sees on a deployment with no operator yet sent
+   * them looking for a form that is not there. It now says what is actually true: the code is
+   * right, and there is nobody for it to sign in as.
+   */
+  PLATFORM_NO_OPERATOR: 'รหัสถูกต้อง แต่ยังไม่มีผู้ดูแลแพลตฟอร์มในระบบให้เข้าใช้งาน · ต้องเพิ่มผู้ดูแลคนแรกลงในตาราง platform_admins ที่เซิร์ฟเวอร์ก่อน',
   PLATFORM_OPERATOR_AMBIGUOUS: 'มีผู้ดูแลแพลตฟอร์มมากกว่าหนึ่งคน ต้องระบุ PLATFORM_DEV_OPERATOR ที่เซิร์ฟเวอร์',
   PLATFORM_ACCESS_LOCKED: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที',
   PLATFORM_ACCESS_DENIED: 'รหัสสิทธิ์ไม่ถูกต้อง'
