@@ -8,7 +8,7 @@ import { EraseAccountButton } from '../auth/EraseAccountButton';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 import {
-  Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, Modal, PageHeader
+  Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, Modal, PageHeader, PromptDialog
 } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
@@ -34,6 +34,7 @@ export function TeachersPage() {
   const snapshot = useSchoolSnapshot();
   const { toast } = useToast();
   const [passwordTeacher, setPasswordTeacher] = useState<typeof snapshot.teachers[number] | null>(null);
+  const [verifying, setVerifying] = useState<{ id: string; name: string } | null>(null);
   const [assignment, setAssignment] = useState<{ teacherId: string; classId: string; responsibility: TeacherResponsibility; subjectId: string }>({
     teacherId: '', classId: '', responsibility: 'CLASS_ADVISOR', subjectId: ''
   });
@@ -90,9 +91,8 @@ export function TeachersPage() {
     }
   }
 
-  async function verify(teacherId: string, displayName: string) {
-    const reason = window.prompt(`ยืนยันสถานะครูของ ${displayName}\nระบุเหตุผล (อย่างน้อย 4 ตัวอักษร)`, 'ตรวจสอบเอกสารประจำตัวแล้ว');
-    if (reason === null) return;
+  async function verify(teacherId: string, displayName: string, reason: string) {
+    setVerifying(null);
     try {
       await repository.verifyTeacher(teacherId, reason);
       toast(`ยืนยันสถานะครูของ ${displayName} แล้ว`);
@@ -180,7 +180,7 @@ export function TeachersPage() {
                 </div>
                 {membership.role === 'admin' && teacher.verificationStatus !== 'verified_teacher' && (
                   <div className="record-actions">
-                    <Button variant="secondary" size="sm" onClick={() => void verify(teacher.id, teacher.displayName)}>
+                    <Button variant="secondary" size="sm" onClick={() => setVerifying({ id: teacher.id, name: teacher.displayName })}>
                       ยืนยันสถานะครู
                     </Button>
                     <span className="ui-field-hint">ครูที่ยังไม่ยืนยันจะยังใช้งานข้อมูลห้องเรียนไม่ได้</span>
@@ -308,6 +308,22 @@ export function TeachersPage() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {/* The reason is written into the audit record, so it is asked for in the product rather than
+          in a browser box that could not show the minimum length it was demanding. */}
+      {verifying && (
+        <PromptDialog
+          title={`ยืนยันสถานะครูของ ${verifying.name}`}
+          description="เหตุผลนี้จะถูกบันทึกไว้ในประวัติการตรวจสอบ และผู้ดูแลคนอื่นอ่านได้ภายหลัง"
+          label="เหตุผลในการยืนยัน"
+          hint="อย่างน้อย 4 ตัวอักษร"
+          defaultValue="ตรวจสอบเอกสารประจำตัวแล้ว"
+          minLength={4}
+          confirmLabel="ยืนยันสถานะครู"
+          onCancel={() => setVerifying(null)}
+          onConfirm={(reason) => void verify(verifying.id, verifying.name, reason)}
+        />
       )}
     </>
   );

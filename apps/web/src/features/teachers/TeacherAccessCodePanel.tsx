@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
-import { Badge, Button, Card, CardHeader, DataTable, EmptyState, Field, Modal } from '../../ui/components';
+import { Badge, Button, Card, CardHeader, DataTable, EmptyState, Field, Modal, PromptDialog } from '../../ui/components';
 import {
   describeTeacherAccessCode, issueTeacherAccessCode, revealTeacherAccessCode, revokeTeacherAccessCode,
   teacherAccessCodeHistory, TeacherCodeError,
@@ -93,6 +93,7 @@ export function TeacherAccessCodePanel() {
   const [maxUses, setMaxUses] = useState('');
   const [label, setLabel] = useState('');
   const [customCode, setCustomCode] = useState('');
+  const [revoking, setRevoking] = useState(false);
 
   const load = useCallback(async () => {
     if (mode !== 'cloud' || !isAdmin) return;
@@ -138,13 +139,9 @@ export function TeacherAccessCodePanel() {
     } finally { setBusy(false); }
   }
 
-  async function revoke() {
+  async function revoke(reason: string) {
     if (!code) return;
-    const reason = window.prompt(
-      'ยกเลิกรหัสสำหรับครู\nครูที่สมัครไปแล้วยังใช้งานได้ตามปกติ แต่จะไม่มีใครสมัครด้วยรหัสนี้ได้อีก\n\nระบุเหตุผล',
-      'รหัสรั่วไหล'
-    );
-    if (reason === null) return;
+    setRevoking(false);
     setBusy(true); setError(null);
     try {
       await revokeTeacherAccessCode({ schoolId, codeId: code.codeId, reason });
@@ -199,7 +196,7 @@ export function TeacherAccessCodePanel() {
             <>
               <strong className="access-code-value">{code.hint}</strong>
               <p className="field-hint">{describeTeacherAccessCode(code)}</p>
-              <Button variant="danger" onClick={() => void revoke()} disabled={busy}>ยกเลิกรหัสนี้</Button>
+              <Button variant="danger" onClick={() => setRevoking(true)} disabled={busy}>ยกเลิกรหัสนี้</Button>
             </>
           ) : (
             <EmptyState
@@ -262,6 +259,21 @@ export function TeacherAccessCodePanel() {
       )}
 
       {dialog && <TeacherAccessCodeDialog code={dialog} onClose={() => setDialog(null)} />}
+
+      {/* The reason is kept with the revoked code, so it is asked for in a field the panel controls. */}
+      {revoking && (
+        <PromptDialog
+          title="ยกเลิกรหัสสำหรับครู"
+          description="ครูที่สมัครไปแล้วยังใช้งานได้ตามปกติ แต่จะไม่มีใครสมัครด้วยรหัสนี้ได้อีก"
+          label="เหตุผลที่ยกเลิก"
+          hint="อย่างน้อย 4 ตัวอักษร · บันทึกไว้กับรหัสที่ถูกยกเลิก"
+          defaultValue="รหัสรั่วไหล"
+          minLength={4}
+          confirmLabel="ยกเลิกรหัสนี้"
+          onCancel={() => setRevoking(false)}
+          onConfirm={(reason) => void revoke(reason)}
+        />
+      )}
     </Card>
   );
 }

@@ -424,6 +424,55 @@ export function ConfirmDialog({ title, description, confirmLabel = 'ยืนย
 }
 
 /** Tooltip wrapper that shows hint text on hover or focus. */
+/**
+ * Asks for one short piece of text, where window.prompt used to.
+ *
+ * Four screens collected a category name, two audit reasons and a resolution note that way. The
+ * browser's box cannot lay the request out, cannot show a minimum length while it is being typed,
+ * cannot be styled to match the school's theme, and is suppressed outright by several browsers
+ * inside an installed PWA — where a suppressed prompt returns null and reads to the caller as
+ * "cancelled", so the action silently does nothing at all.
+ */
+export function PromptDialog({
+  title, description, label, hint, defaultValue = '', placeholder, minLength = 1,
+  confirmLabel = 'ยืนยัน', multiline = false, onConfirm, onCancel
+}: {
+  title: ReactNode; description?: ReactNode; label: ReactNode; hint?: ReactNode;
+  defaultValue?: string; placeholder?: string; minLength?: number; confirmLabel?: string;
+  multiline?: boolean; onConfirm: (value: string) => void; onCancel: () => void;
+}) {
+  const [value, setValue] = useState(defaultValue);
+  const trimmed = value.trim();
+  const tooShort = trimmed.length < minLength;
+  const submit = () => { if (!tooShort) onConfirm(trimmed); };
+
+  return (
+    <Modal title={title} {...(description ? { description } : {})} onClose={onCancel}>
+      <Field
+        label={label}
+        {...(hint ? { hint } : {})}
+        {...(value !== '' && tooShort ? { error: `ต้องยาวอย่างน้อย ${minLength} ตัวอักษร` } : {})}
+      >
+        {multiline ? (
+          <AutoTextarea value={value} onChange={setValue} minRows={3} {...(placeholder ? { placeholder } : {})} />
+        ) : (
+          <input
+            value={value}
+            placeholder={placeholder ?? ''}
+            onChange={(event) => setValue(event.target.value)}
+            // Enter is what somebody typing one line expects to submit with.
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); submit(); } }}
+          />
+        )}
+      </Field>
+      <div className="ui-form-actions">
+        <Button type="button" variant="ghost" onClick={onCancel}>ยกเลิก</Button>
+        <Button type="button" variant="primary" disabled={tooShort} onClick={submit}>{confirmLabel}</Button>
+      </div>
+    </Modal>
+  );
+}
+
 export function Tooltip({ children, tip }: { children: ReactNode; tip: ReactNode }) {
   return (
     <span className="ui-tooltip-wrap" title={typeof tip === 'string' ? tip : undefined}>
