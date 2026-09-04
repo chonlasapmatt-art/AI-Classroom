@@ -86,7 +86,7 @@
 .ui-badge-solid.ui-badge-success { color: #fff; background: var(--success); }
 
 /* ---------- Stats ---------- */
-.ui-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3); }
+.ui-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--space-3); }
 .ui-stat {
   display: flex; flex-direction: column; gap: var(--space-1);
   padding: var(--space-4) var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-lg);
@@ -221,8 +221,8 @@
 .ui-fieldset legend { padding: 0; margin-bottom: var(--space-3); color: var(--ink-500); font-size: var(--text-xs); font-weight: var(--weight-heavy); letter-spacing: .1em; text-transform: uppercase; }
 .ui-field-grid { display: grid; gap: var(--space-4); }
 .ui-columns-1 { grid-template-columns: 1fr; }
-.ui-columns-2 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-.ui-columns-3 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.ui-columns-2 { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+.ui-columns-3 { grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); }
 
 .ui-segmented { display: inline-flex; padding: 4px; border-radius: var(--radius-pill); background: var(--surface-sunken); gap: 2px; }
 .ui-segmented button {

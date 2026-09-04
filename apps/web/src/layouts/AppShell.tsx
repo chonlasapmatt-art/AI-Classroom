@@ -74,13 +74,15 @@ function SupportRoleSwitcher({ session, snapshot }: { session: SessionValue; sna
   return (
     <div className="support-role-switch" aria-label="เครื่องมือดูแลหลายมุมมอง">
       <label className="role-switch-label">
-        มุมมอง Support
+        {/* Wrapped so a phone can drop the caption without dropping the control: each select
+            already carries its own aria-label, so the name survives the text being hidden. */}
+        <span className="role-switch-text">มุมมอง Support</span>
         <select aria-label="เลือกมุมมอง Support" value={activeSupport.view.role} onChange={(event) => setRole(event.target.value as Role)}>
           {supportRoleOptions.map((option) => <option key={option.role} value={option.role}>{option.label}</option>)}
         </select>
       </label>
       <label className="role-switch-label support-target-select">
-        บัญชีที่ตรวจสอบ
+        <span className="role-switch-text">บัญชีที่ตรวจสอบ</span>
         <select
           aria-label="เลือกบัญชีที่ตรวจสอบ"
           value={roleTargets.some((item) => item.profileId === activeSupport.view.targetProfileId) ? activeSupport.view.targetProfileId : ''}
@@ -379,7 +381,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="role-switch">
             {session.support ? <SupportRoleSwitcher session={session} snapshot={snapshot} /> : session.memberships.length > 1 && (
               <label className="role-switch-label">
-                {session.mode === 'preview' ? 'สลับบทบาท (Preview)' : manySchools ? 'โรงเรียน' : 'บทบาท'}
+                <span className="role-switch-text">
+                  {session.mode === 'preview' ? 'สลับบทบาท (Preview)' : manySchools ? 'โรงเรียน' : 'บทบาท'}
+                </span>
                 <select
                   aria-label={manySchools ? 'เลือกโรงเรียน' : 'เลือกบทบาท'}
                   value={membership.membershipId}

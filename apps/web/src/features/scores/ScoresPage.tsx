@@ -112,20 +112,22 @@ function StudentScoresView({ snapshot, studentId, classId, subjects, policy }: {
           {detailItems.length === 0 ? (
             <div className="empty-state"><span>☆</span><h3>ยังไม่มีรายการคะแนนที่ประกาศ</h3><p>ครูจะเปิดเผยคะแนนเมื่อพร้อม</p></div>
           ) : (
-            <table className="grid-table">
-              <thead><tr><th>รายการ</th><th>ประเภท</th><th>วันที่</th><th>คะแนนที่ได้</th><th>สถานะ</th></tr></thead>
-              <tbody>
-                {detailItems.map((item) => (
-                  <tr key={item.id}>
-                    <td><strong>{item.title}</strong></td>
-                    <td>{item.kind}</td>
-                    <td>{item.date ? new Date(item.date).toLocaleDateString('th-TH') : '—'}</td>
-                    <td className="student-score-value">{item.score === null ? '—' : `${item.score} / ${item.maxScore}`}</td>
-                    <td><span className={`status-chip ${item.score === null ? 'warning' : 'success'}`}>{item.status}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-scroll">
+              <table className="grid-table">
+                <thead><tr><th>รายการ</th><th>ประเภท</th><th>วันที่</th><th>คะแนนที่ได้</th><th>สถานะ</th></tr></thead>
+                <tbody>
+                  {detailItems.map((item) => (
+                    <tr key={item.id}>
+                      <td><strong>{item.title}</strong></td>
+                      <td>{item.kind}</td>
+                      <td>{item.date ? new Date(item.date).toLocaleDateString('th-TH') : '—'}</td>
+                      <td className="student-score-value">{item.score === null ? '—' : `${item.score} / ${item.maxScore}`}</td>
+                      <td><span className={`status-chip ${item.score === null ? 'warning' : 'success'}`}>{item.status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
       )}
@@ -258,22 +260,24 @@ export function ScoresPage() {
       {tab === 'summary' && (
         <section className="panel data-panel">
           <div className="panel-heading"><h2>คะแนนรวมและเกรด</h2><span className="status-chip success">เฉพาะคะแนนที่เผยแพร่แล้ว</span></div>
-          <table className="grid-table">
-            <thead><tr><th>อันดับ</th><th>นักเรียน</th><th>คะแนนรวม</th><th>เกรด</th><th>ค้างส่ง</th></tr></thead>
-            <tbody>
-              {standings
-                .filter((entry) => !ownStudentId || membership.role !== 'student' || entry.student.id === ownStudentId)
-                .map((entry) => (
-                  <tr key={entry.student.id}>
-                    <td>{entry.rank}</td>
-                    <td>{entry.student.displayName}</td>
-                    <td>{entry.total.toFixed(policy.decimals)}</td>
-                    <td><span className={`status-chip ${entry.grade === 'F' ? 'danger' : 'success'}`}>{entry.grade}</span></td>
-                    <td>{entry.missingWork}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table className="grid-table">
+              <thead><tr><th>อันดับ</th><th>นักเรียน</th><th>คะแนนรวม</th><th>เกรด</th><th>ค้างส่ง</th></tr></thead>
+              <tbody>
+                {standings
+                  .filter((entry) => !ownStudentId || membership.role !== 'student' || entry.student.id === ownStudentId)
+                  .map((entry) => (
+                    <tr key={entry.student.id}>
+                      <td>{entry.rank}</td>
+                      <td>{entry.student.displayName}</td>
+                      <td>{entry.total.toFixed(policy.decimals)}</td>
+                      <td><span className={`status-chip ${entry.grade === 'F' ? 'danger' : 'success'}`}>{entry.grade}</span></td>
+                      <td>{entry.missingWork}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
 
@@ -305,30 +309,32 @@ export function ScoresPage() {
                   {subjectById(snapshot, activity.subjectId)?.name ?? 'ไม่ระบุวิชา'} · เต็ม {activity.maxScore} · {activity.activityDate}
                 </span>
               </div>
-              <table className="grid-table">
-                <thead><tr><th>นักเรียน</th><th>คะแนน</th></tr></thead>
-                <tbody>
-                  {roster.map((student) => {
-                    const score = snapshot.activityScores.find((item) => item.activityId === activity.id && item.studentId === student.id);
-                    return (
-                      <tr key={student.id}>
-                        <td>{student.displayName}</td>
-                        <td>
-                          {isTeacher && canManageAcademicItem(snapshot, membership.role, membership.profileId, activity.classId, activity.subjectId) ? (
-                            <input
-                              type="number" min="0" max={activity.maxScore} defaultValue={score?.score ?? ''}
-                              onBlur={(event) => void repository.saveActivityScores(activity.id, [{
-                                studentId: student.id,
-                                score: event.target.value === '' ? null : Math.min(activity.maxScore, Math.max(0, Number(event.target.value)))
-                              }])}
-                            />
-                          ) : (score?.score ?? '—')}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="table-scroll">
+                <table className="grid-table">
+                  <thead><tr><th>นักเรียน</th><th>คะแนน</th></tr></thead>
+                  <tbody>
+                    {roster.map((student) => {
+                      const score = snapshot.activityScores.find((item) => item.activityId === activity.id && item.studentId === student.id);
+                      return (
+                        <tr key={student.id}>
+                          <td>{student.displayName}</td>
+                          <td>
+                            {isTeacher && canManageAcademicItem(snapshot, membership.role, membership.profileId, activity.classId, activity.subjectId) ? (
+                              <input
+                                type="number" min="0" max={activity.maxScore} defaultValue={score?.score ?? ''}
+                                onBlur={(event) => void repository.saveActivityScores(activity.id, [{
+                                  studentId: student.id,
+                                  score: event.target.value === '' ? null : Math.min(activity.maxScore, Math.max(0, Number(event.target.value)))
+                                }])}
+                              />
+                            ) : (score?.score ?? '—')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </section>
           ))}
         </>
@@ -371,30 +377,32 @@ export function ScoresPage() {
                   </div>
                 </div>
                 {(isTeacher || published) ? (
-                  <table className="grid-table">
-                    <thead><tr><th>นักเรียน</th><th>คะแนน (เต็ม {test.maxScore})</th></tr></thead>
-                    <tbody>
-                      {roster.map((student) => {
-                        const score = snapshot.testScores.find((item) => item.testId === test.id && item.studentId === student.id);
-                        return (
-                          <tr key={student.id}>
-                            <td>{student.displayName}</td>
-                            <td>
-                              {isTeacher && canManageAcademicItem(snapshot, membership.role, membership.profileId, test.classId, test.subjectId) ? (
-                                <input
-                                  type="number" min="0" max={test.maxScore} defaultValue={score?.score ?? ''}
-                                  onBlur={(event) => void repository.saveTestScores(test.id, [{
-                                    studentId: student.id,
-                                    score: event.target.value === '' ? null : Math.min(test.maxScore, Math.max(0, Number(event.target.value)))
-                                  }])}
-                                />
-                              ) : (score?.score ?? '—')}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <div className="table-scroll">
+                    <table className="grid-table">
+                      <thead><tr><th>นักเรียน</th><th>คะแนน (เต็ม {test.maxScore})</th></tr></thead>
+                      <tbody>
+                        {roster.map((student) => {
+                          const score = snapshot.testScores.find((item) => item.testId === test.id && item.studentId === student.id);
+                          return (
+                            <tr key={student.id}>
+                              <td>{student.displayName}</td>
+                              <td>
+                                {isTeacher && canManageAcademicItem(snapshot, membership.role, membership.profileId, test.classId, test.subjectId) ? (
+                                  <input
+                                    type="number" min="0" max={test.maxScore} defaultValue={score?.score ?? ''}
+                                    onBlur={(event) => void repository.saveTestScores(test.id, [{
+                                      studentId: student.id,
+                                      score: event.target.value === '' ? null : Math.min(test.maxScore, Math.max(0, Number(event.target.value)))
+                                    }])}
+                                  />
+                                ) : (score?.score ?? '—')}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
                   <div className="empty-state"><span>☆</span><h3>คะแนนยังไม่เผยแพร่</h3><p>ครูจะเผยแพร่เมื่อตรวจครบแล้ว</p></div>
                 )}
