@@ -7,7 +7,7 @@
 // as a teacher or student; those accounts are prepared by the school.
 
 import { useEffect, useState, type FormEvent, type PointerEvent } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import { recall } from '../../app/deviceMemory';
 import { useTheme } from '../../app/ThemeContext';
@@ -29,7 +29,18 @@ type LoginChoice = MemberAccountChoice | SchoolChoice;
 export function LoginPage() {
   const auth = useAuth();
   const { mode, preset, motion, setMode, setPreset, setMotion } = useTheme();
-  const [who, setWho] = useState<Who | null>(null);
+  const [search] = useSearchParams();
+  /*
+   * The welcome page's doors arrive here already knowing who they are.
+   *
+   * Anything else in the parameter is ignored rather than trusted: this only skips a question the
+   * reader has already answered, so an unrecognised value has to land on the question, not on a
+   * form for a role nobody chose.
+   */
+  const [who, setWho] = useState<Who | null>(() => {
+    const asked = search.get('as');
+    return asked === 'teacher' || asked === 'student' || asked === 'parent' ? asked : null;
+  });
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [choices, setChoices] = useState<LoginChoice[]>([]);
@@ -225,6 +236,7 @@ export function LoginPage() {
           <p className="fine-print">บัญชีทั้งหมดสร้างและกำหนดรหัสผ่านโดยแอดมินโรงเรียน</p>
           <p className="fine-print">การเข้าใช้งานครั้งแรกต้องเชื่อมต่ออินเทอร์เน็ต</p>
           <Link className="text-button login-admin-link" to="/admin-access">เข้าสู่ระบบผู้ดูแลโรงเรียน</Link>
+          <Link className="text-button" to="/welcome">ดูข้อมูลระบบก่อนเข้าสู่ระบบ</Link>
           {/* The platform console is a different product with a different door. It is named, not
               hidden — hiding it only means the operator types the URL from memory — and it sits last
               because a teacher who lands here should never think it is one of their choices. */}

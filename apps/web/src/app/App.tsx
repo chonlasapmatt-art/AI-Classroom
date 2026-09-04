@@ -10,6 +10,7 @@ import { AdminLoginPage } from '../features/auth/AdminLoginPage';
 import { AwaitingMembershipPage } from '../features/auth/AccountPages';
 import { AdminSchoolSetupPage } from '../features/auth/AdminSchoolSetupPage';
 import { OwnerAccessPage } from '../features/auth/OwnerAccessPage';
+import { WelcomePage } from '../features/auth/WelcomePage';
 import { AppShell } from '../layouts/AppShell';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
@@ -140,6 +141,7 @@ function AppRoutes() {
 
 function CloudRoutes() {
   const auth = useAuth();
+  const location = useLocation();
   const active = auth.active;
   const schoolId = active?.schoolId ?? '';
   const supportActive = Boolean(active?.membershipId.startsWith('support:'));
@@ -175,7 +177,13 @@ function CloudRoutes() {
   } : null), [active, effectiveActive, endSupport, memberships, selectMembership, signOut, supportActive, supportView]);
 
   if (auth.loading) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบเซสชัน...</p></main>;
-  if (!auth.session) return <Navigate to="/login" replace />;
+  /*
+   * Arriving at the root with no session is somebody opening the app, not somebody following a
+   * link into a screen. They get the signpost, which names the five doors and says which one is
+   * theirs; every other address goes straight to the form, because a deep link already knows where
+   * it was going and a detour through a welcome page is a step backwards.
+   */
+  if (!auth.session) return <Navigate to={location.pathname === '/' ? '/welcome' : '/login'} replace />;
   if (!session) {
     const requestedRole = auth.session.user.user_metadata.requested_role;
     if (requestedRole === 'admin') return <AdminSchoolSetupPage />;
@@ -234,6 +242,7 @@ function AppRoot() {
   return (
     <AuthProvider>
       <Routes>
+        <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin-access" element={<AdminLoginPage />} />
         <Route path="/register" element={<Navigate to="/login" replace />} />

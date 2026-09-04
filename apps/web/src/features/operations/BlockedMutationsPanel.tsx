@@ -22,7 +22,23 @@ export function BlockedMutationsPanel() {
     catch { setRows([]); }
   }, [membership.schoolId]);
 
-  useEffect(() => { void load(); }, [load]);
+  /*
+   * The first read is cancelled when this panel goes away.
+   *
+   * Reading the queue is a trip to IndexedDB, and somebody opening Sync & Backup and moving on
+   * before it answers used to leave a write landing on a component that no longer exists. React
+   * reports that as an error rather than acting on it, so it was invisible in a browser and showed
+   * up only as an intermittent failure after the test environment had been torn down. `load` is
+   * called directly by retry and discard, which are acts of a panel that is on screen, so only the
+   * one that races an unmount needs the guard.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    void listBlockedMutations(membership.schoolId)
+      .then((next) => { if (!cancelled) setRows(next); })
+      .catch(() => { if (!cancelled) setRows([]); });
+    return () => { cancelled = true; };
+  }, [membership.schoolId]);
 
   async function retry(row: BlockedMutation) {
     setBusy(row.queueId);
