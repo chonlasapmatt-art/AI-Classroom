@@ -1885,8 +1885,15 @@ tr.row-warning td { background: var(--warning-soft); }
   gap: var(--space-3); margin-bottom: var(--space-3);
 }
 
-/* One class a teacher is assigned to, with the control that undoes it beside the fact itself. */
-.teacher-assignment { display: inline-flex; align-items: center; gap: var(--space-1); }
+/*
+ * One class a teacher is assigned to, with the control that undoes it beside the fact itself.
+ *
+ * "ป.5/3 · สังคมศึกษา ศาสนา และวัฒนธรรม · ครูประจำวิชา" is a long line, and as an inline-flex that
+ * could not shrink it measured 328px inside a 320px phone — the one place left in the product that
+ * still scrolled sideways. It wraps now, and the badge inside it wraps with it.
+ */
+.teacher-assignment { display: inline-flex; align-items: center; gap: var(--space-1); flex-wrap: wrap; max-width: 100%; min-width: 0; }
+.teacher-assignment .ui-badge { white-space: normal; text-align: left; }
 
 /*
  * Subject colour, mixed into whatever surface it lands on.
