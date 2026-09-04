@@ -848,6 +848,11 @@ button.sync-pill:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .theme-studio .panel-heading { align-items: flex-start; }
 .theme-studio .panel-heading p { margin: .35rem 0 0; }
 
+/* Import: the guess the reader is being asked to check, and the rows that will not be written. */
+.import-guess-note { margin: var(--space-2) 0 0; display: flex; align-items: flex-start; gap: 6px; padding: var(--space-3); border: 1px solid var(--accent-gold); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent-gold) 8%, var(--surface)); color: var(--ink-700); font-size: var(--text-sm); line-height: 1.7; }
+.import-guess-note svg { flex: none; margin-top: 3px; }
+.import-row-problem td { background: color-mix(in srgb, var(--accent-gold) 7%, transparent); }
+
 /* Promotion: a term, its status, and the one button that changes which term the product answers for. */
 .term-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; }
 .term-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
@@ -948,7 +953,9 @@ p.field-hint { margin: calc(var(--space-1) * -1) 0 0; }
   padding: var(--space-6) var(--space-4); margin-bottom: var(--space-4);
   border: 2px dashed var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); }
 .dropzone.active { border-color: var(--brand-600); background: var(--brand-50); }
-.dropzone > span { font-size: 2rem; line-height: 1; color: var(--brand-600); }
+/* The upload arrow is an icon from the set rather than an arrow character, which rendered as a
+   different glyph on every platform and as a blank box on some Android WebViews. */
+.dropzone > svg { color: var(--brand-600); }
 .dropzone strong { font-size: var(--text-md); }
 .dropzone p { margin: 0; font-size: var(--text-sm); color: var(--ink-500); }
 .mapping-grid { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); }
@@ -957,10 +964,19 @@ p.field-hint { margin: calc(var(--space-1) * -1) 0 0; }
 .mapping-source { display: grid; gap: 2px; min-width: 0; }
 .mapping-source strong { font-size: var(--text-sm); overflow-wrap: anywhere; }
 .mapping-source small { font-size: var(--text-xs); color: var(--ink-500); overflow-wrap: anywhere; }
-.row-issue { display: block; margin-top: 2px; font-size: var(--text-xs); color: var(--warning); }
+.row-issue { display: flex; align-items: center; gap: 3px; margin-top: 3px; font-size: var(--text-xs); color: var(--warning); }
+.row-issue svg { flex: none; }
 .result-list { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: grid; gap: var(--space-1);
   font-size: var(--text-md); }
 tr.row-warning td { background: var(--warning-soft); }
+.import-row-number { color: var(--ink-400); font-variant-numeric: tabular-nums; }
+.import-history-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; }
+.import-history-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
+.import-history-list li:last-child { border-bottom: 0; }
+.import-history-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.import-history-main strong { color: var(--ink-900); overflow-wrap: anywhere; }
+.import-history-main span { color: var(--ink-500); font-size: var(--text-xs); }
+.import-history-counts { color: var(--ink-600); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 
 /* Board mode: the class on screen, one tap from a score. Cards are large because the teacher is
    standing at an interactive board, not sitting at a laptop. */
