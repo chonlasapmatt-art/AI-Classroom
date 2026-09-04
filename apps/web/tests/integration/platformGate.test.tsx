@@ -10,15 +10,22 @@
 // It is offered underneath rather than instead, and it says which of the two it is.
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PlatformApp } from '../../src/platform/PlatformApp';
 
 afterEach(cleanup);
 
+// Each case mounts the whole console — router, auth context and the Supabase client's own startup —
+// before a single assertion runs. On a developer's machine that settles in about a second; on a
+// shared CI runner it does not, and the default five-second budget expired while `waitFor` was
+// still polling, which failed every case here for a reason that had nothing to do with the door.
+// The assertions are unchanged; only the time they are given is.
+vi.setConfig({ testTimeout: 30000 });
+
 /** The gate appears once the auth check settles; there is no session in a test environment. */
 async function openGate() {
   render(<PlatformApp />);
-  await waitFor(() => expect(document.querySelector('.platform-gate-card')).not.toBeNull(), { timeout: 5000 });
+  await waitFor(() => expect(document.querySelector('.platform-gate-card')).not.toBeNull(), { timeout: 20000 });
 }
 
 const productionDoor = () => within(document.querySelectorAll('.platform-gate-card')[0] as HTMLElement);
