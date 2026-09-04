@@ -5,28 +5,31 @@
 # every run red — and a check that is always red is a check nobody looks at, which is strictly worse
 # than not having one.
 #
-# Nothing here is broad. A finding is ignored only when its own line matches one of two exact shapes.
-# It deliberately does not name files: exempting a path would exempt a whole Edge Function, and a
-# real key hardcoded in one of those is precisely what this scan exists to catch.
+# The filter is on the value, not on the file. Naming paths would exempt whole Edge Functions, and a
+# real key hardcoded in one of those is precisely what this scan exists to catch. `regexes` with
+# regexTarget = "line" did not take effect on gitleaks 8.24 and `matchCondition = "AND"` disabled the
+# block entirely; `stopwords` is what actually applies, and it reads the flagged value itself.
 
 [extend]
 useDefault = true
 
 [[allowlists]]
 description = """
-Two shapes, neither a secret.
+Two values, neither a secret.
 
-Character alphabets (KEY_ALPHABET, PASSWORD_ALPHABET): the set of characters a generated code may
-contain, not a value. 'ABCDEFGHJKLMNPQRSTWXYZ23456789' is every unambiguous letter and digit exactly
-once, which is precisely what entropy scoring is built to flag — long, no repeats, mixed with digits.
-What they generate is shown once and never written to this repository.
+"abcdefgh" appears in KEY_ALPHABET and PASSWORD_ALPHABET, which are the set of characters a generated
+code may contain rather than a value. 'ABCDEFGHJKLMNPQRSTWXYZ23456789' is every unambiguous letter
+and digit exactly once — long, no repeats, mixed with digits, which is exactly what entropy scoring
+is built to flag. What they generate is shown once and never written to this repository.
 
-The end-to-end placeholders: the student suite asserts what an unconfigured deployment shows, so its
-build is handed a URL and a key that deliberately point nowhere. A real project reference here would
-be the bug; the obviously fake string is the fix.
+"placeholder" appears in the end-to-end connection values. That suite asserts what an unconfigured
+deployment shows, so its build is handed a URL and a key that deliberately point nowhere. A real
+project reference there would be the bug; the obviously fake string is the fix.
+
+Both are narrow: a genuine key that happened to contain either substring is not a thing that occurs,
+and every other finding in every file still fails the build.
 """
-regexTarget = "line"
-regexes = [
-  '''(?i)(KEY|PASSWORD|CODE)_ALPHABET\s*=\s*.?['"][A-Za-z0-9]{20,80}['"]''',
-  '''e2e-placeholder'''
+stopwords = [
+  "abcdefgh",
+  "placeholder"
 ]
