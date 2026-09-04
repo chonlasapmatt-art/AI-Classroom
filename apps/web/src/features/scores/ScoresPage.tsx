@@ -7,6 +7,7 @@ import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { SchoolSnapshot } from '../../data/schoolRepository';
 import type { Subject } from '../../domain/types';
 import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { Segmented } from '../../ui/components';
 import { useToast } from '../../ui/toastContext';
 
 type Tab = 'activity' | 'test' | 'summary';
@@ -250,11 +251,19 @@ export function ScoresPage() {
             );
           })}
         </div>
-        <div className="segmented">
-          <button className={tab === 'summary' ? 'active present' : ''} onClick={() => setTab('summary')}>สรุปเกรด</button>
-          <button className={tab === 'activity' ? 'active present' : ''} onClick={() => setTab('activity')}>กิจกรรม</button>
-          <button className={tab === 'test' ? 'active present' : ''} onClick={() => setTab('test')}>สอบ</button>
-        </div>
+        {/* Was a copy of the attendance marks, borrowing their "present" green for the selected tab
+            — so a tab looked like a student had been marked in. It is the shared control now, which
+            is a tablist rather than three buttons that happen to sit together. */}
+        <Segmented
+          ariaLabel="มุมมองคะแนน"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'summary' as const, label: 'สรุปเกรด' },
+            { value: 'activity' as const, label: 'กิจกรรม' },
+            { value: 'test' as const, label: 'สอบ' }
+          ]}
+        />
       </div>
 
       {tab === 'summary' && (

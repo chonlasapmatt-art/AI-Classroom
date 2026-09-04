@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type CSSProperties, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses } from '../../data/selectors';
@@ -146,7 +146,7 @@ export function SubjectsPage() {
             const color = subjectColor(subject.colorIndex);
             return (
               <article key={subject.id} className="subject-card" style={{ borderColor: color.solid }}>
-                <div className="subject-card-head" style={{ background: color.soft, color: color.solid }}>
+                <div className="subject-card-head subject-tint" style={{ '--subject-color': color.solid } as CSSProperties}>
                   <span className="subject-card-icon"><SubjectIcon iconKey={subject.iconKey} size={22} /></span>
                   <div>
                     <strong>{subject.name}</strong>

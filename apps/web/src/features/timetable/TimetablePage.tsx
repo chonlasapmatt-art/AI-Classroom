@@ -177,7 +177,13 @@ export function TimetablePage() {
                     const teacher = entry ? snapshot.teachers.find((row) => row.id === entry.teacherId) : undefined;
                     const content = entry ? (
                       <>
-                        <div className="slot-topline"><span className="slot-period-label">คาบ {period}</span><span className="slot-status">มีเรียน</span></div>
+                        {/* The dot is the visual; the word inside it is for a reader who cannot see
+                            a dot. It was being clipped rather than hidden, so it was real text
+                            painted at the size of a full stop in whatever colour it inherited. */}
+                        <div className="slot-topline">
+                          <span className="slot-period-label">คาบ {period}</span>
+                          <span className="slot-status"><span>มีเรียน</span></span>
+                        </div>
                         <strong>{subject?.name ?? 'ไม่ระบุวิชา'}</strong>
                         <span>{teacher?.displayName ?? 'ยังไม่กำหนดครู'}</span>
                         {entry.room && <span>{entry.room}</span>}

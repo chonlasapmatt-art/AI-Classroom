@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type CSSProperties } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { subjectById } from '../../data/selectors';
@@ -85,8 +85,11 @@ export function NotificationCenterPage() {
                       className={`notification-card ${entry.notification.readAt ? '' : 'unread'}`.trim()}
                     >
                       <div className="notification-body">
-                        <div className="notification-icon" style={color ? { background: color.soft, color: color.solid } : undefined}>
-                          {subject ? <SubjectIcon iconKey={subject.iconKey} size={20} /> : <span aria-hidden="true">🔔</span>}
+                        <div
+                          className={`notification-icon ${color ? 'subject-tint' : ''}`.trim()}
+                          style={color ? ({ '--subject-color': color.solid } as CSSProperties) : undefined}
+                        >
+                          {subject ? <SubjectIcon iconKey={subject.iconKey} size={20} /> : <Icon name="bell" size={20} />}
                         </div>
                         <div>
                           <div className="notification-title">

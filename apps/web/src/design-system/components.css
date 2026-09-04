@@ -27,8 +27,8 @@
 .ui-size-sm { min-height: var(--control-sm); padding: 0 var(--space-3); font-size: var(--text-xs); }
 .ui-size-lg { min-height: var(--control-lg); padding: 0 var(--space-5); font-size: var(--text-base); }
 
-.ui-button-primary { color: #fff; background: var(--brand-600); box-shadow: var(--shadow-xs); }
-.ui-button-primary:hover:not(:disabled) { background: var(--brand-700); box-shadow: 0 4px 14px color-mix(in srgb, var(--brand-600) 28%, transparent); }
+.ui-button-primary { color: #fff; background: var(--brand-solid); box-shadow: var(--shadow-xs); }
+.ui-button-primary:hover:not(:disabled) { background: var(--brand-solid-strong); box-shadow: 0 4px 14px color-mix(in srgb, var(--brand-solid) 28%, transparent); }
 .ui-button-secondary { color: var(--brand-700); background: var(--brand-50); border-color: var(--brand-100); }
 .ui-button-secondary:hover:not(:disabled) { background: var(--brand-100); border-color: var(--brand-200); }
 .ui-button-ghost { color: var(--ink-600); background: transparent; }
@@ -82,7 +82,7 @@
 .ui-badge-success { color: var(--success); background: var(--success-soft); }
 .ui-badge-warning { color: var(--warning); background: var(--warning-soft); }
 .ui-badge-danger { color: var(--danger); background: var(--danger-soft); }
-.ui-badge-solid.ui-badge-brand { color: #fff; background: var(--brand-600); }
+.ui-badge-solid.ui-badge-brand { color: #fff; background: var(--brand-solid); }
 .ui-badge-solid.ui-badge-success { color: #fff; background: var(--success); }
 
 /* ---------- Stats ---------- */

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses, activeSubjects, classIdOfStudent, rosterFor, subjectById } from '../../data/selectors';
@@ -214,7 +214,7 @@ export function AssignmentsPage() {
                 <div className="work-card-head">
                   <div className="work-card-title">
                     {subject && color && (
-                      <span className="subject-tag" style={{ background: color.soft, color: color.solid }}>
+                      <span className="subject-tag subject-tint" style={{ '--subject-color': color.solid } as CSSProperties}>
                         <SubjectIcon iconKey={subject.iconKey} size={14} />{subject.name}
                       </span>
                     )}
