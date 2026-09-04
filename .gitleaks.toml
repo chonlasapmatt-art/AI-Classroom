@@ -1,0 +1,39 @@
+# What the secret scan is allowed to ignore, and why.
+#
+# The scan is the one check standing between a leaked key and a public repository, so it has to be
+# a check people read. Four findings in this tree are not secrets, and left unexplained they would
+# have made every run red — and a check that is always red is a check nobody looks at, which is
+# strictly worse than not having one.
+#
+# Nothing here is broad. Each entry names the file it applies to and the exact line shape it allows,
+# so a real key landing anywhere near them is still caught.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+Character alphabets used to generate codes and passwords. These are the set of characters allowed in
+a generated value, not a value: 'ABCDEFGHJKLMNPQRSTWXYZ23456789' is every unambiguous letter and
+digit once each, which is exactly the shape — long, no repeats, mixed case and digits — that entropy
+scoring is built to flag. The values they generate are never written to this repository.
+"""
+regexTarget = "line"
+paths = [
+  '''supabase/functions/_shared/productKey\.ts''',
+  '''supabase/functions/teacher-account/index\.ts''',
+  '''supabase/functions/platform-access/index\.ts''',
+  '''supabase/functions/platform-bootstrap/index\.ts''',
+  '''scripts/new-access-code\.ps1'''
+]
+regexes = ['''(?i)(KEY|PASSWORD|CODE)_ALPHABET\s*=\s*.?['"][A-Za-z0-9]{20,80}['"]''']
+
+[[allowlists]]
+description = """
+The placeholder connection values the end-to-end build runs against. The student suite asserts what
+an unconfigured deployment shows, so the build is given a URL and a key that deliberately point
+nowhere; a real project reference or key here would be the bug, not the string that is there.
+"""
+regexTarget = "line"
+paths = ['''apps/web/playwright(\.student)?\.config\.ts''']
+regexes = ['''e2e-placeholder''']
