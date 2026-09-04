@@ -153,6 +153,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshMemberships = useCallback(async () => { await loadMemberships(session); }, [loadMemberships, session]);
   const selectMembership = useCallback((id: string) => { setActiveId(id); remember('active-membership', id); }, []);
   const active = memberships.find((item) => item.membershipId === activeId) ?? memberships[0] ?? null;
+  // The name of the school this device belongs to, kept for the sign-in screen. It is a label and
+  // nothing else: no id, no role, no token, and it grants nothing on its own — but a teacher who
+  // opens the app on a shared tablet can tell at a glance whether it is pointed at their school.
+  useEffect(() => {
+    if (active?.schoolName) remember('last-school-name', active.schoolName);
+  }, [active?.schoolName]);
   const value = useMemo(() => ({
     loading, session, memberships, active, error,
     applySession, applyStudentSession, requestPasswordReset, updatePassword, signOut, refreshMemberships,

@@ -20,7 +20,16 @@ export function OperationsPage() {
   const cloudDisabled = mode === 'preview';
 
   useEffect(() => {
-    void Promise.all([navigator.storage.estimate(), navigator.storage.persisted(), navigator.storage.persist?.() ?? Promise.resolve(false)])
+    // Not every browser has the Storage API — an older WebView and the test environment both lack
+    // it — and reading it unguarded threw before the page rendered anything, so the whole screen
+    // went blank over a number that is only ever shown as a hint.
+    const storageApi = typeof navigator === 'undefined' ? undefined : navigator.storage;
+    if (!storageApi?.estimate) { setStorage(null); return; }
+    void Promise.all([
+      storageApi.estimate(),
+      storageApi.persisted?.() ?? Promise.resolve(false),
+      storageApi.persist?.() ?? Promise.resolve(false)
+    ])
       .then(([estimate, persisted, requested]) => setStorage({ usage: estimate.usage ?? 0, quota: estimate.quota ?? 0, persisted: persisted || requested }))
       .catch(() => setStorage(null));
   }, []);
@@ -80,6 +89,55 @@ export function OperationsPage() {
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'สำรองข้อมูลไม่สำเร็จ');
     }
+  }
+
+  /*
+   * A teacher gets the answer, not the controls.
+   *
+   * "Is my attendance actually on the server?" is a teacher's question as much as an admin's, and
+   * sending them to find an admin to ask it is how a school ends up re-entering a register. So the
+   * status, the queue depth and a manual sync are open to them. Creating and restoring a backup is
+   * not: a restore rewrites the whole school's local database, and that is an admin's decision.
+   */
+  if (membership.role === 'teacher') {
+    return (
+      <>
+        <section className="page-heading">
+          <div>
+            <span className="eyebrow">สถานะข้อมูลของคุณ</span>
+            <h1>Sync</h1>
+            <p>ดูว่าข้อมูลที่บันทึกไว้ถึงเซิร์ฟเวอร์แล้วหรือยัง และสั่งซิงก์ได้เอง</p>
+          </div>
+        </section>
+
+        <section className="metric-grid">
+          <article className="metric-card violet"><span>รอซิงก์</span><strong>{snapshot.pendingSync}</strong><small>บันทึกไว้ในเครื่องแล้ว</small></article>
+          <article className="metric-card amber"><span>ต้องตรวจสอบ</span><strong>{snapshot.blockedSync}</strong><small>แจ้งแอดมินหากค้างนาน</small></article>
+          <article className="metric-card teal">
+            <span>สถานะ</span>
+            <strong className="metric-word">{syncStatus?.label ?? 'พร้อมใช้งาน'}</strong>
+            <small>{syncStatus?.lastSyncedAt ? `ล่าสุด ${new Date(syncStatus.lastSyncedAt).toLocaleString('th-TH')}` : 'ยังไม่เคยซิงก์จากเครื่องนี้'}</small>
+          </article>
+        </section>
+
+        <Card>
+          <div className="panel-heading">
+            <div><h2>ซิงก์ข้อมูลตอนนี้</h2><p>งานที่บันทึกตอนออฟไลน์จะถูกส่งตามลำดับเดิม และไม่มีอะไรถูกเขียนทับ</p></div>
+            <Badge tone={syncStatus?.phase === 'synced' ? 'success' : syncStatus?.phase === 'error' ? 'danger' : syncStatus?.phase === 'offline' ? 'warning' : 'info'}>
+              {syncStatus?.label ?? 'พร้อมใช้งาน'}
+            </Badge>
+          </div>
+          {syncStatus?.detail && <p className="sync-detail">{syncStatus.detail}</p>}
+          <button className="primary-button" onClick={() => void sync()} disabled={cloudDisabled || busy}>
+            {cloudDisabled ? 'ปิดใช้งานในโหมด Preview' : busy ? 'กำลังซิงก์...' : 'Sync Now'}
+          </button>
+          <p className="field-hint">
+            การสร้างและกู้คืนไฟล์สำรองเป็นสิทธิ์ของแอดมินโรงเรียน เพราะการกู้คืนเขียนทับฐานข้อมูลในเครื่องทั้งโรงเรียน
+          </p>
+        </Card>
+        {message && <div className="toast" role="status" onClick={() => setMessage('')}>{message}</div>}
+      </>
+    );
   }
 
   if (membership.role !== 'admin') {

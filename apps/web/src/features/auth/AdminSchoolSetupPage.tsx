@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import {
   activateSchool, isCompleteSchoolIdentity, issueProductKey, SchoolSetupError, type ProductKey
@@ -19,10 +19,18 @@ import {
  * Step 3 asking for the key again is what makes step 2 real. A customer who skipped past the key
  * without saving it is stopped here, while drawing another is still one click away — rather than in
  * six months when the key is the only thing that can reactivate their server.
+ *
+ * The same screen adds the second school and the third. An administrator who already runs one campus
+ * reaches it from the school settings, activates the next one under a key of its own, and lands
+ * inside it — the account keeps both, and the shell switches between them.
  */
-export function AdminSchoolSetupPage() {
+export function AdminSchoolSetupPage({ mode = 'first-run' }: { mode?: 'first-run' | 'additional' }) {
   const auth = useAuth();
-  const initialName = String(auth.session?.user.user_metadata.display_name ?? '').trim();
+  const navigate = useNavigate();
+  const additional = mode === 'additional';
+  const initialName = String(
+    auth.active?.displayName ?? auth.session?.user.user_metadata.display_name ?? ''
+  ).trim();
   const [step, setStep] = useState(1);
   const [displayName, setDisplayName] = useState(initialName);
   const [schoolName, setSchoolName] = useState('');
@@ -35,6 +43,7 @@ export function AdminSchoolSetupPage() {
   const [accessCode, setAccessCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [createdSchoolId, setCreatedSchoolId] = useState<string | null>(null);
 
   const draw = useCallback(async () => {
     setDrawing(true); setError(null); setCopied(false);
@@ -86,14 +95,30 @@ export function AdminSchoolSetupPage() {
     }
     setBusy(true); setError(null);
     try {
-      await activateSchool({ displayName, schoolName, schoolCode, academicYear, term, accessCode });
+      const schoolId = await activateSchool({ displayName, schoolName, schoolCode, academicYear, term, accessCode });
+      setCreatedSchoolId(schoolId);
       await auth.refreshMemberships();
     } catch (reason) {
       setError(reason instanceof SchoolSetupError ? reason.message : 'ตั้งค่าโรงเรียนไม่สำเร็จ');
     } finally { setBusy(false); }
   }
 
-  if (auth.active) return <Navigate to="/" replace />;
+  // A first-run account lands in its new school on its own: the membership arrives and the shell
+  // replaces this screen. An administrator who already had a school is still standing in the old
+  // one, so the new membership has to be chosen for them — otherwise activation looks like nothing
+  // happened.
+  useEffect(() => {
+    if (!createdSchoolId) return;
+    const created = auth.memberships.find((item) => item.schoolId === createdSchoolId);
+    if (!created) return;
+    auth.selectMembership(created.membershipId);
+    navigate('/', { replace: true });
+  }, [auth, createdSchoolId, navigate]);
+
+  if (auth.active && !additional) return <Navigate to="/" replace />;
+  // Only an administrator adds a school. The gateway refuses anybody else with `ADMIN_ROLE_REQUIRED`;
+  // this keeps a teacher or a parent from reaching a screen that would only refuse them.
+  if (additional && auth.active && auth.active.role !== 'admin') return <Navigate to="/" replace />;
 
   const steps = [
     { number: 1, title: 'ผู้ดูแลและโรงเรียน', description: 'ชื่อผู้ดูแลคนแรกและข้อมูลโรงเรียน' },
@@ -106,9 +131,16 @@ export function AdminSchoolSetupPage() {
       <section className="admin-setup-card">
         <div className="admin-setup-intro">
           <div className="brand-mark" aria-hidden="true">SC</div>
-          <span className="eyebrow">WELCOME TO YOUR SCHOOL SERVER</span>
-          <h1>ตั้งค่าโรงเรียนของคุณ</h1>
-          <p>ตั้งค่าครั้งเดียว แล้วคุณจะเป็นผู้ดูแลระบบของโรงเรียนนี้เต็มรูปแบบ ข้อมูลจะถูกผูกกับเซิร์ฟของคุณ</p>
+          <span className="eyebrow">{additional ? 'ADD ANOTHER SCHOOL' : 'WELCOME TO YOUR SCHOOL SERVER'}</span>
+          <h1>{additional ? 'สร้างโรงเรียนใหม่' : 'ตั้งค่าโรงเรียนของคุณ'}</h1>
+          <p>
+            {additional
+              ? 'โรงเรียนใหม่ใช้คีย์ผลิตภัณฑ์ของตัวเองคนละใบ ข้อมูลแยกจากโรงเรียนเดิมทั้งหมด และคุณสลับไปมาได้จากแถบบน'
+              : 'ตั้งค่าครั้งเดียว แล้วคุณจะเป็นผู้ดูแลระบบของโรงเรียนนี้เต็มรูปแบบ ข้อมูลจะถูกผูกกับเซิร์ฟของคุณ'}
+          </p>
+          {additional && auth.active && (
+            <Link className="text-button" to="/">ย้อนกลับไป {auth.active.schoolName}</Link>
+          )}
         </div>
         <ol className="admin-setup-steps" aria-label="ขั้นตอนการตั้งค่าโรงเรียน">
           {steps.map((item) => <li key={item.number} className={step === item.number ? 'current' : step > item.number ? 'done' : ''}><span>{step > item.number ? '✓' : item.number}</span><div><strong>{item.title}</strong><small>{item.description}</small></div></li>)}
@@ -133,8 +165,9 @@ export function AdminSchoolSetupPage() {
             <span className="ui-eyebrow">STEP 02 · PRODUCT KEY</span>
             <h2>คีย์ผลิตภัณฑ์ของคุณ</h2>
             <p className="form-intro">
-              ระบบสุ่มคีย์นี้ให้เซิร์ฟของคุณโดยเฉพาะ หนึ่งบัญชีมีคีย์เดียวและสุ่มใหม่ไม่ได้
-              กรุณาคัดลอกเก็บไว้ในที่ปลอดภัย แล้วนำไปกรอกในขั้นถัดไปเพื่อเปิดใช้งาน
+              {additional
+                ? 'คีย์ใบนี้เป็นของโรงเรียนใหม่โดยเฉพาะ คีย์ของโรงเรียนเดิมไม่เปลี่ยนและยังใช้ได้ตามเดิม กรุณาคัดลอกเก็บไว้ แล้วนำไปกรอกในขั้นถัดไปเพื่อเปิดใช้งาน'
+                : 'ระบบสุ่มคีย์นี้ให้เซิร์ฟของคุณโดยเฉพาะ หนึ่งบัญชีมีคีย์เดียวและสุ่มใหม่ไม่ได้ กรุณาคัดลอกเก็บไว้ในที่ปลอดภัย แล้วนำไปกรอกในขั้นถัดไปเพื่อเปิดใช้งาน'}
             </p>
             <div className="access-code-display">
               <strong className="access-code-value">{drawing ? 'กำลังสุ่มคีย์...' : productKey?.productKey ?? '—'}</strong>
@@ -151,7 +184,11 @@ export function AdminSchoolSetupPage() {
               support call this screen exists to prevent. Losing it is recoverable a different way:
               the operator who sold the server can read this exact key back.
             */}
-            <p className="fine-print">คีย์นี้ผูกกับบัญชีของคุณถาวร · หากทำหาย ติดต่อผู้ดูแลระบบเพื่อขอดูคีย์เดิมได้</p>
+            <p className="fine-print">
+              {additional
+                ? 'คีย์จะผูกกับโรงเรียนใหม่เมื่อเปิดใช้งานสำเร็จ · หากทำหาย ติดต่อผู้ดูแลระบบเพื่อขอดูคีย์เดิมได้'
+                : 'คีย์นี้ผูกกับบัญชีของคุณถาวร · หากทำหาย ติดต่อผู้ดูแลระบบเพื่อขอดูคีย์เดิมได้'}
+            </p>
             {error && <div className="alert error" role="alert">{error}</div>}
             <div className="admin-setup-actions">
               <button type="button" className="text-button" onClick={() => { setError(null); setStep(1); }}>ย้อนกลับ</button>

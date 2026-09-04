@@ -15,7 +15,7 @@ import type { SessionValue, SupportView } from '../app/SessionContext';
 
 const roleLabels: Record<Role, string> = { admin: 'ผู้ดูแลระบบ', teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง' };
 
-interface NavItem { to: string; label: string; icon: IconName; roles: Role[] }
+interface NavItem { to: string; label: string; icon: IconName }
 interface NavGroup { key: string; label: string; items: NavItem[] }
 
 /** Sync state is shown as one calm pill; colour never carries the meaning on its own. */
@@ -23,42 +23,169 @@ const syncPillTone: Record<string, string> = {
   idle: 'online', syncing: 'syncing', synced: 'online', offline: 'offline', attention: 'attention', error: 'attention'
 };
 
-const navigationGroups: NavGroup[] = [
-  { key: 'overview', label: 'ภาพรวมและการสื่อสาร', items: [
-  { to: '/', label: 'ภาพรวม', icon: 'dashboard', roles: ['admin', 'teacher', 'student', 'parent'] },
-  { to: '/announcements', label: 'ประกาศรวม', icon: 'announcements', roles: ['admin', 'teacher', 'student', 'parent'] },
-  { to: '/calendar', label: 'ปฏิทิน', icon: 'calendar', roles: ['admin', 'teacher', 'student'] },
-  { to: '/timetable', label: 'ตารางสอน', icon: 'timetable', roles: ['admin', 'teacher', 'student', 'parent'] },
-  { to: '/notifications', label: 'การแจ้งเตือน', icon: 'bell', roles: ['student'] }] },
-  { key: 'school', label: 'จัดการโรงเรียน', items: [
-  { to: '/students', label: 'นักเรียน', icon: 'students', roles: ['admin', 'teacher', 'student'] },
-  { to: '/classes', label: 'ห้องเรียน', icon: 'classes', roles: ['admin', 'teacher'] },
-  { to: '/subjects', label: 'รายวิชา', icon: 'subjects', roles: ['admin', 'teacher'] },
-  { to: '/teachers', label: 'ครู', icon: 'teachers', roles: ['admin'] },
-  { to: '/parents', label: 'ผู้ปกครอง', icon: 'parents', roles: ['admin', 'teacher', 'parent'] },
-  { to: '/import', label: 'นำเข้ารายชื่อ', icon: 'import', roles: ['admin', 'teacher'] },
-  { to: '/promotion', label: 'ปีการศึกษา', icon: 'promotion', roles: ['admin', 'teacher'] }] },
-  { key: 'learning', label: 'การเรียนการสอน', items: [
-  { to: '/attendance', label: 'เช็กชื่อ / การเข้าเรียน', icon: 'attendance', roles: ['admin', 'teacher', 'parent'] },
-  { to: '/assignments', label: 'งานและกิจกรรม', icon: 'assignments', roles: ['admin', 'teacher', 'student'] },
-  { to: '/scores', label: 'คะแนนและเกรด', icon: 'scores', roles: ['admin', 'teacher', 'student'] },
-  { to: '/gradebook', label: 'สมุดเกรด', icon: 'gradebook', roles: ['admin', 'teacher', 'student'] },
-  { to: '/grade-editor', label: 'แก้ไขคะแนน', icon: 'grade-edit', roles: ['admin', 'teacher'] }] },
-  { key: 'assessment', label: 'ข้อสอบและการประเมิน', items: [
-  { to: '/question-bank', label: 'คลังข้อสอบ', icon: 'question-bank', roles: ['admin', 'teacher'] },
-  { to: '/quiz', label: 'Quiz Challenge', icon: 'quiz', roles: ['admin', 'teacher'] },
-  { to: '/exams', label: 'ข้อสอบ', icon: 'exams', roles: ['admin', 'teacher'] },
-  { to: '/sit-exam', label: 'สอบ', icon: 'sit-exam', roles: ['student'] }] },
-  { key: 'reports', label: 'ผลลัพธ์และระบบ', items: [
-  { to: '/leaderboard', label: 'Leaderboard', icon: 'leaderboard', roles: ['admin', 'teacher', 'student'] },
-  { to: '/achievements', label: 'เหรียญรางวัล', icon: 'achievements', roles: ['admin', 'teacher', 'student', 'parent'] },
-  { to: '/my-children', label: 'ลูกของฉัน', icon: 'children', roles: ['parent'] },
-  { to: '/reports', label: 'รายงาน', icon: 'reports', roles: ['admin', 'teacher'] },
-  { to: '/operations', label: 'Sync & Backup', icon: 'operations', roles: ['admin'] }] },
-  { key: 'account', label: 'บัญชีและเครื่องมือ', items: [
-  { to: '/settings', label: 'ตั้งค่า', icon: 'settings', roles: ['admin', 'teacher', 'student', 'parent'] },
-  { to: '/profile', label: 'โปรไฟล์ของฉัน', icon: 'profile', roles: ['admin', 'teacher', 'student', 'parent'] }] }
-];
+/**
+ * Every destination in the product, named once.
+ *
+ * A route appears here with the words a person would use for it, and the role menus below decide
+ * who sees it. Naming a screen twice is how one menu ends up calling it "คะแนน" and another
+ * "คะแนนและเกรด", which reads to a teacher as two different places.
+ */
+const destination = (to: string, label: string, icon: IconName): NavItem => ({ to, label, icon });
+
+/**
+ * The menu, written per role rather than filtered per role.
+ *
+ * Each role gets at most seven top-level sections, named for what that person came to do: a teacher
+ * opens "เช็กชื่อ", not "การเรียนการสอน", and a guardian opens "ลูกของฉัน", not "ผลลัพธ์และระบบ".
+ * One shared list filtered four ways produced section names that were true for the admin and vague
+ * for everybody else, which is the shape a menu takes when it is written from the database outwards
+ * instead of from the person inwards.
+ *
+ * Nothing became unreachable in the regrouping: every route a role could open before is still in
+ * that role's menu, under a heading that says why they would want it.
+ */
+const navigationByRole: Record<Role, NavGroup[]> = {
+  admin: [
+    { key: 'overview', label: 'ภาพรวม', items: [
+      destination('/', 'ภาพรวม', 'dashboard'),
+      destination('/announcements', 'ประกาศรวม', 'announcements'),
+      destination('/calendar', 'ปฏิทิน', 'calendar'),
+      destination('/timetable', 'ตารางสอน', 'timetable')
+    ] },
+    { key: 'people', label: 'นักเรียนและบุคลากร', items: [
+      destination('/students', 'นักเรียน', 'students'),
+      destination('/teachers', 'ครู', 'teachers'),
+      destination('/parents', 'ผู้ปกครอง', 'parents'),
+      destination('/import', 'นำเข้ารายชื่อ', 'import'),
+      destination('/promotion', 'ปีการศึกษา', 'promotion')
+    ] },
+    { key: 'structure', label: 'ห้องเรียนและรายวิชา', items: [
+      destination('/classes', 'ห้องเรียน', 'classes'),
+      destination('/subjects', 'รายวิชา', 'subjects'),
+      destination('/question-bank', 'คลังข้อสอบ', 'question-bank'),
+      destination('/exams', 'ข้อสอบ', 'exams')
+    ] },
+    { key: 'classroom', label: 'งาน คะแนน และการเข้าเรียน', items: [
+      destination('/attendance', 'เช็กชื่อ / การเข้าเรียน', 'attendance'),
+      destination('/classroom', 'กิจกรรมหน้าชั้น', 'star'),
+      destination('/quiz', 'Quiz Challenge', 'quiz'),
+      destination('/assignments', 'งานและกิจกรรม', 'assignments'),
+      destination('/scores', 'คะแนนและเกรด', 'scores'),
+      destination('/gradebook', 'สมุดเกรด', 'gradebook'),
+      destination('/grade-editor', 'แก้ไขคะแนน', 'grade-edit')
+    ] },
+    { key: 'reports', label: 'รายงาน', items: [
+      destination('/reports', 'รายงาน', 'reports'),
+      destination('/leaderboard', 'Leaderboard', 'leaderboard'),
+      destination('/achievements', 'เหรียญรางวัล', 'achievements')
+    ] },
+    { key: 'operations', label: 'Sync และ Backup', items: [
+      destination('/operations', 'Sync & Backup', 'operations')
+    ] },
+    { key: 'account', label: 'ตั้งค่า', items: [
+      destination('/settings', 'ตั้งค่า', 'settings'),
+      destination('/profile', 'โปรไฟล์ของฉัน', 'profile')
+    ] }
+  ],
+  teacher: [
+    { key: 'today', label: 'วันนี้', items: [
+      destination('/', 'ภาพรวม', 'dashboard'),
+      destination('/announcements', 'ประกาศรวม', 'announcements'),
+      destination('/calendar', 'ปฏิทิน', 'calendar'),
+      destination('/timetable', 'ตารางสอน', 'timetable')
+    ] },
+    { key: 'attendance', label: 'เช็กชื่อ', items: [
+      destination('/attendance', 'เช็กชื่อ / การเข้าเรียน', 'attendance')
+    ] },
+    { key: 'activities', label: 'กิจกรรม', items: [
+      destination('/classroom', 'กิจกรรมหน้าชั้น', 'star'),
+      destination('/quiz', 'Quiz Challenge', 'quiz'),
+      destination('/question-bank', 'คลังข้อสอบ', 'question-bank'),
+      destination('/exams', 'ข้อสอบ', 'exams')
+    ] },
+    { key: 'work', label: 'งานและคะแนน', items: [
+      destination('/assignments', 'งานและกิจกรรม', 'assignments'),
+      destination('/scores', 'คะแนนและเกรด', 'scores'),
+      destination('/gradebook', 'สมุดเกรด', 'gradebook'),
+      destination('/grade-editor', 'แก้ไขคะแนน', 'grade-edit')
+    ] },
+    { key: 'people', label: 'นักเรียน', items: [
+      destination('/students', 'นักเรียน', 'students'),
+      destination('/classes', 'ห้องเรียน', 'classes'),
+      destination('/subjects', 'รายวิชา', 'subjects'),
+      destination('/parents', 'ผู้ปกครอง', 'parents'),
+      destination('/import', 'นำเข้ารายชื่อ', 'import'),
+      destination('/promotion', 'ปีการศึกษา', 'promotion')
+    ] },
+    { key: 'reports', label: 'รายงาน', items: [
+      destination('/reports', 'รายงาน', 'reports'),
+      destination('/leaderboard', 'Leaderboard', 'leaderboard'),
+      destination('/achievements', 'เหรียญรางวัล', 'achievements')
+    ] },
+    { key: 'operations', label: 'Sync', items: [
+      destination('/operations', 'สถานะ Sync', 'operations')
+    ] },
+    { key: 'account', label: 'โปรไฟล์', items: [
+      destination('/settings', 'ตั้งค่า', 'settings'),
+      destination('/profile', 'โปรไฟล์ของฉัน', 'profile')
+    ] }
+  ],
+  student: [
+    { key: 'today', label: 'วันนี้', items: [
+      destination('/', 'ภาพรวม', 'dashboard'),
+      destination('/announcements', 'ประกาศรวม', 'announcements'),
+      destination('/notifications', 'การแจ้งเตือน', 'bell'),
+      destination('/calendar', 'ปฏิทิน', 'calendar')
+    ] },
+    { key: 'work', label: 'งานของฉัน', items: [
+      destination('/assignments', 'งานและกิจกรรม', 'assignments'),
+      destination('/sit-exam', 'สอบ', 'sit-exam')
+    ] },
+    { key: 'activities', label: 'กิจกรรม', items: [
+      destination('/leaderboard', 'Leaderboard', 'leaderboard'),
+      destination('/achievements', 'เหรียญรางวัล', 'achievements')
+    ] },
+    { key: 'scores', label: 'คะแนน', items: [
+      destination('/scores', 'คะแนนและเกรด', 'scores'),
+      destination('/gradebook', 'สมุดเกรด', 'gradebook'),
+      destination('/reports', 'รายงานของฉัน', 'reports')
+    ] },
+    { key: 'timetable', label: 'ตารางเรียน', items: [
+      destination('/timetable', 'ตารางสอน', 'timetable')
+    ] },
+    { key: 'classmates', label: 'เพื่อนร่วมชั้น', items: [
+      destination('/students', 'นักเรียน', 'students')
+    ] },
+    { key: 'account', label: 'โปรไฟล์', items: [
+      destination('/profile', 'โปรไฟล์ของฉัน', 'profile'),
+      destination('/settings', 'ตั้งค่า', 'settings')
+    ] }
+  ],
+  parent: [
+    { key: 'children', label: 'ลูกของฉัน', items: [
+      destination('/', 'ภาพรวม', 'dashboard'),
+      destination('/my-children', 'ลูกของฉัน', 'children')
+    ] },
+    { key: 'attendance', label: 'การเข้าเรียน', items: [
+      destination('/attendance', 'เช็กชื่อ / การเข้าเรียน', 'attendance')
+    ] },
+    { key: 'work', label: 'งานและคะแนน', items: [
+      destination('/reports', 'รายงานของลูก', 'reports'),
+      destination('/achievements', 'เหรียญรางวัล', 'achievements')
+    ] },
+    { key: 'timetable', label: 'ตารางเรียน', items: [
+      destination('/timetable', 'ตารางสอน', 'timetable')
+    ] },
+    { key: 'news', label: 'ประกาศ', items: [
+      destination('/announcements', 'ประกาศรวม', 'announcements')
+    ] },
+    { key: 'account', label: 'โปรไฟล์', items: [
+      destination('/parents', 'ผู้ปกครอง', 'parents'),
+      destination('/profile', 'โปรไฟล์ของฉัน', 'profile'),
+      destination('/settings', 'ตั้งค่า', 'settings')
+    ] }
+  ]
+};
 
 const sidebarStorageKey = (role: Role) => `smart-classroom.sidebar-groups.${role}`;
 const avatarStorageKey = (profileId: string) => `smart-classroom.avatar.${profileId}`;
@@ -152,23 +279,33 @@ export function AppShell({ children }: { children: ReactNode }) {
   const sync = useSyncStatus();
   const [open, setOpen] = useState(false);
   const { membership } = session;
+  // Two memberships of the same school are two roles; two schools are two servers. The switcher says
+  // whichever of those it actually is, because "ผู้ดูแลระบบ · ครูสมชาย" twice over names neither.
+  const manySchools = new Set(session.memberships.map((item) => item.schoolId)).size > 1;
   const ownStudent = snapshot.students.find((item) => item.profileId === membership.profileId);
   const ownTeacher = snapshot.teachers.find((item) => item.profileId === membership.profileId);
   const ownParentLink = snapshot.parentLinks.find((item) => item.profileId === membership.profileId || item.lineUserId === membership.profileId);
   const unread = ownStudent ? unreadCount(snapshot, ownStudent.id) : 0;
   const visibleGroups = useMemo(() => {
-    const groups: NavGroup[] = navigationGroups.map((group) => ({
-      ...group, items: group.items.filter((item) => item.roles.includes(membership.role))
-    }));
+    const groups: NavGroup[] = navigationByRole[membership.role].map((group) => ({ ...group }));
     if (isPreviewModeAvailable && session.mode === 'preview') {
       groups.push({
         key: 'preview', label: 'ชุดเดโม Preview',
-        items: [{ to: '/preview-demo', label: 'คู่มือทดสอบระบบ', icon: 'preview-demo', roles: ['admin', 'teacher', 'student', 'parent'] }]
+        items: [destination('/preview-demo', 'คู่มือทดสอบระบบ', 'preview-demo')]
       });
     }
     return groups.filter((group) => group.items.length > 0);
   }, [membership.role, session.mode]);
   const [expandedGroups, setExpandedGroups] = useState(() => readExpandedGroups(membership.role, visibleGroups, location.pathname));
+  const [menuQuery, setMenuQuery] = useState('');
+  // Matching the section name as well as the entry answers "where did they put the timetable?" —
+  // somebody searching "คะแนน" wants everything filed under it, not only the screen with that name.
+  const menuMatches = useMemo(() => {
+    const needle = menuQuery.trim().toLowerCase();
+    if (!needle) return [];
+    return visibleGroups.flatMap((group) => group.items
+      .filter((item) => `${item.label} ${group.label} ${item.to}`.toLowerCase().includes(needle)));
+  }, [menuQuery, visibleGroups]);
   const [ownAvatarId, setOwnAvatarId] = useState(() => recall(avatarStorageKey(membership.profileId)));
   const ownAvatarPhotoId = ownStudent?.avatarPhotoId ?? ownTeacher?.avatarPhotoId ?? ownParentLink?.avatarPhotoId ?? null;
   const visibleAvatarId = ownStudent?.avatarId ?? ownTeacher?.avatarId ?? ownParentLink?.avatarId ?? ownAvatarId;
@@ -269,7 +406,33 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div><strong>Smart Classroom</strong><span>{membership.schoolName}</span></div>
         </div>
         <nav aria-label="เมนูหลัก">
-          {visibleGroups.map((group) => (
+          {/* A menu of seven sections is still seven sections to open when somebody knows the name of
+              what they want. Typing it is the shortest path, and the search collapses the whole menu
+              into the matches rather than adding a second place to look. */}
+          <label className="sidebar-search">
+            <Icon name="search" size={16} />
+            <input
+              type="search" value={menuQuery} onChange={(event) => setMenuQuery(event.target.value)}
+              placeholder="ค้นหาเมนู" aria-label="ค้นหาเมนู"
+            />
+          </label>
+          {menuQuery.trim() ? (
+            <section className="sidebar-section">
+              <div className="sidebar-section-items">
+                {menuMatches.length === 0
+                  ? <p className="sidebar-empty">ไม่พบเมนูที่ตรงกับ "{menuQuery.trim()}"</p>
+                  : menuMatches.map((item) => (
+                    <NavLink
+                      key={item.to} to={item.to} end={item.to === '/'} title={item.label}
+                      onClick={() => { setOpen(false); setMenuQuery(''); }}
+                    >
+                      <Icon name={item.icon} size={18} />
+                      {item.label}
+                    </NavLink>
+                  ))}
+              </div>
+            </section>
+          ) : visibleGroups.map((group) => (
             <section className="sidebar-section" key={group.key}>
               <button
                 type="button"
@@ -281,7 +444,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
               {expandedGroups[group.key] && <div className="sidebar-section-items">
                 {group.items.map((item) => (
-                  <NavLink key={item.to} to={item.to} end={item.to === '/'} onClick={() => setOpen(false)}>
+                  <NavLink
+                    key={item.to} to={item.to} end={item.to === '/'} title={item.label}
+                    onClick={() => setOpen(false)}
+                  >
                     <Icon name={item.icon} size={18} />
                     {item.label}
                     {item.to === '/notifications' && unread > 0 && <span className="nav-badge">{unread}</span>}
@@ -343,15 +509,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="role-switch">
             {session.support ? <SupportRoleSwitcher session={session} snapshot={snapshot} /> : session.memberships.length > 1 && (
               <label className="role-switch-label">
-                {session.mode === 'preview' ? 'สลับบทบาท (Preview)' : 'บทบาท'}
+                {session.mode === 'preview' ? 'สลับบทบาท (Preview)' : manySchools ? 'โรงเรียน' : 'บทบาท'}
                 <select
-                  aria-label="เลือกบทบาท"
+                  aria-label={manySchools ? 'เลือกโรงเรียน' : 'เลือกบทบาท'}
                   value={membership.membershipId}
                   onChange={(event) => session.selectMembership(event.target.value)}
                 >
                   {session.memberships.map((item) => (
                     <option key={item.membershipId} value={item.membershipId}>
-                      {roleLabels[item.role]} · {item.displayName}
+                      {manySchools
+                        ? `${item.schoolName} · ${roleLabels[item.role]}`
+                        : `${roleLabels[item.role]} · ${item.displayName}`}
                     </option>
                   ))}
                 </select>

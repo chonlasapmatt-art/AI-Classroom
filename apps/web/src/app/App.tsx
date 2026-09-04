@@ -13,6 +13,7 @@ import { OwnerAccessPage } from '../features/auth/OwnerAccessPage';
 import { AppShell } from '../layouts/AppShell';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
+import { ClassroomLivePage } from '../features/classroom/ClassroomLivePage';
 import { StudentsPage } from '../features/students/StudentsPage';
 import { StudentDetailPage } from '../features/students/StudentDetailPage';
 import { ClassesPage } from '../features/classes/ClassesPage';
@@ -71,6 +72,7 @@ function AppRoutes() {
         <Route path="import" element={<ImportPage />} />
         <Route path="teachers" element={<TeachersPage />} />
         <Route path="attendance" element={<AttendancePage />} />
+        <Route path="classroom" element={<ClassroomLivePage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="scores" element={<ScoresPage />} />
         <Route path="leaderboard" element={<LeaderboardPage />} />
@@ -136,12 +138,20 @@ function CloudRoutes() {
     return <AwaitingMembershipPage />;
   }
 
+  // Activating the next school is an act of the account, not of the school the administrator happens
+  // to be standing in, so the wizard renders outside the shell — with no sidebar, no sync pill and no
+  // repository pointed at the old campus.
   return (
-    <SessionProvider value={session}>
-      <RepositoryProvider repository={repository}>
-        <SyncedShell schoolId={schoolId} />
-      </RepositoryProvider>
-    </SessionProvider>
+    <Routes>
+      <Route path="/schools/new" element={<AdminSchoolSetupPage mode="additional" />} />
+      <Route path="/*" element={(
+        <SessionProvider value={session}>
+          <RepositoryProvider repository={repository}>
+            <SyncedShell schoolId={schoolId} />
+          </RepositoryProvider>
+        </SessionProvider>
+      )} />
+    </Routes>
   );
 }
 

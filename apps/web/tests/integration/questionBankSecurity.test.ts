@@ -73,8 +73,10 @@ describe('the question bank screen', () => {
   });
 
   it('is offered to staff only, and says why when somebody else opens it', () => {
-    expect(shell).toContain("{ to: '/question-bank'");
-    expect(shell).toMatch(/question-bank'[^\]]*roles: \['admin', 'teacher'\]/);
+    // The menu is written per role now, so "who sees the bank" is how many role menus name it:
+    // the admin's and the teacher's, and no others.
+    expect(shell).toContain("destination('/question-bank', 'คลังข้อสอบ', 'question-bank')");
+    expect(shell.split("'/question-bank'").length - 1).toBe(2);
     expect(page).toContain('หน้านี้สำหรับครูและผู้ดูแลโรงเรียน');
   });
 

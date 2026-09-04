@@ -27,7 +27,9 @@ function setupFailureCode(error: { code?: string; message?: string }): string {
   const code = String(error.code ?? '').toUpperCase();
   const message = String(error.message ?? '').toUpperCase();
   if (code === '23505' || message.includes('SCHOOL_CODE') || message.includes('SCHOOLS_CODE')) return 'SCHOOL_CODE_EXISTS';
+  if (message.includes('ADMIN_ROLE_REQUIRED')) return 'ADMIN_ROLE_REQUIRED';
   if (message.includes('ALREADY_HAS_MEMBERSHIP')) return 'ALREADY_HAS_MEMBERSHIP';
+  if (message.includes('IDENTITY_NOT_FOUND')) return 'IDENTITY_NOT_FOUND';
   if (message.includes('AUTH_REQUIRED')) return 'AUTH_REQUIRED';
   if (message.includes('VALIDATION_ERROR')) return 'VALIDATION_ERROR';
   return 'SETUP_REJECTED';
@@ -90,6 +92,9 @@ Deno.serve(async (request) => {
       });
       if (issueError) {
         const message = String(issueError.message ?? '');
+        // A member who administers nothing is not a customer activating a server; they are a student
+        // or a parent who reached this screen, and the refusal has to say which of the two it is.
+        if (message.includes('ADMIN_ROLE_REQUIRED')) return json({ code: 'ADMIN_ROLE_REQUIRED' }, 403, headers);
         if (message.includes('ALREADY_HAS_MEMBERSHIP')) return json({ code: 'ALREADY_HAS_MEMBERSHIP' }, 409, headers);
         return json({ code: 'PRODUCT_KEY_FAILED' }, 400, headers);
       }
@@ -161,6 +166,7 @@ Deno.serve(async (request) => {
     });
     if (setupError) {
       const failureCode = setupFailureCode(setupError);
+      const refusedStatus = failureCode === 'AUTH_REQUIRED' ? 401 : failureCode === 'ADMIN_ROLE_REQUIRED' ? 403 : 400;
       await service.from('admin_access_attempts').insert({
         actor_profile_id: actorId, fingerprint_hash: fingerprintHash, succeeded: false,
         failure_reason: failureCode
@@ -170,8 +176,7 @@ Deno.serve(async (request) => {
       // own words go with it: the person reading them is activating their own server, and the
       // alternative is a message that describes the wrong step.
       const reason = failureCode === 'SETUP_REJECTED' ? String(setupError.message ?? '').slice(0, 200) : '';
-      return json({ code: failureCode, ...(reason ? { reason } : {}) },
-        failureCode === 'AUTH_REQUIRED' ? 401 : 400, headers);
+      return json({ code: failureCode, ...(reason ? { reason } : {}) }, refusedStatus, headers);
     }
 
     // Spent only now. A key spent before the school existed would be gone for good the first time a

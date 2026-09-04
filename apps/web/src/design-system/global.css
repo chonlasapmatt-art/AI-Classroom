@@ -380,6 +380,17 @@ input[type="file"] { min-height:auto; padding:.45rem; }
 .page-content > *:nth-child(5) { animation-delay:180ms; }
 @keyframes page-enter { from { opacity:0; transform:translateY(12px); filter:blur(2px); } to { opacity:1; transform:none; filter:blur(0); } }
 
+/* Typing the name of a screen beats opening seven sections to find it. The field sits at the top
+   of the drawer so it is the first thing a thumb reaches on a phone. */
+.sidebar-search { display:flex; align-items:center; gap:.5rem; margin:0 0 .6rem; padding:0 .6rem;
+  border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface-sunken);
+  color:var(--ink-500); }
+.sidebar-search input { flex:1; min-height:44px; border:0; background:transparent; color:var(--ink-800);
+  font-size:.85rem; }
+.sidebar-search input:focus { outline:none; }
+.sidebar-search:focus-within { border-color:var(--brand-400); box-shadow:var(--focus-ring); }
+.sidebar-empty { margin:0; padding:.6rem; color:var(--ink-500); font-size:.8rem; }
+
 .sidebar-section-toggle {
   width:100%; display:flex; align-items:center; justify-content:space-between;
   padding:.55rem .6rem; border:0; background:transparent; color:var(--ink-400);

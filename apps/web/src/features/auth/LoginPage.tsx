@@ -6,9 +6,10 @@
 // name and a student number. Nobody self-registers
 // as a teacher or student; those accounts are prepared by the school.
 
-import { useState, type FormEvent, type PointerEvent } from 'react';
+import { useEffect, useState, type FormEvent, type PointerEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
+import { recall } from '../../app/deviceMemory';
 import { useTheme } from '../../app/ThemeContext';
 import { themeModes, themePresets, type ThemeMode, type ThemePreset } from '../../app/theme';
 import { enablePreviewMode, isPreviewModeAvailable } from '../../preview/previewMode';
@@ -36,6 +37,19 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAppearance, setShowAppearance] = useState(false);
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+  const lastSchool = recall('last-school-name');
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+
   if (auth.session) return <Navigate to="/" replace />;
 
   function choose(next: Who) {
@@ -199,9 +213,22 @@ export function LoginPage() {
               </button>
             ))}
           </div>
+          {/* What this device is pointed at, before anybody types anything. On a shared tablet the
+              school name is the difference between signing in and wondering why the roster is
+              somebody else's; the connection state is why a correct password can still be refused. */}
+          <div className="login-status" role="status">
+            <span className={`sync-pill ${online ? 'online' : 'offline'}`}>
+              <span />{online ? 'ออนไลน์' : 'ออฟไลน์ — เข้าสู่ระบบครั้งแรกต้องออนไลน์'}
+            </span>
+            {lastSchool && <span className="login-school">โรงเรียนล่าสุดบนเครื่องนี้ · {lastSchool}</span>}
+          </div>
           <p className="fine-print">บัญชีทั้งหมดสร้างและกำหนดรหัสผ่านโดยแอดมินโรงเรียน</p>
           <p className="fine-print">การเข้าใช้งานครั้งแรกต้องเชื่อมต่ออินเทอร์เน็ต</p>
           <Link className="text-button login-admin-link" to="/admin-access">เข้าสู่ระบบผู้ดูแลโรงเรียน</Link>
+          {/* The platform console is a different product with a different door. It is named, not
+              hidden — hiding it only means the operator types the URL from memory — and it sits last
+              because a teacher who lands here should never think it is one of their choices. */}
+          <a className="text-button login-platform-link" href="/platform/">เข้าสู่ Platform Console (ผู้ดูแลระบบส่วนกลาง)</a>
           {isPreviewModeAvailable && <button type="button" className="text-button" onClick={() => { enablePreviewMode(); window.location.reload(); }}>เข้าสู่โหมด Preview (สำหรับการพัฒนาเท่านั้น — ไม่ใช่ข้อมูลจริง)</button>}
         </div>
       ) : (

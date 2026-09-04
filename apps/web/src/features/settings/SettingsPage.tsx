@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { privacyPolicyFrom, scorePolicyFrom } from '../../data/selectors';
@@ -9,7 +10,7 @@ import { useTheme } from '../../app/ThemeContext';
 import { themeDensities, themeModes, themeMotions, themePresets } from '../../app/theme';
 
 export function SettingsPage() {
-  const { membership, mode } = useSession();
+  const { membership, memberships, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
   const [message, setMessage] = useState<string | null>(null);
@@ -17,6 +18,7 @@ export function SettingsPage() {
   const policy = scorePolicyFrom(snapshot.settings);
   const privacy = privacyPolicyFrom(snapshot.settings);
   const isAdmin = membership.role === 'admin';
+  const adminSchools = memberships.filter((item) => item.role === 'admin');
   const lastChecked = readLastCheckedAt();
 
   async function saveScorePolicy(event: FormEvent<HTMLFormElement>) {
@@ -155,6 +157,32 @@ export function SettingsPage() {
           </form>
         </article>
       </section>
+
+      {/*
+        The account, not the campus. An administrator who runs two schools has no other place that
+        says so: every other screen answers for the school they are standing in, and the switcher in
+        the top bar only appears once the second one exists.
+      */}
+      {isAdmin && mode === 'cloud' && (
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <h2>โรงเรียนในบัญชีนี้</h2>
+              <p>บัญชีผู้ดูแลหนึ่งบัญชีเปิดได้หลายโรงเรียน แต่ละแห่งใช้คีย์ผลิตภัณฑ์คนละใบและข้อมูลแยกกันทั้งหมด</p>
+            </div>
+            <Link className="secondary-button" to="/schools/new">เพิ่มโรงเรียนใหม่</Link>
+          </div>
+          <ul className="health-list">
+            {adminSchools.map((item) => (
+              <li key={item.membershipId}>
+                <span className={`health-dot ${item.schoolId === membership.schoolId ? 'ok' : 'warn'}`} />
+                {item.schoolName}
+                <strong>{item.schoolId === membership.schoolId ? 'กำลังใช้งาน' : 'สลับได้จากแถบบน'}</strong>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <AcademicSettingsPanel canEdit={isAdmin} onMessage={setMessage} />
 

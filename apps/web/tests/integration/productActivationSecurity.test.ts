@@ -12,6 +12,7 @@ const lookupMigration = read('supabase/migrations/202609020006_find_auth_user_by
 const adminAccess = read('supabase/functions/admin-access/index.ts');
 const productKeyModule = read('supabase/functions/_shared/productKey.ts');
 const memberAccess = read('supabase/functions/member-access/index.ts');
+const manySchoolsMigration = read('supabase/migrations/202609030005_a_key_for_every_school.sql');
 const setupPage = read('apps/web/src/features/auth/AdminSchoolSetupPage.tsx');
 const activationClient = read('apps/web/src/features/auth/schoolActivation.ts');
 
@@ -55,8 +56,12 @@ describe('product activation keys', () => {
     }
   );
 
-  it('refuses to draw a key for an account that already administers a school', () => {
+  it('refuses to draw a key for a member who administers nothing', () => {
+    // `202609020004` refused every account holding a membership at all, which also refused the
+    // administrator opening their second campus. `may_activate_school` replaced that with a
+    // narrower rule; a student or a parent still holds a membership and still may not draw.
     expect(keyMigration).toMatch(/school_memberships where profile_id=p_actor[\s\S]*ALREADY_HAS_MEMBERSHIP/);
+    expect(manySchoolsMigration).toMatch(/if not public\.may_activate_school\(p_actor\) then\n\s*raise exception 'ADMIN_ROLE_REQUIRED'/);
   });
 
   it('draws the key on the server and never writes it anywhere', () => {
@@ -190,5 +195,52 @@ describe('creating the school the key paid for', () => {
     expect(adminAccess).toMatch(/failureCode === 'SETUP_REJECTED' \? String\(setupError\.message/);
     expect(activationClient).toContain('IDENTITY_NOT_FOUND');
     expect(activationClient).toMatch(/reason \? `\$\{message\} \(\$\{reason\}\)` : message/);
+  });
+});
+
+/**
+ * One account, many schools, and a separate key for each of them. Who may activate is the whole of
+ * the security here: deleting the old single-school check outright would have let every student in
+ * a school draw a key and become the administrator of one of their own.
+ */
+describe('activating the next school', () => {
+  const app = read('apps/web/src/app/App.tsx');
+  const settingsPage = read('apps/web/src/features/settings/SettingsPage.tsx');
+
+  it('admits a first-run account and an administrator, and nobody else', () => {
+    expect(manySchoolsMigration).toContain('create or replace function public.may_activate_school(p_actor uuid)');
+    expect(manySchoolsMigration).toMatch(/not exists\(select 1 from public\.school_memberships where profile_id=p_actor\)/);
+    expect(manySchoolsMigration).toMatch(/where profile_id=p_actor and role='admin' and status='active'/);
+  });
+
+  it('writes that rule once and calls it from both halves of the path', () => {
+    expect(manySchoolsMigration.match(/if not public\.may_activate_school\(p_actor\) then/g)?.length ?? 0).toBe(2);
+    expect(manySchoolsMigration).toContain('create or replace function public.issue_product_activation_key(');
+    expect(manySchoolsMigration).toContain('create or replace function public.bootstrap_school_owner(');
+  });
+
+  it('keeps the rule callable only by the trusted gateway', () => {
+    expect(manySchoolsMigration).toMatch(/revoke all on function public\.may_activate_school\(uuid\) from public,anon,authenticated/);
+    expect(manySchoolsMigration).toMatch(/grant execute on function public\.may_activate_school\(uuid\) to service_role/);
+  });
+
+  it('draws against the unspent key only, so the next school is paid for by a key of its own', () => {
+    expect(manySchoolsMigration).toMatch(/where actor_profile_id=p_actor and status='issued' for update/);
+  });
+
+  it('refuses a member with a code and a status of its own', () => {
+    expect(adminAccess).toContain("if (message.includes('ADMIN_ROLE_REQUIRED')) return json({ code: 'ADMIN_ROLE_REQUIRED' }, 403, headers);");
+    expect(adminAccess).toContain("failureCode === 'ADMIN_ROLE_REQUIRED' ? 403 : 400");
+    expect(activationClient).toContain('ADMIN_ROLE_REQUIRED');
+  });
+
+  it('reaches the wizard from inside a school and lands in the new one', () => {
+    expect(app).toContain('<Route path="/schools/new" element={<AdminSchoolSetupPage mode="additional" />} />');
+    expect(settingsPage).toContain('to="/schools/new"');
+    expect(setupPage).toContain('auth.selectMembership(created.membershipId)');
+  });
+
+  it('keeps a teacher or a parent off a screen that would only refuse them', () => {
+    expect(setupPage).toMatch(/additional && auth\.active && auth\.active\.role !== 'admin'/);
   });
 });

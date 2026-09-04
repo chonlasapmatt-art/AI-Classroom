@@ -26,7 +26,9 @@ thing that can reactivate their server.
 | 3 | Enters academic year, term and the key | `admin-access` verifies the key, runs `bootstrap_school_owner`, then spends the key |
 
 The wizard is at the no-membership gate (`AdminSchoolSetupPage`), which is also what the private
-owner route renders once an account exists. There is one activation screen, not two.
+owner route renders once an account exists. There is one activation screen, not two — and the same
+screen, rendered at `/schools/new` with `mode="additional"`, is how an administrator who already
+runs a school activates the next one.
 
 ## What is stored
 
@@ -56,8 +58,8 @@ digest.
 
 ## Rules the implementation depends on
 
-* **One key, and asking twice is not drawing twice.** The first ask draws a key; every later ask
-  returns that same key, opened from its sealed copy. A key that changed under somebody who had
+* **One unspent key, and asking twice is not drawing twice.** The first ask draws a key; every later
+  ask returns that same key, opened from its sealed copy. A key that changed under somebody who had
   written it down is a key they stop trusting, and "two keys in my notes, one of which works" was
   the support call this whole path exists to prevent. There is no "draw again" button.
 
@@ -68,11 +70,40 @@ digest.
 * **Verify and spend are separate.** The school does not exist when the key is checked. A key spent
   before `bootstrap_school_owner` succeeded would be gone for good the first time a school code
   collided, leaving a paying customer with a key that opens nothing.
-* **An account that already administers a school cannot draw a key.** There is nothing left to
-  activate, and allowing it would turn this into an endless supply of keys.
+* **Who may draw a key: a first-run account, or an existing administrator.** `may_activate_school`
+  is the only place that rule is written, and both the draw and `bootstrap_school_owner` call it.
+  An account with no membership at all is a customer activating their first server; an account that
+  administers a school is the same customer activating their next campus. Everybody else — a
+  student, a teacher, a parent — holds a membership and is refused with `ADMIN_ROLE_REQUIRED`.
+  That is a different refusal from `ALREADY_HAS_MEMBERSHIP` on purpose: a student told "you
+  already have a school" has no idea what to do next.
 * **Normalisation is on the key only.** `sc a1b2c 3d4e5` and `SC-A1B2C-3D4E5` are the same key: case,
   spaces and dashes are presentation. `ADMIN_ACCESS_CODE_HASH` is still compared on the trimmed raw
   string, because that is how it was hashed.
+
+## A key for every school
+
+One account may run more than one school, and each of them is activated under its own key. Nothing
+new enforces that: the live-key index already allows a single unspent key per account, and the key
+is spent the moment its school exists, so the next draw is a new twenty characters. Two schools
+never share a key, and the account never holds two unspent keys to confuse.
+
+What the customer sees:
+
+* **ตั้งค่า → โรงเรียนในบัญชีนี้** lists the schools this account administers and carries the
+  "เพิ่มโรงเรียนใหม่" button. It is the only screen that answers for the account rather than for the
+  school being looked at.
+* The wizard runs outside the shell, so the new school is not being set up under the old one's
+  sidebar, sync pill or repository.
+* On success the new membership is selected for the administrator and the shell opens in the new
+  school. A first-run account lands there on its own — its first membership replaces the wizard —
+  but an administrator who already had a school is still standing in it, and without the switch the
+  activation looks like nothing happened.
+* The top-bar switcher names the school once the account holds more than one, instead of repeating
+  the same role and display name twice.
+
+The schools stay separate everywhere else. Each has its own code, term, settings, audit log and RLS
+boundary; the account simply holds one membership row per school.
 
 ## Both doors, and when to use which
 

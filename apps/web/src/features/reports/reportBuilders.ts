@@ -112,3 +112,101 @@ export function toCsv(report: ReportTable): string {
   const lines = [report.columns.map(escapeCsv).join(','), ...report.rows.map((row) => row.map(escapeCsv).join(','))];
   return `${BYTE_ORDER_MARK}${lines.join('\r\n')}\r\n`;
 }
+
+/**
+ * The reports a student and a guardian get.
+ *
+ * They are the same four questions the school-wide reports answer, asked about one person: was I
+ * there, what was I given, what did I score, and what was I recognised for. They are built from the
+ * snapshot the repository already scoped to the caller, so a student's own report cannot widen into
+ * somebody else's row — the reader's data is all there is to read.
+ */
+export type PersonalReportId = 'attendance' | 'work' | 'scores' | 'awards';
+
+export const personalReportTitles: Record<PersonalReportId, string> = {
+  attendance: 'การเข้าเรียน',
+  work: 'งานที่ได้รับมอบหมาย',
+  scores: 'คะแนนที่ได้รับ',
+  awards: 'เหรียญรางวัล'
+};
+
+const attendanceLabels: Record<string, string> = {
+  present: 'มาเรียน', late: 'สาย', absent: 'ขาด', leave: 'ลา'
+};
+
+const submissionLabels: Record<string, string> = {
+  pending: 'ยังไม่ส่ง', submitted: 'ส่งแล้ว', late: 'ส่งช้า', reviewed: 'ตรวจแล้ว',
+  returned: 'ส่งคืนแล้ว', revision: 'ต้องแก้ไข', cancelled: 'ยกเลิก'
+};
+
+export function buildPersonalReport(
+  id: PersonalReportId, snapshot: SchoolSnapshot, studentId: string, badgeLabel: (key: string) => string
+): PersonalReportTable {
+  const title = personalReportTitles[id];
+  const subjectName = (subjectId: string | null | undefined) =>
+    snapshot.subjects.find((item) => item.id === subjectId)?.name ?? '-';
+  const className = (classId: string) => snapshot.classes.find((item) => item.id === classId)?.name ?? '-';
+
+  switch (id) {
+    case 'attendance': {
+      const rows = snapshot.attendance
+        .filter((item) => item.studentId === studentId && !item.deletedAt)
+        .sort((left, right) => right.attendanceDate.localeCompare(left.attendanceDate))
+        .map((item) => [
+          item.attendanceDate,
+          className(item.classId),
+          item.sessionType === 'homeroom' ? 'โฮมรูม' : subjectName(item.subjectId),
+          item.period ? `คาบ ${item.period}` : '-',
+          attendanceLabels[item.status] ?? item.status
+        ]);
+      return { id, title, columns: ['วันที่', 'ห้องเรียน', 'วิชา', 'คาบ', 'สถานะ'], rows };
+    }
+    case 'work': {
+      const mine = new Map(snapshot.submissions
+        .filter((item) => item.studentId === studentId && !item.deletedAt)
+        .map((item) => [item.assignmentId, item]));
+      const rows = snapshot.assignments
+        .filter((item) => !item.deletedAt && item.status !== 'draft' && mine.has(item.id))
+        .sort((left, right) => (right.dueAt ?? '').localeCompare(left.dueAt ?? ''))
+        .map((assignment) => {
+          const submission = mine.get(assignment.id);
+          return [
+            assignment.title,
+            subjectName(assignment.subjectId),
+            assignment.dueAt ? assignment.dueAt.slice(0, 10) : 'ไม่มีกำหนดส่ง',
+            submission ? submissionLabels[submission.status] ?? submission.status : 'ยังไม่ส่ง',
+            submission?.isLate ? 'ส่งช้า' : '-',
+            submission?.score ?? '-'
+          ];
+        });
+      return { id, title, columns: ['งาน', 'วิชา', 'กำหนดส่ง', 'สถานะ', 'ความตรงเวลา', 'คะแนน'], rows };
+    }
+    case 'scores': {
+      const rows = snapshot.scoreEvents
+        .filter((item) => item.studentId === studentId && !item.deletedAt)
+        .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+        .map((event) => [
+          event.occurredAt.slice(0, 10),
+          subjectName(event.subjectId),
+          event.category,
+          event.points,
+          event.reason || '-'
+        ]);
+      return { id, title, columns: ['วันที่', 'วิชา', 'ประเภท', 'แต้ม', 'เหตุผล'], rows };
+    }
+    default: {
+      const rows = snapshot.achievements
+        .filter((item) => item.studentId === studentId && !item.deletedAt)
+        .sort((left, right) => right.awardedAt.localeCompare(left.awardedAt))
+        .map((item) => [item.awardedAt.slice(0, 10), badgeLabel(item.achievementKey), item.note || '-']);
+      return { id, title, columns: ['วันที่', 'เหรียญ', 'บันทึกจากครู'], rows };
+    }
+  }
+}
+
+export interface PersonalReportTable { id: PersonalReportId; title: string; columns: string[]; rows: (string | number)[][] }
+
+/** Both report shapes export the same way; the CSV does not care which one produced the rows. */
+export function personalToCsv(report: PersonalReportTable): string {
+  return toCsv({ id: 'student', title: report.title, columns: report.columns, rows: report.rows });
+}

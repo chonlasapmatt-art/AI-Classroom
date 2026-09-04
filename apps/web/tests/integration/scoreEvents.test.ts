@@ -138,3 +138,43 @@ describe('who may write a score — server side', () => {
     expect(migration).toContain('occurred_at timestamptz not null default now()');
   });
 });
+
+/**
+ * Who the sync boundary lets write a score.
+ *
+ * These read the migration rather than a live database, which is the same trade every schema test
+ * in this suite makes: the text is the authority that ships, and an assertion on it catches the
+ * widening that a screen test never would.
+ */
+describe('a score belongs to the teacher who teaches the student', () => {
+  const awardScope = readFileSync(
+    join(resolve(process.cwd(), '../..'), 'supabase/migrations/202609040001_awards_stay_with_the_teacher.sql'), 'utf8');
+
+  it('asks one function whether this staff member may award this student', () => {
+    expect(awardScope).toContain('create or replace function public.staff_can_award_student(p_school_id uuid, p_student_id uuid, p_class_id uuid)');
+    expect(awardScope).toMatch(/has_school_role\(p_school_id,'admin'\)/);
+    expect(awardScope).toMatch(/e\.status='active' and e\.deleted_at is null/);
+    expect(awardScope).toMatch(/public\.teacher_has_class_access\(e\.class_id\)/);
+  });
+
+  it('keeps that function callable by a session but never by an anonymous caller', () => {
+    expect(awardScope).toMatch(/revoke all on function public\.staff_can_award_student\(uuid,uuid,uuid\) from public,anon/);
+    expect(awardScope).toMatch(/grant execute on function public\.staff_can_award_student\(uuid,uuid,uuid\) to authenticated/);
+  });
+
+  it('applies it to every kind of award', () => {
+    expect(awardScope).toContain("if p_entity_type in ('activity_score','test_score','score_event') and not public.staff_can_award_student(");
+    expect(awardScope).toContain("if p_entity_type='achievement' and not public.staff_can_award_student(");
+  });
+
+  it('no longer lets a student write a score for themselves', () => {
+    // The submission keeps the exemption — turning work in is the student's own act — and nothing
+    // else does. A single list held both until now.
+    expect(awardScope).not.toMatch(/'activity_score','test_score','submission','score_event'\) and not \([\s\S]{0,200}student_owns_student_record/);
+    expect(awardScope).toMatch(/if p_entity_type='submission' and not \([\s\S]{0,240}student_owns_student_record/);
+  });
+
+  it('still refuses a student who writes work for somebody else', () => {
+    expect(awardScope).toMatch(/student_owns_student_record\(coalesce\(student_scope,\(p_payload->>'studentId'\)::uuid\)\)/);
+  });
+});
