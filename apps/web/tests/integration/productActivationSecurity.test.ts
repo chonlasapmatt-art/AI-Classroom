@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { isCompleteSchoolIdentity } from '../../src/features/auth/schoolActivation';
 
 const repositoryRoot = resolve(process.cwd(), '../..');
-const read = (path: string) => readFileSync(join(repositoryRoot, path), 'utf8');
+// Line endings are a checkout artifact on Windows, not a property of the file, so they are
+// normalised before anything is asserted about the text.
+const read = (path: string) => readFileSync(join(repositoryRoot, path), 'utf8').split('\r\n').join('\n');
 
 const keyMigration = read('supabase/migrations/202609020004_product_activation_keys.sql');
 const claimMigration = read('supabase/migrations/202609020005_teacher_code_claim_active_row.sql');

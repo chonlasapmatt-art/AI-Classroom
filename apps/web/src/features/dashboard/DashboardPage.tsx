@@ -18,6 +18,7 @@ import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 import { ActivityCard, AlertStack, AnnouncementCard, QuickActions, SyncLine } from './dashboardSignals';
 import { dashboardAlerts, quickActionsFor, recentActivity, recentAnnouncements } from './dashboardData';
+import { ShortcutHub } from './ShortcutHub';
 
 const avatarStorageKey = (profileId: string) => 'smart-classroom.avatar.' + profileId;
 
@@ -193,6 +194,7 @@ export function DashboardPage() {
           announcements={recentAnnouncements(snapshot, [classId], student?.id ?? null)}
           action={<LinkButton to="/announcements" size="sm" variant="ghost">ดูทั้งหมด</LinkButton>}
         />
+        <ShortcutHub role={membership.role} />
       </>
     );
   }
@@ -254,6 +256,7 @@ export function DashboardPage() {
           action={<LinkButton to="/announcements" size="sm" variant="ghost">ดูทั้งหมด</LinkButton>}
         />
         <SyncLine sync={sync} pending={snapshot.pendingSync} />
+        <ShortcutHub role={membership.role} />
       </>
     );
   }
@@ -433,6 +436,7 @@ export function DashboardPage() {
           </>
         )}
       </Card>
+        <ShortcutHub role={membership.role} />
     </>
   );
 }

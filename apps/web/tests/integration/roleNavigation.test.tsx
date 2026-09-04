@@ -128,3 +128,34 @@ describe('what a teacher sees under Sync', () => {
     expect(screen.getByText('สำรองข้อมูลแบบเข้ารหัส')).toBeInTheDocument();
   });
 });
+
+/**
+ * The overview page as a way in.
+ *
+ * The quick actions answer "what do I do most"; the hub answers "where is that one screen". Folded
+ * away by default so the dashboard stays a dashboard, and built from the same list as the menu so a
+ * destination cannot exist in one and not the other.
+ */
+describe('shortcuts on the overview page', () => {
+  it('folds the whole menu into one line until it is opened', async () => {
+    renderApp('/');
+    const summary = await screen.findByText('ทางลัดทุกเมนู');
+    const hub = summary.closest('details');
+    expect(hub).not.toBeNull();
+    expect(hub).not.toHaveAttribute('open');
+
+    fireEvent.click(summary);
+    await waitFor(() => expect(within(hub!).getByRole('link', { name: /เช็กชื่อ/ })).toBeInTheDocument());
+    expect(within(hub!).getByRole('link', { name: /กิจกรรมหน้าชั้น/ })).toBeInTheDocument();
+  });
+
+  it('gives a student their own destinations and not the staff ones', async () => {
+    renderApp('/');
+    await switchRole('preview-student');
+    const summary = await screen.findByText('ทางลัดทุกเมนู');
+    fireEvent.click(summary);
+    const hub = summary.closest('details')!;
+    await waitFor(() => expect(within(hub).getByRole('link', { name: /งานและกิจกรรม/ })).toBeInTheDocument());
+    expect(within(hub).queryByRole('link', { name: /แก้ไขคะแนน/ })).not.toBeInTheDocument();
+  });
+});

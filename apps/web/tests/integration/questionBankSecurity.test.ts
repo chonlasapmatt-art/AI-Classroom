@@ -6,13 +6,15 @@ import { describe, expect, it } from 'vitest';
 // It is settled by a grant and a policy, neither of which a test can exercise by rendering a screen.
 
 const repositoryRoot = resolve(process.cwd(), '../..');
-const read = (path: string) => readFileSync(join(repositoryRoot, path), 'utf8');
+// Line endings are a checkout artifact on Windows, not a property of the file, so they are
+// normalised before anything is asserted about the text.
+const read = (path: string) => readFileSync(join(repositoryRoot, path), 'utf8').split('\r\n').join('\n');
 
 const bankMigration = read('supabase/migrations/202608300019_exam_schedule_and_question_bank.sql');
 const categoryMigration = read('supabase/migrations/202608310025_question_categories.sql');
 const client = read('apps/web/src/features/questions/questionBank.ts');
 const page = read('apps/web/src/features/questions/QuestionBankPage.tsx');
-const shell = read('apps/web/src/layouts/AppShell.tsx');
+const menu = read('apps/web/src/layouts/navigation.ts');
 
 describe('the question bank', () => {
   it('is staff material, refused to students and parents by privilege', () => {
@@ -75,8 +77,8 @@ describe('the question bank screen', () => {
   it('is offered to staff only, and says why when somebody else opens it', () => {
     // The menu is written per role now, so "who sees the bank" is how many role menus name it:
     // the admin's and the teacher's, and no others.
-    expect(shell).toContain("destination('/question-bank', 'คลังข้อสอบ', 'question-bank')");
-    expect(shell.split("'/question-bank'").length - 1).toBe(2);
+    expect(menu).toContain("destination('/question-bank', 'คลังข้อสอบ', 'question-bank')");
+    expect(menu.split("'/question-bank'").length - 1).toBe(2);
     expect(page).toContain('หน้านี้สำหรับครูและผู้ดูแลโรงเรียน');
   });
 

@@ -3,7 +3,9 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const repositoryRoot = resolve(process.cwd(), '../..');
-const read = (path: string) => readFileSync(join(repositoryRoot, path), 'utf8');
+// Line endings are a checkout artifact on Windows, not a property of the file, so they are
+// normalised before anything is asserted about the text.
+const read = (path: string) => readFileSync(join(repositoryRoot, path), 'utf8').split('\r\n').join('\n');
 
 const migration = read('supabase/migrations/202608300015_student_passwordless_access.sql');
 const codeMatching = read('supabase/migrations/202608300017_student_code_matching.sql');

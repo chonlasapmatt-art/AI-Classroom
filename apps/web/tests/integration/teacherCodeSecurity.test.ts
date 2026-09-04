@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest';
 // and a definer function, and none of those can be checked by exercising the client.
 
 const repositoryRoot = resolve(process.cwd(), '../..');
-const read = (path: string) => readFileSync(join(repositoryRoot, path), 'utf8');
+// Line endings are a checkout artifact on Windows, not a property of the file, so they are
+// normalised before anything is asserted about the text.
+const read = (path: string) => readFileSync(join(repositoryRoot, path), 'utf8').split('\r\n').join('\n');
 
 const migration = read('supabase/migrations/202608310020_teacher_access_codes.sql');
 const codeFunction = read('supabase/functions/teacher-code/index.ts');
