@@ -848,6 +848,32 @@ button.sync-pill:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .theme-studio .panel-heading { align-items: flex-start; }
 .theme-studio .panel-heading p { margin: .35rem 0 0; }
 
+/* Promotion: a term, its status, and the one button that changes which term the product answers for. */
+.term-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; }
+.term-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
+.term-list li:last-child { border-bottom: 0; }
+.term-list-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.term-list-main strong { color: var(--ink-900); }
+.term-list-main span { color: var(--ink-500); font-size: var(--text-xs); }
+.term-list-side { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+/* One row per source room: what it is, what is about to happen to it, and the control that decides. */
+.promotion-plan-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.promotion-plan-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(200px, 260px); align-items: center; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.promotion-plan-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.promotion-plan-main strong { color: var(--ink-900); }
+.promotion-plan-main span { color: var(--ink-500); font-size: var(--text-xs); }
+/* The per-row label names its own room, so a screen reader is not read thirty identical "ปลายทาง". */
+.promotion-plan-list .ui-field-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.promotion-plan-list .ui-field-foot { display: none; }
+@media (max-width: 720px) {
+  .promotion-plan-list li { grid-template-columns: 1fr; }
+}
+/* The count and the button that acts on it stay together; they used to be two paragraphs apart. */
+.promotion-summary { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.promotion-summary p { margin: 0; display: flex; align-items: center; gap: 6px; color: var(--ink-600); font-size: var(--text-sm); }
+.promotion-summary strong { color: var(--ink-900); font-variant-numeric: tabular-nums; }
+
 /* Settings: a fact and its value on one line, so the status list reads as a table without being one. */
 .settings-fact-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; }
 .settings-fact-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
