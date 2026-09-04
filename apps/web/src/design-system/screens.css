@@ -585,7 +585,10 @@
   .avatar-picker { grid-template-columns: 1fr; }
   .avatar-part-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .page-content { padding: var(--space-4); }
-  .ui-button { min-height: 48px; }
+  /* A floor for a finger, not a ceiling. Written as a bare `.ui-button` this beat `.ui-size-lg` —
+     same specificity, later in the cascade — so on a phone the deliberately large controls were cut
+     down to 48px instead of the small ones being raised to it. The entrance button measured 47.8. */
+  .ui-button.ui-size-sm, .ui-button.ui-size-md { min-height: 48px; }
   .sidebar nav a { min-height: 48px; font-size: var(--text-base); }
   /* The section name is the first thing to go: the page name is what the reader came for, and two
      lines of breadcrumb on a 360px phone squeeze the sync pill off the bar entirely. */

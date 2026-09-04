@@ -49,9 +49,14 @@ test.describe('student entrance', () => {
   test('has touch targets a child can hit on a phone', async ({ page }) => {
     await page.goto('/login');
     await page.getByRole('button', { name: 'นักเรียน', exact: true }).click();
-    for (const selector of ['input[name="displayName"]', 'input[name="studentCode"]', 'button.primary-button']) {
-      const box = await page.locator(selector).boundingBox();
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
+    for (const field of ['input[name="displayName"]', 'input[name="studentCode"]']) {
+      const box = await page.locator(field).boundingBox();
+      expect(box?.height ?? 0, field).toBeGreaterThanOrEqual(48);
     }
+    // By its role and its name rather than by a class. The class was `primary-button`, which stopped
+    // existing the day the entrances moved onto the shared Button — and a selector that names an
+    // implementation detail fails for a reason that has nothing to do with what is being checked.
+    const submit = await page.getByRole('button', { name: 'เข้าสู่ระบบ' }).boundingBox();
+    expect(submit?.height ?? 0, 'submit button').toBeGreaterThanOrEqual(48);
   });
 });
