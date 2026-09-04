@@ -271,60 +271,6 @@ Deno.serve(async (request) => {
       return json(bound, 201, headers);
     }
 
-    // Every operator this deployment has, with whether each one also administers a school.
-    //
-    // `platform_admins` is revoked from `authenticated` like every other table holding authority, so
-    // the console cannot read it directly and asks through a function that checks the caller first.
-    if (action === 'list-operators') {
-      const { data, error } = await service.rpc('list_platform_operators', { p_actor: actor });
-      if (error) return json({ code: 'PLATFORM_FORBIDDEN' }, 403, headers);
-      return json({ operators: data ?? [] }, 200, headers);
-    }
-
-    // A second operator, on an account that is nobody's school administrator.
-    //
-    // The alternative — granting platform authority to an existing account — is still available and
-    // still recorded, but it makes an operator out of somebody who administers a school, which is
-    // the distinction `platform_admins` exists to keep. This makes an account that has no school to
-    // begin with, and the database refuses if the profile turns out to hold a membership.
-    if (action === 'provision-operator') {
-      const { data: platform } = await service.from('platform_admins')
-        .select('profile_id').eq('profile_id', actor).eq('status', 'active').is('revoked_at', null).maybeSingle();
-      if (!platform) return json({ code: 'PLATFORM_FORBIDDEN' }, 403, headers);
-      const { data: fresh } = await service.rpc('platform_reauth_fresh', { p_actor: actor, p_minutes: 15 });
-      if (fresh !== true) return json({ code: 'REAUTHENTICATION_REQUIRED' }, 403, headers);
-
-      const displayName = text(body, 'displayName', 200);
-      const password = String(body.password ?? '');
-      const notes = text(body, 'notes', 400);
-      if (displayName.length < 2 || password.length < 12) return json({ code: 'VALIDATION_ERROR' }, 400, headers);
-
-      const recordId = crypto.randomUUID();
-      const domain = Deno.env.get('PLATFORM_OPERATOR_EMAIL_DOMAIN') ?? 'operators.smart-classroom.invalid';
-      const email = `operator.${recordId}@${domain}`;
-      const { data: created, error: createError } = await service.auth.admin.createUser({
-        email, password, email_confirm: true,
-        user_metadata: { display_name: displayName },
-        app_metadata: { access_model: 'platform_operator' }
-      });
-      const newProfileId = created?.user?.id;
-      if (createError || !newProfileId) return json({ code: 'OPERATOR_ACCOUNT_FAILED' }, 400, headers);
-
-      const { data: granted, error: grantError } = await service.rpc('provision_platform_operator', {
-        p_actor: actor, p_profile_id: newProfileId, p_display_name: displayName, p_notes: notes
-      });
-      if (grantError) {
-        await service.auth.admin.deleteUser(newProfileId).catch(() => undefined);
-        const message = String(grantError.message ?? '');
-        return json({
-          code: message.includes('REAUTHENTICATION_REQUIRED') ? 'REAUTHENTICATION_REQUIRED'
-            : message.includes('OPERATOR_HAS_SCHOOL_MEMBERSHIP') ? 'OPERATOR_HAS_SCHOOL_MEMBERSHIP'
-              : 'PLATFORM_FORBIDDEN'
-        }, 403, headers);
-      }
-      return json(granted, 201, headers);
-    }
-
     if (action === 'revoke') {
       const targetProfileId = String(body.profileId ?? '');
       const reason = String(body.reason ?? '').trim().slice(0, 400);

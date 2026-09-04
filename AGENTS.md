@@ -18,7 +18,7 @@ With no `.env.local` at all, the app offers **Preview Mode** on the configuratio
 product rendered from a 460-line fixture, with working role switching between administrator, teacher,
 student and parent. No Supabase project, no account, no keys.
 
-That is enough to build screens, change behaviour, run all 809 tests and see the result. Most work on
+That is enough to build screens, change behaviour, run all 777 tests and see the result. Most work on
 this codebase needs nothing more.
 
 You need a real project only to push migrations, deploy Edge Functions, or run anything in
@@ -46,7 +46,7 @@ build stays free of developer tooling. Not by hiding a menu; by not shipping the
 ```bash
 npm run typecheck   # tsc -b
 npm run lint        # eslint --max-warnings 0
-npm run test        # vitest, 809 tests
+npm run test        # vitest, 777 tests
 npm run build
 ```
 
@@ -85,12 +85,10 @@ by privilege rather than by a policy somebody has to keep writing correctly. Do 
 select` to any of them.
 
 **No entrance asks for an email address.** Teachers, parents and administrators sign in with a name
-and a password; students with a name and a student number; platform operators with their own name and
-password through `platform-sign-in`. Accounts created through the private owner entry carry a
-generated internal address nobody is ever shown, so a screen asking for an email is asking for
-something that does not exist. Email is for password recovery only. The suite asserts that no screen
-calls `signInWithPassword` — every entrance verifies its password inside an Edge Function, where the
-rate limiting and the namesake handling live.
+and a password; students with a name and a student number. Accounts created through the private owner
+entry carry a generated internal address nobody is ever shown, so a screen asking for an email is
+asking for something that does not exist. Email is for password recovery only. The suite asserts that
+no screen calls `signInWithPassword`.
 
 **Time belongs to the server.** Exam windows, quiz countdowns and attempt expiry are all read from
 `now()` on the server. A client may render a countdown; it may not decide one. When you need a
@@ -101,14 +99,6 @@ countdown, take the offset when the payload arrives and apply it to every tick �
 membership in every school would make a platform operator indistinguishable from a school
 administrator in exactly the records meant to tell them apart.
 
-**An operator's account is not a school's account either.** `provision_platform_operator` refuses a
-profile that holds any active membership, and the accounts it creates carry no `member_role`, no
-`school_id` and no row in `member_login_identities` — so an operator cannot sign into the school
-application at all. Keeping the authority apart while both lived on one login was half a separation:
-until this existed, the only way to become an operator was to already administer a school, because
-enrolment granted authority to whoever was signed in. `platform-bootstrap` is the one door that acts
-with no session, and it closes for good the moment the platform has its first operator.
-
 **Support mode is not impersonation.** It names one school, carries a reason, expires on the clock,
 grants administrator authority only, and is stamped onto every audit record by a trigger rather than
 by a parameter each function could forget to pass.
@@ -117,7 +107,7 @@ by a parameter each function could forget to pass.
 teacher codes: all have a status. History stays readable.
 
 **Migrations are immutable.** Never edit one that has been applied. Every repair is a new migration.
-There are 73; the last is `202609040003`. Replacing a function in a *new* migration is the repair
+There are 71; the last is `202609040001`. Replacing a function in a *new* migration is the repair
 path and is not an exception to this — `platform_reauth_fresh` has been replaced twice that way.
 
 **Snapshots, not pointers.** Exams and quiz rounds copy each question they use. Editing the bank next
@@ -156,8 +146,8 @@ apps/web/src/
   sync/           push, pull, retry, protocol contracts
   ui/             the shared component set every screen composes
 supabase/
-  migrations/     73 immutable migrations
-  functions/      17 Edge Functions; _shared holds the crypto and client helpers
+  migrations/     71 immutable migrations
+  functions/      15 Edge Functions; _shared holds the crypto and client helpers
 scripts/probes/   live verification scripts — read the README
 docs/             specification and the validation report
 ```
