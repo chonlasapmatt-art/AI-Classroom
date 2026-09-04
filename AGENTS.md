@@ -18,7 +18,7 @@ With no `.env.local` at all, the app offers **Preview Mode** on the configuratio
 product rendered from a 460-line fixture, with working role switching between administrator, teacher,
 student and parent. No Supabase project, no account, no keys.
 
-That is enough to build screens, change behaviour, run all 781 tests and see the result. Most work on
+That is enough to build screens, change behaviour, run all 794 tests and see the result. Most work on
 this codebase needs nothing more.
 
 You need a real project only to push migrations, deploy Edge Functions, or run anything in
@@ -46,7 +46,7 @@ build stays free of developer tooling. Not by hiding a menu; by not shipping the
 ```bash
 npm run typecheck   # tsc -b
 npm run lint        # eslint --max-warnings 0
-npm run test        # vitest, 781 tests
+npm run test        # vitest, 794 tests
 npm run build
 ```
 
@@ -99,6 +99,14 @@ countdown, take the offset when the payload arrives and apply it to every tick �
 membership in every school would make a platform operator indistinguishable from a school
 administrator in exactly the records meant to tell them apart.
 
+**An operator's account is not a school's account either.** `provision_platform_operator` refuses a
+profile that holds any active membership, and the accounts it creates carry no `member_role`, no
+`school_id` and no row in `member_login_identities` — so an operator cannot sign into the school
+application at all. Keeping the authority apart while both lived on one login was half a separation:
+until this existed, the only way to become an operator was to already administer a school, because
+enrolment granted authority to whoever was signed in. `platform-bootstrap` is the one door that acts
+with no session, and it closes for good the moment the platform has its first operator.
+
 **Support mode is not impersonation.** It names one school, carries a reason, expires on the clock,
 grants administrator authority only, and is stamped onto every audit record by a trigger rather than
 by a parameter each function could forget to pass.
@@ -107,7 +115,7 @@ by a parameter each function could forget to pass.
 teacher codes: all have a status. History stays readable.
 
 **Migrations are immutable.** Never edit one that has been applied. Every repair is a new migration.
-There are 68; the last is `202609030003`. Replacing a function in a *new* migration is the repair
+There are 72; the last is `202609040002`. Replacing a function in a *new* migration is the repair
 path and is not an exception to this — `platform_reauth_fresh` has been replaced twice that way.
 
 **Snapshots, not pointers.** Exams and quiz rounds copy each question they use. Editing the bank next
@@ -146,8 +154,8 @@ apps/web/src/
   sync/           push, pull, retry, protocol contracts
   ui/             the shared component set every screen composes
 supabase/
-  migrations/     68 immutable migrations
-  functions/      15 Edge Functions; _shared holds the crypto and client helpers
+  migrations/     72 immutable migrations
+  functions/      16 Edge Functions; _shared holds the crypto and client helpers
 scripts/probes/   live verification scripts — read the README
 docs/             specification and the validation report
 ```
