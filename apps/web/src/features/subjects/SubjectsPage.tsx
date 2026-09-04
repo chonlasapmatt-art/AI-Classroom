@@ -5,6 +5,8 @@ import { activeClasses } from '../../data/selectors';
 import { standardSubjects, subjectColor, subjectColors, subjectIconKeys, subjectIconLabels } from '../../data/subjectCatalog';
 import { SubjectIcon } from './SubjectIcon';
 import type { Subject } from '../../domain/types';
+import { Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, PageHeader } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 
 export function SubjectsPage() {
@@ -36,7 +38,7 @@ export function SubjectsPage() {
       form.reset();
       setEditing(null);
       setOpenForm(false);
-      toast(editing ? 'แก้ไขรายวิชาแล้ว' : 'เพิ่มรายวิชาแล้ว');
+      toast(editing ? 'แก้ไขรายวิชาแล้ว' : 'เพิ่มรายวิชาแล้ว', { tone: 'success' });
     } catch (reason) {
       toast(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ', { tone: 'error' });
     }
@@ -46,7 +48,7 @@ export function SubjectsPage() {
     for (const [index, seed] of missingStandard.entries()) {
       await repository.saveSubject({ ...seed, sortOrder: subjects.length + index });
     }
-    toast(`เพิ่ม ${missingStandard.length} กลุ่มสาระมาตรฐานแล้ว`);
+    toast(`เพิ่ม ${missingStandard.length} กลุ่มสาระมาตรฐานแล้ว`, { tone: 'success' });
   }
 
   function countFor(subjectId: string): number {
@@ -57,88 +59,119 @@ export function SubjectsPage() {
 
   return (
     <>
-      <section className="page-heading">
-        <div>
-          <span className="eyebrow">โครงสร้างหลักสูตร</span>
-          <h1>รายวิชา</h1>
-          <p>{subjects.filter((item) => item.status === 'active').length} วิชาที่เปิดสอน · ใช้กับ {classes.length} ห้องเรียน</p>
-        </div>
-        {canEdit && (
-          <button className="primary-button" onClick={() => { setEditing(null); setOpenForm((value) => !value); }}>
-            + เพิ่มรายวิชา
-          </button>
+      <PageHeader
+        eyebrow="โครงสร้างหลักสูตร"
+        title="รายวิชา"
+        description={`${subjects.filter((item) => item.status === 'active').length} วิชาที่เปิดสอน · ใช้กับ ${classes.length} ห้องเรียน`}
+        action={canEdit && (
+          <Button
+            variant="primary" icon={<Icon name="plus" size={16} />}
+            onClick={() => { setEditing(null); setOpenForm((value) => !value); }}
+          >
+            เพิ่มรายวิชา
+          </Button>
         )}
-      </section>
+      />
 
       {canEdit && missingStandard.length > 0 && (
-        <div className="alert">
-          ยังไม่มี {missingStandard.length} กลุ่มสาระมาตรฐาน
-          <button className="text-button" onClick={() => void seedStandard()}>เพิ่มทั้งหมด</button>
+        <div className="inline-warning" role="status">
+          <Badge tone="info">กลุ่มสาระมาตรฐาน</Badge>
+          <span>ยังไม่มี {missingStandard.length} กลุ่มสาระมาตรฐานในโรงเรียนนี้</span>
+          <Button variant="secondary" size="sm" onClick={() => void seedStandard()}>เพิ่มทั้งหมด</Button>
+        </div>
+      )}
+
+      {/* The refusal is about the connection, not about the account: a school working offline can
+          still take a register, and saying which of the two it is stops somebody hunting for a
+          permission they already have. */}
+      {!repository.canManageStructure && (membership.role === 'admin' || membership.role === 'teacher') && (
+        <div className="inline-warning" role="status">
+          <Badge tone="warning">ออฟไลน์</Badge>
+          <span>รายวิชาเป็นข้อมูลฝั่งเซิร์ฟเวอร์ · ต้องเชื่อมต่อ Supabase ก่อนจึงจะเพิ่มหรือแก้ไขได้</span>
         </div>
       )}
 
       {(openForm || editing) && canEdit && (
-        <form className="panel inline-form" onSubmit={(event) => void save(event)} key={editing?.id ?? 'new'}>
-          <div className="panel-heading"><h2>{editing ? `แก้ไข ${editing.name}` : 'เพิ่มรายวิชาใหม่'}</h2></div>
-          <div className="form-grid">
-            <label>รหัสวิชา<input name="code" defaultValue={editing?.code ?? ''} required /></label>
-            <label>ชื่อวิชา<input name="name" defaultValue={editing?.name ?? ''} required /></label>
-            <label>ชื่อภาษาอังกฤษ<input name="nameEn" defaultValue={editing?.nameEn ?? ''} /></label>
-            <label>
-              สี
-              <select name="colorIndex" defaultValue={editing?.colorIndex ?? 0}>
-                {subjectColors.map((_color, index) => <option key={index} value={index}>สีที่ {index + 1}</option>)}
-              </select>
-            </label>
-            <label>
-              ไอคอน
-              <select name="iconKey" defaultValue={editing?.iconKey ?? 'default'}>
-                {subjectIconKeys.map((key) => <option key={key} value={key}>{subjectIconLabels[key]}</option>)}
-              </select>
-            </label>
-          </div>
-          <div className="record-actions">
-            <button className="primary-button">บันทึก</button>
-            {editing && <button type="button" className="text-button" onClick={() => setEditing(null)}>ยกเลิก</button>}
-          </div>
-        </form>
+        <Card as="section">
+          <form onSubmit={(event) => void save(event)} key={editing?.id ?? 'new'}>
+            <CardHeader
+              title={editing ? `แก้ไข ${editing.name}` : 'เพิ่มรายวิชาใหม่'}
+              description="รหัสและชื่อวิชาปรากฏบนงาน คะแนน และตารางสอนทุกที่ที่อ้างถึงวิชานี้"
+            />
+            <FieldGroup>
+              <Field label="รหัสวิชา" hint="เช่น TH11 · ระบบจะแปลงเป็นตัวพิมพ์ใหญ่ให้">
+                <input name="code" defaultValue={editing?.code ?? ''} required />
+              </Field>
+              <Field label="ชื่อวิชา">
+                <input name="name" defaultValue={editing?.name ?? ''} required />
+              </Field>
+              <Field label="ชื่อภาษาอังกฤษ" hint="ไม่บังคับ">
+                <input name="nameEn" defaultValue={editing?.nameEn ?? ''} />
+              </Field>
+              <Field label="สี" hint="ใช้แยกวิชาบนปฏิทินและตารางสอน">
+                <select name="colorIndex" defaultValue={editing?.colorIndex ?? 0}>
+                  {subjectColors.map((_color, index) => <option key={index} value={index}>สีที่ {index + 1}</option>)}
+                </select>
+              </Field>
+              <Field label="ไอคอน">
+                <select name="iconKey" defaultValue={editing?.iconKey ?? 'default'}>
+                  {subjectIconKeys.map((key) => <option key={key} value={key}>{subjectIconLabels[key]}</option>)}
+                </select>
+              </Field>
+            </FieldGroup>
+            <div className="ui-page-actions">
+              <Button variant="primary" type="submit">บันทึก</Button>
+              {editing && <Button variant="ghost" type="button" onClick={() => setEditing(null)}>ยกเลิก</Button>}
+            </div>
+          </form>
+        </Card>
       )}
 
-      {!repository.canManageStructure && (membership.role === 'admin' || membership.role === 'teacher') && (
-        <div className="alert">ต้องเชื่อมต่อ Supabase ก่อนจึงจะเพิ่มหรือแก้ไขรายวิชาได้ (รายวิชาเป็นข้อมูลฝั่งเซิร์ฟเวอร์)</div>
-      )}
-
-      <section className="subject-grid">
-        {subjects.map((subject) => {
-          const color = subjectColor(subject.colorIndex);
-          return (
-            <article key={subject.id} className="subject-card" style={{ borderColor: color.solid }}>
-              <div className="subject-card-head" style={{ background: color.soft, color: color.solid }}>
-                <span className="subject-card-icon"><SubjectIcon iconKey={subject.iconKey} size={22} /></span>
-                <div>
-                  <strong>{subject.name}</strong>
-                  <span>{subject.code}{subject.nameEn ? ` · ${subject.nameEn}` : ''}</span>
+      {subjects.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<Icon name="subjects" size={28} />}
+            title="ยังไม่มีรายวิชาในโรงเรียนนี้"
+            description={canEdit
+              ? 'เพิ่มรายวิชาเอง หรือกด "เพิ่มทั้งหมด" เพื่อสร้างกลุ่มสาระมาตรฐานให้ครบในครั้งเดียว'
+              : 'เมื่อแอดมินเพิ่มรายวิชาแล้ว รายการจะแสดงที่นี่'}
+            {...(canEdit ? {
+              action: <Button variant="primary" onClick={() => { setEditing(null); setOpenForm(true); }}>เพิ่มรายวิชา</Button>
+            } : {})}
+          />
+        </Card>
+      ) : (
+        <section className="subject-grid">
+          {subjects.map((subject) => {
+            const color = subjectColor(subject.colorIndex);
+            return (
+              <article key={subject.id} className="subject-card" style={{ borderColor: color.solid }}>
+                <div className="subject-card-head" style={{ background: color.soft, color: color.solid }}>
+                  <span className="subject-card-icon"><SubjectIcon iconKey={subject.iconKey} size={22} /></span>
+                  <div>
+                    <strong>{subject.name}</strong>
+                    <span>{subject.code}{subject.nameEn ? ` · ${subject.nameEn}` : ''}</span>
+                  </div>
                 </div>
-              </div>
-              <p>{countFor(subject.id)} งาน/กิจกรรม/การสอบในระบบ</p>
-              <div className="record-actions">
-                <span className={`status-chip ${subject.status === 'active' ? 'success' : 'warning'}`}>
-                  {subject.status === 'active' ? 'เปิดสอน' : 'เก็บถาวร'}
-                </span>
-                {canEdit && (
-                  <>
-                    <button className="text-button" onClick={() => { setEditing(subject); setOpenForm(true); }}>แก้ไข</button>
-                    {subject.status === 'active' && (
-                      <button className="text-button" onClick={() => void repository.archiveSubject(subject.id)}>เก็บถาวร</button>
-                    )}
-                  </>
-                )}
-              </div>
-            </article>
-          );
-        })}
-      </section>
-
+                <p>{countFor(subject.id)} งาน/กิจกรรม/การสอบในระบบ</p>
+                <div className="record-actions">
+                  <Badge tone={subject.status === 'active' ? 'success' : 'warning'}>
+                    {subject.status === 'active' ? 'เปิดสอน' : 'เก็บถาวร'}
+                  </Badge>
+                  {canEdit && (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => { setEditing(subject); setOpenForm(true); }}>แก้ไข</Button>
+                      {subject.status === 'active' && (
+                        <Button variant="ghost" size="sm" onClick={() => void repository.archiveSubject(subject.id)}>เก็บถาวร</Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
     </>
   );
 }

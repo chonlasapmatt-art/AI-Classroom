@@ -8,6 +8,7 @@
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -68,7 +69,9 @@ describe('the confirmation a screen raises', () => {
   it('is not raised twice by two screens rendering their own surface', () => {
     // The property the sweep established, held where it can be broken: a screen that grows its own
     // toast again reintroduces the corner that changes per page and the z-index below the dialog.
-    const root = resolve(process.cwd(), 'src');
+    // Resolved from this file rather than from the working directory, so the assertion holds wherever
+    // the runner was started.
+    const root = resolve(fileURLToPath(import.meta.url), '../../../src');
     const offenders = sourceFiles(root)
       .filter((file) => readFileSync(file, 'utf8').includes('<div className="toast"'))
       .map((file) => file.slice(root.length + 1));

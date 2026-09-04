@@ -7,13 +7,17 @@ import { provisionManagedAccount, setManagedAccountPassword } from '../auth/admi
 import { EraseAccountButton } from '../auth/EraseAccountButton';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
+import {
+  Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, Modal, PageHeader
+} from '../../ui/components';
+import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 
 const verificationLabels: Record<TeacherVerificationStatus, string> = {
   teacher_requested: 'ขอสิทธิ์ครู', verification_pending: 'รอตรวจสอบ',
   verified_teacher: 'ยืนยันแล้ว', revoked: 'ถูกเพิกถอน'
 };
-const verificationTone: Record<TeacherVerificationStatus, string> = {
+const verificationTone: Record<TeacherVerificationStatus, 'warning' | 'success' | 'danger'> = {
   teacher_requested: 'warning', verification_pending: 'warning', verified_teacher: 'success', revoked: 'danger'
 };
 
@@ -112,43 +116,53 @@ export function TeachersPage() {
 
   return (
     <>
-      <section className="page-heading">
-        <div>
-          <span className="eyebrow">บุคลากร</span>
-          <h1>ครู</h1>
-          <p>{snapshot.teachers.length} คน · {snapshot.classTeachers.length} การมอบหมายห้องเรียน</p>
-        </div>
-      </section>
+      <PageHeader
+        eyebrow="บุคลากร"
+        title="ครู"
+        description={`${snapshot.teachers.length} คน · ${snapshot.classTeachers.length} การมอบหมายห้องเรียน`}
+      />
 
       {canEdit && (
-        <form className="panel inline-form" onSubmit={(event) => void createTeacher(event)}>
-          <div className="panel-heading"><h2>เพิ่มครู</h2></div>
-          <div className="form-grid">
-            <label>
-              รหัสครู
-              <input name="code" required placeholder="เช่น SC-003" />
-              <span className="hint">ใช้เป็นรหัสประจำตัวครู ไม่ใช่รหัสผ่าน</span>
-            </label>
-            <label>ชื่อ-สกุล<input name="name" required /></label>
-            <label>รหัสผ่านเริ่มต้น<input name="password" type="password" minLength={8} autoComplete="new-password" required /><span className="hint">อย่างน้อย 8 ตัวอักษร แอดมินเปลี่ยนภายหลังได้</span></label>
-            <label>
-              รายวิชาที่รับผิดชอบ
-              <input
-                name="subject"
-                list="teacher-subject-options"
-              placeholder="เลือกจากรายการ หรือพิมพ์วิชาใหม่ เช่น Coding"
-              />
-              <datalist id="teacher-subject-options">
-                {snapshot.subjects.map((subject) => <option key={subject.id} value={subject.name} />)}
-              </datalist>
-              <span className="hint">ไม่ใส่ตอนนี้ได้ แล้วค่อยมอบหมายวิชาภายหลัง หรือพิมพ์ชื่อวิชาใหม่ของโรงเรียนแล้วกดบันทึก</span>
-            </label>
-          </div>
-          <button className="primary-button">บันทึก</button>
-        </form>
+        <Card as="section">
+          <form onSubmit={(event) => void createTeacher(event)}>
+            <CardHeader
+              title="เพิ่มครู"
+              description="ครูเข้าสู่ระบบด้วยชื่อและรหัสครู · รหัสผ่านที่ตั้งไว้ใช้กับบัญชีของครูคนนั้นโดยตรง"
+            />
+            <FieldGroup>
+              <Field label="รหัสครู" hint="ใช้เป็นรหัสประจำตัวครู ไม่ใช่รหัสผ่าน">
+                <input name="code" required placeholder="เช่น SC-003" />
+              </Field>
+              <Field label="ชื่อ-สกุล"><input name="name" required /></Field>
+              <Field label="รหัสผ่านเริ่มต้น" hint="อย่างน้อย 8 ตัวอักษร · แอดมินเปลี่ยนภายหลังได้">
+                <input name="password" type="password" minLength={8} autoComplete="new-password" required />
+              </Field>
+              <Field
+                label="รายวิชาที่รับผิดชอบ"
+                hint="เว้นว่างได้ แล้วค่อยมอบหมายภายหลัง · พิมพ์ชื่อวิชาใหม่ของโรงเรียนได้เช่นกัน"
+              >
+                <>
+                  <input name="subject" list="teacher-subject-options" placeholder="เลือกจากรายการ หรือพิมพ์วิชาใหม่ เช่น Coding" />
+                  <datalist id="teacher-subject-options">
+                    {snapshot.subjects.map((subject) => <option key={subject.id} value={subject.name} />)}
+                  </datalist>
+                </>
+              </Field>
+            </FieldGroup>
+            <div className="ui-page-actions"><Button variant="primary" type="submit">บันทึก</Button></div>
+          </form>
+        </Card>
       )}
 
-      <section className="panel data-panel">
+      <Card>
+        <CardHeader title={`รายชื่อครู ${snapshot.teachers.length} คน`} />
+        {snapshot.teachers.length === 0 && (
+          <EmptyState
+            icon={<Icon name="teachers" size={28} />}
+            title="ยังไม่มีครูในโรงเรียนนี้"
+            description={canEdit ? 'เพิ่มครูจากแบบฟอร์มด้านบน แล้วมอบหมายห้องเรียนให้' : 'เมื่อแอดมินเพิ่มครูแล้ว รายชื่อจะแสดงที่นี่'}
+          />
+        )}
         <ul className="record-list">
           {snapshot.teachers.map((teacher) => {
             const links = snapshot.classTeachers.filter((item) => item.teacherId === teacher.id);
@@ -159,17 +173,17 @@ export function TeachersPage() {
                     <strong>{teacher.displayName}</strong>
                     <span>{teacher.teacherCode} · {teacher.subject || 'ยังไม่ได้ระบุรายวิชา'}</span>
                   </div>
-                  <span className={`status-chip ${verificationTone[teacher.verificationStatus]}`}>
+                  <Badge tone={verificationTone[teacher.verificationStatus]}>
                     {verificationLabels[teacher.verificationStatus]}
-                  </span>
-                  <span className="status-chip success">{links.length} ห้อง</span>
+                  </Badge>
+                  <Badge tone={links.length > 0 ? 'success' : 'neutral'}>{links.length} ห้อง</Badge>
                 </div>
                 {membership.role === 'admin' && teacher.verificationStatus !== 'verified_teacher' && (
                   <div className="record-actions">
-                    <button className="secondary-button" onClick={() => void verify(teacher.id, teacher.displayName)}>
+                    <Button variant="secondary" size="sm" onClick={() => void verify(teacher.id, teacher.displayName)}>
                       ยืนยันสถานะครู
-                    </button>
-                    <span className="hint">ครูที่ยังไม่ยืนยันจะยังใช้งานข้อมูลห้องเรียนไม่ได้</span>
+                    </Button>
+                    <span className="ui-field-hint">ครูที่ยังไม่ยืนยันจะยังใช้งานข้อมูลห้องเรียนไม่ได้</span>
                   </div>
                 )}
                 {membership.role === 'admin' && teacher.verificationStatus === 'verified_teacher' && canEdit && (
@@ -178,10 +192,10 @@ export function TeachersPage() {
                         identity on first use — so there is nothing to report about "having" an
                         account. What matters is whether the row is in a state the sign-in accepts,
                         and this makes it so in one click. */}
-                    <button className="secondary-button" onClick={() => void activate(teacher.id)}>ยืนยันไอดี</button>
-                    <button className="text-button" onClick={() => setPasswordTeacher(teacher)}>
+                    <Button variant="secondary" size="sm" onClick={() => void activate(teacher.id)}>ยืนยันไอดี</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setPasswordTeacher(teacher)}>
                       {teacher.profileId ? 'เปลี่ยนรหัสผ่าน' : 'ตั้งรหัสผ่าน'}
-                    </button>
+                    </Button>
                     {teacher.profileId && (
                       <EraseAccountButton
                         schoolId={membership.schoolId} role="teacher" profileId={teacher.profileId}
@@ -195,12 +209,14 @@ export function TeachersPage() {
                     {links.map((link) => {
                       const classroom = snapshot.classes.find((item) => item.id === link.classId);
                       return (
-                        <span key={link.id} className="status-chip">
-                          {classroom?.name ?? 'ห้องที่ถูกลบ'} · {link.subjectId
-                            ? (snapshot.subjects.find((subject) => subject.id === link.subjectId)?.name ?? 'วิชาที่ถูกลบ') + ' · '
-                            : ''}{responsibilityLabels[responsibilityOf(link)]}
+                        <span key={link.id} className="teacher-assignment">
+                          <Badge tone="neutral">
+                            {classroom?.name ?? 'ห้องที่ถูกลบ'} · {link.subjectId
+                              ? (snapshot.subjects.find((subject) => subject.id === link.subjectId)?.name ?? 'วิชาที่ถูกลบ') + ' · '
+                              : ''}{responsibilityLabels[responsibilityOf(link)]}
+                          </Badge>
                           {canEdit && (
-                            <button className="text-button" onClick={() => void repository.unassignTeacher(link.id)}>ยกเลิก</button>
+                            <Button variant="ghost" size="sm" onClick={() => void repository.unassignTeacher(link.id)}>ยกเลิก</Button>
                           )}
                         </span>
                       );
@@ -211,37 +227,41 @@ export function TeachersPage() {
             );
           })}
         </ul>
-      </section>
+      </Card>
 
       {canEdit && (
-        <section className="panel data-panel">
-          <div className="panel-heading"><h2>มอบหมายครูเข้าห้องเรียน</h2></div>
-          <div className="form-grid">
-            <label>
-              ครู
+        <Card as="section">
+          <CardHeader
+            title="มอบหมายครูเข้าห้องเรียน"
+            description="หน้าที่เป็นสิ่งที่ตัดสินว่าครูคนนี้แก้ไขอะไรได้บ้าง ไม่ใช่แค่ชื่อที่แสดง"
+          />
+          <FieldGroup>
+            <Field label="ครู">
               <select value={assignment.teacherId} onChange={(event) => setAssignment({ ...assignment, teacherId: event.target.value })}>
                 <option value="">เลือกครู</option>
                 {snapshot.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.displayName}</option>)}
               </select>
-            </label>
-            <label>
-              ห้องเรียน
+            </Field>
+            <Field label="ห้องเรียน">
               <select value={assignment.classId} onChange={(event) => setAssignment({ ...assignment, classId: event.target.value })}>
                 <option value="">เลือกห้อง</option>
                 {snapshot.classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
-            </label>
-            <label>
-              หน้าที่
+            </Field>
+            <Field label="หน้าที่">
               <select value={assignment.responsibility} onChange={(event) => setAssignment({
                 ...assignment, responsibility: event.target.value as TeacherResponsibility,
                 subjectId: (event.target.value === 'SUBJECT_OWNER' || event.target.value === 'SUBJECT_CO_TEACHER') ? assignment.subjectId : ''
               })}>
                 {responsibilityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
-            </label>
-            <label>
-              วิชาที่รับผิดชอบ
+            </Field>
+            <Field
+              label="วิชาที่รับผิดชอบ"
+              hint={responsibilityOptions.find((option) => option.value === assignment.responsibility)?.needsSubject
+                ? 'หน้าที่นี้ผูกกับวิชาหนึ่งวิชา'
+                : 'หน้าที่นี้ครอบคลุมทั้งห้อง จึงไม่ต้องเลือกวิชา'}
+            >
               <select
                 value={assignment.subjectId}
                 disabled={!responsibilityOptions.find((option) => option.value === assignment.responsibility)?.needsSubject}
@@ -250,24 +270,45 @@ export function TeachersPage() {
                 <option value="">{responsibilityOptions.find((option) => option.value === assignment.responsibility)?.needsSubject ? 'เลือกวิชา' : 'ไม่ใช้วิชา'}</option>
                 {snapshot.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
               </select>
-            </label>
+            </Field>
+          </FieldGroup>
+          <div className="ui-page-actions">
+            <Button variant="secondary" onClick={() => void assign()}>บันทึกการมอบหมาย</Button>
           </div>
-          <button className="secondary-button" onClick={() => void assign()}>บันทึกการมอบหมาย</button>
-        </section>
+        </Card>
       )}
 
+      {/* Was a hand-built backdrop with no focus trap, no Escape and no focus returned. */}
       {passwordTeacher && canEdit && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ตั้งรหัสผ่านครู">
-          <section className="modal-card">
-            <div className="panel-heading"><h2>{passwordTeacher.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · {passwordTeacher.displayName}</h2><button type="button" className="icon-button" onClick={() => setPasswordTeacher(null)} aria-label="ปิด">×</button></div>
-            <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { toast(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } void (passwordTeacher.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'teacher', profileId: passwordTeacher.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'teacher', recordId: passwordTeacher.id, displayName: passwordTeacher.displayName, password })).then(() => { setPasswordTeacher(null); toast('บันทึกรหัสผ่านครูแล้ว'); }).catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ', { tone: 'error' })); }}>
-              <ManagedPasswordFields />
-              <div className="modal-actions"><button type="button" className="text-button" onClick={() => setPasswordTeacher(null)}>ยกเลิก</button><button className="primary-button">บันทึก</button></div>
-            </form>
-          </section>
-        </div>
+        <Modal
+          title={`${passwordTeacher.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · ${passwordTeacher.displayName}`}
+          onClose={() => setPasswordTeacher(null)}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget);
+              const password = String(data.get('password') ?? '');
+              const confirm = String(data.get('confirm') ?? '');
+              if (password.length < 8 || password !== confirm) {
+                toast(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร', { tone: 'error' });
+                return;
+              }
+              void (passwordTeacher.profileId
+                ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'teacher', profileId: passwordTeacher.profileId, password })
+                : provisionManagedAccount({ schoolId: membership.schoolId, role: 'teacher', recordId: passwordTeacher.id, displayName: passwordTeacher.displayName, password }))
+                .then(() => { setPasswordTeacher(null); toast('บันทึกรหัสผ่านครูแล้ว', { tone: 'success' }); })
+                .catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ', { tone: 'error' }));
+            }}
+          >
+            <ManagedPasswordFields />
+            <div className="ui-page-actions">
+              <Button variant="ghost" type="button" onClick={() => setPasswordTeacher(null)}>ยกเลิก</Button>
+              <Button variant="primary" type="submit">บันทึก</Button>
+            </div>
+          </form>
+        </Modal>
       )}
-
     </>
   );
 }
