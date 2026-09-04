@@ -3,7 +3,7 @@ import { useSession } from '../../app/SessionContext';
 import { recall } from '../../app/deviceMemory';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { useSyncStatus } from '../../sync/SyncStatusContext';
-import { Badge, Card, EmptyState } from '../../ui/components';
+import { Badge, Card, ForbiddenState } from '../../ui/components';
 import { createEncryptedBackup, downloadBackup, inspectBackup, readBackupFile, restoreBackup, type BackupEnvelope, type BackupSummary } from '../backup/backup';
 import { BlockedMutationsPanel } from './BlockedMutationsPanel';
 import { ConflictPanel } from './ConflictPanel';
@@ -146,7 +146,14 @@ export function OperationsPage() {
         <section className="page-heading">
           <div><span className="eyebrow">Administrator only</span><h1>Sync และ Backup</h1><p>พื้นที่ควบคุมข้อมูลและกู้คืนระบบของผู้ดูแลระบบ</p></div>
         </section>
-        <Card><EmptyState icon="🔒" title="เฉพาะแอดมินระบบ" description="ทุก role ยังคงกดไอคอนซิงค์บนแถบด้านบนได้ แต่หน้าควบคุม Sync และ Backup เปิดได้เฉพาะแอดมินเท่านั้น" /></Card>
+        {/* Not an empty state: nothing is missing, the reader is simply not the person this screen
+            is for. The two read very differently to somebody deciding whether to call support. */}
+        <Card>
+          <ForbiddenState
+            message="หน้าควบคุม Sync และ Backup เปิดเฉพาะแอดมินของโรงเรียน"
+            hint="ทุกบทบาทยังกดปุ่มซิงก์บนแถบด้านบนได้ตามปกติ · หน้านี้ใช้ตั้งค่าและกู้คืนข้อมูลทั้งโรงเรียน จึงจำกัดไว้ที่แอดมิน"
+          />
+        </Card>
       </>
     );
   }

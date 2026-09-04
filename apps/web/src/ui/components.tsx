@@ -189,6 +189,31 @@ export function ConnectionBanner({ state, action }: { state: ConnectionState; ac
   );
 }
 
+/**
+ * The shape of a screen before its data has arrived.
+ *
+ * The snapshot is read from IndexedDB, so for the first frames every screen holds empty arrays. A
+ * page that renders its real layout against those is a roster confidently reporting no students, a
+ * gradebook reporting no marks and a calendar reporting an empty term — which is a different claim
+ * from "not loaded yet", and the one a teacher acts on.
+ *
+ * It repeats the shape most screens have — a heading, a row of figures, then a list — because a
+ * skeleton that does not resemble what follows makes the page jump when it arrives, and reserving
+ * the space is the whole point.
+ */
+export function PageLoading({ label = 'กำลังโหลดข้อมูล' }: { label?: string }) {
+  return (
+    <div className="ui-page-loading" role="status" aria-busy="true" aria-live="polite">
+      <span className="ui-visually-hidden">{label}</span>
+      <div className="ui-page-loading-head" aria-hidden="true"><Skeleton lines={2} /></div>
+      <div className="ui-stat-grid" aria-hidden="true">
+        {[0, 1, 2, 3].map((slot) => <div key={slot} className="ui-stat ui-stat-loading"><Skeleton lines={2} /></div>)}
+      </div>
+      <div className="ui-card ui-card-padded" aria-hidden="true"><Skeleton lines={6} /></div>
+    </div>
+  );
+}
+
 export function Skeleton({ lines = 3, className = '' }: { lines?: number; className?: string }) {
   return (
     <div className={`ui-skeleton ${className}`.trim()} aria-hidden="true">

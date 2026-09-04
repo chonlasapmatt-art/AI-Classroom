@@ -9,6 +9,7 @@ import { StudentQuizPanel } from '../features/quiz/StudentQuizPanel';
 import { TeacherCodeFirstRun } from '../features/teachers/TeacherCodeFirstRun';
 import { ProfileAvatar } from '../features/avatars/ProfileAvatar';
 import { useSyncStatus } from '../sync/SyncStatusContext';
+import { PageLoading } from '../ui/components';
 import { Icon } from '../ui/Icon';
 import { destination, navigationByRole, type NavGroup, type NavItem } from './navigation';
 import type { Role } from '../domain/types';
@@ -423,9 +424,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             <button type="button" onClick={() => void session.support?.end()}>ออกจาก Support Mode</button>
           </div>
         )}
-        {/* A round running in this student's class reaches them wherever they are in the app: the
-            invitation is the enrolment, not a code somebody has to read off a board. */}
-        <main className="page-content"><StudentQuizPanel />{children}</main>
+        {/*
+          * A round running in this student's class reaches them wherever they are in the app: the
+          * invitation is the enrolment, not a code somebody has to read off a board.
+          *
+          * The loading state lives here rather than in each screen, and for a reason beyond saving
+          * thirty copies: an early return inside a screen has to come after every hook it calls, so
+          * thirty guards would be thirty chances to put one in the wrong place and change the hook
+          * order between renders. Here there is one, it cannot be misplaced, and no screen has to
+          * remember that its first frame is a lie.
+          */}
+        <main className="page-content">
+          <StudentQuizPanel />
+          {snapshot.ready ? children : <PageLoading />}
+        </main>
         {/* Shown only under the drawer breakpoint, by CSS. Rendering it at every width and hiding
             it in the stylesheet keeps one DOM for every screen size — a bar that mounted on resize
             would move focus and lose a half-typed field on a tablet being rotated. */}

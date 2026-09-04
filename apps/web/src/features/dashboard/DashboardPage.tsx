@@ -11,7 +11,7 @@ import { timeRemainingLabel, workStateLabels, workStateTone } from '../../academ
 import { buildGradebook, categoryWeightsFrom, gradeDistribution } from '../../academic/gradebook';
 import { gradeSchemeFrom } from '../../academic/gradeScheme';
 import { followUpInsights } from '../../academic/workload';
-import { Badge, Card, CardHeader, EmptyState, LinkButton, PageHeader, ProgressBar, Skeleton, Stat } from '../../ui/components';
+import { Badge, Card, CardHeader, EmptyState, LinkButton, PageHeader, ProgressBar, Stat } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useSyncStatus } from '../../sync/SyncStatusContext';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
@@ -68,25 +68,14 @@ export function DashboardPage() {
   }), [roster, snapshot, classId, scheme]);
 
   /*
-   * The snapshot arrives asynchronously from IndexedDB. Before this the page rendered its real
-   * layout against empty arrays, so on a slow device the first paint was a dashboard confidently
-   * reporting zero of everything — which is a different claim from "not loaded yet", and the one a
-   * teacher acts on.
+   * There is no wait here any more, and that is deliberate.
+   *
+   * This screen used to hold its own: the snapshot arrives from IndexedDB, and a first paint
+   * against empty arrays is a dashboard confidently reporting zero of everything — a different
+   * claim from "not loaded yet", and the one a teacher acts on. Every other screen had the same
+   * problem and none of them held it, so the wait moved to the shell, where one guard covers all
+   * thirty and cannot be placed in the wrong position among a screen's hooks.
    */
-  if (!snapshot.ready) {
-    return (
-      <>
-        <PageHeader eyebrow="กำลังโหลด" title="กำลังโหลดข้อมูล" description="ดึงข้อมูลของโรงเรียนจากเครื่องนี้" />
-        <div className="ui-stat-grid" aria-hidden="true">
-          {[0, 1, 2, 3].map((slot) => <div key={slot} className="ui-stat ui-stat-loading"><Skeleton lines={2} /></div>)}
-        </div>
-        <div className="dashboard-columns">
-          <Card><Skeleton lines={5} /></Card>
-          <Card><Skeleton lines={5} /></Card>
-        </div>
-      </>
-    );
-  }
 
   if (membership.role === 'student') {
     const mine = items.filter((item) => item.work.status === 'published');
@@ -148,7 +137,7 @@ export function DashboardPage() {
           <Card>
             <CardHeader title="สิ่งที่ต้องทำต่อไป" action={<LinkButton to="/assignments" size="sm" variant="ghost">ดูทั้งหมด</LinkButton>} />
             {todo.length === 0 && overdue.length === 0 ? (
-              <EmptyState icon="🎉" title="ไม่มีงานค้าง" description="ทุกงานเรียบร้อยแล้ว" />
+              <EmptyState icon={<Icon name="achievements" size={28} />} title="ไม่มีงานค้าง" description="ทุกงานเรียบร้อยแล้ว" />
             ) : (
               <ul className="timeline">
                 {[...overdue, ...todo].slice(0, 6).map((item) => {
@@ -327,7 +316,7 @@ export function DashboardPage() {
         <Card>
           <CardHeader title="กำหนดส่งที่กำลังจะถึง" action={<LinkButton to="/calendar" size="sm" variant="ghost">ปฏิทิน</LinkButton>} />
           {items.filter((item) => ['soon', 'urgent', 'upcoming'].includes(item.state)).length === 0 ? (
-            <EmptyState icon="🎉" title="ไม่มีงานใกล้ครบกำหนด" description="ห้องนี้กำลังตามทัน" />
+            <EmptyState icon={<Icon name="achievements" size={28} />} title="ไม่มีงานใกล้ครบกำหนด" description="ห้องนี้กำลังตามทัน" />
           ) : (
             <ul className="timeline">
               {items.filter((item) => ['soon', 'urgent', 'upcoming'].includes(item.state)).slice(0, 6).map((item) => {
@@ -351,7 +340,7 @@ export function DashboardPage() {
         <Card>
           <CardHeader title="นักเรียนที่ควรติดตาม" description="ข้อมูลประกอบการตัดสินใจ ไม่ใช่การตัดสินนักเรียน" />
           {insights.length === 0 ? (
-            <EmptyState icon="✓" title="ทุกคนตามทัน" description="ยังไม่มีสัญญาณที่ต้องติดตามเป็นพิเศษ" />
+            <EmptyState icon={<Icon name="check" size={28} />} title="ทุกคนตามทัน" description="ยังไม่มีสัญญาณที่ต้องติดตามเป็นพิเศษ" />
           ) : (
             <ul className="insight-list">
               {insights.map((insight) => (

@@ -161,7 +161,7 @@ export function StudentDetailPage() {
 
       <Card>
         <CardHeader title="ภาพรวมแยกตามวิชา" description="เห็นทันทีว่าวิชาไหนมีงานค้าง แม้นักเรียนจะเรียนหลายห้อง" />
-        {subjectSummary.length === 0 ? <EmptyState icon="✓" title="ยังไม่มีงานที่เผยแพร่" description="เมื่องานถูกเผยแพร่ รายละเอียดจะแยกตามวิชาให้อัตโนมัติ" /> : (
+        {subjectSummary.length === 0 ? <EmptyState icon={<Icon name="check" size={28} />} title="ยังไม่มีงานที่เผยแพร่" description="เมื่องานถูกเผยแพร่ รายละเอียดจะแยกตามวิชาให้อัตโนมัติ" /> : (
           <div className="student-detail-subject-grid">
             {subjectSummary.map((subject) => (
               <article key={subject.name} className={`student-detail-subject-card ${subject.pending > 0 ? 'has-pending' : ''}`}>

@@ -8,6 +8,7 @@ import { Badge, Card, EmptyState, Field, PageHeader, ProgressBar, Segmented, Too
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import type { AvatarAnimation, Student } from '../../domain/types';
 import { QuickScorePanel } from './QuickScorePanel';
+import { Icon } from '../../ui/Icon';
 
 type Scope = 'overall' | 'progress' | 'board';
 
@@ -185,7 +186,7 @@ export function LeaderboardPage() {
         </>
       ) : ranked.length === 0 ? (
         <Card>
-          <EmptyState icon="♕" title="ยังไม่มีข้อมูลจัดอันดับ" description="คะแนนที่เผยแพร่แล้วจะถูกคำนวณอย่างคงที่" />
+          <EmptyState icon={<Icon name="leaderboard" size={28} />} title="ยังไม่มีข้อมูลจัดอันดับ" description="คะแนนที่เผยแพร่แล้วจะถูกคำนวณอย่างคงที่" />
         </Card>
       ) : (
         <>

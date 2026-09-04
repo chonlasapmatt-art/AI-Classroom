@@ -490,3 +490,7 @@
    resizing is disabled everywhere: a textarea dragged wider than its column breaks the form. */
 .ui-autotextarea { resize: none; overflow-y: auto; transition: height var(--motion-fast) var(--motion-ease); }
 @media (prefers-reduced-motion: reduce) { .ui-autotextarea { transition: none; } }
+
+/* The loading page reserves the space its screen will take, so nothing jumps when the data lands. */
+.ui-page-loading { display: flex; flex-direction: column; gap: var(--space-5); }
+.ui-page-loading-head { max-width: 32ch; }

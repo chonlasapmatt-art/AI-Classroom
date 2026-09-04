@@ -47,6 +47,78 @@ export function groupByDay(items: CalendarItem[]): Map<string, CalendarItem[]> {
   return map;
 }
 
+/**
+ * Everything a class has a date for, in one list.
+ *
+ * The calendar showed assignments and nothing else, so an exam — which has a date, a class and a
+ * subject, and is the single most important thing on a term's calendar — appeared nowhere. A
+ * teacher checking the load on a Friday before setting homework was reading half the picture.
+ *
+ * `kind` is what the reader is looking at rather than what table it came from: four kinds of work
+ * and an exam. The calendar colours by this, because "which subject" is already carried by the icon
+ * and "is it a test" is the distinction somebody scans a month for.
+ *
+ * There is no holiday here because the product does not record holidays. Drawing an invented one
+ * would be a calendar telling a school something it never said.
+ */
+export type CalendarKind = 'homework' | 'assignment' | 'project' | 'activity' | 'exam';
+
+export interface CalendarEntry {
+  id: string;
+  kind: CalendarKind;
+  title: string;
+  /** ISO instant for work, ISO date for an exam. Null only for work with no deadline. */
+  at: string | null;
+  subjectId: string | null;
+  /** Present for work; an exam has a date rather than a state a student can be in. */
+  state: WorkState | null;
+  work: Assignment | null;
+}
+
+export function calendarEntriesFor(
+  snapshot: SchoolSnapshot,
+  options: { classIds: string[]; studentId?: string | null; subjectId?: string | null; includeDrafts?: boolean; now?: Date }
+): CalendarEntry[] {
+  const work: CalendarEntry[] = calendarItemsFor(snapshot, options).map((item) => ({
+    id: item.work.id,
+    kind: item.work.workType as CalendarKind,
+    title: item.work.title,
+    at: item.dueAt,
+    subjectId: item.work.subjectId,
+    state: item.state,
+    work: item.work
+  }));
+
+  const exams: CalendarEntry[] = snapshot.tests
+    .filter((test) => !test.deletedAt && options.classIds.includes(test.classId))
+    .filter((test) => !options.subjectId || test.subjectId === options.subjectId)
+    // A draft exam is a teacher's plan. Showing one to a student announces a test that may never
+    // happen, on a date that is still being moved.
+    .filter((test) => options.includeDrafts ? true : test.status !== 'draft')
+    .map((test) => ({
+      id: test.id,
+      kind: 'exam' as const,
+      title: test.title,
+      at: test.testDate,
+      subjectId: test.subjectId,
+      state: null,
+      work: null
+    }));
+
+  return [...work, ...exams].sort((left, right) => (left.at ?? '9999').localeCompare(right.at ?? '9999'));
+}
+
+/** The same grouping as `groupByDay`, for the merged list. */
+export function groupEntriesByDay(entries: CalendarEntry[]): Map<string, CalendarEntry[]> {
+  const map = new Map<string, CalendarEntry[]>();
+  for (const entry of entries) {
+    if (!entry.at) continue;
+    const day = entry.at.slice(0, 10);
+    map.set(day, [...(map.get(day) ?? []), entry]);
+  }
+  return map;
+}
+
 export type NotificationBucket = 'today' | 'due-soon' | 'upcoming' | 'overdue' | 'done';
 
 export const notificationBucketLabels: Record<NotificationBucket, string> = {

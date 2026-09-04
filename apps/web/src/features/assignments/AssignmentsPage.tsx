@@ -16,6 +16,7 @@ import { WorkDetailPanel } from './WorkDetailPanel';
 import { WorkFormModal } from './WorkFormModal';
 import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 import { useToast } from '../../ui/toastContext';
+import { Icon } from '../../ui/Icon';
 
 type Filter = 'all' | 'open' | 'draft' | 'closed';
 type TrackingFilter = 'all' | 'attention' | 'late' | 'waiting' | 'complete';
@@ -191,7 +192,7 @@ export function AssignmentsPage() {
       {visible.length === 0 ? (
         <Card>
           <EmptyState
-            icon="🎉"
+            icon={<Icon name="achievements" size={28} />}
             title={filter === 'all' ? 'ยังไม่มีงานในห้องนี้' : 'ไม่มีงานในหมวดนี้'}
             description={isTeacher ? 'สร้างงานแรกแล้วเผยแพร่ให้นักเรียนทั้งห้อง' : 'ทุกงานเรียบร้อยแล้ว'}
             {...(canCreateWork ? { action: <Button variant="primary" onClick={() => setFormOpen(true)}>+ สร้างงาน</Button> } : {})}
@@ -326,7 +327,7 @@ export function AssignmentsPage() {
             action={selectedTrackingWork && <Badge tone={workStateTone[selectedTrackingWork.state]}>{selectedTrackingWork.work.title}</Badge>}
           />
           {publishedItems.length === 0 ? (
-            <EmptyState icon="◌" title="ยังไม่มีงานที่เผยแพร่" description="เผยแพร่งานจากส่วนที่ 1 แล้วสถานะของนักเรียนจะแสดงที่นี่" />
+            <EmptyState icon={<Icon name="assignments" size={28} />} title="ยังไม่มีงานที่เผยแพร่" description="เผยแพร่งานจากส่วนที่ 1 แล้วสถานะของนักเรียนจะแสดงที่นี่" />
           ) : (
             <>
               <div className="assignment-work-picker" role="tablist" aria-label="เลือกงานเพื่อติดตาม">
@@ -376,7 +377,7 @@ export function AssignmentsPage() {
             <Stat label="ยังค้าง" value={publishedItems.filter((item) => ['overdue', 'urgent', 'soon', 'upcoming', 'revision_requested'].includes(item.state)).length} tone="danger" />
           </div>
           <div className="student-status-list">
-            {publishedItems.length === 0 ? <EmptyState icon="✓" title="ยังไม่มีงานที่ต้องส่ง" description="เมื่อครูเผยแพร่งาน งานจะปรากฏที่ส่วนที่ 1" /> : publishedItems.map((item) => (
+            {publishedItems.length === 0 ? <EmptyState icon={<Icon name="check" size={28} />} title="ยังไม่มีงานที่ต้องส่ง" description="เมื่อครูเผยแพร่งาน งานจะปรากฏที่ส่วนที่ 1" /> : publishedItems.map((item) => (
               <button key={item.work.id} type="button" className="student-status-row" onClick={() => setExpanded(item.work.id)}>
                 <span className="student-status-copy"><strong>{item.work.title}</strong><small>{item.dueAt ? `กำหนดส่ง ${new Date(item.dueAt).toLocaleString('th-TH')}` : 'ไม่กำหนดวันส่ง'}</small></span>
                 <Badge tone={workStateTone[item.state]}>{workStateLabels[item.state]}</Badge>
@@ -407,7 +408,7 @@ export function AssignmentsPage() {
             <Segmented ariaLabel="กรองการส่งงานของนักเรียน" value={trackingFilter} onChange={setTrackingFilter} options={trackingFilterOptions} />
           </div>
           {visibleTrackingRows.length === 0 ? (
-            <EmptyState icon="✓" title="ไม่พบรายการที่ตรงกัน" description="ลองเปลี่ยนคำค้นหาหรือตัวกรองการส่งงาน" />
+            <EmptyState icon={<Icon name="check" size={28} />} title="ไม่พบรายการที่ตรงกัน" description="ลองเปลี่ยนคำค้นหาหรือตัวกรองการส่งงาน" />
           ) : (
             <div className="tracking-list">
               {visibleTrackingRows.map((row) => (

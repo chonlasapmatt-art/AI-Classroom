@@ -1687,3 +1687,50 @@ tr.row-warning td { background: var(--warning-soft); }
      wider than a 320px phone, which turned a bar meant to be read at a glance into a scroll. */
   .distribution-slice { min-width: 40px; padding-inline: var(--space-1); }
 }
+
+/*
+ * Calendar entries, coloured by what they are.
+ *
+ * The accent tokens rather than the status ones: a test is not a failure and homework is not a
+ * success, and borrowing the danger red for either would teach a reader to see alarm in a colour
+ * that means alarm everywhere else in the product. Each kind also carries its name in the chip's
+ * title and, in the list views, in the row itself — colour is never the only channel.
+ */
+.calendar-chip.kind-exam { background: var(--accent-violet-soft); color: var(--accent-violet); font-weight: var(--weight-strong); }
+.calendar-chip.kind-homework { background: var(--accent-cyan-soft); color: var(--accent-cyan); }
+.calendar-chip.kind-assignment { background: var(--brand-50); color: var(--brand-700); }
+.calendar-chip.kind-project { background: var(--accent-gold-soft); color: var(--accent-gold); }
+.calendar-chip.kind-activity { background: var(--accent-mint-soft); color: var(--accent-mint); }
+
+.calendar-row.kind-exam .calendar-row-dot { background: var(--accent-violet); }
+.calendar-row.kind-homework .calendar-row-dot { background: var(--accent-cyan); }
+.calendar-row.kind-assignment .calendar-row-dot { background: var(--brand-500); }
+.calendar-row.kind-project .calendar-row-dot { background: var(--accent-gold); }
+.calendar-row.kind-activity .calendar-row-dot { background: var(--accent-mint); }
+
+/* The legend is the filter, so it is a row of controls rather than a row of swatches. */
+.calendar-legend { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.calendar-legend-chip {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: 34px; padding: 0 var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-pill);
+  background: var(--color-surface); color: var(--color-text-secondary);
+  font-size: var(--text-xs); font-weight: var(--weight-medium);
+  transition: background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+.calendar-legend-chip:hover { background: var(--surface-hover); color: var(--color-text-primary); }
+.calendar-legend-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.calendar-legend-chip.selected { border-color: currentColor; background: var(--surface-hover); font-weight: var(--weight-strong); }
+.calendar-legend-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: none; }
+.calendar-legend-count { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.calendar-legend-chip.selected .calendar-legend-count { color: inherit; }
+.calendar-legend-chip.kind-exam { color: var(--accent-violet); }
+.calendar-legend-chip.kind-homework { color: var(--accent-cyan); }
+.calendar-legend-chip.kind-assignment { color: var(--brand-700); }
+.calendar-legend-chip.kind-project { color: var(--accent-gold); }
+.calendar-legend-chip.kind-activity { color: var(--accent-mint); }
+
+.calendar-week-nav {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--space-3); margin-bottom: var(--space-3);
+}

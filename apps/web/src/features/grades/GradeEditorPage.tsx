@@ -13,6 +13,7 @@ import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { Assignment, Student } from '../../domain/types';
 import { teacherCanEditSubject } from '../../data/teacherResponsibilities';
 import { useToast } from '../../ui/toastContext';
+import { Icon } from '../../ui/Icon';
 
 interface DraftScore { value: string; dirty: boolean }
 
@@ -161,7 +162,7 @@ export function GradeEditorPage() {
       {!work ? (
         <Card>
           <EmptyState
-            icon="☆"
+            icon={<Icon name="star" size={28} />}
             title="ยังไม่มีงานที่เผยแพร่ในห้องนี้"
             description="เผยแพร่งานก่อน จึงจะให้คะแนนได้"
           />

@@ -8,6 +8,7 @@ import { notificationBucketLabels, notificationEntries, type NotificationBucket 
 import { timeRemainingLabel, workStateLabels, workStateTone } from '../../academic/workStatus';
 import { Badge, Button, Card, EmptyState, LinkButton, PageHeader } from '../../ui/components';
 import { useToast } from '../../ui/toastContext';
+import { Icon } from '../../ui/Icon';
 
 const order: NotificationBucket[] = ['today', 'due-soon', 'upcoming', 'overdue', 'done'];
 
@@ -58,7 +59,7 @@ export function NotificationCenterPage() {
 
       {entries.length === 0 ? (
         <Card>
-          <EmptyState icon="🎉" title="ไม่มีการแจ้งเตือน" description="เมื่อครูมอบหมายงานหรือส่งงานคืน จะแจ้งที่นี่" />
+          <EmptyState icon={<Icon name="achievements" size={28} />} title="ไม่มีการแจ้งเตือน" description="เมื่อครูมอบหมายงานหรือส่งงานคืน จะแจ้งที่นี่" />
         </Card>
       ) : (
         <div className="notification-sections">

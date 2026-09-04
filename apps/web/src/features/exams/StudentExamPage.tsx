@@ -4,6 +4,7 @@ import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import {
   Badge, Button, Card, CardHeader, EmptyState, ErrorState, PageHeader, ProgressBar, Skeleton, Stat
 } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
 import {
   answeredCount, examAccess, examStateLabels, examStateTone, examTimeRemaining, listExams,
   startExamAttempt, submitExamAttempt, takeExam, ExamError,
@@ -220,7 +221,7 @@ export function StudentExamPage() {
           );
         })
       ) : (
-        <EmptyState icon="▤" title="ยังไม่มีข้อสอบที่เปิดให้ทำ" description="เมื่อครูเปิดสอบ ข้อสอบจะขึ้นที่หน้านี้" />
+        <EmptyState icon={<Icon name="exams" size={28} />} title="ยังไม่มีข้อสอบที่เปิดให้ทำ" description="เมื่อครูเปิดสอบ ข้อสอบจะขึ้นที่หน้านี้" />
       ))}
     </>
   );
