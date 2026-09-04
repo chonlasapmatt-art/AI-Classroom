@@ -4,6 +4,7 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { matchColumn, type SheetTable } from '../../data/spreadsheet';
 import { acceptedImportExtensions, readImportFile, type ParsedImportFile } from '../../data/importParsing';
 import { StudentImportPanel } from './StudentImportPanel';
+import { useToast } from '../../ui/toastContext';
 
 type ImportTarget = 'student' | 'teacher' | 'parent';
 type StaffTarget = Exclude<ImportTarget, 'student'>;
@@ -109,7 +110,7 @@ export function ImportPage() {
   const [fileName, setFileName] = useState('');
   const [headerless, setHeaderless] = useState(false);
   const [rows, setRows] = useState<DraftRow[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
 
   const spec = target === 'student' ? null : staffTargets[target];
@@ -118,7 +119,7 @@ export function ImportPage() {
   async function pickFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file || !spec) return;
-    setMessage(null);
+
     try {
       const parsed = await readImportFile(file);
       const built = buildStaffRows(parsed.table, spec.fields);
@@ -128,9 +129,9 @@ export function ImportPage() {
       setHeaderless(built.headerless);
       setRows(built.rows);
       const missing = spec.fields.filter((field) => field.required && !built.rows.some((row) => (row[field.key] ?? '').trim())).map((field) => field.label);
-      if (missing.length > 0) setMessage(`ยังไม่พบข้อมูล${missing.join(', ')} — ตรวจแก้ในตารางก่อนนำเข้าได้`);
+      if (missing.length > 0) toast(`ยังไม่พบข้อมูล${missing.join(', ')} — ตรวจแก้ในตารางก่อนนำเข้าได้`);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'อ่านไฟล์ไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'อ่านไฟล์ไม่สำเร็จ', { tone: 'error' });
     }
     event.target.value = '';
   }
@@ -170,9 +171,9 @@ export function ImportPage() {
       }
       setRows([]);
       setTable(null);
-      setMessage(`นำเข้า ${imported} รายการ${skipped > 0 ? ` · ข้าม ${skipped} แถว` : ''}`);
+      toast(`นำเข้า ${imported} รายการ${skipped > 0 ? ` · ข้าม ${skipped} แถว` : ''}`);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'นำเข้าไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'นำเข้าไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -194,7 +195,7 @@ export function ImportPage() {
             <button
               key={key}
               className={target === key ? 'active present' : ''}
-              onClick={() => { setTarget(key); setRows([]); setTable(null); setParsedFile(null); setFileName(''); setHeaderless(false); setMessage(null); }}
+              onClick={() => { setTarget(key); setRows([]); setTable(null); setParsedFile(null); setFileName(''); setHeaderless(false); }}
             >
               {targetLabels[key]}
             </button>
@@ -259,7 +260,6 @@ export function ImportPage() {
         </>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

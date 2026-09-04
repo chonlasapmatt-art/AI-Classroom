@@ -12,6 +12,7 @@ import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { Assignment, Student } from '../../domain/types';
 import { teacherCanEditSubject } from '../../data/teacherResponsibilities';
+import { useToast } from '../../ui/toastContext';
 
 interface DraftScore { value: string; dirty: boolean }
 
@@ -34,7 +35,7 @@ export function GradeEditorPage() {
   const [drafts, setDrafts] = useState<Record<string, DraftScore>>({});
   const [overriding, setOverriding] = useState<Student | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
 
   const selectedClassId = classId || classes[0]?.id || '';
@@ -85,7 +86,7 @@ export function GradeEditorPage() {
         gradedBy: membership.profileId
       });
       setDrafts((current) => ({ ...current, [studentId]: { value: draft.value, dirty: false } }));
-      setMessage('บันทึกคะแนนแล้ว');
+      toast('บันทึกคะแนนแล้ว');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'บันทึกคะแนนไม่สำเร็จ');
     } finally {
@@ -110,7 +111,7 @@ export function GradeEditorPage() {
         saved += 1;
       }
       setDrafts({});
-      setMessage(`บันทึกคะแนน ${saved} คนแล้ว`);
+      toast(`บันทึกคะแนน ${saved} คนแล้ว`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'บันทึกคะแนนไม่สำเร็จ');
     } finally {
@@ -273,7 +274,7 @@ export function GradeEditorPage() {
             setError(null);
             try {
               await repository.overrideGrade(work.id, overriding.id, grade, why, membership.profileId);
-              setMessage(grade ? `ปรับเกรดของ ${overriding.displayName} เป็น ${grade}` : 'ยกเลิกการปรับเกรดแล้ว');
+              toast(grade ? `ปรับเกรดของ ${overriding.displayName} เป็น ${grade}` : 'ยกเลิกการปรับเกรดแล้ว');
               setOverriding(null);
             } catch (reason) {
               setError(reason instanceof Error ? reason.message : 'ปรับเกรดไม่สำเร็จ');
@@ -284,7 +285,6 @@ export function GradeEditorPage() {
         />
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

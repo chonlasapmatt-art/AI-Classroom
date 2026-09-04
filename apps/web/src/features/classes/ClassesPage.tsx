@@ -6,6 +6,7 @@ import { Field, ProgressBar } from '../../ui/components';
 import type { Classroom } from '../../domain/types';
 import { requireSupabase } from '../../services/supabase';
 import { useSyncStatus } from '../../sync/SyncStatusContext';
+import { useToast } from '../../ui/toastContext';
 
 interface StudentSearchResult {
   studentId: string;
@@ -20,7 +21,7 @@ export function ClassesPage() {
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
   const sync = useSyncStatus();
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [transfer, setTransfer] = useState<{ studentId: string; classId: string } | null>(null);
   const [editing, setEditing] = useState<Classroom | null>(null);
   const [openForm, setOpenForm] = useState(false);
@@ -45,13 +46,13 @@ export function ClassesPage() {
     try {
       const chosen = customCapacity ? Number(customCapacity) : capacity;
       if (!Number.isInteger(chosen) || chosen <= 0 || chosen > 200) {
-        setMessage('ความจุห้องเรียนต้องเป็นจำนวนเต็ม 1-200');
+        toast('ความจุห้องเรียนต้องเป็นจำนวนเต็ม 1-200');
         return;
       }
       if (editing) {
         const enrolled = rosterFor(snapshot, editing.id).length;
         if (chosen < enrolled) {
-          setMessage(`ห้องนี้มีนักเรียน ${enrolled} คน ต้องย้ายนักเรียนออกก่อนจึงจะลดความจุเหลือ ${chosen}`);
+          toast(`ห้องนี้มีนักเรียน ${enrolled} คน ต้องย้ายนักเรียนออกก่อนจึงจะลดความจุเหลือ ${chosen}`);
           return;
         }
       }
@@ -63,20 +64,20 @@ export function ClassesPage() {
         capacity: chosen
       });
       form.reset();
-      setMessage(editing ? 'แก้ไขห้องเรียนแล้ว' : 'สร้างห้องเรียนแล้ว');
+      toast(editing ? 'แก้ไขห้องเรียนแล้ว' : 'สร้างห้องเรียนแล้ว');
       setEditing(null);
       setOpenForm(false);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'บันทึกห้องเรียนไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'บันทึกห้องเรียนไม่สำเร็จ', { tone: 'error' });
     }
   }
 
   async function removeClass(classroom: Classroom) {
     try {
       await repository.deleteClass(classroom.id);
-      setMessage(`ลบห้อง ${classroom.name} แล้ว`);
+      toast(`ลบห้อง ${classroom.name} แล้ว`);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ลบห้องเรียนไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ลบห้องเรียนไม่สำเร็จ', { tone: 'error' });
     } finally {
       setConfirmDelete(null);
     }
@@ -86,10 +87,10 @@ export function ClassesPage() {
     if (!transfer || !term) return;
     try {
       await repository.transferStudent(transfer.studentId, transfer.classId, term.id);
-      setMessage('ย้ายห้องเรียนแล้ว');
+      toast('ย้ายห้องเรียนแล้ว');
       setTransfer(null);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ย้ายห้องไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ย้ายห้องไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -97,10 +98,10 @@ export function ClassesPage() {
     event.preventDefault();
     const classId = rosterClassId || classes.find((item) => item.status === 'active')?.id || '';
     if (!classId || searchQuery.trim().length < 2) {
-      setMessage('เลือกห้องและพิมพ์ชื่อนักเรียนอย่างน้อย 2 ตัวอักษร');
+      toast('เลือกห้องและพิมพ์ชื่อนักเรียนอย่างน้อย 2 ตัวอักษร');
       return;
     }
-    setSearching(true); setMessage(null);
+    setSearching(true);
     try {
       if (mode === 'cloud') {
         const { data, error } = await requireSupabase().rpc('search_school_students', {
@@ -131,7 +132,7 @@ export function ClassesPage() {
           }));
       }
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ค้นหานักเรียนไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ค้นหานักเรียนไม่สำเร็จ', { tone: 'error' });
     } finally { setSearching(false); }
   }
 
@@ -148,21 +149,21 @@ export function ClassesPage() {
         if (error) throw error;
         const result = data as { status?: string } | null;
         if (result?.status === 'already_enrolled_elsewhere') {
-          setMessage(`${student.displayName} อยู่ใน ${student.currentClassName ?? 'ห้องอื่น'} แล้ว กรุณาใช้เมนูย้ายห้อง`);
+          toast(`${student.displayName} อยู่ใน ${student.currentClassName ?? 'ห้องอื่น'} แล้ว กรุณาใช้เมนูย้ายห้อง`);
           return;
         }
         // The RPC is authoritative, but it does not write the new row into this tab's Dexie
         // projection. Pull immediately so the room count and roster change without waiting for
         // the background interval (and without enqueueing the same enrollment a second time).
         if (result?.status === 'joined') await sync?.syncNow();
-        setMessage(result?.status === 'already_member' ? `${student.displayName} อยู่ในห้องนี้แล้ว` : `เชิญ ${student.displayName} เข้าห้องแล้ว ระบบกำลังซิงค์รายชื่อ`);
+        toast(result?.status === 'already_member' ? `${student.displayName} อยู่ในห้องนี้แล้ว` : `เชิญ ${student.displayName} เข้าห้องแล้ว ระบบกำลังซิงค์รายชื่อ`);
       } else {
         await repository.enrollStudent(student.studentId, classId, term.id);
-        setMessage(`เพิ่ม ${student.displayName} เข้าห้องแล้ว`);
+        toast(`เพิ่ม ${student.displayName} เข้าห้องแล้ว`);
       }
       setSearchResults((items) => items.map((item) => item.studentId === student.studentId ? { ...item, currentClassId: classId, currentClassName: classes.find((entry) => entry.id === classId)?.name ?? null } : item));
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'เชิญนักเรียนไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'เชิญนักเรียนไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -342,7 +343,6 @@ export function ClassesPage() {
         </div>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

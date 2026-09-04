@@ -5,6 +5,7 @@ import { activeClasses } from '../../data/selectors';
 import { standardSubjects, subjectColor, subjectColors, subjectIconKeys, subjectIconLabels } from '../../data/subjectCatalog';
 import { SubjectIcon } from './SubjectIcon';
 import type { Subject } from '../../domain/types';
+import { useToast } from '../../ui/toastContext';
 
 export function SubjectsPage() {
   const { membership } = useSession();
@@ -12,7 +13,7 @@ export function SubjectsPage() {
   const snapshot = useSchoolSnapshot();
   const [editing, setEditing] = useState<Subject | null>(null);
   const [openForm, setOpenForm] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const canEdit = membership.role === 'admin' && repository.canManageStructure;
   const classes = activeClasses(snapshot);
@@ -35,9 +36,9 @@ export function SubjectsPage() {
       form.reset();
       setEditing(null);
       setOpenForm(false);
-      setMessage(editing ? 'แก้ไขรายวิชาแล้ว' : 'เพิ่มรายวิชาแล้ว');
+      toast(editing ? 'แก้ไขรายวิชาแล้ว' : 'เพิ่มรายวิชาแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -45,7 +46,7 @@ export function SubjectsPage() {
     for (const [index, seed] of missingStandard.entries()) {
       await repository.saveSubject({ ...seed, sortOrder: subjects.length + index });
     }
-    setMessage(`เพิ่ม ${missingStandard.length} กลุ่มสาระมาตรฐานแล้ว`);
+    toast(`เพิ่ม ${missingStandard.length} กลุ่มสาระมาตรฐานแล้ว`);
   }
 
   function countFor(subjectId: string): number {
@@ -138,7 +139,6 @@ export function SubjectsPage() {
         })}
       </section>
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

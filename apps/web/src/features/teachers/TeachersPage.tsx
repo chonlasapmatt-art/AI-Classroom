@@ -7,6 +7,7 @@ import { provisionManagedAccount, setManagedAccountPassword } from '../auth/admi
 import { EraseAccountButton } from '../auth/EraseAccountButton';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
+import { useToast } from '../../ui/toastContext';
 
 const verificationLabels: Record<TeacherVerificationStatus, string> = {
   teacher_requested: 'ขอสิทธิ์ครู', verification_pending: 'รอตรวจสอบ',
@@ -27,7 +28,7 @@ export function TeachersPage() {
   const { membership, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [passwordTeacher, setPasswordTeacher] = useState<typeof snapshot.teachers[number] | null>(null);
   const [assignment, setAssignment] = useState<{ teacherId: string; classId: string; responsibility: TeacherResponsibility; subjectId: string }>({
     teacherId: '', classId: '', responsibility: 'CLASS_ADVISOR', subjectId: ''
@@ -68,20 +69,20 @@ export function TeachersPage() {
       if (mode === 'cloud') {
         await provisionManagedAccount({ schoolId: membership.schoolId, role: 'teacher', recordId: teacherId, displayName, password });
       }
-      setMessage(`เพิ่มครู ${displayName} แล้ว · ใช้ชื่อกับรหัสผ่านเข้าสู่ระบบได้เลย`);
+      toast(`เพิ่มครู ${displayName} แล้ว · ใช้ชื่อกับรหัสผ่านเข้าสู่ระบบได้เลย`);
       form.reset();
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ', { tone: 'error' });
     }
   }
 
   async function activate(teacherId: string) {
     try {
-      setMessage(describeActivatedLogin(await activateMemberLogin({
+      toast(describeActivatedLogin(await activateMemberLogin({
         schoolId: membership.schoolId, role: 'teacher', recordId: teacherId
       })));
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -90,9 +91,9 @@ export function TeachersPage() {
     if (reason === null) return;
     try {
       await repository.verifyTeacher(teacherId, reason);
-      setMessage(`ยืนยันสถานะครูของ ${displayName} แล้ว`);
+      toast(`ยืนยันสถานะครูของ ${displayName} แล้ว`);
     } catch (reason2) {
-      setMessage(reason2 instanceof Error ? reason2.message : 'ยืนยันสถานะไม่สำเร็จ');
+      toast(reason2 instanceof Error ? reason2.message : 'ยืนยันสถานะไม่สำเร็จ');
     }
   }
 
@@ -103,9 +104,9 @@ export function TeachersPage() {
       if (subjectRequired && !assignment.subjectId) throw new Error('กรุณาเลือกวิชาสำหรับหน้าที่นี้');
       const role = assignment.responsibility === 'ASSISTANT_ADVISOR' || assignment.responsibility === 'SUBJECT_CO_TEACHER' ? 'assistant' : 'primary';
       await repository.assignTeacher(assignment.classId, assignment.teacherId, role, subjectRequired ? assignment.subjectId : null);
-      setMessage(`กำหนด${responsibilityLabels[assignment.responsibility]}แล้ว`);
+      toast(`กำหนด${responsibilityLabels[assignment.responsibility]}แล้ว`);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'กำหนดครูไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'กำหนดครูไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -184,7 +185,7 @@ export function TeachersPage() {
                     {teacher.profileId && (
                       <EraseAccountButton
                         schoolId={membership.schoolId} role="teacher" profileId={teacher.profileId}
-                        displayName={teacher.displayName} onDone={setMessage}
+                        displayName={teacher.displayName} onDone={toast}
                       />
                     )}
                   </div>
@@ -259,7 +260,7 @@ export function TeachersPage() {
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ตั้งรหัสผ่านครู">
           <section className="modal-card">
             <div className="panel-heading"><h2>{passwordTeacher.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · {passwordTeacher.displayName}</h2><button type="button" className="icon-button" onClick={() => setPasswordTeacher(null)} aria-label="ปิด">×</button></div>
-            <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { setMessage(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } void (passwordTeacher.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'teacher', profileId: passwordTeacher.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'teacher', recordId: passwordTeacher.id, displayName: passwordTeacher.displayName, password })).then(() => { setPasswordTeacher(null); setMessage('บันทึกรหัสผ่านครูแล้ว'); }).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ')); }}>
+            <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { toast(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } void (passwordTeacher.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'teacher', profileId: passwordTeacher.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'teacher', recordId: passwordTeacher.id, displayName: passwordTeacher.displayName, password })).then(() => { setPasswordTeacher(null); toast('บันทึกรหัสผ่านครูแล้ว'); }).catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ', { tone: 'error' })); }}>
               <ManagedPasswordFields />
               <div className="modal-actions"><button type="button" className="text-button" onClick={() => setPasswordTeacher(null)}>ยกเลิก</button><button className="primary-button">บันทึก</button></div>
             </form>
@@ -267,7 +268,6 @@ export function TeachersPage() {
         </div>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

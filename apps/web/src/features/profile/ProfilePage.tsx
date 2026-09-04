@@ -5,6 +5,7 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { Badge, Button, Card, CardHeader, Field, FieldGroup, PageHeader } from '../../ui/components';
 import { AvatarPicker } from '../avatars/AvatarPicker';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
+import { useToast } from '../../ui/toastContext';
 
 const roleLabels = { admin: 'ผู้ดูแลระบบ', teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง' } as const;
 const avatarStorageKey = (profileId: string) => `smart-classroom.avatar.${profileId}`;
@@ -18,7 +19,7 @@ export function ProfilePage() {
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [localAvatarId, setLocalAvatarId] = useState(() => recall(avatarStorageKey(membership.profileId)));
 
@@ -47,7 +48,7 @@ export function ProfilePage() {
     remember(avatarStorageKey(membership.profileId), nextAvatarId);
     setLocalAvatarId(nextAvatarId);
     window.dispatchEvent(new Event('smart-classroom:avatar-changed'));
-    setMessage('บันทึก avatar แล้ว');
+    toast('บันทึก avatar แล้ว');
   }
 
   async function uploadPhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -57,7 +58,7 @@ export function ProfilePage() {
     setError(null);
     try {
       await repository.saveOwnAvatarPhoto(membership.profileId, membership.role, file);
-      setMessage('อัปโหลดรูปโปรไฟล์แล้ว');
+      toast('อัปโหลดรูปโปรไฟล์แล้ว');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'อัปโหลดรูปไม่สำเร็จ');
     }
@@ -67,7 +68,7 @@ export function ProfilePage() {
     if (membership.role === 'admin') return;
     try {
       await repository.clearOwnAvatarPhoto(membership.profileId, membership.role);
-      setMessage('กลับไปใช้ avatar แบบวาดแล้ว');
+      toast('กลับไปใช้ avatar แบบวาดแล้ว');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'ลบรูปไม่สำเร็จ');
     }
@@ -84,7 +85,7 @@ export function ProfilePage() {
         quietHoursStart: String(data.get('quietStart') ?? '') || null,
         quietHoursEnd: String(data.get('quietEnd') ?? '') || null
       });
-      setMessage('บันทึกการตั้งค่าการแจ้งเตือนแล้ว');
+      toast('บันทึกการตั้งค่าการแจ้งเตือนแล้ว');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ');
     }
@@ -189,7 +190,6 @@ export function ProfilePage() {
         />
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

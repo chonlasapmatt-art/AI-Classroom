@@ -12,6 +12,7 @@ import { listBankQuestions, type BankQuestion } from '../questions/questionBank'
 import {
   formatCountdown, pickNextIndex, pickNextStudent, splitIntoTeams, teamCountOptions, teamName, xpPresets
 } from './classroomGames';
+import { useToast } from '../../ui/toastContext';
 
 type Tool = 'pick' | 'teams' | 'question' | 'timer';
 
@@ -47,7 +48,7 @@ export function ClassroomLivePage() {
   const [classId, setClassId] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [points, setPoints] = useState<number>(2);
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
 
@@ -133,7 +134,7 @@ export function ClassroomLivePage() {
       setPicked(result.picked);
       setCurrent(result.studentId ? studentsById.get(result.studentId) ?? null : null);
       setSpinning(false);
-      if (result.roundRestarted) setMessage('ครบทุกคนแล้ว เริ่มรอบใหม่');
+      if (result.roundRestarted) toast('ครบทุกคนแล้ว เริ่มรอบใหม่');
     }, 700);
   }
 
@@ -148,7 +149,7 @@ export function ClassroomLivePage() {
           awardedBy: membership.profileId
         });
       }
-      setMessage(`ให้ ${points} XP · ${studentIds.length} คน · ${reason}`);
+      toast(`ให้ ${points} XP · ${studentIds.length} คน · ${reason}`);
       setCelebration({
         title: `+${points} XP`,
         detail: studentIds.length === 1
@@ -157,7 +158,7 @@ export function ClassroomLivePage() {
         icon: '⚡'
       });
     } catch (reason_) {
-      setMessage(reason_ instanceof Error ? reason_.message : 'ให้คะแนนไม่สำเร็จ');
+      toast(reason_ instanceof Error ? reason_.message : 'ให้คะแนนไม่สำเร็จ');
     } finally { setBusy(false); }
   }
 
@@ -175,9 +176,9 @@ export function ClassroomLivePage() {
         detail: `${studentsById.get(studentId)?.displayName ?? 'นักเรียน'} · ${badge.description}`,
         icon: badge.icon
       });
-      setMessage(`มอบเหรียญ "${badge.label}" แล้ว`);
+      toast(`มอบเหรียญ "${badge.label}" แล้ว`);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'มอบเหรียญไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'มอบเหรียญไม่สำเร็จ', { tone: 'error' });
     } finally { setBusy(false); }
   }
 
@@ -260,7 +261,7 @@ export function ClassroomLivePage() {
             </Button>
             <Button onClick={() => void award(current ? [current.id] : [], 'ตอบคำถามหน้าชั้น')}
               disabled={!current || spinning || busy}>ให้ {points} XP</Button>
-            <Button onClick={() => { setPicked([]); setMessage('เริ่มรอบใหม่แล้ว'); }}
+            <Button onClick={() => { setPicked([]); toast('เริ่มรอบใหม่แล้ว'); }}
               disabled={picked.length === 0}>เริ่มรอบใหม่</Button>
           </div>
           <p className="field-hint">เรียกแล้ว {picked.length}/{roster.length} คนในรอบนี้</p>
@@ -392,7 +393,6 @@ export function ClassroomLivePage() {
           </div>
         </div>
       )}
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

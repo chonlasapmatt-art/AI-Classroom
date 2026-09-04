@@ -9,6 +9,7 @@ import { activateMemberLogin, describeActivatedLogin } from '../auth/identityAct
 import { requireSupabase } from '../../services/supabase';
 import { ParentRequestsPanel } from './ParentRequestsPanel';
 import { EraseAccountButton } from '../auth/EraseAccountButton';
+import { useToast } from '../../ui/toastContext';
 
 type PasswordTarget = {
   profileId: string | null;
@@ -93,7 +94,7 @@ export function ParentsPage() {
   const { membership, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [passwordParent, setPasswordParent] = useState<PasswordTarget | null>(null);
   const [managedParents, setManagedParents] = useState<ManagedParent[]>([]);
@@ -108,9 +109,9 @@ export function ParentsPage() {
     let cancelled = false;
     void loadManagedParents(membership.schoolId)
       .then((parents) => { if (!cancelled) setManagedParents(parents); })
-      .catch(() => { if (!cancelled) setMessage('โหลดรายชื่อผู้ปกครองไม่สำเร็จ กรุณากดรีเฟรช'); });
+      .catch(() => { if (!cancelled) toast('โหลดรายชื่อผู้ปกครองไม่สำเร็จ กรุณากดรีเฟรช'); });
     return () => { cancelled = true; };
-  }, [canManageAccounts, membership.schoolId, mode]);
+  }, [canManageAccounts, membership.schoolId, mode, toast]);
 
   type ParentRow = {
     key: string; parentName: string; profileId: string | null; contact: string;
@@ -174,9 +175,9 @@ export function ParentsPage() {
       });
       if (error) throw new Error(error.message);
       await refreshParents();
-      setMessage(`เชื่อมกับ ${nameOfStudent(studentId) || 'นักเรียน'} แล้ว`);
+      toast(`เชื่อมกับ ${nameOfStudent(studentId) || 'นักเรียน'} แล้ว`);
     } catch (reason) {
-      setMessage(reason instanceof Error ? `เชื่อมนักเรียนไม่สำเร็จ (${reason.message})` : 'เชื่อมนักเรียนไม่สำเร็จ');
+      toast(reason instanceof Error ? `เชื่อมนักเรียนไม่สำเร็จ (${reason.message})` : 'เชื่อมนักเรียนไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -187,9 +188,9 @@ export function ParentsPage() {
     try {
       await repository.setParentConsent(link.linkId, granted, privacy.policyVersion);
       await refreshParents();
-      setMessage(granted ? 'บันทึกความยินยอมแล้ว' : 'ถอนความยินยอมแล้ว');
+      toast(granted ? 'บันทึกความยินยอมแล้ว' : 'ถอนความยินยอมแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -200,9 +201,9 @@ export function ParentsPage() {
     try {
       await repository.revokeParentLink(link.linkId);
       await refreshParents();
-      setMessage('ยกเลิกการเชื่อมบัญชีแล้ว');
+      toast('ยกเลิกการเชื่อมบัญชีแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -210,12 +211,12 @@ export function ParentsPage() {
 
   async function activate(parentId: string) {
     try {
-      setMessage(describeActivatedLogin(await activateMemberLogin({
+      toast(describeActivatedLogin(await activateMemberLogin({
         schoolId: membership.schoolId, role: 'parent', recordId: parentId
       })));
       setManagedParents(await loadManagedParents(membership.schoolId));
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -241,10 +242,10 @@ export function ParentsPage() {
         setManagedParents(await loadManagedParents(membership.schoolId));
       }
       else await repository.saveParentLink({ studentId, parentName: displayName, relationship: String(data.get('relationship') ?? '').trim(), contact: String(data.get('phone') ?? '').trim(), status: 'linked' });
-      setMessage(`เพิ่มผู้ปกครอง ${displayName} แล้ว · ใช้ชื่อกับรหัสผ่านเข้าสู่ระบบได้เลย`);
+      toast(`เพิ่มผู้ปกครอง ${displayName} แล้ว · ใช้ชื่อกับรหัสผ่านเข้าสู่ระบบได้เลย`);
       form.reset();
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'บันทึกผู้ปกครองไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'บันทึกผู้ปกครองไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -330,7 +331,7 @@ export function ParentsPage() {
                       <EraseAccountButton
                         schoolId={membership.schoolId} role="parent" profileId={row.profileId}
                         displayName={row.parentName}
-                        onDone={(text) => { setMessage(text); void refreshParents(); }}
+                        onDone={(text) => { toast(text); void refreshParents(); }}
                       />
                     )}
                   </div>
@@ -383,7 +384,7 @@ export function ParentsPage() {
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ตั้งรหัสผ่านผู้ปกครอง">
           <section className="modal-card">
             <div className="panel-heading"><h2>{passwordParent.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · {passwordParent.parentName}</h2><button type="button" className="icon-button" onClick={() => setPasswordParent(null)} aria-label="ปิด">×</button></div>
-            <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { setMessage(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } const action = passwordParent.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'parent', profileId: passwordParent.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'parent', recordId: crypto.randomUUID(), ...(passwordParent.studentId ? { studentId: passwordParent.studentId } : {}), displayName: passwordParent.parentName, password, relationship: passwordParent.relationship, phone: passwordParent.contact }); void action.then(() => { setPasswordParent(null); setMessage('บันทึกรหัสผ่านผู้ปกครองแล้ว'); }).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ')); }}>
+            <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { toast(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } const action = passwordParent.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'parent', profileId: passwordParent.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'parent', recordId: crypto.randomUUID(), ...(passwordParent.studentId ? { studentId: passwordParent.studentId } : {}), displayName: passwordParent.parentName, password, relationship: passwordParent.relationship, phone: passwordParent.contact }); void action.then(() => { setPasswordParent(null); toast('บันทึกรหัสผ่านผู้ปกครองแล้ว'); }).catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ', { tone: 'error' })); }}>
               <ManagedPasswordFields />
               <div className="modal-actions"><button type="button" className="text-button" onClick={() => setPasswordParent(null)}>ยกเลิก</button><button className="primary-button">บันทึก</button></div>
             </form>
@@ -391,7 +392,6 @@ export function ParentsPage() {
         </div>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

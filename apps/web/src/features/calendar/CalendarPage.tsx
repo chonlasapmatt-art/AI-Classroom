@@ -12,6 +12,7 @@ import { rosterFor } from '../../data/selectors';
 import { WorkFormModal } from '../assignments/WorkFormModal';
 import type { Assignment } from '../../domain/types';
 import type { AssignmentInput } from '../../data/schoolRepository';
+import { useToast } from '../../ui/toastContext';
 
 type CalendarView = 'month' | 'week' | 'upcoming';
 
@@ -43,7 +44,7 @@ export function CalendarPage() {
   const [subjectId, setSubjectId] = useState('');
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
   const [composing, setComposing] = useState<{ dueAt: string; work: Assignment | null } | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const effectiveClassId = ownClassId ?? classId ?? classes[0]?.id ?? '';
   const selectedClassId = effectiveClassId || classes[0]?.id || '';
@@ -92,7 +93,7 @@ export function CalendarPage() {
   async function saveWork(input: AssignmentInput, publish: boolean) {
     await repository.saveAssignment({ ...input, status: publish ? 'draft' : input.status });
     if (publish && input.id) await repository.publishAssignment(input.id, roster.map((student) => student.id));
-    setMessage(publish ? 'เผยแพร่งานให้นักเรียนแล้ว' : 'บันทึกฉบับร่างแล้ว');
+    toast(publish ? 'เผยแพร่งานให้นักเรียนแล้ว' : 'บันทึกฉบับร่างแล้ว');
   }
 
   const upcoming = items
@@ -212,7 +213,6 @@ export function CalendarPage() {
         />
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
 
       {view === 'upcoming' && (
         <Card>

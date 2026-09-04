@@ -423,6 +423,19 @@ let toastId = 0;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
 
+  /*
+   * Dismissing and removing are two steps, and both have to exist.
+   *
+   * `dismiss` starts the exit by zeroing the duration; `remove` is what actually takes the node out
+   * once that animation has run. With only the first, every message a session ever raised stayed in
+   * the document — invisible, but still a `role="status"` node in the live region, and a container
+   * that grew for as long as the tab was open. Nothing caught it because the provider was never
+   * mounted anywhere until now.
+   */
+  const remove = useCallback((id: number) => {
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
   const dismiss = useCallback((id: number) => {
     setItems((prev) => prev.map((t) => (t.id === id ? { ...t, duration: 0 } : t)));
   }, []);
@@ -442,26 +455,31 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="ui-toast-container" aria-live="polite" aria-relevant="additions removals">
         {items.map((item) => (
-          <ToastItemView key={item.id} item={item} onDismiss={dismiss} />
+          <ToastItemView key={item.id} item={item} onDismiss={dismiss} onRemoved={remove} />
         ))}
       </div>
     </ToastContext.Provider>
   );
 }
 
-function ToastItemView({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) => void }) {
+function ToastItemView({ item, onDismiss, onRemoved }: {
+  item: ToastItem; onDismiss: (id: number) => void; onRemoved: (id: number) => void;
+}) {
   const [exiting, setExiting] = useState(false);
   const ref = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
+    // A duration of zero means the exit has been asked for — by the close button, or by the timer
+    // below having run out. Both funnel through the same path so a message leaves the same way
+    // whether a person dismissed it or it expired.
     if (item.duration <= 0) {
       setExiting(true);
-      const t = setTimeout(() => onDismiss(item.id), 200);
+      const t = setTimeout(() => onRemoved(item.id), 200);
       return () => clearTimeout(t);
     }
-    ref.current = setTimeout(() => setExiting(true), item.duration);
+    ref.current = setTimeout(() => onDismiss(item.id), item.duration);
     return () => { if (ref.current) clearTimeout(ref.current); };
-  }, [item.duration, item.id, onDismiss]);
+  }, [item.duration, item.id, onDismiss, onRemoved]);
 
   const toastIcons: Record<ToastTone, 'info' | 'success' | 'warning' | 'error'> = { info: 'info', success: 'success', warning: 'warning', error: 'error' };
 

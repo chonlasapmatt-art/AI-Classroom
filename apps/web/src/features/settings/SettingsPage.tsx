@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
@@ -8,12 +8,13 @@ import { APP_VERSION, checkForUpdateNow, formatBuildTime, readLastCheckedAt } fr
 import { AcademicSettingsPanel } from './AcademicSettingsPanel';
 import { useTheme } from '../../app/ThemeContext';
 import { themeDensities, themeModes, themeMotions, themePresets } from '../../app/theme';
+import { useToast } from '../../ui/toastContext';
 
 export function SettingsPage() {
   const { membership, memberships, mode } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const theme = useTheme();
   const policy = scorePolicyFrom(snapshot.settings);
   const privacy = privacyPolicyFrom(snapshot.settings);
@@ -28,7 +29,7 @@ export function SettingsPage() {
     const activity = Number(data.get('activity') ?? policy.weights.activity);
     const test = Number(data.get('test') ?? policy.weights.test);
     if (assignment + activity + test !== 100) {
-      setMessage('น้ำหนักรวมต้องเท่ากับ 100');
+      toast('น้ำหนักรวมต้องเท่ากับ 100');
       return;
     }
     await repository.saveSetting('score_policy', {
@@ -37,7 +38,7 @@ export function SettingsPage() {
       missingItem: String(data.get('missingItem') ?? policy.missingItem),
       decimals: policy.decimals
     });
-    setMessage('บันทึกนโยบายคะแนนแล้ว');
+    toast('บันทึกนโยบายคะแนนแล้ว');
   }
 
   async function savePrivacy(event: FormEvent<HTMLFormElement>) {
@@ -48,7 +49,7 @@ export function SettingsPage() {
       showLeaderboardToStudents: data.get('showLeaderboard') === 'on',
       shareScoresWithParents: data.get('shareScores') === 'on'
     });
-    setMessage('บันทึกนโยบายความเป็นส่วนตัวแล้ว');
+    toast('บันทึกนโยบายความเป็นส่วนตัวแล้ว');
   }
 
   return (
@@ -184,7 +185,7 @@ export function SettingsPage() {
         </section>
       )}
 
-      <AcademicSettingsPanel canEdit={isAdmin} onMessage={setMessage} />
+      <AcademicSettingsPanel canEdit={isAdmin} onMessage={toast} />
 
       <section className="panel">
         <div className="panel-heading">
@@ -192,8 +193,8 @@ export function SettingsPage() {
           <button
             className="secondary-button"
             onClick={() => void checkForUpdateNow()
-              .then((checked) => setMessage(checked ? 'ตรวจหาอัปเดตแล้ว ถ้ามีเวอร์ชันใหม่จะมีแถบแจ้งขึ้นมา' : 'เบราว์เซอร์นี้ไม่รองรับการอัปเดตอัตโนมัติ'))
-              .catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'ตรวจหาอัปเดตไม่สำเร็จ'))}
+              .then((checked) => toast(checked ? 'ตรวจหาอัปเดตแล้ว ถ้ามีเวอร์ชันใหม่จะมีแถบแจ้งขึ้นมา' : 'เบราว์เซอร์นี้ไม่รองรับการอัปเดตอัตโนมัติ'))
+              .catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'ตรวจหาอัปเดตไม่สำเร็จ', { tone: 'error' }))}
           >
             ตรวจหาอัปเดต
           </button>
@@ -221,7 +222,6 @@ export function SettingsPage() {
         </ul>
       </section>
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

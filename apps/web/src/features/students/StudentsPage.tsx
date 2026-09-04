@@ -11,6 +11,7 @@ import { provisionManagedAccount, setManagedAccountPassword } from '../auth/admi
 import { EraseAccountButton } from '../auth/EraseAccountButton';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
+import { useToast } from '../../ui/toastContext';
 
 export function StudentsPage() {
   const { membership, mode } = useSession();
@@ -20,7 +21,7 @@ export function StudentsPage() {
   const [classId, setClassId] = useState('');
   const [open, setOpen] = useState(false);
   const [csv, setCsv] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [studioStudent, setStudioStudent] = useState<Student | null>(null);
   const [renaming, setRenaming] = useState<Student | null>(null);
   const [passwordStudent, setPasswordStudent] = useState<Student | null>(null);
@@ -48,11 +49,11 @@ export function StudentsPage() {
    */
   async function activate(studentId: string) {
     try {
-      setMessage(describeActivatedLogin(await activateMemberLogin({
+      toast(describeActivatedLogin(await activateMemberLogin({
         schoolId: membership.schoolId, role: 'student', recordId: studentId
       })));
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ยืนยันไอดีไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -62,11 +63,11 @@ export function StudentsPage() {
         p_student_id: student.id, p_enabled: enabled
       });
       if (error) throw error;
-      setMessage(enabled
+      toast(enabled
         ? `เปิดการเข้าใช้งานของ ${student.displayName} แล้ว`
         : `ปิดการเข้าใช้งานของ ${student.displayName} แล้ว`);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ปรับสิทธิ์เข้าใช้งานไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ปรับสิทธิ์เข้าใช้งานไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -81,9 +82,9 @@ export function StudentsPage() {
     const displayName = `${String(data.get('firstName') ?? '').trim()} ${String(data.get('lastName') ?? '').trim()}`
       .replace(/\s+/g, ' ').trim();
     if (!studentCode || !displayName) return;
-    if (password.length < 8) { setMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; }
+    if (password.length < 8) { toast('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; }
     if (snapshot.students.some((item) => item.studentCode === studentCode)) {
-      setMessage('รหัสนักเรียนนี้มีอยู่แล้ว');
+      toast('รหัสนักเรียนนี้มีอยู่แล้ว');
       return;
     }
     try {
@@ -93,22 +94,22 @@ export function StudentsPage() {
       if (mode === 'cloud') await provisionManagedAccount({ schoolId: membership.schoolId, role: 'student', recordId: id, displayName, password });
       form.reset();
       setOpen(false);
-      setMessage(`เพิ่ม ${displayName} แล้ว`);
+      toast(`เพิ่ม ${displayName} แล้ว`);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ', { tone: 'error' });
     }
   }
 
   async function importCsv() {
     const existing = new Set(snapshot.students.map((item) => item.studentCode));
     const preview = previewStudentCsv(csv, existing);
-    if (preview.errors.length > 0) setMessage(`ข้าม ${preview.errors.length} แถว: ${preview.errors[0]!.message}`);
+    if (preview.errors.length > 0) toast(`ข้าม ${preview.errors.length} แถว: ${preview.errors[0]!.message}`);
     for (const row of preview.rows) {
       const id = crypto.randomUUID();
       await repository.saveStudent({ id, studentCode: row.studentCode, displayName: row.displayName, avatarIndex: row.rowNumber * 5 });
       if (selectedClassId && term) await repository.enrollStudent(id, selectedClassId, term.id);
     }
-    if (preview.rows.length > 0) setMessage(`นำเข้า ${preview.rows.length} คนแล้ว`);
+    if (preview.rows.length > 0) toast(`นำเข้า ${preview.rows.length} คนแล้ว`);
     setCsv('');
   }
 
@@ -182,7 +183,7 @@ export function StudentsPage() {
                         {student.profileId && (
                           <EraseAccountButton
                             schoolId={membership.schoolId} role="student" profileId={student.profileId}
-                            displayName={student.displayName} onDone={setMessage}
+                            displayName={student.displayName} onDone={toast}
                           />
                         )}
                       </>
@@ -190,7 +191,7 @@ export function StudentsPage() {
                     {canEdit && (
                       <button
                         className="text-button danger"
-                        onClick={() => void repository.removeStudent(student.id).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'ลบไม่สำเร็จ'))}
+                        onClick={() => void repository.removeStudent(student.id).catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'ลบไม่สำเร็จ', { tone: 'error' }))}
                       >
                         ลบ
                       </button>
@@ -216,7 +217,7 @@ export function StudentsPage() {
                   studentCode: String(data.get('code') ?? '').trim(),
                   displayName: String(data.get('name') ?? '').trim(),
                   avatarIndex: renaming.avatarIndex
-                }).then(() => { setRenaming(null); setMessage('บันทึกการแก้ไขแล้ว'); });
+                }).then(() => { setRenaming(null); toast('บันทึกการแก้ไขแล้ว'); });
               }}
             >
               <div className="form-grid">
@@ -236,7 +237,7 @@ export function StudentsPage() {
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ตั้งรหัสผ่านนักเรียน">
           <section className="modal-card">
             <div className="panel-heading"><h2>{passwordStudent.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · {passwordStudent.displayName}</h2><button type="button" className="icon-button" onClick={() => setPasswordStudent(null)} aria-label="ปิด">×</button></div>
-            <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { setMessage(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } void (passwordStudent.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'student', profileId: passwordStudent.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'student', recordId: passwordStudent.id, displayName: passwordStudent.displayName, password })).then(() => { setPasswordStudent(null); setMessage('บันทึกรหัสผ่านนักเรียนแล้ว'); }).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ')); }}>
+            <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { toast(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } void (passwordStudent.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'student', profileId: passwordStudent.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'student', recordId: passwordStudent.id, displayName: passwordStudent.displayName, password })).then(() => { setPasswordStudent(null); toast('บันทึกรหัสผ่านนักเรียนแล้ว'); }).catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ', { tone: 'error' })); }}>
               <ManagedPasswordFields />
               <div className="modal-actions"><button type="button" className="text-button" onClick={() => setPasswordStudent(null)}>ยกเลิก</button><button className="primary-button">บันทึก</button></div>
             </form>
@@ -252,13 +253,12 @@ export function StudentsPage() {
           onClose={() => setStudioStudent(null)}
           onSave={(config) => {
             void repository.saveStudentAvatar(studioStudent.id, config)
-              .then(() => { setStudioStudent(null); setMessage('บันทึกอวตารแล้ว'); })
-              .catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'บันทึกอวตารไม่สำเร็จ'));
+              .then(() => { setStudioStudent(null); toast('บันทึกอวตารแล้ว'); })
+              .catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกอวตารไม่สำเร็จ', { tone: 'error' }));
           }}
         />
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { requireSupabase } from '../../services/supabase';
 import { completeMemberPasswordReset, MEMBER_PASSWORD_MINIMUM } from '../auth/memberAccess';
+import { useToast } from '../../ui/toastContext';
 
 interface LinkRequest {
   linkId: string;
@@ -41,7 +42,7 @@ export function ParentRequestsPanel({ schoolId }: { schoolId: string }) {
   const [links, setLinks] = useState<LinkRequest[]>([]);
   const [resets, setResets] = useState<ResetRequest[]>([]);
   const [issued, setIssued] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
@@ -70,10 +71,10 @@ export function ParentRequestsPanel({ schoolId }: { schoolId: string }) {
   useEffect(() => { void reload(); }, [reload]);
 
   async function decide(linkId: string, state: 'approve' | 'revoke' | 'restore') {
-    setBusy(true); setMessage(null);
+    setBusy(true);
     try {
       const { error } = await requireSupabase().rpc('set_parent_link_state', { p_link_id: linkId, p_state: state });
-      setMessage(error
+      toast(error
         ? 'ดำเนินการไม่สำเร็จ'
         : state === 'revoke' ? 'ยกเลิกความสัมพันธ์แล้ว' : 'อนุมัติความสัมพันธ์แล้ว ผู้ปกครองเห็นข้อมูลได้ทันที');
       await reload();
@@ -81,16 +82,16 @@ export function ParentRequestsPanel({ schoolId }: { schoolId: string }) {
   }
 
   async function resetPassword(request: ResetRequest) {
-    setBusy(true); setMessage(null);
+    setBusy(true);
     try {
       const newPassword = generatedPassword();
       const done = await completeMemberPasswordReset({ requestId: request.id, newPassword });
-      if (!done) { setMessage('ตั้งรหัสผ่านใหม่ไม่สำเร็จ'); return; }
+      if (!done) { toast('ตั้งรหัสผ่านใหม่ไม่สำเร็จ'); return; }
       // Shown once, to be read out to the account holder. It is never stored anywhere on this device,
       // and the row deliberately stays on screen — reloading the queue now would take the only copy
       // of the new password away before anyone could pass it on.
       setIssued((current) => ({ ...current, [request.id]: newPassword }));
-      setMessage(`ตั้งรหัสผ่านใหม่ให้ ${request.displayName} แล้ว แจ้งรหัสนี้กับเจ้าของบัญชีโดยตรง`);
+      toast(`ตั้งรหัสผ่านใหม่ให้ ${request.displayName} แล้ว แจ้งรหัสนี้กับเจ้าของบัญชีโดยตรง`);
     } finally { setBusy(false); }
   }
 
@@ -164,7 +165,6 @@ export function ParentRequestsPanel({ schoolId }: { schoolId: string }) {
         )}
       </section>
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

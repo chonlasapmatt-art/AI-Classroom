@@ -3,6 +3,7 @@ import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { TimetableEntry } from '../../domain/types';
 import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { useToast } from '../../ui/toastContext';
 
 const dayNames = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
 const teachingDays = [1, 2, 3, 4, 5];
@@ -22,7 +23,7 @@ export function TimetablePage() {
   const { membership } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [draft, setDraft] = useState<SlotDraft | null>(null);
 
   const activeTerm = snapshot.terms.find((term) => term.status === 'active') ?? snapshot.terms[0] ?? null;
@@ -73,9 +74,9 @@ export function TimetablePage() {
         room: String(values.get('room') ?? '')
       });
       setDraft(null);
-      setMessage('บันทึกคาบเรียนแล้ว');
+      toast('บันทึกคาบเรียนแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'บันทึกคาบเรียนไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'บันทึกคาบเรียนไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -83,9 +84,9 @@ export function TimetablePage() {
     try {
       await repository.removeTimetableEntry(entry.id);
       setDraft(null);
-      setMessage('ลบคาบเรียนแล้ว');
+      toast('ลบคาบเรียนแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ลบคาบเรียนไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ลบคาบเรียนไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -241,7 +242,6 @@ export function TimetablePage() {
         </div>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

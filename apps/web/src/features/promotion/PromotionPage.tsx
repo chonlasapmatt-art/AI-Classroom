@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { PromotionMove } from '../../data/schoolRepository';
+import { useToast } from '../../ui/toastContext';
 
 /** What happens to one source class when the year turns over. */
 type ClassPlan = { kind: 'move'; toClassId: string } | { kind: 'graduate' } | { kind: 'skip' };
@@ -14,7 +15,7 @@ export function PromotionPage() {
   const { membership } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [fromTermId, setFromTermId] = useState('');
   const [toTermId, setToTermId] = useState('');
@@ -55,16 +56,16 @@ export function PromotionPage() {
         status: String(values.get('status') ?? 'draft') as 'draft' | 'active' | 'closed'
       });
       form.reset();
-      setMessage('บันทึกปีการศึกษาแล้ว');
+      toast('บันทึกปีการศึกษาแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'บันทึกปีการศึกษาไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'บันทึกปีการศึกษาไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
   }
 
   async function runPromotion() {
-    if (!sourceTermId || !toTermId) { setMessage('เลือกปีการศึกษาต้นทางและปลายทางก่อน'); return; }
+    if (!sourceTermId || !toTermId) { toast('เลือกปีการศึกษาต้นทางและปลายทางก่อน'); return; }
     const moves: PromotionMove[] = [];
     for (const classroom of sourceClasses) {
       const plan = plans[classroom.id] ?? { kind: 'skip' as const };
@@ -73,7 +74,7 @@ export function PromotionPage() {
         moves.push({ studentId, toClassId: plan.kind === 'move' ? plan.toClassId : null });
       }
     }
-    if (moves.length === 0) { setMessage('ยังไม่ได้เลือกห้องปลายทางให้ห้องใด'); return; }
+    if (moves.length === 0) { toast('ยังไม่ได้เลือกห้องปลายทางให้ห้องใด'); return; }
     const confirmed = window.confirm(
       `จะย้ายนักเรียน ${moves.length} คนไปยังปีการศึกษาใหม่\n` +
       'ประวัติเดิม (การเช็กชื่อ คะแนน งาน) จะยังอยู่ครบ การลงทะเบียนเดิมจะถูกปิดเป็น "เลื่อนชั้น" หรือ "จบการศึกษา"\n\nยืนยันดำเนินการ?'
@@ -84,10 +85,10 @@ export function PromotionPage() {
       const result = await repository.promoteStudents({
         fromTermId: sourceTermId, toTermId, moves, actorProfileId: membership.profileId
       });
-      setMessage(`เลื่อนชั้น ${result.promoted} คน · จบการศึกษา ${result.graduated} คน · ข้าม ${result.skipped} คน`);
+      toast(`เลื่อนชั้น ${result.promoted} คน · จบการศึกษา ${result.graduated} คน · ข้าม ${result.skipped} คน`);
       setPlans({});
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'เลื่อนชั้นไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'เลื่อนชั้นไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -124,8 +125,8 @@ export function PromotionPage() {
                     onClick={() => void repository.saveAcademicTerm({
                       id: term.id, academicYear: term.academicYear, term: term.term,
                       startsOn: term.startsOn, endsOn: term.endsOn, status: 'active'
-                    }).then(() => setMessage('เปลี่ยนปีการศึกษาที่ใช้งานแล้ว'))
-                      .catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'เปลี่ยนไม่สำเร็จ'))}
+                    }).then(() => toast('เปลี่ยนปีการศึกษาที่ใช้งานแล้ว'))
+                      .catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'เปลี่ยนไม่สำเร็จ', { tone: 'error' }))}
                   >
                     ตั้งเป็นปีที่ใช้งาน
                   </button>
@@ -232,7 +233,6 @@ export function PromotionPage() {
         </section>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

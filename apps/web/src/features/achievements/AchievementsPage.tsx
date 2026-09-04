@@ -5,12 +5,13 @@ import { consentedStudents } from '../../data/selectors';
 import type { SchoolSnapshot } from '../../data/schoolRepository';
 import type { AchievementKey } from '../../domain/types';
 import { achievementCatalog, achievementFor } from './achievementCatalog';
+import { useToast } from '../../ui/toastContext';
 
 export function AchievementsPage() {
   const { membership } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
 
   const canAward = membership.role === 'admin' || membership.role === 'teacher';
@@ -44,9 +45,9 @@ export function AchievementsPage() {
         awardedBy: membership.profileId
       });
       form.reset();
-      setMessage('มอบเหรียญรางวัลแล้ว');
+      toast('มอบเหรียญรางวัลแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'มอบเหรียญไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'มอบเหรียญไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -137,7 +138,6 @@ export function AchievementsPage() {
         </ul>
       </section>
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

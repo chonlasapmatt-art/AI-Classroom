@@ -7,6 +7,7 @@ import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { SchoolSnapshot } from '../../data/schoolRepository';
 import type { Subject } from '../../domain/types';
 import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { useToast } from '../../ui/toastContext';
 
 type Tab = 'activity' | 'test' | 'summary';
 
@@ -141,7 +142,7 @@ export function ScoresPage() {
   const [subjectFilter, setSubjectFilter] = useState('');
   const [classId, setClassId] = useState('');
   const [tab, setTab] = useState<Tab>('summary');
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const isTeacher = membership.role === 'admin' || membership.role === 'teacher';
   const ownStudentId = snapshot.students.find((item) => item.profileId === membership.profileId)?.id ?? null;
@@ -190,7 +191,7 @@ export function ScoresPage() {
       status: 'published'
     });
     form.reset();
-    setMessage('สร้างกิจกรรมแล้ว');
+    toast('สร้างกิจกรรมแล้ว');
   }
 
   async function createTest(event: FormEvent<HTMLFormElement>) {
@@ -206,7 +207,7 @@ export function ScoresPage() {
       status: 'draft'
     });
     form.reset();
-    setMessage('สร้างรายการสอบเป็นฉบับร่างแล้ว (คะแนนยังไม่เผยแพร่)');
+    toast('สร้างรายการสอบเป็นฉบับร่างแล้ว (คะแนนยังไม่เผยแพร่)');
   }
 
   return (
@@ -363,7 +364,7 @@ export function ScoresPage() {
                     <span className="status-chip">{subjectById(snapshot, test.subjectId)?.name ?? 'ไม่ระบุวิชา'}</span>
                     <span className={`status-chip ${published ? 'success' : 'warning'}`}>{published ? 'เผยแพร่แล้ว' : 'ยังไม่เผยแพร่'}</span>
                     {isTeacher && canManageAcademicItem(snapshot, membership.role, membership.profileId, test.classId, test.subjectId) && !published && (
-                      <button className="secondary-button" onClick={() => void repository.publishTestScores(test.id).then(() => setMessage('เผยแพร่คะแนนสอบแล้ว'))}>
+                      <button className="secondary-button" onClick={() => void repository.publishTestScores(test.id).then(() => toast('เผยแพร่คะแนนสอบแล้ว'))}>
                         เผยแพร่คะแนน
                       </button>
                     )}
@@ -403,7 +404,6 @@ export function ScoresPage() {
         </>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

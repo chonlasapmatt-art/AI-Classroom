@@ -7,13 +7,14 @@ import { Badge, Card, EmptyState } from '../../ui/components';
 import { createEncryptedBackup, downloadBackup, inspectBackup, readBackupFile, restoreBackup, type BackupEnvelope, type BackupSummary } from '../backup/backup';
 import { BlockedMutationsPanel } from './BlockedMutationsPanel';
 import { ConflictPanel } from './ConflictPanel';
+import { useToast } from '../../ui/toastContext';
 
 export function OperationsPage() {
   const { membership, mode } = useSession();
   const snapshot = useSchoolSnapshot();
   const syncStatus = useSyncStatus();
   const [storage, setStorage] = useState<{ usage: number; quota: number; persisted: boolean } | null>(null);
-  const [message, setMessage] = useState('');
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<BackupSummary | null>(null);
   const [pending, setPending] = useState<{ envelope: BackupEnvelope; password: string } | null>(null);
@@ -37,12 +38,12 @@ export function OperationsPage() {
   async function sync() {
     if (busy) return;
     setBusy(true);
-    setMessage('กำลังซิงก์...');
+    toast('กำลังซิงก์...');
     try {
       const result = await syncStatus?.syncNow();
-      setMessage(result ? `ซิงก์แล้ว · ส่ง ${result.accepted} · รับ ${result.pulled} · ตรวจสอบ ${result.blocked}` : (syncStatus?.detail || 'ยังไม่สามารถเริ่มซิงก์ได้'));
+      toast(result ? `ซิงก์แล้ว · ส่ง ${result.accepted} · รับ ${result.pulled} · ตรวจสอบ ${result.blocked}` : (syncStatus?.detail || 'ยังไม่สามารถเริ่มซิงก์ได้'));
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'ซิงก์ไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'ซิงก์ไม่สำเร็จ', { tone: 'error' });
     } finally { setBusy(false); }
   }
 
@@ -55,10 +56,10 @@ export function OperationsPage() {
       const result = await inspectBackup(envelope, password, membership.schoolId);
       setPending({ envelope, password });
       setSummary(result);
-      setMessage('ตรวจไฟล์สำรองเรียบร้อย ตรวจจำนวนรายการก่อนกู้คืน');
+      toast('ตรวจไฟล์สำรองเรียบร้อย ตรวจจำนวนรายการก่อนกู้คืน');
     } catch (reason) {
       setSummary(null); setPending(null);
-      setMessage(reason instanceof Error ? reason.message : 'อ่านไฟล์สำรองไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'อ่านไฟล์สำรองไม่สำเร็จ', { tone: 'error' });
     } finally { setBusy(false); }
   }
 
@@ -71,10 +72,10 @@ export function OperationsPage() {
     setBusy(true);
     try {
       const result = await restoreBackup(pending.envelope, pending.password, membership.schoolId, mode);
-      setMessage(`กู้คืนแล้ว ${result.written} รายการ · ข้าม ${result.skipped} · ${result.tables} ตาราง`);
+      toast(`กู้คืนแล้ว ${result.written} รายการ · ข้าม ${result.skipped} · ${result.tables} ตาราง`);
       setSummary(null); setPending(null);
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'กู้คืนไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'กู้คืนไม่สำเร็จ', { tone: 'error' });
     } finally { setBusy(false); }
   }
 
@@ -85,9 +86,9 @@ export function OperationsPage() {
       const deviceId = recall('device-id') ?? crypto.randomUUID();
       const envelope = await createEncryptedBackup(membership.schoolId, deviceId, password);
       downloadBackup(envelope);
-      setMessage('สร้างไฟล์สำรองเข้ารหัสแล้ว');
+      toast('สร้างไฟล์สำรองเข้ารหัสแล้ว');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'สำรองข้อมูลไม่สำเร็จ');
+      toast(reason instanceof Error ? reason.message : 'สำรองข้อมูลไม่สำเร็จ', { tone: 'error' });
     }
   }
 
@@ -135,7 +136,6 @@ export function OperationsPage() {
             การสร้างและกู้คืนไฟล์สำรองเป็นสิทธิ์ของแอดมินโรงเรียน เพราะการกู้คืนเขียนทับฐานข้อมูลในเครื่องทั้งโรงเรียน
           </p>
         </Card>
-        {message && <div className="toast" role="status" onClick={() => setMessage('')}>{message}</div>}
       </>
     );
   }
@@ -229,7 +229,6 @@ export function OperationsPage() {
         </article>
       </section>
 
-      {message && <div className="toast" role="status" onClick={() => setMessage('')}>{message}</div>}
     </>
   );
 }

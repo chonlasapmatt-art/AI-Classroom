@@ -15,6 +15,7 @@ import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { WorkDetailPanel } from './WorkDetailPanel';
 import { WorkFormModal } from './WorkFormModal';
 import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { useToast } from '../../ui/toastContext';
 
 type Filter = 'all' | 'open' | 'draft' | 'closed';
 type TrackingFilter = 'all' | 'attention' | 'late' | 'waiting' | 'complete';
@@ -58,7 +59,7 @@ export function AssignmentsPage() {
   const [turnInNote, setTurnInNote] = useState('');
   const [turnInDriveUrls, setTurnInDriveUrls] = useState<Record<string, string>>({});
   const [announcing, setAnnouncing] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const selectedClassId = ownClassId ?? classId ?? '';
   const effectiveClassId = selectedClassId || classes[0]?.id || '';
@@ -130,20 +131,20 @@ export function AssignmentsPage() {
     if (publish && input.id) {
       await repository.publishAssignment(input.id, roster.map((student) => student.id));
     }
-    setMessage(publish ? 'เผยแพร่งานให้นักเรียนแล้ว' : 'บันทึกฉบับร่างแล้ว');
+    toast(publish ? 'เผยแพร่งานให้นักเรียนแล้ว' : 'บันทึกฉบับร่างแล้ว');
   }
 
   async function turnIn(work: Assignment) {
     if (!ownStudent) return;
     const driveUrl = normalizeGoogleDriveUrl(turnInDriveUrls[work.id]);
     if (!driveUrl) {
-      setMessage('กรุณาวางลิงก์ Google Drive ที่เป็น HTTPS ก่อนส่งงาน');
+      toast('กรุณาวางลิงก์ Google Drive ที่เป็น HTTPS ก่อนส่งงาน');
       return;
     }
     await repository.submitWork(work.id, ownStudent.id, turnInNote, false, driveUrl);
     setTurnInDriveUrls((current) => ({ ...current, [work.id]: driveUrl }));
     setTurnInNote('');
-    setMessage('ส่งงานเรียบร้อยแล้ว');
+    toast('ส่งงานเรียบร้อยแล้ว');
   }
 
   return (
@@ -230,7 +231,7 @@ export function AssignmentsPage() {
                       <Button
                         variant="primary" size="sm"
                         onClick={() => void repository.publishAssignment(work.id, roster.map((student) => student.id))
-                          .then(() => setMessage('เผยแพร่งานแล้ว'))}
+                          .then(() => toast('เผยแพร่งานแล้ว'))}
                       >
                         เผยแพร่
                       </Button>
@@ -278,7 +279,7 @@ export function AssignmentsPage() {
                       {!submission?.acknowledgedAt && (
                         <Button
                           variant="secondary"
-                          onClick={() => void repository.acknowledgeWork(work.id, ownStudent.id).then(() => setMessage('รับทราบงานแล้ว'))}
+                          onClick={() => void repository.acknowledgeWork(work.id, ownStudent.id).then(() => toast('รับทราบงานแล้ว'))}
                         >
                           รับทราบงานแล้ว
                         </Button>
@@ -353,7 +354,7 @@ export function AssignmentsPage() {
                     work={selectedTrackingWork.work}
                     roster={roster}
                     actorProfileId={membership.profileId}
-                    onMessage={setMessage}
+                    onMessage={toast}
                   />
                 </>
               )}
@@ -460,7 +461,7 @@ export function AssignmentsPage() {
                 onClick={() => {
                   const reason = (document.getElementById('cancel-reason') as HTMLInputElement | null)?.value ?? '';
                   void repository.cancelAssignment(cancelling.id, reason, membership.profileId)
-                    .then(() => { setMessage('ยกเลิกงานแล้ว'); setCancelling(null); });
+                    .then(() => { toast('ยกเลิกงานแล้ว'); setCancelling(null); });
                 }}
               >
                 ยืนยันยกเลิกงาน
@@ -487,9 +488,9 @@ export function AssignmentsPage() {
                 onClick={() => {
                   const title = (document.getElementById('announcement-title') as HTMLInputElement | null)?.value ?? '';
                   const body = (document.getElementById('announcement-body') as HTMLTextAreaElement | null)?.value ?? '';
-                  if (!title.trim()) { setMessage('ใส่หัวข้อประกาศก่อน'); return; }
+                  if (!title.trim()) { toast('ใส่หัวข้อประกาศก่อน'); return; }
                   void repository.saveAnnouncement({ classId: effectiveClassId, subjectId: subjectFilter || null, title, body })
-                    .then(() => { setAnnouncing(false); setMessage('ส่งประกาศให้นักเรียนและผู้ปกครองที่เชื่อมบัญชีแล้ว'); });
+                    .then(() => { setAnnouncing(false); toast('ส่งประกาศให้นักเรียนและผู้ปกครองที่เชื่อมบัญชีแล้ว'); });
                 }}
               >
                 ส่งประกาศ
@@ -506,7 +507,6 @@ export function AssignmentsPage() {
         </Modal>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }

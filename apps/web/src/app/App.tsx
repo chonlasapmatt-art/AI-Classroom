@@ -209,7 +209,7 @@ function SyncedShell({ schoolId }: { schoolId: string }) {
  * One place that raises a confirmation, for every screen.
  *
  * `ToastProvider` shipped with the component set and was never mounted, so `useToast` threw and
- * twenty screens each grew their own `<div className="toast">` — twenty stacking contexts, twenty
+ * twenty screens each grew a floating message element of their own — twenty stacking contexts, twenty
  * dismissal behaviours, and a message that appeared in a different corner depending on which screen
  * you were on. It wraps everything, including the entrance screens, so a screen never has to know
  * whether it is inside a session before it can tell somebody their work was saved.

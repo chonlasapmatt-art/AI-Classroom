@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { subjectById } from '../../data/selectors';
@@ -7,6 +7,7 @@ import { SubjectIcon } from '../subjects/SubjectIcon';
 import { notificationBucketLabels, notificationEntries, type NotificationBucket } from '../../academic/views';
 import { timeRemainingLabel, workStateLabels, workStateTone } from '../../academic/workStatus';
 import { Badge, Button, Card, EmptyState, LinkButton, PageHeader } from '../../ui/components';
+import { useToast } from '../../ui/toastContext';
 
 const order: NotificationBucket[] = ['today', 'due-soon', 'upcoming', 'overdue', 'done'];
 
@@ -15,7 +16,7 @@ export function NotificationCenterPage() {
   const { membership } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const student = snapshot.students.find((item) => item.profileId === membership.profileId);
 
@@ -48,7 +49,7 @@ export function NotificationCenterPage() {
         action={unread > 0 && (
           <Button
             variant="secondary"
-            onClick={() => void repository.markAllNotificationsRead(student.id).then(() => setMessage('ทำเครื่องหมายอ่านทั้งหมดแล้ว'))}
+            onClick={() => void repository.markAllNotificationsRead(student.id).then(() => toast('ทำเครื่องหมายอ่านทั้งหมดแล้ว'))}
           >
             อ่านทั้งหมด
           </Button>
@@ -119,7 +120,6 @@ export function NotificationCenterPage() {
         </div>
       )}
 
-      {message && <div className="toast" role="status" onClick={() => setMessage(null)}>{message}</div>}
     </>
   );
 }
