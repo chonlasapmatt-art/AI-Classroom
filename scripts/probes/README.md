@@ -57,6 +57,7 @@ script.
 | `probe-register.js` | Teacher registration: the school search, then a valid code, a wrong code and a missing code |
 | `probe-dev-signin.js` | The development sign-in: wrong code refused, right code returns a session, and that session really is an operator's |
 | `probe-operator-bootstrap.js` | The first-operator window: wrong code refused, short password refused, and the door shut once an operator exists |
+| `probe-platform-sign-in.js` | The production door: an unknown name and a wrong password refused *identically*, and a correct pair returning a session that really is an operator's |
 | `probe-question-bank.js` | Question bank writes and reads as staff, and the same tables refused to an anonymous caller |
 | `probe-quiz.js` | A whole live round: join, join twice, answer, answer again, a closed question, the bonus, the bonus twice |
 | `probe-exam.js` | Compose, schedule, start, resume, answer, submit, submit twice, a second attempt, and editing a sat paper |

@@ -13,8 +13,7 @@ import { RecoveryPage } from './PlatformRecovery';
 import { SchoolsPage, SupportModeBanner } from './PlatformSchools';
 import {
   bootstrapPlatformOperator, currentSupportSession, devSignIn, endSupportSession, enrollPlatformAdmin,
-  isDevSignInAvailable,
-  isPlatformAdmin, PlatformError,
+  isDevSignInAvailable, isPlatformAdmin, platformSignIn, PlatformError,
   type ActiveSupportSession
 } from './platformClient';
 
@@ -98,6 +97,63 @@ function BootstrapOperator({ accessCode, onCreated }: { accessCode: string; onCr
   );
 }
 
+/**
+ * The production entrance: an operator's own name and password.
+ *
+ * The console had none — the development door signs a person in as an operator without asking who
+ * they are, which works only because a small deployment has exactly one. This asks. The password is
+ * checked by GoTrue inside an Edge Function, like every other entrance in this product, so no screen
+ * here verifies a password itself and no entrance asks for an email address.
+ */
+function OperatorPasswordSignIn() {
+  const auth = useAuth();
+  const [displayName, setDisplayName] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(null);
+    try {
+      await auth.applySession(await platformSignIn({ displayName: displayName.trim(), password }));
+    } catch (reason) {
+      setError(reason instanceof PlatformError ? reason.message : 'เข้าสู่ระบบไม่สำเร็จ');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <form className="platform-gate-card" onSubmit={(event) => void submit(event)}>
+      <header className="platform-gate-head">
+        <Badge tone="brand">PLATFORM OPERATIONS</Badge>
+        <h1>เข้าสู่ศูนย์ปฏิบัติการ</h1>
+        <p>
+          ใช้ชื่อและรหัสผ่านของบัญชีผู้ดูแลแพลตฟอร์ม — ไม่ใช่บัญชีแอดมินของโรงเรียน
+          บัญชีทั่วไปเข้าที่นี่ไม่ได้ แม้ชื่อและรหัสผ่านจะถูกต้อง
+        </p>
+      </header>
+
+      <Field label="ชื่อผู้ดูแล" hint="ชื่อเดียวกับที่ตั้งไว้ตอนสร้างบัญชีผู้ดูแลแพลตฟอร์ม">
+        <input autoComplete="username" value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
+      </Field>
+      <Field label="รหัสผ่าน">
+        <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+      </Field>
+
+      {error && <div className="alert error" role="alert">{error}</div>}
+
+      <div className="platform-gate-actions">
+        <Button variant="primary" size="lg" loading={busy} disabled={displayName.trim().length < 2 || password.length < 1}>
+          เข้าใช้งาน
+        </Button>
+      </div>
+      <p className="platform-gate-foot">
+        ทุกครั้งที่เข้าถูกบันทึกไว้ในบันทึกความปลอดภัยของแพลตฟอร์ม ·
+        บัญชีที่เปิดการยืนยันสองชั้นไว้จะถูกขอรหัส 6 หลักก่อนทำรายการที่มีผลถาวร
+      </p>
+    </form>
+  );
+}
+
 /** The development door, kept available only when the deployment explicitly opts into it. */
 function DevSignIn() {
   const auth = useAuth();
@@ -143,12 +199,15 @@ function DevSignIn() {
 
   return (
     <form className="platform-gate-card" onSubmit={(event) => void submit(event)}>
+      {/* An h2, and a name of its own. This is the second door on the page now, and two headings
+          reading "เข้าสู่ศูนย์ปฏิบัติการ" would leave a screen reader with two identical landmarks
+          and no way to tell which form it had landed in. */}
       <header className="platform-gate-head">
         <Badge tone="warning">DEVELOPMENT ONLY</Badge>
-        <h1>เข้าสู่ศูนย์ปฏิบัติการ</h1>
+        <h2>เข้าด้วยรหัสสิทธิ์ของเซิร์ฟเวอร์</h2>
         <p>
-          ศูนย์นี้ดูแลทุกโรงเรียนบนแพลตฟอร์ม จึงเข้าได้ด้วยรหัสสิทธิ์ที่ตั้งไว้ฝั่งเซิร์ฟเวอร์เท่านั้น
-          — ไม่ใช่รหัสผ่านของบัญชีใด และการเข้าทางนี้ไม่สร้างบัญชีใหม่
+          ทางเข้าสำรองสำหรับตั้งค่าครั้งแรก และสำหรับตอนที่ผู้ดูแลทุกคนเข้าบัญชีตัวเองไม่ได้ ·
+          ใช้รหัสที่ตั้งไว้ฝั่งเซิร์ฟเวอร์ ไม่ใช่รหัสผ่านของบัญชีใด
         </p>
       </header>
 
@@ -364,21 +423,26 @@ function PlatformGate() {
   useEffect(() => { void check(); }, [check]);
 
   if (auth.loading) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบสิทธิ์...</p></main>;
-  // The platform has one deliberate entry door: the server-checked platform access code. The
-  // ordinary school-admin password form remains an unreachable compatibility component for older
-  // tests/build references, but is no longer rendered or offered to users here.
+  /*
+   * Two doors, and the production one is the door.
+   *
+   * An operator's own name and password is the entrance, the same shape every other person in this
+   * product uses. The access-code door stays where a deployment has explicitly enabled it, because
+   * it is the only way to reach a platform whose operators have all lost their passwords, and it is
+   * where the first operator of a new deployment is created — but it is offered underneath rather
+   * than instead, and it says what it is.
+   *
+   * Before this there was no production entrance at all: the gate rendered the development door or
+   * a notice telling you to enable it, and the development door signs a person in as an operator
+   * without asking who they are.
+   */
   if (!auth.session) {
-    if (!isDevSignInAvailable) {
-      return (
-        <main className="setup-page">
-          <Card>
-            <CardHeader title="ยังไม่เปิดทางเข้า Super Admin" description="ระบบนี้เปิดเฉพาะการเข้าสู่ระบบด้วยรหัสสิทธิ์จากเซิร์ฟเวอร์" />
-            <p className="field-hint">กรุณาเปิด PLATFORM_DEV_SIGN_IN และตั้งค่ารหัสสิทธิ์บน Supabase ก่อน</p>
-          </Card>
-        </main>
-      );
-    }
-    return <main className="setup-page"><DevSignIn /></main>;
+    return (
+      <main className="setup-page platform-gate">
+        <OperatorPasswordSignIn />
+        {isDevSignInAvailable && <DevSignIn />}
+      </main>
+    );
   }
   if (allowed === null) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบสิทธิ์...</p></main>;
   if (!allowed) return <EnrolmentScreen onEnrolled={() => void check()} />;

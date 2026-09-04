@@ -436,6 +436,38 @@ export async function provisionPlatformOperator(input: {
   return { profileId: String(data.profileId ?? '') };
 }
 
+const signInMessages: Record<string, string> = {
+  PLATFORM_ACCESS_DENIED: 'ชื่อผู้ดูแลหรือรหัสผ่านไม่ถูกต้อง',
+  PLATFORM_ACCESS_LOCKED: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที',
+  SERVER_CONFIGURATION_ERROR: 'เซิร์ฟเวอร์ยังไม่พร้อมให้เข้าสู่ระบบ กรุณาติดต่อผู้ดูแลระบบ'
+};
+
+/**
+ * The production entrance: an operator's own name and password.
+ *
+ * The password never leaves this call — it is checked by GoTrue inside the Edge Function, the same
+ * way a teacher's or a guardian's is, which is why no screen in this product verifies one itself.
+ * The session that comes back is `aal1`; an operator with a second factor is asked for it by
+ * `platform_reauth_fresh` before anything guarded, not at the door.
+ */
+export async function platformSignIn(input: { displayName: string; password: string }):
+Promise<{ accessToken: string; refreshToken: string }> {
+  const { data, error } = await requireSupabase().functions.invoke('platform-sign-in', { body: input });
+  if (error) {
+    const context = (error as { context?: Response }).context;
+    const parsed = context && typeof context.json === 'function'
+      ? await context.json().catch(() => null) as Record<string, unknown> | null
+      : null;
+    const code = typeof parsed?.code === 'string' ? parsed.code : 'PLATFORM_ACCESS_DENIED';
+    throw new PlatformError(code, signInMessages[code] ?? 'เข้าสู่ระบบไม่สำเร็จ');
+  }
+  const session = (data as { session?: { accessToken?: string; refreshToken?: string } } | null)?.session;
+  if (!session?.accessToken || !session.refreshToken) {
+    throw new PlatformError('PLATFORM_ACCESS_DENIED', signInMessages.PLATFORM_ACCESS_DENIED!);
+  }
+  return { accessToken: session.accessToken, refreshToken: session.refreshToken };
+}
+
 const bootstrapMessages: Record<string, string> = {
   PLATFORM_ACCESS_DENIED: 'รหัสสิทธิ์ไม่ถูกต้อง',
   PLATFORM_ACCESS_LOCKED: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที',
