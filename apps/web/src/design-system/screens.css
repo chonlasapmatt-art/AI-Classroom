@@ -412,7 +412,7 @@
 
 .reminder-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: var(--space-2); }
 .reminder-option { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: var(--text-sm); }
-.reminder-option input { width: 18px; height: 18px; }
+.reminder-option input { width: 24px; height: 24px; accent-color: var(--brand-solid); }
 
 .inline-warning { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--warning-soft); color: #7a4a06; font-size: var(--text-sm); }
 .workload-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
@@ -1545,8 +1545,10 @@ tr.row-warning td { background: var(--warning-soft); }
 
 /* A sortable header is a control, so it is a button and looks like the header it replaced. */
 .report-sort {
-  display: inline-flex; align-items: center; gap: var(--space-1);
-  padding: 0; border: 0; background: none; color: inherit;
+  /* 24px tall, because that is where WCAG 2.2 AA puts the floor for a pointer target and a 15px
+     strip of header text is one people miss on a touch screen. */
+  display: inline-flex; align-items: center; gap: var(--space-1); min-height: 24px;
+  padding: var(--space-1) 0; border: 0; background: none; color: inherit;
   font: inherit; font-weight: var(--weight-strong); text-align: left;
 }
 .report-sort:hover { color: var(--color-primary); }

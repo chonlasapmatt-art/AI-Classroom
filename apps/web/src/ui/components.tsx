@@ -600,13 +600,17 @@ export function Pagination({ page, totalPages, onChange }: {
 
 /* ---------- Search input ---------- */
 
-export function SearchInput({ value, onChange, placeholder = 'ค้นหา...', className = '' }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; className?: string;
+export function SearchInput({ value, onChange, placeholder = 'ค้นหา...', label, className = '' }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; label?: string; className?: string;
 }) {
   return (
     <div className={`ui-search ${className}`.trim()}>
       <span className="ui-search-icon" aria-hidden="true"><Icon name="search" size={16} /></span>
       <input
+        // A placeholder is not a name: it is gone as soon as anybody types, and a screen reader
+        // announces the field as "search, edit text" with nothing to say which search. The
+        // placeholder is the default because every one of these already reads as an instruction.
+        aria-label={label ?? placeholder}
         type="search" value={value} placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         // Escape clears, which is what people already press; the browser's own clear on a

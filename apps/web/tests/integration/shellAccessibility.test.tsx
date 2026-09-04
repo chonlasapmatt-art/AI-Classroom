@@ -200,3 +200,24 @@ describe('the remembered menu width', () => {
     expect(document.querySelector('.app-frame.rail')).not.toBeNull();
   });
 });
+
+/*
+ * Names for the controls that have no visible label of their own.
+ *
+ * A placeholder is not a name: it disappears the moment somebody types, and until then a screen
+ * reader announces the field as "search, edit text" with nothing to say which search — on a screen
+ * that may have a menu search, a roster search and a table search at once.
+ */
+describe('controls without a visible label', () => {
+  it('name every search box', async () => {
+    renderApp('/students');
+    await enterPreview();
+    const searches = [...document.querySelectorAll('input[type="search"]')];
+    expect(searches.length).toBeGreaterThan(0);
+    for (const box of searches) {
+      const named = box.getAttribute('aria-label') || box.getAttribute('aria-labelledby')
+        || (box.id && document.querySelector(`label[for="${box.id}"]`)) || box.closest('label');
+      expect(named, box.outerHTML.slice(0, 80)).toBeTruthy();
+    }
+  });
+});

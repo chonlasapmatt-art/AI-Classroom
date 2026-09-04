@@ -208,7 +208,9 @@ textarea { min-height:110px; resize:vertical; }
 .record-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; margin-top:.8rem; }
 .record-actions .status-chip { color:var(--ink-700); background:var(--brand-50); gap:.4rem; }
 .check-row { display:flex; align-items:center; gap:.55rem; margin-top:1rem; color:var(--ink-700); font-size:.9rem; }
-.check-row input { width:18px; height:18px; accent-color:var(--brand-600); }
+/* 24px is the WCAG 2.2 AA floor for a pointer target, and a checkbox beside a name in a list is
+   tapped with a thumb as often as clicked. */
+.check-row input { width:24px; height:24px; accent-color:var(--brand-solid); }
 
 .table-scroll { overflow-x:auto; }
 .grid-table { width:100%; border-collapse:collapse; font-size:.88rem; }
