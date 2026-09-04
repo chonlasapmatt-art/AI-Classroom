@@ -516,6 +516,21 @@
 .capacity-chip.selected { border-color: var(--brand-500); background: var(--brand-50); color: var(--brand-700); }
 .capacity-meter { margin-top: var(--space-2); max-width: 320px; }
 
+/*
+  Rooms are things with a shape — a name, who teaches them, how full they are — so they read as
+  cards rather than as rows of a list. The grid collapses to one column on a phone rather than
+  letting the capacity bar shrink to nothing.
+*/
+.class-grid { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); }
+.class-card { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out); }
+.class-card:hover { border-color: var(--brand-300); box-shadow: var(--shadow-sm); }
+.class-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+.class-card-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.class-card-title strong { font-size: var(--text-lg); color: var(--ink-900); }
+.class-card-title span { color: var(--ink-500); font-size: var(--text-xs); }
+.class-card-teacher { margin: 0; display: flex; align-items: center; gap: 6px; color: var(--ink-600); font-size: var(--text-sm); }
+.class-card-actions { margin-top: auto; padding-top: var(--space-2); display: flex; flex-wrap: wrap; gap: var(--space-2); border-top: 1px solid var(--line); }
+
 /* ---------- Gradebook ---------- */
 .gradebook-overview {
   position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: var(--space-5);

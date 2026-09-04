@@ -171,9 +171,12 @@ describe('application shell and routes', () => {
     renderApp('/classes');
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ห้องเรียน'));
     expect(screen.getAllByRole('progressbar').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: '+ เพิ่มห้องเรียน' }));
-    expect(await screen.findByRole('button', { name: 'กำหนดเอง' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '100' })).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'เพิ่มห้องเรียน' })[0]!);
+    // The form opens over the list rather than unfolding above it, so the rooms an administrator was
+    // reading do not move down the page the moment they press the button.
+    const form = await screen.findByRole('dialog');
+    expect(within(form).getByRole('button', { name: 'กำหนดเอง' })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: '100 คน' })).toBeInTheDocument();
   });
 
   it('renders the gradebook with category columns', async () => {
