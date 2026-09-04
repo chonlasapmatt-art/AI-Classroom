@@ -4,6 +4,8 @@ on:
   pull_request:
 permissions:
   contents: read
+  # The secret scan reads the pull request it is scanning through the API.
+  pull-requests: read
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -18,8 +20,13 @@ jobs:
       - run: npm run test:security
       - run: npm run build
       - run: npm audit --audit-level=high
+      # Gitleaks refuses to scan a pull request without a token to read it with, so the step failed
+      # on every pull request this repository has ever opened — which meant the one check standing
+      # between a leaked key and a public repository was never actually running where it matters.
       - name: Scan repository for secrets
         uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   e2e:
     runs-on: ubuntu-latest
     steps:
