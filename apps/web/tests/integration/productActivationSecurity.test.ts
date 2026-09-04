@@ -116,9 +116,16 @@ describe('product activation keys', () => {
 
 describe('first-run setup wizard', () => {
   it('asks for the administrator and the school before drawing anything', () => {
-    expect(setupPage).toContain('STEP 01 · ADMIN &amp; SCHOOL');
-    expect(setupPage).toContain('STEP 02 · PRODUCT KEY');
-    expect(setupPage).toContain('STEP 03 · ACTIVATE SERVER');
+    // The order is the security property, not the wording: nothing is drawn until step 1 holds a
+    // complete identity, and the key is drawn on step 2 rather than on arrival.
+    expect(setupPage).toMatch(/step === 1 && !isCompleteSchoolIdentity\(/);
+    expect(setupPage).toMatch(/step === 2 && !productKey && !drawing/);
+    const one = setupPage.indexOf('ขั้นที่ 1');
+    const two = setupPage.indexOf('ขั้นที่ 2');
+    const three = setupPage.indexOf('ขั้นที่ 3');
+    expect(one).toBeGreaterThan(-1);
+    expect(two).toBeGreaterThan(one);
+    expect(three).toBeGreaterThan(two);
   });
 
   it('will not move past the key until it has been copied', () => {

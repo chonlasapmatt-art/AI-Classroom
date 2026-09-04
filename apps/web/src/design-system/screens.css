@@ -946,6 +946,17 @@ button.sync-pill:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .issued-password { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--brand-50); color: var(--ink-800); font-size: var(--text-sm); }
 .issued-password code { font-family: var(--font-mono, monospace); font-weight: var(--weight-heavy); letter-spacing: .04em; user-select: all; }
 
+/* Blocked changes: what was refused, why, and the two things to do about it. */
+.blocked-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.blocked-list li { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--line); border-left: 3px solid var(--warning); border-radius: var(--radius-md); background: var(--surface); }
+.blocked-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
+.blocked-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.blocked-what strong { color: var(--ink-900); }
+.blocked-what span { color: var(--ink-600); font-size: var(--text-sm); }
+.blocked-fix { margin: 0; display: flex; align-items: flex-start; gap: 6px; color: var(--ink-500); font-size: var(--text-sm); line-height: 1.6; }
+.blocked-fix svg { flex: none; margin-top: 4px; }
+.blocked-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
 /* Achievements: who, what they earned, and how many. */
 .award-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .award-list li { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }

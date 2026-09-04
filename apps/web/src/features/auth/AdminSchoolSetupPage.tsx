@@ -4,6 +4,8 @@ import { useAuth } from '../../app/AuthContext';
 import {
   activateSchool, isCompleteSchoolIdentity, issueProductKey, SchoolSetupError, type ProductKey
 } from './schoolActivation';
+import { Button, Field } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
 
 /**
  * First-run setup for a school that has just bought the product. It is deliberately shown from the
@@ -148,21 +150,21 @@ export function AdminSchoolSetupPage({ mode = 'first-run' }: { mode?: 'first-run
 
         {step === 1 && (
           <form onSubmit={next} className="admin-setup-form">
-            <span className="ui-eyebrow">STEP 01 · ADMIN &amp; SCHOOL</span>
+            <span className="ui-eyebrow">ขั้นที่ 1 · ผู้ดูแลและโรงเรียน</span>
             <h2>ผู้ดูแลคนแรกและโรงเรียนของคุณ</h2>
             <p className="form-intro">ชื่อผู้ดูแลจะแสดงในเมนูและบันทึกกิจกรรม ส่วนชื่อโรงเรียนคือชื่อที่ครู นักเรียน และผู้ปกครองจะเห็น</p>
-            <label>ชื่อผู้ดูแลเว็บไซต์<input autoFocus value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="เช่น ครูสมชาย ใจดี" minLength={2} maxLength={200} required /></label>
-            <label>ชื่อโรงเรียน<input value={schoolName} onChange={(event) => setSchoolName(event.target.value)} placeholder="เช่น โรงเรียนบ้านไทเกอร์" minLength={2} maxLength={200} required /></label>
-            <label>รหัสโรงเรียน<input value={schoolCode} onChange={(event) => setSchoolCode(event.target.value.toUpperCase())} placeholder="เช่น TIGER-01" pattern="[A-Za-z0-9-]{3,20}" maxLength={20} required /></label>
+            <Field label="ชื่อผู้ดูแลเว็บไซต์" hint="ชื่อนี้จะแสดงในเมนูและบันทึกกิจกรรม"><input autoFocus value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="เช่น ครูสมชาย ใจดี" minLength={2} maxLength={200} required /></Field>
+            <Field label="ชื่อโรงเรียน" hint="ชื่อที่ครู นักเรียน และผู้ปกครองจะเห็น"><input value={schoolName} onChange={(event) => setSchoolName(event.target.value)} placeholder="เช่น โรงเรียนบ้านไทเกอร์" minLength={2} maxLength={200} required /></Field>
+            <Field label="รหัสโรงเรียน" hint="ใช้แยกเซิร์ฟของคุณจากโรงเรียนอื่น และเปลี่ยนภายหลังไม่ได้ง่าย ๆ"><input value={schoolCode} onChange={(event) => setSchoolCode(event.target.value.toUpperCase())} placeholder="เช่น TIGER-01" pattern="[A-Za-z0-9-]{3,20}" maxLength={20} required /></Field>
             <p className="field-hint">รหัสนี้ใช้แยกเซิร์ฟของคุณจากโรงเรียนอื่น และเปลี่ยนภายหลังไม่ได้ง่าย ๆ</p>
             {error && <div className="alert error" role="alert">{error}</div>}
-            <div className="admin-setup-actions"><button type="submit" className="primary-button">ถัดไป <span aria-hidden="true">→</span></button></div>
+            <div className="admin-setup-actions"><Button type="submit" variant="primary" size="lg">ถัดไป</Button></div>
           </form>
         )}
 
         {step === 2 && (
           <form onSubmit={next} className="admin-setup-form">
-            <span className="ui-eyebrow">STEP 02 · PRODUCT KEY</span>
+            <span className="ui-eyebrow">ขั้นที่ 2 · คีย์ผลิตภัณฑ์</span>
             <h2>คีย์ผลิตภัณฑ์ของคุณ</h2>
             <p className="form-intro">
               {additional
@@ -174,9 +176,9 @@ export function AdminSchoolSetupPage({ mode = 'first-run' }: { mode?: 'first-run
               {productKey && <p className="field-hint">เก็บคีย์นี้ไว้ใช้ยืนยันการเปิดใช้งาน · เปิดหน้านี้ใหม่จะได้คีย์เดิมเสมอ</p>}
             </div>
             <div className="admin-setup-actions">
-              <button type="button" className="primary-button" onClick={() => void copyKey()} disabled={!productKey || drawing}>
+              <Button type="button" variant="primary" size="lg" onClick={() => void copyKey()} disabled={!productKey || drawing} icon={<Icon name={copied ? 'check' : 'copy'} size={16} />}>
                 {copied ? 'คัดลอกแล้ว' : 'คัดลอกคีย์'}
-              </button>
+              </Button>
             </div>
             {/*
               There is no "draw again". A key that changes under somebody who wrote it down is a key
@@ -191,24 +193,24 @@ export function AdminSchoolSetupPage({ mode = 'first-run' }: { mode?: 'first-run
             </p>
             {error && <div className="alert error" role="alert">{error}</div>}
             <div className="admin-setup-actions">
-              <button type="button" className="text-button" onClick={() => { setError(null); setStep(1); }}>ย้อนกลับ</button>
-              <button type="submit" className="primary-button" disabled={!copied || drawing}>ถัดไป <span aria-hidden="true">→</span></button>
+              <Button type="button" variant="ghost" onClick={() => { setError(null); setStep(1); }}>ย้อนกลับ</Button>
+              <Button type="submit" variant="primary" size="lg" disabled={!copied || drawing}>ถัดไป</Button>
             </div>
           </form>
         )}
 
         {step === 3 && (
           <form onSubmit={(event) => void finish(event)} className="admin-setup-form">
-            <span className="ui-eyebrow">STEP 03 · ACTIVATE SERVER</span>
+            <span className="ui-eyebrow">ขั้นที่ 3 · เปิดใช้งาน</span>
             <h2>เปิดใช้งานเซิร์ฟโรงเรียน</h2>
             <p className="form-intro">ระบุปีการศึกษากับภาคเรียนที่จะเริ่มใช้ แล้วกรอกคีย์ผลิตภัณฑ์ที่คัดลอกไว้เพื่อยืนยัน</p>
             <div className="admin-setup-summary"><div><span>ผู้ดูแล</span><strong>{displayName}</strong></div><div><span>โรงเรียน</span><strong>{schoolName} · {schoolCode.toUpperCase()}</strong></div>{productKey && <div><span>คีย์ผลิตภัณฑ์</span><strong>{productKey.hint}</strong></div>}</div>
-            <label>ปีการศึกษา<input value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} placeholder="เช่น 2569" minLength={2} maxLength={20} required /></label>
-            <label>ภาคเรียน<input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="เช่น 1" minLength={1} maxLength={20} required /></label>
-            <label>รหัสเปิดใช้งานสินค้า<input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} placeholder="วางคีย์ที่คัดลอกไว้" minLength={4} maxLength={128} autoComplete="one-time-code" required /></label>
+            <Field label="ปีการศึกษา" hint="แก้ภายหลังได้ที่เมนูตั้งค่า"><input value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} placeholder="เช่น 2569" minLength={2} maxLength={20} required /></Field>
+            <Field label="ภาคเรียน"><input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="เช่น 1" minLength={1} maxLength={20} required /></Field>
+            <Field label="รหัสเปิดใช้งานสินค้า" hint="วางคีย์ที่คัดลอกไว้จากขั้นที่ 2"><input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} placeholder="วางคีย์ที่คัดลอกไว้" minLength={4} maxLength={128} autoComplete="one-time-code" required /></Field>
             <p className="field-hint">แก้ปีการศึกษาและภาคเรียนได้ภายหลังในเมนูตั้งค่าโรงเรียน</p>
             {error && <div className="alert error" role="alert">{error}</div>}
-            <div className="admin-setup-actions"><button type="button" className="text-button" onClick={() => { setError(null); setStep(2); }}>ย้อนกลับ</button><button type="submit" className="primary-button" disabled={busy}>{busy ? 'กำลังเปิดใช้งาน...' : 'บันทึกและเข้าใช้งาน'}</button></div>
+            <div className="admin-setup-actions"><Button type="button" variant="ghost" onClick={() => { setError(null); setStep(2); }}>ย้อนกลับ</Button><Button type="submit" variant="primary" size="lg" loading={busy}>บันทึกและเข้าใช้งาน</Button></div>
           </form>
         )}
         <p className="admin-setup-footnote">ตั้งค่าในภายหลังได้ที่ ตั้งค่า → ข้อมูลโรงเรียน · รองรับหน้าจอมือถือและแอพติดตั้ง</p>
