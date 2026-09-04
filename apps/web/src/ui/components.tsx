@@ -473,11 +473,21 @@ export function PromptDialog({
   );
 }
 
+/**
+ * A hint attached to something on screen.
+ *
+ * A string tip used to be handed to the `title` attribute instead of drawn. That looks like a
+ * tooltip on a desktop and is nothing at all on a phone or a tablet — no long-press, no tap, no
+ * way to reach it — so on the screens where the hint carries the meaning (why a badge was awarded,
+ * for one) half the readers were shown a label with no explanation behind it. Every tip is drawn
+ * now, and the element it belongs to points at it with aria-describedby.
+ */
 export function Tooltip({ children, tip }: { children: ReactNode; tip: ReactNode }) {
+  const tipId = useId();
   return (
-    <span className="ui-tooltip-wrap" title={typeof tip === 'string' ? tip : undefined}>
+    <span className="ui-tooltip-wrap" aria-describedby={tipId} tabIndex={0}>
       {children}
-      {typeof tip !== 'string' && <span className="ui-tooltip-bubble" role="tooltip">{tip}</span>}
+      <span className="ui-tooltip-bubble" role="tooltip" id={tipId}>{tip}</span>
     </span>
   );
 }

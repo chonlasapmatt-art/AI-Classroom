@@ -317,12 +317,16 @@
 }
 
 /* ---------- Tooltip ---------- */
-.ui-tooltip-wrap { position: relative; display: inline-flex; }
+.ui-tooltip-wrap { position: relative; display: inline-flex; border-radius: var(--radius-xs); }
+.ui-tooltip-wrap:focus-visible { outline: 2px solid var(--brand-solid); outline-offset: 2px; }
 .ui-tooltip-bubble {
   position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(4px);
   padding: .4rem .7rem; border-radius: var(--radius-xs);
   background: var(--inverse-surface); color: var(--inverse-ink);
-  font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap;
+  font-size: var(--text-xs); font-weight: var(--weight-medium);
+  /* A tip can be a sentence — a teacher's reason for a badge, say — so it wraps inside a sane width
+     rather than running off the side of a phone on one unbreakable line. */
+  width: max-content; max-width: min(260px, 70vw); text-align: center; line-height: 1.5;
   pointer-events: none; opacity: 0; z-index: 90;
   transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
