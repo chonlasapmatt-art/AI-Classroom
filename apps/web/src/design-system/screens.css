@@ -298,9 +298,31 @@
 .student-subject-card-head span, .student-subject-open { color: var(--ink-500); font-size: var(--text-xs); }
 .student-subject-total { margin-top: var(--space-2); font-size: var(--text-2xl); font-weight: var(--weight-heavy); color: var(--subject-color, var(--brand-700)); }
 .student-subject-total small { margin-left: 3px; color: var(--ink-500); font-size: var(--text-sm); font-weight: var(--weight-normal); }
-.student-subject-open { margin-top: auto; color: var(--subject-color, var(--brand-700)); font-weight: var(--weight-strong); }
+.student-subject-open { color: var(--subject-color, var(--brand-700)); font-weight: var(--weight-strong); display: inline-flex; align-items: center; gap: 2px; }
+.student-subject-card .ui-progress { width: 100%; }
+/* Pinned to the bottom so cards of different name lengths still line their grades up with each other. */
+.student-subject-foot { margin-top: auto; padding-top: var(--space-2); width: 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
 .student-score-detail { margin-top: var(--space-4); }
 .student-score-value { font-weight: var(--weight-heavy); color: var(--brand-700); }
+
+/* Scores: one card per activity or exam, with its roster folded away until it is being worked on. */
+.score-item-card { margin-top: var(--space-3); }
+.score-item-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
+.score-rank { font-variant-numeric: tabular-nums; color: var(--ink-500); font-weight: var(--weight-strong); }
+.score-total { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+.score-total > span { font-variant-numeric: tabular-nums; font-weight: var(--weight-heavy); color: var(--ink-900); }
+.score-cell { display: inline-flex; align-items: center; gap: var(--space-2); }
+.score-cell input { width: 84px; text-align: right; font-variant-numeric: tabular-nums; }
+.score-readonly { font-variant-numeric: tabular-nums; color: var(--ink-700); }
+/* Confirms the mark reached the store. Before this the only proof a number had saved was a reload. */
+.score-saved { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-green); font-size: var(--text-xs); font-weight: var(--weight-strong); white-space: nowrap; }
+@media (prefers-reduced-motion: no-preference) {
+  .score-saved { animation: score-saved-in .22s ease-out; }
+}
+@keyframes score-saved-in { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: none; } }
+
+/* Used by every form that ends in a row of buttons; it had no rule at all before. */
+.ui-form-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3); }
 
 .timeline, .insight-list { list-style: none; margin: 0; padding: 0; }
 .timeline li { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
