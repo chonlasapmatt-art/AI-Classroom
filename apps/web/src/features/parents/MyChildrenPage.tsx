@@ -4,6 +4,8 @@ import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { attendanceDailySummary, classIdOfStudent, consentedStudents, privacyPolicyFrom, standingsFor } from '../../data/selectors';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { ChildLinkPanel } from './ChildLinkPanel';
+import { Badge, Card, CardHeader, EmptyState, PageHeader } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
 
 /**
  * The parent's home: which children are connected, which are still waiting for a teacher, the one
@@ -22,37 +24,36 @@ export function MyChildrenPage() {
 
   return (
     <>
-      <section className="page-heading">
-        <div>
-          <span className="eyebrow">Parent Portal</span>
-          <h1>ลูกของฉัน</h1>
-          <p>เพิ่มลูกด้วยชื่อจริงเท่านั้น ระบบจะเชื่อมข้อมูลให้เมื่อโรงเรียนยืนยันความสัมพันธ์</p>
-        </div>
-      </section>
+      <PageHeader
+        eyebrow="สำหรับผู้ปกครอง"
+        title="ลูกของฉัน"
+        description="เพิ่มลูกด้วยชื่อจริงเท่านั้น ระบบจะเชื่อมข้อมูลให้เมื่อโรงเรียนยืนยันความสัมพันธ์"
+      />
 
       {mode === 'preview' ? (
-        <section className="panel data-panel">
-          <div className="empty-state">
-            <span>♧</span>
-            <h3>โหมด Preview ไม่ต่อกับเซิร์ฟเวอร์</h3>
-            <p>การค้นหาและเชื่อมบัญชีลูกทำงานกับข้อมูลจริงเท่านั้น</p>
-          </div>
-        </section>
+        <Card>
+          <EmptyState
+            icon={<Icon name="sync" size={28} />}
+            title="โหมดตัวอย่างไม่ต่อกับเซิร์ฟเวอร์"
+            description="การค้นหาและเชื่อมบัญชีลูกทำงานกับข้อมูลจริงเท่านั้น · เข้าสู่ระบบด้วยบัญชีผู้ปกครองจริงเพื่อใช้งาน"
+          />
+        </Card>
       ) : (
         <ChildLinkPanel />
       )}
 
-      <section className="panel data-panel">
-        <div className="panel-heading">
-          <h2>ข้อมูลที่เปิดให้แล้ว</h2>
-          <p>แสดงเฉพาะข้อมูลที่ได้รับความยินยอมตามนโยบายเวอร์ชัน {privacy.policyVersion}</p>
-        </div>
+      <Card>
+        <CardHeader
+          title="ข้อมูลที่เปิดให้แล้ว"
+          description={`แสดงเฉพาะข้อมูลที่ได้รับความยินยอมตามนโยบายเวอร์ชัน ${privacy.policyVersion}`}
+          action={<Badge tone={connected.length > 0 ? 'success' : 'neutral'}>{connected.length} คน</Badge>}
+        />
         {connected.length === 0 ? (
-          <div className="empty-state">
-            <span>♧</span>
-            <h3>ยังไม่มีการเชื่อมบัญชีที่ยินยอมแล้ว</h3>
-            <p>เพิ่มลูกด้านบน แล้วรอคุณครูยืนยันความสัมพันธ์</p>
-          </div>
+          <EmptyState
+            icon={<Icon name="children" size={28} />}
+            title="ยังไม่มีการเชื่อมบัญชีที่ยินยอมแล้ว"
+            description="เพิ่มลูกด้านบน แล้วรอคุณครูยืนยันความสัมพันธ์ · เมื่อยืนยันแล้วจะเห็นการเข้าเรียน งาน และคะแนนที่นี่"
+          />
         ) : (
           <div className="student-grid">
             {connected.map((student) => {
@@ -77,7 +78,7 @@ export function MyChildrenPage() {
             })}
           </div>
         )}
-      </section>
+      </Card>
     </>
   );
 }

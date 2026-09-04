@@ -8,6 +8,8 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { requireSupabase } from '../../services/supabase';
 import { linkChild, searchChildren, type ChildCandidate } from '../auth/memberAccess';
 import { searchSchools, type SchoolChoice } from '../auth/studentAccess';
+import { Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, Field } from '../../ui/components';
+import { Icon } from '../../ui/Icon';
 
 export interface ParentChild {
   linkId: string;
@@ -48,6 +50,7 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
   const [candidates, setCandidates] = useState<ChildCandidate[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [unlinking, setUnlinking] = useState<ParentChild | null>(null);
 
   const reload = useCallback(async () => {
     try { setChildren(await loadParentChildren()); }
@@ -82,6 +85,7 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
   }
 
   async function unlink(child: ParentChild) {
+    setUnlinking(null);
     setBusy(true); setMessage(null);
     try {
       const { error } = await requireSupabase().rpc('set_parent_link_state', {
@@ -95,18 +99,26 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
   }
 
   return (
-    <section className="panel data-panel child-panel">
-      <div className="panel-heading">
-        <h2>ลูกของฉัน</h2>
-        <button type="button" className="secondary-button" onClick={() => { setAdding((value) => !value); setCandidates(null); setMessage(null); }}>
-          {adding ? 'ปิด' : '+ เพิ่มลูก'}
-        </button>
-      </div>
+    <Card className="child-panel">
+      <CardHeader
+        title="ลูกของฉัน"
+        description="เพิ่มลูกได้เองด้วยชื่อจริง · ข้อมูลการเรียนจะแสดงหลังจากโรงเรียนยืนยันแล้วเท่านั้น"
+        action={(
+          <Button
+            variant={adding ? 'ghost' : 'primary'}
+            icon={<Icon name={adding ? 'close' : 'plus'} size={16} />}
+            onClick={() => { setAdding((value) => !value); setCandidates(null); setMessage(null); }}
+          >
+            {adding ? 'ปิด' : 'เพิ่มลูก'}
+          </Button>
+        )}
+      />
+
+      {message && <div className="alert" role="status">{message}</div>}
 
       {adding && (
-        <form className="inline-form child-search" onSubmit={(event) => void search(event)}>
-          <label>
-            โรงเรียนของลูก
+        <form className="child-search" onSubmit={(event) => void search(event)}>
+          <Field label="โรงเรียนของลูก" hint="พิมพ์บางส่วนของชื่อ แล้วเลือกจากรายการที่ขึ้นมา">
             <input
               name="school" value={schoolQuery} autoComplete="off"
               onChange={(event) => {
@@ -115,7 +127,7 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
               }}
               placeholder="พิมพ์ชื่อโรงเรียน" required minLength={2}
             />
-          </label>
+          </Field>
           {!schoolId && schools.length > 0 && (
             <ul className="school-suggestions">
               {schools.map((school) => (
@@ -127,20 +139,19 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
               ))}
             </ul>
           )}
-          <label>
-            ชื่อจริงของลูก
+          <Field label="ชื่อจริงของลูก" hint="ใส่ชื่อจริงอย่างเดียวก็ได้ · ถ้ามีเด็กชื่อซ้ำจะขึ้นให้เลือกหลายการ์ด">
             <input
               name="childName" value={childName} autoComplete="off"
               onChange={(event) => { setChildName(event.target.value); setCandidates(null); }}
-              placeholder="เช่น ธนกร หรือ ธนกร ศรีสุข" aria-describedby="child-name-hint"
+              placeholder="เช่น ธนกร หรือ ธนกร ศรีสุข"
               required minLength={2}
             />
-          </label>
-          <p className="field-hint" id="child-name-hint">ใส่ชื่อจริงอย่างเดียวก็ได้ ถ้ามีเด็กชื่อซ้ำจะขึ้นให้เลือกหลายการ์ด</p>
-          <button className="primary-button" disabled={busy || !schoolId || childName.trim().length < 2}>
-            {busy ? 'กำลังค้นหา...' : 'ค้นหา'}
-          </button>
-          <p className="hint">กรอกแค่ชื่อ ระบบจะแสดงเฉพาะข้อมูลที่ใช้แยกแยะเด็กชื่อซ้ำเท่านั้น</p>
+          </Field>
+          <div className="ui-form-actions">
+            <Button variant="primary" loading={busy} disabled={!schoolId || childName.trim().length < 2} icon={<Icon name="search" size={16} />}>
+              ค้นหา
+            </Button>
+          </div>
         </form>
       )}
 
@@ -157,11 +168,9 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
                 <span>{[candidate.className, candidate.maskedCode].filter(Boolean).join(' · ')}</span>
               </div>
               {candidate.alreadyLinked ? (
-                <span className="status-chip">เชื่อมไว้แล้ว</span>
+                <Badge tone="success">เชื่อมไว้แล้ว</Badge>
               ) : (
-                <button type="button" className="primary-button" disabled={busy} onClick={() => void connect(candidate)}>
-                  เชื่อมบัญชี
-                </button>
+                <Button variant="primary" disabled={busy} onClick={() => void connect(candidate)}>เชื่อมบัญชี</Button>
               )}
             </li>
           ))}
@@ -169,34 +178,44 @@ export function ChildLinkPanel({ onChanged }: { onChanged?: () => void }) {
       )}
 
       {children.length === 0 ? (
-        <div className="empty-state"><span>♧</span><h3>ยังไม่ได้เพิ่มลูก</h3><p>กด “+ เพิ่มลูก” แล้วกรอกชื่อจริงของลูก</p></div>
+        <EmptyState
+          icon={<Icon name="children" size={28} />}
+          title="ยังไม่ได้เพิ่มลูก"
+          description="กด “เพิ่มลูก” แล้วกรอกชื่อโรงเรียนกับชื่อจริงของลูก · ระบบจะแสดงเฉพาะข้อมูลที่ใช้แยกแยะเด็กชื่อซ้ำเท่านั้น"
+        />
       ) : (
-        <ul className="record-list">
+        <ul className="child-link-list">
           {children.map((child) => (
             <li key={child.linkId}>
-              <div className="record-main">
-                <div>
-                  <strong>{child.displayName}</strong>
-                  <span>{[child.schoolName, child.className, child.maskedCode].filter(Boolean).join(' · ')}</span>
-                  <span>{child.relationship}</span>
-                </div>
-                <span className={`status-chip ${child.status === 'linked' ? 'success' : child.status === 'pending' ? 'warning' : 'danger'}`}>
-                  {statusLabels[child.status] ?? child.status}
-                </span>
+              <div className="child-link-main">
+                <strong>{child.displayName}</strong>
+                <span>{[child.schoolName, child.className, child.maskedCode].filter(Boolean).join(' · ')}</span>
+                <span>{child.relationship}</span>
               </div>
+              <Badge tone={child.status === 'linked' ? 'success' : child.status === 'pending' ? 'warning' : 'danger'}>
+                {statusLabels[child.status] ?? child.status}
+              </Badge>
               {child.status !== 'revoked' && (
-                <div className="record-actions">
-                  <button type="button" className="text-button" disabled={busy} onClick={() => void unlink(child)}>
-                    ยกเลิกการเชื่อม
-                  </button>
-                </div>
+                <Button variant="ghost" size="sm" disabled={busy} onClick={() => setUnlinking(child)}>
+                  ยกเลิกการเชื่อม
+                </Button>
               )}
             </li>
           ))}
         </ul>
       )}
 
-      {message && <div className="alert" role="status">{message}</div>}
-    </section>
+      {/* Undoing this is not a parent's to do: at a school that reviews requests, re-linking waits on
+          a teacher. It used to happen on one press with nothing asked. */}
+      {unlinking && (
+        <ConfirmDialog
+          title={`ยกเลิกการเชื่อมกับ ${unlinking.displayName}`}
+          description="คุณจะไม่เห็นการเข้าเรียน คะแนน หรือประกาศของนักเรียนคนนี้อีก · เชื่อมใหม่ได้ แต่บางโรงเรียนต้องให้คุณครูอนุมัติอีกครั้ง"
+          confirmLabel="ยกเลิกการเชื่อม"
+          onCancel={() => setUnlinking(null)}
+          onConfirm={() => void unlink(unlinking)}
+        />
+      )}
+    </Card>
   );
 }

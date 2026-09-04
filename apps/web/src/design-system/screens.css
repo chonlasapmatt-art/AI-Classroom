@@ -848,6 +848,24 @@ button.sync-pill:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .theme-studio .panel-heading { align-items: flex-start; }
 .theme-studio .panel-heading p { margin: .35rem 0 0; }
 
+/* Parents: one card per guardian, with the relationships they hold nested inside it rather than
+   stacked as three more rows of buttons underneath. */
+.parent-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.parent-card { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+.parent-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+.parent-card-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.parent-card-title strong { font-size: var(--text-md); color: var(--ink-900); }
+.parent-card-title span { color: var(--ink-500); font-size: var(--text-xs); }
+.parent-children { margin: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--ink-600); font-size: var(--text-sm); }
+.parent-card-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.parent-link-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.parent-link-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--surface-muted); }
+.parent-link-who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.parent-link-who small { color: var(--ink-500); font-size: var(--text-xs); }
+.parent-link-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-left: auto; }
+.parent-add-child { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; padding-top: var(--space-2); border-top: 1px dashed var(--line); }
+.parent-add-child select, .parent-add-child input { flex: 1 1 180px; min-width: 0; }
+
 /* Import: the guess the reader is being asked to check, and the rows that will not be written. */
 .import-guess-note { margin: var(--space-2) 0 0; display: flex; align-items: flex-start; gap: 6px; padding: var(--space-3); border: 1px solid var(--accent-gold); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent-gold) 8%, var(--surface)); color: var(--ink-700); font-size: var(--text-sm); line-height: 1.7; }
 .import-guess-note svg { flex: none; margin-top: 3px; }
@@ -935,7 +953,23 @@ button.sync-pill:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .candidate-card span { font-size: var(--text-xs); color: var(--ink-500); }
 .candidate-card .user-avatar { width: 56px; height: 56px; font-size: var(--text-lg); }
 .parent-onboarding .child-panel { width: min(720px, 100%); text-align: left; }
-.issued-password { font-family: var(--font-mono, monospace); color: var(--ink-800); font-weight: var(--weight-heavy); }
+.issued-password { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--brand-50); color: var(--ink-800); font-size: var(--text-sm); }
+.issued-password code { font-family: var(--font-mono, monospace); font-weight: var(--weight-heavy); letter-spacing: .04em; user-select: all; }
+
+/* A guardian's own list of children, and what each link is waiting on. */
+.child-link-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.child-link-list li { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.child-link-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 200px; }
+.child-link-main strong { color: var(--ink-900); }
+.child-link-main span { color: var(--ink-500); font-size: var(--text-xs); }
+
+/* Staff queues: who asked, what for, and the two buttons that answer it. */
+.request-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.request-list li { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.request-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 220px; }
+.request-main strong { color: var(--ink-900); }
+.request-main > span { color: var(--ink-500); font-size: var(--text-xs); }
+.request-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-left: auto; }
 @media (max-width: 640px) {
   .candidate-card { grid-template-columns: 44px 1fr; }
   .candidate-card > button, .candidate-card > .status-chip { grid-column: 1 / -1; }
