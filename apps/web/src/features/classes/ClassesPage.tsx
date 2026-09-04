@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { rosterFor } from '../../data/selectors';
-import { Field, ProgressBar } from '../../ui/components';
+import { ConfirmDialog, Field, ProgressBar } from '../../ui/components';
 import type { Classroom } from '../../domain/types';
 import { requireSupabase } from '../../services/supabase';
 import { useSyncStatus } from '../../sync/SyncStatusContext';
@@ -326,21 +326,21 @@ export function ClassesPage() {
         </section>
       )}
 
+      {/* Was a hand-built backdrop: no focus trap, no Escape, and no focus returned to the control
+          that opened it — on the one dialog in this screen that destroys something. */}
       {confirmDelete && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ยืนยันการลบห้องเรียน">
-          <section className="modal-card confirm-card">
-            <h2>ลบห้อง {confirmDelete.name}?</h2>
-            <p>
-              การลบจะเอาห้องนี้ออกจากรายการและยกเลิกการมอบหมายครูของห้องนี้ ประวัติเดิม (เช็กชื่อ คะแนน)
-              ยังอยู่ในระบบ แต่จะไม่ผูกกับห้องที่เปิดสอนอีก และต้องย้ายนักเรียนออกให้หมดก่อนจึงจะลบได้
-            </p>
-            <p className="muted">ตอนนี้มีนักเรียนในห้องนี้ {rosterFor(snapshot, confirmDelete.id).length} คน</p>
-            <div className="modal-actions">
-              <button className="text-button" onClick={() => setConfirmDelete(null)}>ยกเลิก</button>
-              <button className="primary-button danger-button" onClick={() => void removeClass(confirmDelete)}>ยืนยันลบห้องเรียน</button>
-            </div>
-          </section>
-        </div>
+        <ConfirmDialog
+          title={`ลบห้อง ${confirmDelete.name}?`}
+          description={
+            `ตอนนี้มีนักเรียนในห้องนี้ ${rosterFor(snapshot, confirmDelete.id).length} คน · `
+            + 'การลบจะเอาห้องนี้ออกจากรายการและยกเลิกการมอบหมายครูของห้องนี้ '
+            + 'ประวัติเดิม (เช็กชื่อ คะแนน) ยังอยู่ในระบบ แต่จะไม่ผูกกับห้องที่เปิดสอนอีก '
+            + 'และต้องย้ายนักเรียนออกให้หมดก่อนจึงจะลบได้'
+          }
+          confirmLabel="ยืนยันลบห้องเรียน"
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => void removeClass(confirmDelete)}
+        />
       )}
 
     </>

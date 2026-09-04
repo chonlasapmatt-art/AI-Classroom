@@ -9,6 +9,7 @@ import { activateMemberLogin, describeActivatedLogin } from '../auth/identityAct
 import { requireSupabase } from '../../services/supabase';
 import { ParentRequestsPanel } from './ParentRequestsPanel';
 import { EraseAccountButton } from '../auth/EraseAccountButton';
+import { Button, Modal } from '../../ui/components';
 import { useToast } from '../../ui/toastContext';
 
 type PasswordTarget = {
@@ -380,16 +381,42 @@ export function ParentsPage() {
           not in the application. */}
       {mode === 'cloud' && <ParentRequestsPanel schoolId={membership.schoolId} />}
 
+      {/* Was a hand-built backdrop with no focus trap, no Escape and no focus returned. */}
       {passwordParent && canManageAccounts && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ตั้งรหัสผ่านผู้ปกครอง">
-          <section className="modal-card">
-            <div className="panel-heading"><h2>{passwordParent.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · {passwordParent.parentName}</h2><button type="button" className="icon-button" onClick={() => setPasswordParent(null)} aria-label="ปิด">×</button></div>
-            <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const password = String(data.get('password') ?? ''); const confirm = String(data.get('confirm') ?? ''); if (password.length < 8 || password !== confirm) { toast(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); return; } const action = passwordParent.profileId ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'parent', profileId: passwordParent.profileId, password }) : provisionManagedAccount({ schoolId: membership.schoolId, role: 'parent', recordId: crypto.randomUUID(), ...(passwordParent.studentId ? { studentId: passwordParent.studentId } : {}), displayName: passwordParent.parentName, password, relationship: passwordParent.relationship, phone: passwordParent.contact }); void action.then(() => { setPasswordParent(null); toast('บันทึกรหัสผ่านผู้ปกครองแล้ว'); }).catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ', { tone: 'error' })); }}>
-              <ManagedPasswordFields />
-              <div className="modal-actions"><button type="button" className="text-button" onClick={() => setPasswordParent(null)}>ยกเลิก</button><button className="primary-button">บันทึก</button></div>
-            </form>
-          </section>
-        </div>
+        <Modal
+          title={`${passwordParent.profileId ? 'เปลี่ยนรหัสผ่าน' : 'สร้างบัญชี'} · ${passwordParent.parentName}`}
+          onClose={() => setPasswordParent(null)}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget);
+              const password = String(data.get('password') ?? '');
+              const confirm = String(data.get('confirm') ?? '');
+              if (password.length < 8 || password !== confirm) {
+                toast(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร', { tone: 'error' });
+                return;
+              }
+              const action = passwordParent.profileId
+                ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'parent', profileId: passwordParent.profileId, password })
+                : provisionManagedAccount({
+                  schoolId: membership.schoolId, role: 'parent', recordId: crypto.randomUUID(),
+                  ...(passwordParent.studentId ? { studentId: passwordParent.studentId } : {}),
+                  displayName: passwordParent.parentName, password,
+                  relationship: passwordParent.relationship, phone: passwordParent.contact
+                });
+              void action
+                .then(() => { setPasswordParent(null); toast('บันทึกรหัสผ่านผู้ปกครองแล้ว', { tone: 'success' }); })
+                .catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ', { tone: 'error' }));
+            }}
+          >
+            <ManagedPasswordFields />
+            <div className="ui-page-actions">
+              <Button variant="ghost" type="button" onClick={() => setPasswordParent(null)}>ยกเลิก</Button>
+              <Button variant="primary" type="submit">บันทึก</Button>
+            </div>
+          </form>
+        </Modal>
       )}
 
     </>

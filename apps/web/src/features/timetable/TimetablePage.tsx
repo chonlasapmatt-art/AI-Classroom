@@ -3,6 +3,7 @@ import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { TimetableEntry } from '../../domain/types';
 import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { Button, Field, FieldGroup, Modal } from '../../ui/components';
 import { useToast } from '../../ui/toastContext';
 
 const dayNames = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
@@ -207,39 +208,46 @@ export function TimetablePage() {
         </section>
       )}
 
+      {/* Was a hand-built backdrop with no focus trap, no Escape and no focus returned — on a form
+          a teacher opens dozens of times while laying out a week. */}
       {draft && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="แก้ไขคาบเรียน">
-          <form className="modal-card" onSubmit={(event) => void save(event)}>
-            <h2>{dayNames[draft.dayOfWeek - 1]} · คาบ {draft.period}</h2>
-            <div className="form-grid">
-              <label>
-                รายวิชา
+        <Modal
+          title={`${dayNames[draft.dayOfWeek - 1]} · คาบ ${draft.period}`}
+          description="เวลาที่ตั้งไว้ที่นี่คือเวลาที่หน้าเช็กชื่อใช้แยกคาบของวันนั้น"
+          onClose={() => setDraft(null)}
+        >
+          <form onSubmit={(event) => void save(event)}>
+            <FieldGroup>
+              <Field label="รายวิชา">
                 <select name="subjectId" defaultValue={draft.entry?.subjectId ?? ''}>
                   <option value="">ไม่ระบุ</option>
                   {snapshot.subjects.filter((row) => row.status === 'active')
                     .map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
                 </select>
-              </label>
-              <label>
-                ครูผู้สอน
+              </Field>
+              <Field label="ครูผู้สอน">
                 <select name="teacherId" defaultValue={draft.entry?.teacherId ?? ''}>
                   <option value="">ไม่ระบุ</option>
                   {snapshot.teachers.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}
                 </select>
-              </label>
-              <label>เวลาเริ่ม<input name="startTime" type="time" required defaultValue={draft.entry?.startTime ?? periodClock[draft.period]?.startTime ?? '08:30'} /></label>
-              <label>เวลาสิ้นสุด<input name="endTime" type="time" required defaultValue={draft.entry?.endTime ?? periodClock[draft.period]?.endTime ?? '09:20'} /></label>
-              <label>ห้อง<input name="room" defaultValue={draft.entry?.room ?? ''} /></label>
-            </div>
-            <div className="modal-actions">
-              <button className="primary-button" type="submit">บันทึก</button>
+              </Field>
+              <Field label="เวลาเริ่ม">
+                <input name="startTime" type="time" required defaultValue={draft.entry?.startTime ?? periodClock[draft.period]?.startTime ?? '08:30'} />
+              </Field>
+              <Field label="เวลาสิ้นสุด">
+                <input name="endTime" type="time" required defaultValue={draft.entry?.endTime ?? periodClock[draft.period]?.endTime ?? '09:20'} />
+              </Field>
+              <Field label="ห้อง" hint="ไม่บังคับ"><input name="room" defaultValue={draft.entry?.room ?? ''} /></Field>
+            </FieldGroup>
+            <div className="ui-page-actions">
+              <Button variant="ghost" type="button" onClick={() => setDraft(null)}>ยกเลิก</Button>
               {draft.entry && (
-                <button className="danger-button" type="button" onClick={() => void remove(draft.entry!)}>ลบคาบนี้</button>
+                <Button variant="danger" type="button" onClick={() => void remove(draft.entry!)}>ลบคาบนี้</Button>
               )}
-              <button className="text-button" type="button" onClick={() => setDraft(null)}>ยกเลิก</button>
+              <Button variant="primary" type="submit">บันทึก</Button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
     </>
