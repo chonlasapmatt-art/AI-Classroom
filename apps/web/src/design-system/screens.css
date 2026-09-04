@@ -1332,3 +1332,89 @@ tr.row-warning td { background: var(--warning-soft); }
 .shortcut-hub-grid a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .shortcut-hub-grid span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .shortcut-hub-grid a:hover { transform: none; } }
+
+/* The 404's way out: this role's own menu, wrapped rather than clipped, so every label stays whole
+   on a phone. A row of destinations that truncated would be a list of places you cannot identify. */
+.not-found-suggestions {
+  display: flex; flex-wrap: wrap; gap: var(--space-2);
+  margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--color-border);
+}
+
+/*
+ * The register's filter row.
+ *
+ * Search and status sit together because they answer the same question from two directions — "where
+ * is this student" and "who have I not marked yet" — and separating them made the second one look
+ * like a legend rather than a control. The chips wrap: six labels on a 360px screen do not fit on
+ * one line, and a clipped row of statuses is a row of statuses you cannot pick.
+ */
+.attendance-filters {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3);
+  margin: var(--space-4) 0 var(--space-3);
+}
+.attendance-filters .ui-search { flex: 1 1 220px; }
+.attendance-filter-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.attendance-filter-chip {
+  min-height: 36px; padding: 0 var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-pill);
+  background: var(--color-surface); color: var(--color-text-secondary);
+  font-size: var(--text-sm); font-weight: var(--weight-medium);
+  transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+}
+.attendance-filter-chip:hover { background: var(--surface-hover); color: var(--color-text-primary); }
+.attendance-filter-chip.selected {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  background: var(--color-primary-soft); color: var(--color-primary-strong);
+  font-weight: var(--weight-strong);
+}
+.attendance-filter-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* The roster's own progress, directly under the heading it belongs to. */
+.ui-card > .ui-progress { margin-bottom: var(--space-2); }
+
+/*
+ * The work form's section rail.
+ *
+ * It reports rather than gates: every section is on screen already, so this is a map of what is
+ * still blank, not a sequence somebody has to walk. Wrapping is deliberate — six labels do not fit
+ * one phone line, and a clipped rail hides exactly the sections a person has not reached.
+ */
+.work-form-rail { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); }
+.work-form-rail-step {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: 34px; padding: 0 var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-pill);
+  background: var(--color-surface); color: var(--color-text-secondary);
+  font-size: var(--text-xs); font-weight: var(--weight-medium);
+}
+.work-form-rail-step:hover { background: var(--surface-hover); color: var(--color-text-primary); }
+.work-form-rail-step:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.work-form-rail-mark {
+  width: 16px; height: 16px; display: grid; place-items: center;
+  border: 1px solid var(--color-border-strong); border-radius: 50%; color: transparent;
+}
+.work-form-rail-step.done { border-color: color-mix(in srgb, var(--color-success) 40%, transparent); color: var(--color-success); }
+.work-form-rail-step.done .work-form-rail-mark {
+  border-color: transparent; background: var(--success-soft); color: var(--color-success);
+}
+
+.work-due-presets-block { display: flex; flex-direction: column; gap: var(--space-2); }
+.work-due-presets { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/*
+ * The student's copy of the work, before it is one.
+ *
+ * Built from the same values the save writes, so a preview that reads correctly cannot be followed
+ * by a record that does not — the older way of previewing, rendering a second description of the
+ * form's state, is the way the two drift apart.
+ */
+.work-preview {
+  padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+}
+.work-preview header { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+.work-preview h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); }
+.work-preview-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); margin: 0 0 var(--space-4); }
+.work-preview-facts dt { color: var(--color-text-muted); font-size: var(--text-xs); }
+.work-preview-facts dd { margin: var(--space-1) 0 0; font-weight: var(--weight-strong); font-size: var(--text-sm); }
+.work-preview-instructions { margin: 0 0 var(--space-3); white-space: pre-wrap; color: var(--color-text-secondary); line-height: var(--leading-normal); }

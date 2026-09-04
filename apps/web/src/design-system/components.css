@@ -243,11 +243,27 @@
   animation: ui-fade var(--duration-normal) var(--ease-out);
 }
 @keyframes ui-fade { from { opacity: 0; } to { opacity: 1; } }
+/*
+ * The panel scrolls its body, not itself.
+ *
+ * It used to scroll as one block, so on a long form — creating a piece of work is the long one —
+ * the save and publish buttons scrolled off the bottom and stayed off until you scrolled back down
+ * past everything you had just filled in. A column that gives the body the overflow keeps the
+ * actions on screen at every scroll position, which is what a person is looking for once they have
+ * finished typing.
+ */
 .ui-modal {
-  width: min(560px, 100%); max-height: 88vh; overflow: auto; padding: var(--space-5);
+  width: min(560px, 100%); max-height: 88vh; padding: var(--space-5);
+  display: flex; flex-direction: column;
   background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--shadow-lg);
   border: 1px solid var(--line);
   animation: ui-pop var(--duration-slow) var(--ease-spring) both;
+}
+.ui-modal-header { flex: none; }
+.ui-modal-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.ui-modal-actions {
+  flex: none; padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border); background: var(--surface);
 }
 .ui-modal-actions .ui-button-primary { position: relative; }
 @keyframes ui-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }

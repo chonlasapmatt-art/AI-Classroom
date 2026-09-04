@@ -13,6 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { isRouteAllowed } from '../../src/layouts/navigation';
 
 const root = resolve(process.cwd(), '../..');
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
@@ -49,7 +50,11 @@ describe('the guardian view of one child', () => {
   });
 
   it('is reachable from the portal and is its own route', () => {
-    expect(routes).toContain('<Route path="my-children/:studentId" element={<ChildDetailPage />} />');
+    expect(routes).toContain("{ path: 'my-children/:studentId', element: <ChildDetailPage /> }");
     expect(myChildren).toContain('to={`/my-children/${student.id}`}');
+    // The detail screen inherits the list's authority rather than declaring its own, so a child's
+    // page cannot end up open to a role the list itself is closed to.
+    expect(isRouteAllowed('parent', '/my-children/any-student-id')).toBe(true);
+    expect(isRouteAllowed('teacher', '/my-children/any-student-id')).toBe(false);
   });
 });

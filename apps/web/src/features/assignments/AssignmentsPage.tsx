@@ -441,6 +441,7 @@ export function AssignmentsPage() {
           rubrics={snapshot.rubrics}
           works={snapshot.assignments}
           editing={editing}
+          actorProfileId={membership.profileId}
           onClose={() => { setFormOpen(false); setEditing(null); }}
           onSave={saveWork}
         />

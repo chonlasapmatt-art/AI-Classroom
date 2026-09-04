@@ -70,20 +70,33 @@ describe('application shell and routes', () => {
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('การแจ้งเตือน'));
   });
 
-  it.each([
-    ['preview-student', 'นักเรียน'],
-    ['preview-parent', 'ผู้ปกครอง']
-  ])('hides work creation controls for %s', async (membershipId) => {
+  it.each(['preview-student', 'preview-parent'])('hides work creation controls for %s', async (membershipId) => {
     renderApp('/');
     await switchRole(membershipId);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument());
     expect(screen.queryByRole('link', { name: /สร้างงาน/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /สร้างงาน/ })).not.toBeInTheDocument();
+  });
 
-    cleanup();
+  /*
+   * The work list, for the two roles that are told about work rather than setting it.
+   *
+   * They are separated because the answer is genuinely different now. A student has the list and
+   * must not have the button; a guardian is not given the list at all, and typing its address gets
+   * a refusal that names the role instead of the screen with its controls quietly removed.
+   */
+  it('gives a student the work list without the create control', async () => {
     renderApp('/assignments');
-    await switchRole(membershipId);
+    await switchRole('preview-student');
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('งานและโปรเจกต์'));
+    expect(screen.queryByRole('button', { name: /สร้างงาน/ })).not.toBeInTheDocument();
+  });
+
+  it('refuses the work list to a guardian by address, not only by menu', async () => {
+    renderApp('/assignments');
+    await switchRole('preview-parent');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }))
+      .toHaveTextContent('หน้านี้ไม่ได้เปิดให้บทบาทของคุณ'));
     expect(screen.queryByRole('button', { name: /สร้างงาน/ })).not.toBeInTheDocument();
   });
 

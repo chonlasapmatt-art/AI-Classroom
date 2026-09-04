@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { isRouteAllowed } from '../../src/layouts/navigation';
 
 const repositoryRoot = resolve(process.cwd(), '../..');
 const read = (path: string) => readFileSync(join(repositoryRoot, path), 'utf8');
@@ -212,8 +213,15 @@ describe('the screens a teacher and a parent see', () => {
     expect(memberClient).toContain("MEMBER_ACCESS_GENERIC_MESSAGE = 'ชื่อหรือรหัสผ่านไม่ถูกต้อง'");
   });
 
-  it('routes the parent to their own children screen', () => {
-    expect(appSource).toContain('<Route path="my-children" element={<MyChildrenPage />} />');
+  it('routes the parent to their own children screen, and nobody else there', () => {
+    expect(appSource).toContain("{ path: 'my-children', element: <MyChildrenPage /> }");
+    // Mounting the route is half of it. The screen is a guardian's, so the assertion that matters is
+    // that a guardian may open it and the other three roles are refused rather than merely not
+    // offered a link — every route used to be reachable by typing its address.
+    expect(isRouteAllowed('parent', '/my-children')).toBe(true);
+    for (const role of ['admin', 'teacher', 'student'] as const) {
+      expect(isRouteAllowed(role, '/my-children')).toBe(false);
+    }
   });
 
   it('carries no service role key or privileged client into the browser bundle', () => {

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -66,6 +68,18 @@ describe('classroom live tools', () => {
     cleanup();
     renderApp('/classroom');
     fireEvent.change(await screen.findByLabelText('เลือกบทบาท'), { target: { value: 'preview-student' } });
-    await waitFor(() => expect(screen.getByText('กิจกรรมหน้าชั้นเปิดให้ครูและผู้ดูแล')).toBeInTheDocument());
+    // The shell now answers first: the address is not in a student's menu, so it never reaches the
+    // screen. Naming the role in the refusal is the difference from the old silent redirect home.
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }))
+      .toHaveTextContent('หน้านี้ไม่ได้เปิดให้บทบาทของคุณ'));
+    expect(screen.getByText(/\/classroom ไม่อยู่ในเมนูของนักเรียน/)).toBeInTheDocument();
+  });
+
+  it('keeps the screen\'s own refusal underneath the route guard', () => {
+    // Defence in depth, and the reason this is a source assertion: with the guard in front, the
+    // screen's own check is unreachable through the router and would quietly rot if nothing held
+    // it. It is what still refuses a student reached by any other path into the component.
+    const page = readFileSync(resolve(process.cwd(), 'src/features/classroom/ClassroomLivePage.tsx'), 'utf8');
+    expect(page).toContain('กิจกรรมหน้าชั้นเปิดให้ครูและผู้ดูแล');
   });
 });

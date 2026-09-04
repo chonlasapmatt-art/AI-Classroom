@@ -206,6 +206,7 @@ export function CalendarPage() {
           works={snapshot.assignments}
           editing={composing.work}
           defaultDueAt={composing.dueAt}
+          actorProfileId={membership.profileId}
           onClose={() => setComposing(null)}
           onSave={saveWork}
         />
