@@ -189,12 +189,7 @@ const messages: Record<string, string> = {
   TARGET_IS_PLATFORM_ADMIN: 'รีเซ็ตรหัสผ่านของผู้ดูแลแพลตฟอร์มด้วยกันไม่ได้',
   PASSWORD_RESET_FAILED: 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ กรุณาลองใหม่',
   SERVER_CONFIGURATION_ERROR: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งค่า PRODUCT_KEY_SECRET',
-  MFA_REQUIRED: 'บัญชีนี้เปิดตัวยืนยันสองชั้นไว้ กรุณากรอกรหัส 6 หลักจากแอปก่อน',
-  OPERATOR_ACCOUNT_FAILED: 'สร้างบัญชีผู้ดูแลแพลตฟอร์มไม่สำเร็จ กรุณาลองใหม่',
-  OPERATOR_HAS_SCHOOL_MEMBERSHIP:
-    'บัญชีนี้เป็นผู้ดูแลของโรงเรียนอยู่แล้ว จึงยกให้เป็นผู้ดูแลแพลตฟอร์มไม่ได้ · ผู้ดูแลแพลตฟอร์มต้องเป็นบัญชีที่ไม่สังกัดโรงเรียนใด',
-  PLATFORM_ALREADY_BOOTSTRAPPED:
-    'ระบบนี้มีผู้ดูแลแพลตฟอร์มอยู่แล้ว · ทางลัดสำหรับตั้งผู้ดูแลคนแรกถูกปิดไปตั้งแต่มีคนแรก'
+  MFA_REQUIRED: 'บัญชีนี้เปิดตัวยืนยันสองชั้นไว้ กรุณากรอกรหัส 6 หลักจากแอปก่อน'
 };
 
 /** Turns a Postgres error into one the console can show, keeping the machine code for the caller. */
@@ -345,13 +340,7 @@ const devSignInMessages: Record<string, string> = {
   PLATFORM_DEV_SIGN_IN_DISABLED: 'เซิร์ฟเวอร์นี้ปิดการเข้าสู่ระบบแบบนักพัฒนาไว้',
   SERVER_CONFIGURATION_ERROR: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสแพลตฟอร์ม กรุณาตั้ง PLATFORM_ADMIN_CODE_HASH ก่อน',
   PLATFORM_DISPLAY_NAME_REQUIRED: 'การเข้าเครื่องนี้ครั้งแรกต้องกรอกชื่อผู้ดูแล',
-  /*
-   * This used to say "sign in with a name and password, then confirm the code" — a door the console
-   * no longer renders. So the one message somebody sees on a deployment with no operator yet sent
-   * them looking for a form that is not there. It now says what is actually true: the code is
-   * right, and there is nobody for it to sign in as.
-   */
-  PLATFORM_NO_OPERATOR: 'รหัสถูกต้อง แต่ยังไม่มีผู้ดูแลแพลตฟอร์มในระบบให้เข้าใช้งาน · ต้องเพิ่มผู้ดูแลคนแรกลงในตาราง platform_admins ที่เซิร์ฟเวอร์ก่อน',
+  PLATFORM_NO_OPERATOR: 'ยังไม่มีผู้ดูแลแพลตฟอร์มในระบบ กรุณาเข้าด้วยชื่อกับรหัสผ่านแล้วยืนยันสิทธิ์ก่อน',
   PLATFORM_OPERATOR_AMBIGUOUS: 'มีผู้ดูแลแพลตฟอร์มมากกว่าหนึ่งคน ต้องระบุ PLATFORM_DEV_OPERATOR ที่เซิร์ฟเวอร์',
   PLATFORM_ACCESS_LOCKED: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที',
   PLATFORM_ACCESS_DENIED: 'รหัสสิทธิ์ไม่ถูกต้อง'
@@ -389,115 +378,6 @@ export async function grantPlatformAdmin(input: { profileId: string; displayName
 
 export async function revokePlatformAdminAccount(input: { profileId: string; reason: string }) {
   await gateway({ action: 'revoke', ...input });
-}
-
-export interface PlatformOperator {
-  profileId: string;
-  displayName: string;
-  status: string;
-  mfaEnrolledAt: string | null;
-  grantedAt: string;
-  revokedAt: string | null;
-  lastSeenAt: string | null;
-  /** How many schools this operator still administers. Should be zero; older operators may not be. */
-  schoolMemberships: number;
-}
-
-export async function listPlatformOperators(): Promise<PlatformOperator[]> {
-  const data = await gateway({ action: 'list-operators' });
-  const rows = Array.isArray(data.operators) ? data.operators : [];
-  return rows.map((row) => {
-    const item = row as Record<string, unknown>;
-    return {
-      profileId: String(item.profile_id ?? ''),
-      displayName: String(item.display_name ?? ''),
-      status: String(item.status ?? 'active'),
-      mfaEnrolledAt: item.mfa_enrolled_at ? String(item.mfa_enrolled_at) : null,
-      grantedAt: String(item.granted_at ?? ''),
-      revokedAt: item.revoked_at ? String(item.revoked_at) : null,
-      lastSeenAt: item.last_seen_at ? String(item.last_seen_at) : null,
-      schoolMemberships: Number(item.school_memberships ?? 0)
-    };
-  });
-}
-
-/**
- * A new operator on an account that belongs to no school.
- *
- * The other route — granting platform authority to an account that already exists — still works and
- * is still recorded, but it makes an operator out of somebody who administers a school, which is the
- * distinction `platform_admins` is for. This one starts from an account with no school at all, and
- * the database refuses if the profile turns out to hold a membership anyway.
- */
-export async function provisionPlatformOperator(input: {
-  displayName: string; password: string; notes?: string;
-}): Promise<{ profileId: string }> {
-  const data = await gateway({ action: 'provision-operator', ...input });
-  return { profileId: String(data.profileId ?? '') };
-}
-
-const signInMessages: Record<string, string> = {
-  PLATFORM_ACCESS_DENIED: 'ชื่อผู้ดูแลหรือรหัสผ่านไม่ถูกต้อง',
-  PLATFORM_ACCESS_LOCKED: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที',
-  SERVER_CONFIGURATION_ERROR: 'เซิร์ฟเวอร์ยังไม่พร้อมให้เข้าสู่ระบบ กรุณาติดต่อผู้ดูแลระบบ'
-};
-
-/**
- * The production entrance: an operator's own name and password.
- *
- * The password never leaves this call — it is checked by GoTrue inside the Edge Function, the same
- * way a teacher's or a guardian's is, which is why no screen in this product verifies one itself.
- * The session that comes back is `aal1`; an operator with a second factor is asked for it by
- * `platform_reauth_fresh` before anything guarded, not at the door.
- */
-export async function platformSignIn(input: { displayName: string; password: string }):
-Promise<{ accessToken: string; refreshToken: string }> {
-  const { data, error } = await requireSupabase().functions.invoke('platform-sign-in', { body: input });
-  if (error) {
-    const context = (error as { context?: Response }).context;
-    const parsed = context && typeof context.json === 'function'
-      ? await context.json().catch(() => null) as Record<string, unknown> | null
-      : null;
-    const code = typeof parsed?.code === 'string' ? parsed.code : 'PLATFORM_ACCESS_DENIED';
-    throw new PlatformError(code, signInMessages[code] ?? 'เข้าสู่ระบบไม่สำเร็จ');
-  }
-  const session = (data as { session?: { accessToken?: string; refreshToken?: string } } | null)?.session;
-  if (!session?.accessToken || !session.refreshToken) {
-    throw new PlatformError('PLATFORM_ACCESS_DENIED', signInMessages.PLATFORM_ACCESS_DENIED!);
-  }
-  return { accessToken: session.accessToken, refreshToken: session.refreshToken };
-}
-
-const bootstrapMessages: Record<string, string> = {
-  PLATFORM_ACCESS_DENIED: 'รหัสสิทธิ์ไม่ถูกต้อง',
-  PLATFORM_ACCESS_LOCKED: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที',
-  PLATFORM_ALREADY_BOOTSTRAPPED: messages.PLATFORM_ALREADY_BOOTSTRAPPED!,
-  OPERATOR_ACCOUNT_FAILED: messages.OPERATOR_ACCOUNT_FAILED!,
-  OPERATOR_HAS_SCHOOL_MEMBERSHIP: messages.OPERATOR_HAS_SCHOOL_MEMBERSHIP!,
-  VALIDATION_ERROR: 'ชื่อผู้ดูแลอย่างน้อย 2 ตัวอักษร และรหัสผ่านอย่างน้อย 12 ตัวอักษร',
-  SERVER_CONFIGURATION_ERROR: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสแพลตฟอร์ม กรุณาตั้ง PLATFORM_ADMIN_CODE_HASH ก่อน'
-};
-
-/**
- * The first operator of a deployment that has none.
- *
- * Reachable without a session, because on a deployment with no operator there is no session to be
- * had — that was the deadlock. It mints none either: whoever runs this then signs in through the
- * ordinary door. The server closes this path the moment an operator exists.
- */
-export async function bootstrapPlatformOperator(input: {
-  accessCode: string; displayName: string; password: string;
-}): Promise<{ profileId: string }> {
-  const { data, error } = await requireSupabase().functions.invoke('platform-bootstrap', { body: input });
-  if (error) {
-    const context = (error as { context?: Response }).context;
-    const parsed = context && typeof context.json === 'function'
-      ? await context.json().catch(() => null) as Record<string, unknown> | null
-      : null;
-    const code = typeof parsed?.code === 'string' ? parsed.code : 'PLATFORM_ACCESS_DENIED';
-    throw new PlatformError(code, bootstrapMessages[code] ?? 'ตั้งผู้ดูแลคนแรกไม่สำเร็จ');
-  }
-  return { profileId: String((data as Record<string, unknown> | null)?.profileId ?? '') };
 }
 
 export interface ProvisionSchoolAdminInput {

@@ -4,16 +4,15 @@ import { AuthProvider, useAuth } from '../app/AuthContext';
 import { recall, remember } from '../app/deviceMemory';
 import { isCompleteMemberLogin, memberLogin, type MemberAccountChoice } from '../features/auth/memberAccess';
 import { isCloudConfigured } from '../services/supabase';
-import { Badge, Button, Card, CardHeader, Field } from '../ui/components';
+import { Button, Card, CardHeader, Field } from '../ui/components';
 import { ChangelogPage } from './ChangelogPage';
 import { PlatformAdminAccountsPage } from './PlatformAdminAccounts';
-import { PlatformOperatorsPage } from './PlatformOperators';
 import { DevicesPage, ErrorsPage, NotificationsPage, OverviewPage, PlatformSettingsPage, SecurityPage } from './PlatformPages';
 import { RecoveryPage } from './PlatformRecovery';
 import { SchoolsPage, SupportModeBanner } from './PlatformSchools';
 import {
-  bootstrapPlatformOperator, currentSupportSession, devSignIn, endSupportSession, enrollPlatformAdmin,
-  isDevSignInAvailable, isPlatformAdmin, platformSignIn, PlatformError,
+  currentSupportSession, devSignIn, endSupportSession, enrollPlatformAdmin, isDevSignInAvailable,
+  isPlatformAdmin, PlatformError,
   type ActiveSupportSession
 } from './platformClient';
 
@@ -21,7 +20,6 @@ const sections: { to: string; label: string; end: boolean }[] = [
   { to: '/', label: 'ภาพรวม', end: true },
   { to: '/schools', label: 'โรงเรียน', end: false },
   { to: '/admins', label: 'สร้างแอดมิน', end: false },
-  { to: '/operators', label: 'ผู้ดูแลแพลตฟอร์ม', end: false },
   { to: '/recovery', label: 'คีย์และการกู้บัญชี', end: false },
   { to: '/errors', label: 'ศูนย์ข้อผิดพลาด', end: false },
   { to: '/notifications', label: 'ศูนย์แจ้งเตือน', end: false },
@@ -33,127 +31,6 @@ const sections: { to: string; label: string; end: boolean }[] = [
 
 const PLATFORM_OPERATOR_DEVICE_KEY = 'platform-operator-name-saved';
 
-/**
- * The first operator of a deployment that has none.
- *
- * Offered only after the server has said `PLATFORM_NO_OPERATOR`, which means the code was right and
- * there is simply nobody for it to sign in as. Until this existed that message was a dead end: the
- * enrolment screen needs a session, the only door signs you in as an operator who already exists,
- * and nothing could make the first one. The account this creates belongs to no school, which is
- * what keeps a platform operator and a school's administrator two different people.
- */
-function BootstrapOperator({ accessCode, onCreated }: { accessCode: string; onCreated(): void }) {
-  const [displayName, setDisplayName] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const problem = displayName.trim().length < 2 ? 'กรอกชื่อผู้ดูแลอย่างน้อย 2 ตัวอักษร'
-    : password.length < 12 ? 'รหัสผ่านอย่างน้อย 12 ตัวอักษร'
-      : password !== confirm ? 'รหัสผ่านสองช่องยังไม่ตรงกัน' : null;
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError(null);
-    try {
-      await bootstrapPlatformOperator({ accessCode, displayName: displayName.trim(), password });
-      onCreated();
-    } catch (reason) {
-      setError(reason instanceof PlatformError ? reason.message : 'ตั้งผู้ดูแลคนแรกไม่สำเร็จ');
-    } finally { setBusy(false); }
-  }
-
-  return (
-    <form className="platform-gate-card platform-bootstrap" onSubmit={(event) => void submit(event)}>
-      <header className="platform-gate-head">
-        <Badge tone="info">ตั้งค่าครั้งแรก</Badge>
-        <h2>สร้างผู้ดูแลแพลตฟอร์มคนแรก</h2>
-        <p>
-          รหัสสิทธิ์ถูกต้องแล้ว แต่ยังไม่มีผู้ดูแลแพลตฟอร์มให้เข้าใช้งาน
-          บัญชีที่สร้างนี้จะ<strong>ไม่สังกัดโรงเรียนใด</strong> และเข้าใช้ได้เฉพาะศูนย์ปฏิบัติการเท่านั้น
-        </p>
-      </header>
-
-      <Field label="ชื่อผู้ดูแล" hint="ชื่อนี้จะปรากฏในบันทึกความปลอดภัยทุกครั้งที่ทำรายการ">
-        <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="เช่น ทีมปฏิบัติการ" required />
-      </Field>
-      <Field label="รหัสผ่านบัญชีผู้ดูแล" hint="อย่างน้อย 12 ตัวอักษร · บัญชีนี้เห็นทุกโรงเรียน จึงยาวกว่ารหัสผ่านทั่วไป">
-        <input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-      </Field>
-      <Field label="พิมพ์รหัสผ่านอีกครั้ง">
-        <input type="password" autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
-      </Field>
-
-      {error && <div className="alert error" role="alert">{error}</div>}
-
-      <div className="platform-gate-actions">
-        <Button variant="primary" size="lg" loading={busy} disabled={Boolean(problem)}>สร้างผู้ดูแลคนแรก</Button>
-        {problem && <span className="ui-field-hint">{problem}</span>}
-      </div>
-      <p className="platform-gate-foot">
-        ทางลัดนี้ปิดตัวเองทันทีที่มีผู้ดูแลคนแรก · หลังสร้างเสร็จให้เข้าใช้งานด้วยรหัสสิทธิ์ตามปกติ
-      </p>
-    </form>
-  );
-}
-
-/**
- * The production entrance: an operator's own name and password.
- *
- * The console had none — the development door signs a person in as an operator without asking who
- * they are, which works only because a small deployment has exactly one. This asks. The password is
- * checked by GoTrue inside an Edge Function, like every other entrance in this product, so no screen
- * here verifies a password itself and no entrance asks for an email address.
- */
-function OperatorPasswordSignIn() {
-  const auth = useAuth();
-  const [displayName, setDisplayName] = useState('');
-  const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError(null);
-    try {
-      await auth.applySession(await platformSignIn({ displayName: displayName.trim(), password }));
-    } catch (reason) {
-      setError(reason instanceof PlatformError ? reason.message : 'เข้าสู่ระบบไม่สำเร็จ');
-    } finally { setBusy(false); }
-  }
-
-  return (
-    <form className="platform-gate-card" onSubmit={(event) => void submit(event)}>
-      <header className="platform-gate-head">
-        <Badge tone="brand">PLATFORM OPERATIONS</Badge>
-        <h1>เข้าสู่ศูนย์ปฏิบัติการ</h1>
-        <p>
-          ใช้ชื่อและรหัสผ่านของบัญชีผู้ดูแลแพลตฟอร์ม — ไม่ใช่บัญชีแอดมินของโรงเรียน
-          บัญชีทั่วไปเข้าที่นี่ไม่ได้ แม้ชื่อและรหัสผ่านจะถูกต้อง
-        </p>
-      </header>
-
-      <Field label="ชื่อผู้ดูแล" hint="ชื่อเดียวกับที่ตั้งไว้ตอนสร้างบัญชีผู้ดูแลแพลตฟอร์ม">
-        <input autoComplete="username" value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
-      </Field>
-      <Field label="รหัสผ่าน">
-        <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-      </Field>
-
-      {error && <div className="alert error" role="alert">{error}</div>}
-
-      <div className="platform-gate-actions">
-        <Button variant="primary" size="lg" loading={busy} disabled={displayName.trim().length < 2 || password.length < 1}>
-          เข้าใช้งาน
-        </Button>
-      </div>
-      <p className="platform-gate-foot">
-        ทุกครั้งที่เข้าถูกบันทึกไว้ในบันทึกความปลอดภัยของแพลตฟอร์ม ·
-        บัญชีที่เปิดการยืนยันสองชั้นไว้จะถูกขอรหัส 6 หลักก่อนทำรายการที่มีผลถาวร
-      </p>
-    </form>
-  );
-}
-
 /** The development door, kept available only when the deployment explicitly opts into it. */
 function DevSignIn() {
   const auth = useAuth();
@@ -164,10 +41,6 @@ function DevSignIn() {
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Only after the server says the code was right and there is nobody to sign in as. Offering it
-  // before that would be an account-creation form guarded by nothing.
-  const [noOperator, setNoOperator] = useState(false);
-  const [created, setCreated] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(null);
@@ -178,73 +51,34 @@ function DevSignIn() {
       if (reason instanceof PlatformError && reason.code === 'PLATFORM_DISPLAY_NAME_REQUIRED') {
         setNeedsDisplayName(true);
       }
-      if (reason instanceof PlatformError && reason.code === 'PLATFORM_NO_OPERATOR') setNoOperator(true);
       setError(reason instanceof PlatformError ? reason.message : 'เข้าสู่ระบบไม่สำเร็จ');
     } finally { setBusy(false); }
   }
 
-  if (noOperator && !created) {
-    return <BootstrapOperator accessCode={accessCode} onCreated={() => { setCreated(true); setNoOperator(false); setError(null); }} />;
-  }
-
-  /*
-   * The code is short, so the button says why it is not ready yet.
-   *
-   * A primary button greyed to 45% with nothing beside it reads as broken rather than as waiting,
-   * and this is the only control on the only door into the console.
-   */
-  const missing = needsDisplayName && displayName.trim().length < 1
-    ? 'กรอกชื่อผู้ดูแลก่อน'
-    : accessCode.length < 4 ? 'กรอกรหัสสิทธิ์ก่อน' : null;
-
   return (
-    <form className="platform-gate-card" onSubmit={(event) => void submit(event)}>
-      {/* An h2, and a name of its own. This is the second door on the page now, and two headings
-          reading "เข้าสู่ศูนย์ปฏิบัติการ" would leave a screen reader with two identical landmarks
-          and no way to tell which form it had landed in. */}
-      <header className="platform-gate-head">
-        <Badge tone="warning">DEVELOPMENT ONLY</Badge>
-        <h2>เข้าด้วยรหัสสิทธิ์ของเซิร์ฟเวอร์</h2>
-        <p>
-          ทางเข้าสำรองสำหรับตั้งค่าครั้งแรก และสำหรับตอนที่ผู้ดูแลทุกคนเข้าบัญชีตัวเองไม่ได้ ·
-          ใช้รหัสที่ตั้งไว้ฝั่งเซิร์ฟเวอร์ ไม่ใช่รหัสผ่านของบัญชีใด
-        </p>
-      </header>
-
-      {needsDisplayName ? (
-        <Field label="ชื่อผู้ดูแล" hint="ตั้งได้ตามต้องการ · บันทึกไว้กับผู้ดูแลที่มีอยู่แล้ว ไม่ใช่การสร้างบัญชี">
-          <input
-            autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)}
-            placeholder="เช่น ทีมปฏิบัติการ" required
-          />
-        </Field>
-      ) : (
-        <p className="ui-field-hint">เครื่องนี้เคยบันทึกชื่อผู้ดูแลแล้ว ระบบจะใช้ชื่อเดิมจากเซิร์ฟเวอร์</p>
-      )}
-
-      <Field label="รหัสสิทธิ์" hint="ตรวจสอบที่เซิร์ฟเวอร์ และจำกัดไว้ 5 ครั้งต่อ 15 นาทีต่อเครื่อง">
+    <form className="configuration-card dev-sign-in" onSubmit={(event) => void submit(event)}>
+      <span className="eyebrow">DEVELOPMENT ONLY</span>
+      <h2>เข้าด้วยรหัสสิทธิ์อย่างเดียว</h2>
+      <p className="field-hint">
+        ครั้งแรกของเครื่องนี้กรอกชื่อเพื่อบันทึกเป็นชื่อแสดงของผู้ดูแลที่มีอยู่แล้ว
+        ครั้งถัดไปใช้เฉพาะรหัสสิทธิ์ได้ ชื่อในเครื่องนี้ไม่ใช่สิทธิ์การเข้าถึงและไม่สร้างบัญชีใหม่
+      </p>
+      {needsDisplayName ? <Field label="ชื่อผู้ดูแล" hint="ตั้งชื่อได้ตามต้องการ และระบบจะบันทึกไว้ในบัญชี">
+        <input
+          autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)}
+          placeholder="เช่น ผู้ดูแลระบบ Smart Classroom" required
+        />
+      </Field> : <div className="field-hint">เครื่องนี้เคยบันทึกชื่อผู้ดูแลแล้ว ระบบจะใช้ชื่อเดิมจากเซิร์ฟเวอร์</div>}
+      <Field label="รหัสสิทธิ์">
         <input
           type="password" autoComplete="one-time-code" value={accessCode}
           onChange={(event) => setAccessCode(event.target.value)}
-          placeholder="รหัสที่ตั้งไว้ตอนติดตั้งระบบ" required
+          placeholder="รหัสเดียวกับที่ใช้ยืนยันสิทธิ์แพลตฟอร์ม" required
         />
       </Field>
-
-      {created && (
-        <div className="alert success" role="status">
-          สร้างผู้ดูแลคนแรกแล้ว · กรอกรหัสสิทธิ์อีกครั้งเพื่อเข้าใช้งาน
-        </div>
-      )}
-      {error && !created && <div className="alert error" role="alert">{error}</div>}
-
-      <div className="platform-gate-actions">
-        <Button variant="primary" size="lg" loading={busy} disabled={Boolean(missing)}>เข้าใช้งาน</Button>
-        {missing && <span className="ui-field-hint">{missing}</span>}
-      </div>
-
-      <p className="platform-gate-foot">
-        ทุกครั้งที่เข้าทางนี้ถูกบันทึกไว้ในบันทึกความปลอดภัยของแพลตฟอร์ม พร้อมชื่อผู้ดูแลที่ใช้เข้า
-      </p>
+      {error && <div className="alert error" role="alert">{error}</div>}
+      <Button variant="primary" loading={busy} disabled={accessCode.length < 4 || (needsDisplayName && displayName.trim().length < 1)}>เข้าใช้งาน</Button>
+      <p className="fine-print">ทุกครั้งที่เข้าทางนี้จะถูกบันทึกไว้ในบันทึกความปลอดภัยของแพลตฟอร์ม</p>
     </form>
   );
 }
@@ -396,7 +230,6 @@ function OperationsShell() {
           <Route index element={<OverviewPage />} />
           <Route path="schools" element={<SchoolsPage />} />
           <Route path="admins" element={<PlatformAdminAccountsPage />} />
-          <Route path="operators" element={<PlatformOperatorsPage />} />
           <Route path="recovery" element={<RecoveryPage />} />
           <Route path="errors" element={<ErrorsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
@@ -423,26 +256,21 @@ function PlatformGate() {
   useEffect(() => { void check(); }, [check]);
 
   if (auth.loading) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบสิทธิ์...</p></main>;
-  /*
-   * Two doors, and the production one is the door.
-   *
-   * An operator's own name and password is the entrance, the same shape every other person in this
-   * product uses. The access-code door stays where a deployment has explicitly enabled it, because
-   * it is the only way to reach a platform whose operators have all lost their passwords, and it is
-   * where the first operator of a new deployment is created — but it is offered underneath rather
-   * than instead, and it says what it is.
-   *
-   * Before this there was no production entrance at all: the gate rendered the development door or
-   * a notice telling you to enable it, and the development door signs a person in as an operator
-   * without asking who they are.
-   */
+  // The platform has one deliberate entry door: the server-checked platform access code. The
+  // ordinary school-admin password form remains an unreachable compatibility component for older
+  // tests/build references, but is no longer rendered or offered to users here.
   if (!auth.session) {
-    return (
-      <main className="setup-page platform-gate">
-        <OperatorPasswordSignIn />
-        {isDevSignInAvailable && <DevSignIn />}
-      </main>
-    );
+    if (!isDevSignInAvailable) {
+      return (
+        <main className="setup-page">
+          <Card>
+            <CardHeader title="ยังไม่เปิดทางเข้า Super Admin" description="ระบบนี้เปิดเฉพาะการเข้าสู่ระบบด้วยรหัสสิทธิ์จากเซิร์ฟเวอร์" />
+            <p className="field-hint">กรุณาเปิด PLATFORM_DEV_SIGN_IN และตั้งค่ารหัสสิทธิ์บน Supabase ก่อน</p>
+          </Card>
+        </main>
+      );
+    }
+    return <main className="setup-page"><DevSignIn /></main>;
   }
   if (allowed === null) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบสิทธิ์...</p></main>;
   if (!allowed) return <EnrolmentScreen onEnrolled={() => void check()} />;
