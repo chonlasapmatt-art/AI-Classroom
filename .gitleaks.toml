@@ -5,9 +5,9 @@
 # every run red — and a check that is always red is a check nobody looks at, which is strictly worse
 # than not having one.
 #
-# Nothing here is broad. A finding is ignored only when it is in one of the named files *and* its
-# line looks like one of the named shapes, so a real key landing next to any of them is still caught.
-# It is one block rather than two on purpose: a second [[allowlists]] entry was silently not applied.
+# Nothing here is broad. A finding is ignored only when its own line matches one of two exact shapes.
+# It deliberately does not name files: exempting a path would exempt a whole Edge Function, and a
+# real key hardcoded in one of those is precisely what this scan exists to catch.
 
 [extend]
 useDefault = true
@@ -25,16 +25,7 @@ The end-to-end placeholders: the student suite asserts what an unconfigured depl
 build is handed a URL and a key that deliberately point nowhere. A real project reference here would
 be the bug; the obviously fake string is the fix.
 """
-matchCondition = "AND"
 regexTarget = "line"
-paths = [
-  '''supabase/functions/_shared/productKey\.ts''',
-  '''supabase/functions/teacher-account/index\.ts''',
-  '''supabase/functions/platform-access/index\.ts''',
-  '''supabase/functions/platform-bootstrap/index\.ts''',
-  '''scripts/new-access-code\.ps1''',
-  '''apps/web/playwright(\.student)?\.config\.ts'''
-]
 regexes = [
   '''(?i)(KEY|PASSWORD|CODE)_ALPHABET\s*=\s*.?['"][A-Za-z0-9]{20,80}['"]''',
   '''e2e-placeholder'''
