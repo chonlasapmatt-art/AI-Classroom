@@ -274,14 +274,6 @@
     --warning-soft:#43290a; --warning-line:#6b4413; --warning:#f0b45f;
     --danger-soft:#451822; --danger-line:#6d2635; --danger:#f38ea0;
     --info-soft:#152a4d; --info-line:#25406e; --info:#7fb0ff;
-  --offline:#9aa3b6; --offline-soft:#232842; --offline-line:#39405e;
-  --syncing:#7fb0ff; --syncing-soft:#152a4d; --synced:#5fd3ae;
-  --conflict:#f0b45f; --conflict-soft:#43290a;
-  --accent-cyan:#4dd4e8; --accent-cyan-soft:#0d3742;
-  --accent-mint:#4fd6c4; --accent-mint-soft:#0c3b36;
-  --accent-green:#5fd37f; --accent-green-soft:#123b23;
-  --accent-gold:#e8bb63; --accent-gold-soft:#3d2c0b;
-  --accent-violet:#b79bff; --accent-violet-soft:#2a2150;
     --offline:#9aa3b6; --offline-soft:#232842; --offline-line:#39405e;
     --syncing:#7fb0ff; --syncing-soft:#152a4d; --synced:#5fd3ae;
     --conflict:#f0b45f; --conflict-soft:#43290a;
@@ -321,6 +313,21 @@
   --warning-soft:#43290a; --warning-line:#6b4413; --warning:#f0b45f;
   --danger-soft:#451822; --danger-line:#6d2635; --danger:#f38ea0;
   --info-soft:#152a4d; --info-line:#25406e; --info:#7fb0ff;
+  /*
+   * Connection state and the data accents, which the system-preference block above already moves.
+   * They were missing here, so a person who explicitly chose "มืด" instead of leaving the app on
+   * "ตามระบบ" kept the light values: a pale offline pill and light cyan, mint and gold tiles
+   * punched into a dark page. Both blocks now carry the same set, which is the rule this file
+   * states for itself — every value defined in dark as well as light, so a toggle wins either way.
+   */
+  --offline:#9aa3b6; --offline-soft:#232842; --offline-line:#39405e;
+  --syncing:#7fb0ff; --syncing-soft:#152a4d; --synced:#5fd3ae;
+  --conflict:#f0b45f; --conflict-soft:#43290a;
+  --accent-cyan:#4dd4e8; --accent-cyan-soft:#0d3742;
+  --accent-mint:#4fd6c4; --accent-mint-soft:#0c3b36;
+  --accent-green:#5fd37f; --accent-green-soft:#123b23;
+  --accent-gold:#e8bb63; --accent-gold-soft:#3d2c0b;
+  --accent-violet:#b79bff; --accent-violet-soft:#2a2150;
   --nav-surface:#100d24; --topbar-surface:#1b1834e6;
   --inverse-surface:#e9e6ff; --inverse-ink:#1b1834;
   --overlay:#05030fcc;
