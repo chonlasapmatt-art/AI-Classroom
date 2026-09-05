@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { WelcomePage } from '../../src/features/auth/WelcomePage';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LoginPage } from '../../src/features/auth/LoginPage';
 import { AuthProvider } from '../../src/app/AuthContext';
@@ -7,10 +8,13 @@ import { ThemeProvider } from '../../src/app/ThemeContext';
 
 afterEach(() => { cleanup(); window.localStorage.clear(); });
 
-function renderLogin() {
+function renderLogin(path = '/login') {
   return render(
-    <MemoryRouter initialEntries={['/login']}>
-      <ThemeProvider><AuthProvider><LoginPage /></AuthProvider></ThemeProvider>
+    <MemoryRouter initialEntries={[path]}>
+      <ThemeProvider><AuthProvider><Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/welcome" element={<WelcomePage />} />
+      </Routes></AuthProvider></ThemeProvider>
     </MemoryRouter>
   );
 }
@@ -24,30 +28,29 @@ function renderLogin() {
  * the building, and the connection state is in the status bar of the phone already.
  */
 describe('the sign-in landing', () => {
-  it('offers the three entrances and nothing to fill in yet', async () => {
+  it('redirects the bare login URL to the public home', async () => {
     renderLogin();
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'คุณคือใคร?' })).toBeInTheDocument());
-    for (const label of ['ครู', 'นักเรียน', 'ผู้ปกครอง']) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
-    }
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Smart Classroom' })).toBeInTheDocument());
     expect(document.querySelectorAll('input')).toHaveLength(0);
   });
 
   it('says whether the device can reach the server', async () => {
-    renderLogin();
+    renderLogin('/login?as=teacher');
     await waitFor(() => expect(screen.getByText(/ออนไลน์|ออฟไลน์/)).toBeInTheDocument());
   });
 
   it('names the school this device was last signed in to', async () => {
     window.localStorage.setItem('last-school-name', 'โรงเรียนบ้านไทเกอร์');
-    renderLogin();
+    renderLogin('/login?as=teacher');
     await waitFor(() => expect(screen.getByText(/โรงเรียนบ้านไทเกอร์/)).toBeInTheDocument());
   });
 
-  it('keeps both admin doors named but out of the way', async () => {
-    renderLogin();
-    await waitFor(() => expect(screen.getByRole('link', { name: 'เข้าสู่ระบบผู้ดูแลโรงเรียน' })).toBeInTheDocument());
-    const platform = screen.getByRole('link', { name: /Platform Console/ });
-    expect(platform).toHaveAttribute('href', '/platform/');
+  it('renders a role-specific form without a second role chooser', async () => {
+    renderLogin('/login?as=teacher');
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'เข้าสู่ระบบครู' })).toBeInTheDocument());
+    expect(screen.queryByRole('heading', { name: 'คุณคือใคร?' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Platform Console|เข้าสู่ระบบผู้ดูแลโรงเรียน|พรีวิว/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'ย้อนกลับไปยังหน้า Home' })).toHaveAttribute('href', '/welcome');
+    expect(screen.queryByText(/ดูข้อมูลระบบก่อนเข้าสู่ระบบ|เข้าสู่ Platform Console/i)).not.toBeInTheDocument();
   });
 });

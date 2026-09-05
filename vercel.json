@@ -3,6 +3,13 @@
   "installCommand": "npm ci",
   "outputDirectory": "apps/web/dist",
   "framework": "vite",
+  "headers": [
+    { "source": "/admin-access", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }] },
+    { "source": "/admin/register", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }] },
+    { "source": "/owner/access", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }] },
+    { "source": "/preview", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }] },
+    { "source": "/platform/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }] }
+  ],
   "rewrites": [
     { "source": "/platform", "destination": "/platform/" },
     { "source": "/((?!platform(?:/|$)|assets/|icons/|.*\\.).*)", "destination": "/index.html" }

@@ -172,10 +172,13 @@ describe('linking a child by name alone', () => {
 });
 
 describe('the screens a teacher and a parent see', () => {
-  it('asks who you are, then only for a name and a password', () => {
-    expect(loginPage).toContain('คุณคือใคร?');
+  it('uses a role-specific form and only asks for the role credential', () => {
+    expect(loginPage).toContain("const who: Who | null");
+    expect(loginPage).toContain("if (!who) return <Navigate to=\"/welcome\" replace />");
     expect(loginPage).toContain('ชื่อนักเรียน');
     expect(loginPage).toContain('รหัสผ่าน');
+    expect(loginPage).toContain('ย้อนกลับไปยังหน้า Home');
+    expect(loginPage).not.toContain('เปลี่ยนประเภทผู้ใช้');
     expect(loginPage).not.toContain('สมัครใช้งานผู้ปกครอง');
     expect(loginPage).not.toContain('ลืมรหัสผ่าน');
     expect(loginPage).not.toMatch(/type="email"|autoComplete="one-time-code"/);

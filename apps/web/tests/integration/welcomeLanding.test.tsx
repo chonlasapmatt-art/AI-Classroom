@@ -30,15 +30,14 @@ function renderFrom(path: string) {
 }
 
 describe('the welcome page', () => {
-  it('names every door, and says what each one asks for', async () => {
+  it('names the three public doors, and says what each one asks for', async () => {
     renderFrom('/welcome');
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Smart Classroom'));
 
     for (const [label, asks] of [
       ['ครู', /รหัสครู/],
       ['นักเรียน', /เลขประจำตัว/],
-      ['ผู้ปกครอง', /รหัสผ่าน/],
-      ['ผู้ดูแลโรงเรียน', /ผู้ดูแลของโรงเรียน/]
+      ['ผู้ปกครอง', /รหัสผ่าน/]
     ] as const) {
       const door = screen.getByRole('link', { name: new RegExp(label) });
       // The label alone does not tell a guardian they need a password rather than a student number,
@@ -56,10 +55,19 @@ describe('the welcome page', () => {
     expect(screen.getByText(/โรงเรียนบ้านไทเกอร์/)).toBeInTheDocument();
   });
 
-  it('keeps the operations console named rather than hidden, and last', async () => {
+  it('does not expose private operations from the public home', async () => {
     renderFrom('/welcome');
-    const platform = await screen.findByRole('link', { name: /Platform Console/ });
-    expect(platform).toHaveAttribute('href', '/platform/');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Smart Classroom'));
+    expect(screen.queryByText(/Platform Console|พรีวิว|ผู้ดูแลโรงเรียน|Super Admin/i)).not.toBeInTheDocument();
+  });
+
+  it('lets somebody change the Home theme and remembers the choice', async () => {
+    renderFrom('/welcome');
+    fireEvent.click(await screen.findByRole('button', { name: /ปรับธีม/ }));
+    expect(screen.getByText('สไตล์ของคุณ')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'ใช้โทนสี Ocean Focus' }));
+    expect(window.localStorage.getItem('theme-preset')).toBe('ocean');
+    expect(document.documentElement).toHaveAttribute('data-preset', 'ocean');
   });
 
   it('carries the answer through, so the form does not ask again', async () => {
@@ -69,10 +77,8 @@ describe('the welcome page', () => {
     expect(screen.queryByRole('heading', { name: 'คุณคือใคร?' })).not.toBeInTheDocument();
   });
 
-  it('lands on the question when the parameter names no role it knows', async () => {
-    // Ignored rather than trusted: an unrecognised value has to reach the question, never a form
-    // for a role nobody chose.
+  it('returns an unknown login role to Home', async () => {
     renderFrom('/login?as=headmaster');
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'คุณคือใคร?' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Smart Classroom' })).toBeInTheDocument());
   });
 });

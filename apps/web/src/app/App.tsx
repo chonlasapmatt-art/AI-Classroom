@@ -11,6 +11,7 @@ import { AwaitingMembershipPage } from '../features/auth/AccountPages';
 import { AdminSchoolSetupPage } from '../features/auth/AdminSchoolSetupPage';
 import { OwnerAccessPage } from '../features/auth/OwnerAccessPage';
 import { WelcomePage } from '../features/auth/WelcomePage';
+import { PreviewEntryPage } from '../preview/PreviewEntryPage';
 import { AppShell } from '../layouts/AppShell';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
@@ -141,7 +142,6 @@ function AppRoutes() {
 
 function CloudRoutes() {
   const auth = useAuth();
-  const location = useLocation();
   const active = auth.active;
   const schoolId = active?.schoolId ?? '';
   const supportActive = Boolean(active?.membershipId.startsWith('support:'));
@@ -179,11 +179,10 @@ function CloudRoutes() {
   if (auth.loading) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบเซสชัน...</p></main>;
   /*
    * Arriving at the root with no session is somebody opening the app, not somebody following a
-   * link into a screen. They get the signpost, which names the five doors and says which one is
-   * theirs; every other address goes straight to the form, because a deep link already knows where
-   * it was going and a detour through a welcome page is a step backwards.
+   * link into a screen. They get the public signpost with its three role doors; private operational
+   * routes are mounted separately and are never advertised from that screen.
    */
-  if (!auth.session) return <Navigate to={location.pathname === '/' ? '/welcome' : '/login'} replace />;
+  if (!auth.session) return <Navigate to="/welcome" replace />;
   if (!session) {
     const requestedRole = auth.session.user.user_metadata.requested_role;
     if (requestedRole === 'admin') return <AdminSchoolSetupPage />;
@@ -227,16 +226,33 @@ export function App() {
 }
 
 function AppRoot() {
+  const location = useLocation();
   const [preview, setPreview] = useState(isPreviewActive());
   const enterPreview = useCallback(() => { enablePreviewMode(); setPreview(true); }, []);
-  const exitPreview = useCallback(() => { disablePreviewMode(); setPreview(false); }, []);
+  const exitPreview = useCallback(() => { disablePreviewMode(); setPreview(false); window.location.assign('/welcome'); }, []);
+
+  if (location.pathname === '/preview') return <PreviewEntryPage onEnter={enterPreview} />;
 
   if (preview && isPreviewModeAvailable) {
     return <PreviewProviders onExit={exitPreview}><AppRoutes /></PreviewProviders>;
   }
 
   if (!isCloudConfigured) {
-    return <ConfigurationScreen {...(isPreviewModeAvailable ? { onEnterPreview: enterPreview } : {})} />;
+    return (
+      <Routes>
+        <Route path="/" element={<WelcomePage />} />
+        <Route path="/welcome" element={<WelcomePage />} />
+        <Route path="/login" element={
+          ['teacher', 'student', 'parent'].includes(new URLSearchParams(location.search).get('as') ?? '')
+            ? <main className="center-state"><h1>ยังไม่พร้อมเข้าสู่ระบบ</h1><p>กรุณาติดต่อโรงเรียนเพื่อตรวจสอบการเชื่อมต่อ</p><a href="/welcome">กลับหน้า Home</a></main>
+            : <Navigate to="/welcome" replace />
+        } />
+        <Route path="/admin-access" element={<ConfigurationScreen />} />
+        <Route path="/owner/access" element={<ConfigurationScreen />} />
+        <Route path="/admin/register" element={<Navigate to="/owner/access" replace />} />
+        <Route path="*" element={<Navigate to="/welcome" replace />} />
+      </Routes>
+    );
   }
 
   return (
@@ -251,6 +267,7 @@ function AppRoot() {
         <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
         <Route path="/reset-password" element={<Navigate to="/login" replace />} />
         <Route path="/owner/access" element={<OwnerAccessPage />} />
+        <Route path="/admin/register" element={<Navigate to="/owner/access" replace />} />
         <Route path="/*" element={<CloudRoutes />} />
       </Routes>
     </AuthProvider>

@@ -12,7 +12,6 @@ import { useAuth } from '../../app/AuthContext';
 import { recall } from '../../app/deviceMemory';
 import { useTheme } from '../../app/ThemeContext';
 import { themeModes, themePresets, type ThemeMode, type ThemePreset } from '../../app/theme';
-import { enablePreviewMode, isPreviewModeAvailable } from '../../preview/previewMode';
 import {
   isCompleteMemberLogin, memberLogin, normalizeTeacherCode, teacherLogin, type MemberAccountChoice, type MemberRole
 } from './memberAccess';
@@ -22,7 +21,6 @@ import { Button, PasswordInput } from '../../ui/components';
 type Who = Exclude<MemberRole, 'admin'>;
 
 const whoLabels: Record<Who, string> = { teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง' };
-const whoIcons: Record<Who, string> = { teacher: '✎', student: '◉', parent: '♧' };
 
 type LoginChoice = MemberAccountChoice | SchoolChoice;
 
@@ -33,14 +31,11 @@ export function LoginPage() {
   /*
    * The welcome page's doors arrive here already knowing who they are.
    *
-   * Anything else in the parameter is ignored rather than trusted: this only skips a question the
-   * reader has already answered, so an unrecognised value has to land on the question, not on a
-   * form for a role nobody chose.
+   * Anything else in the parameter is rejected: an unrecognised value returns to the public Home,
+   * never to a form for a role nobody chose.
    */
-  const [who, setWho] = useState<Who | null>(() => {
-    const asked = search.get('as');
-    return asked === 'teacher' || asked === 'student' || asked === 'parent' ? asked : null;
-  });
+  const asked = search.get('as');
+  const who: Who | null = asked === 'teacher' || asked === 'student' || asked === 'parent' ? asked : null;
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [choices, setChoices] = useState<LoginChoice[]>([]);
@@ -61,11 +56,12 @@ export function LoginPage() {
     };
   }, []);
 
-  if (auth.session) return <Navigate to="/" replace />;
+  useEffect(() => {
+    setPassword(''); setError(null); setChoices([]); setProfileId('');
+  }, [who]);
 
-  function choose(next: Who) {
-    setWho(next); setError(null); setChoices([]); setProfileId(''); setPassword('');
-  }
+  if (auth.session) return <Navigate to="/" replace />;
+  if (!who) return <Navigate to="/welcome" replace />;
 
   function moveHero(event: PointerEvent<HTMLElement>) {
     if (motion === 'reduced') return;
@@ -88,7 +84,7 @@ export function LoginPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (who === null) return;
+    if (who === null || busy) return;
     setBusy(true); setError(null);
     try {
       if (who === 'teacher') {
@@ -131,6 +127,8 @@ export function LoginPage() {
         return;
       }
       setError(result.message);
+    } catch {
+      setError('เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง');
     } finally { setBusy(false); }
   }
 
@@ -209,43 +207,14 @@ export function LoginPage() {
         </div>
       </section>
 
-      {who === null ? (
-        <div className="auth-card">
-          <h2>คุณคือใคร?</h2>
-          <p className="role-hint">เลือกหนึ่งข้อเพื่อเข้าใช้งาน</p>
-          <div className="who-choice">
-            {(['teacher', 'student', 'parent'] as Who[]).map((value) => (
-              <button
-                key={value} type="button" className="who-button"
-                onClick={() => choose(value)}
-              >
-                <span aria-hidden="true">{whoIcons[value]}</span>
-                {whoLabels[value]}
-              </button>
-            ))}
-          </div>
-          {/* What this device is pointed at, before anybody types anything. On a shared tablet the
-              school name is the difference between signing in and wondering why the roster is
-              somebody else's; the connection state is why a correct password can still be refused. */}
+        <form className="auth-card" onSubmit={(event) => void submit(event)}>
+          <h2>เข้าสู่ระบบ{whoLabels[who]}</h2>
           <div className="login-status" role="status">
             <span className={`sync-pill ${online ? 'online' : 'offline'}`}>
               <span />{online ? 'ออนไลน์' : 'ออฟไลน์ — เข้าสู่ระบบครั้งแรกต้องออนไลน์'}
             </span>
             {lastSchool && <span className="login-school">โรงเรียนล่าสุดบนเครื่องนี้ · {lastSchool}</span>}
           </div>
-          <p className="fine-print">บัญชีทั้งหมดสร้างและกำหนดรหัสผ่านโดยแอดมินโรงเรียน</p>
-          <p className="fine-print">การเข้าใช้งานครั้งแรกต้องเชื่อมต่ออินเทอร์เน็ต</p>
-          <Link className="text-button login-admin-link" to="/admin-access">เข้าสู่ระบบผู้ดูแลโรงเรียน</Link>
-          <Link className="text-button" to="/welcome">ดูข้อมูลระบบก่อนเข้าสู่ระบบ</Link>
-          {/* The platform console is a different product with a different door. It is named, not
-              hidden — hiding it only means the operator types the URL from memory — and it sits last
-              because a teacher who lands here should never think it is one of their choices. */}
-          <a className="text-button login-platform-link" href="/platform/">เข้าสู่ Platform Console (ผู้ดูแลระบบส่วนกลาง)</a>
-          {isPreviewModeAvailable && <button type="button" className="text-button" onClick={() => { enablePreviewMode(); window.location.reload(); }}>เข้าสู่โหมดตัวอย่าง (สำหรับการพัฒนาเท่านั้น — ไม่ใช่ข้อมูลจริง)</button>}
-        </div>
-      ) : (
-        <form className="auth-card" onSubmit={(event) => void submit(event)}>
-          <h2>เข้าสู่ระบบ{whoLabels[who]}</h2>
           <p className="role-hint">
             {who === 'teacher' ? 'ใช้ชื่อและรหัสครูที่แอดมินโรงเรียนบันทึกให้' :
               who === 'student' ? 'ใช้ชื่อและเลขประจำตัวที่โรงเรียนบันทึกให้' :
@@ -314,9 +283,8 @@ export function LoginPage() {
             เข้าสู่ระบบ
           </Button>
           <p className="fine-print">หากเข้าระบบไม่ได้ ให้ติดต่อแอดมินเพื่อกำหนดรหัสผ่านใหม่</p>
-          <button type="button" className="text-button" onClick={() => setWho(null)}>เปลี่ยนประเภทผู้ใช้</button>
+          <Link className="text-button" to="/welcome">ย้อนกลับไปยังหน้า Home</Link>
         </form>
-      )}
     </main>
   );
 }

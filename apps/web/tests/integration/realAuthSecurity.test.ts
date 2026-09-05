@@ -38,7 +38,9 @@ describe('real account and private owner security upgrade', () => {
   });
 
   it('keeps the private owner route unlinked', () => {
-    expect(appSource.match(/owner\/access/g)).toHaveLength(1);
+    // The route may be referenced by its private mount and its stable alias; what matters is that
+    // the public authentication screens do not link to it.
+    expect(appSource.match(/path="\/owner\/access"/g)).toHaveLength(2);
     expect(publicAuthSource).not.toContain('owner/access');
   });
 
