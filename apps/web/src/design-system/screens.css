@@ -1777,27 +1777,48 @@ tr.row-warning td { background: var(--warning-soft); }
 .welcome-brand span { color: var(--color-text-muted); font-size: var(--text-xs); margin-top: 1px; }
 .welcome-nav-label { color: var(--color-primary); font-size: var(--text-xs); font-weight: var(--weight-strong); letter-spacing: var(--tracking-caps); }
 .welcome-nav-actions { display: flex; align-items: center; gap: var(--space-4); }
-.welcome-theme-picker { position: relative; }
-.welcome-theme-trigger { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-pill); color: var(--color-text-secondary); background: color-mix(in srgb, var(--color-surface) 82%, transparent); box-shadow: var(--shadow-xs); font-size: var(--text-xs); font-weight: var(--weight-strong); cursor: pointer; transition: border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease); }
-.welcome-theme-trigger:hover, .welcome-theme-picker.open .welcome-theme-trigger { border-color: var(--color-primary); color: var(--color-primary); transform: translateY(-1px); }
-.welcome-theme-trigger .ui-icon { color: var(--color-primary); }
-.welcome-theme-panel { position: absolute; top: calc(100% + var(--space-2)); right: 0; width: min(350px, calc(100vw - 2rem)); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-surface) 96%, transparent); box-shadow: var(--shadow-lg); backdrop-filter: blur(22px); animation: welcome-panel-in var(--duration-normal) var(--ease-emphasized) both; }
-.welcome-theme-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
-.welcome-theme-heading strong, .welcome-theme-heading span { display: block; }
-.welcome-theme-heading strong { font-size: var(--text-sm); }
-.welcome-theme-heading div span { margin-top: 2px; color: var(--color-text-muted); font-size: var(--text-xs); }
-.welcome-theme-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.welcome-theme-preset { display: flex; align-items: center; gap: 7px; min-height: 38px; padding: 5px 7px; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--color-text-secondary); background: transparent; text-align: left; font-size: var(--text-xs); font-weight: var(--weight-strong); cursor: pointer; transition: background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease); }
-.welcome-theme-preset:hover { border-color: var(--color-border-strong); background: var(--color-surface-raised); transform: translateX(2px); }
-.welcome-theme-preset.selected { border-color: color-mix(in srgb, var(--color-primary) 48%, var(--color-border)); color: var(--color-text-primary); background: var(--color-primary-soft); }
-.welcome-theme-preset.selected > span:last-child { margin-left: auto; color: var(--color-primary); font-size: var(--text-sm); }
-.welcome-theme-swatch { width: 17px; height: 17px; flex: 0 0 auto; border-radius: 50%; box-shadow: inset 0 0 0 2px #fff8, 0 0 0 1px #0002; }
-.welcome-theme-controls { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
-.welcome-theme-controls label { display: grid; gap: 4px; color: var(--color-text-muted); font-size: var(--text-xs); }
-.welcome-theme-controls select { min-height: 38px; padding: 0 var(--space-2); font-size: var(--text-xs); }
-.welcome-motion-toggle { min-height: 38px; padding: 0 var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-muted); background: var(--color-surface); font-size: var(--text-xs); font-weight: var(--weight-strong); cursor: pointer; }
-.welcome-motion-toggle:hover, .welcome-motion-toggle.active { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-soft); }
-@keyframes welcome-panel-in { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+/*
+ * The appearance control, shared by the public Home and the sign-in screen.
+ *
+ * One block for one control. The two screens used to carry separate copies of this panel that had
+ * already drifted apart — different trigger wording, different sizes, a dropdown for the screen mode
+ * on one and not the other — for a control that writes the same four settings either way.
+ */
+.theme-picker { position: relative; }
+.theme-picker-trigger { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-pill); color: var(--color-text-secondary); background: color-mix(in srgb, var(--color-surface) 82%, transparent); box-shadow: var(--shadow-xs); font-size: var(--text-xs); font-weight: var(--weight-strong); cursor: pointer; transition: border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease); }
+.theme-picker-trigger:hover, .theme-picker.open .theme-picker-trigger { border-color: var(--color-primary); color: var(--color-primary); }
+.theme-picker-trigger .ui-icon { color: var(--color-primary); }
+.theme-picker-panel { position: absolute; z-index: 40; top: calc(100% + var(--space-2)); right: 0; display: grid; gap: var(--space-3); width: min(320px, calc(100vw - 2rem)); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-surface) 96%, transparent); box-shadow: var(--shadow-lg); backdrop-filter: blur(22px); animation: theme-picker-in var(--duration-normal) var(--ease-emphasized) both; }
+.theme-picker-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.theme-picker-heading strong, .theme-picker-heading span { display: block; }
+.theme-picker-heading strong { font-size: var(--text-sm); }
+.theme-picker-heading div span { margin-top: 2px; color: var(--color-text-muted); font-size: var(--text-xs); }
+.theme-picker-dot { width: 9px; height: 9px; flex: 0 0 auto; margin-top: 5px; border-radius: 50%; background: var(--color-success); box-shadow: 0 0 0 4px var(--success-soft); }
+.theme-picker-group { display: grid; gap: var(--space-2); }
+.theme-picker-label { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-strong); letter-spacing: var(--tracking-wide); }
+.theme-picker-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.theme-picker-preset { display: flex; align-items: center; gap: 7px; min-height: 42px; padding: 5px 7px; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--color-text-secondary); background: transparent; text-align: left; font-size: var(--text-xs); font-weight: var(--weight-strong); cursor: pointer; transition: background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease); }
+.theme-picker-preset:hover { border-color: var(--color-border-strong); background: var(--color-surface-raised); }
+.theme-picker-preset[aria-pressed="true"] { border-color: color-mix(in srgb, var(--color-primary) 48%, var(--color-border)); color: var(--color-text-primary); background: var(--color-primary-soft); }
+.theme-picker-preset-name { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-picker-preset .ui-icon { margin-left: auto; color: var(--color-primary); }
+.theme-picker-swatch { width: 16px; height: 16px; flex: 0 0 auto; border-radius: 50%; box-shadow: inset 0 0 0 2px #fff8, 0 0 0 1px #0002; }
+.theme-picker-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-sunken); }
+.theme-picker-modes button { min-height: 40px; border: 0; border-radius: calc(var(--radius-sm) - 5px); color: var(--color-text-secondary); background: transparent; font-size: var(--text-xs); font-weight: var(--weight-strong); cursor: pointer; transition: color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease); }
+.theme-picker-modes button:hover { color: var(--color-text-primary); }
+.theme-picker-modes button[aria-pressed="true"] { color: var(--color-primary); background: var(--color-surface); box-shadow: var(--shadow-xs); }
+.theme-picker-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); text-align: left; cursor: pointer; transition: border-color var(--motion-fast) var(--motion-ease); }
+.theme-picker-switch:hover { border-color: var(--color-border-strong); }
+.theme-picker-switch-copy strong, .theme-picker-switch-copy span { display: block; }
+.theme-picker-switch-copy strong { color: var(--color-text-primary); font-size: var(--text-xs); }
+.theme-picker-switch-copy span { margin-top: 1px; color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-regular); }
+/* The knob shows the state and the line beside it says the same thing in words, so the answer to
+   "is motion on" never rests on a colour alone. */
+.theme-picker-switch-track { width: 40px; height: 22px; flex: 0 0 auto; padding: 3px; border-radius: var(--radius-pill); background: var(--color-border-strong); transition: background var(--motion-normal) var(--motion-ease); }
+.theme-picker-switch-track span { display: block; width: 16px; height: 16px; border-radius: 50%; background: var(--color-surface); box-shadow: var(--shadow-xs); transition: transform var(--motion-normal) var(--motion-ease); }
+.theme-picker-switch.on .theme-picker-switch-track { background: var(--brand-solid); }
+.theme-picker-switch.on .theme-picker-switch-track span { transform: translateX(18px); }
+@keyframes theme-picker-in { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .welcome-hero {
   width: min(760px, 100%); position: relative; display: flex; flex-direction: column; align-items: center;
   text-align: center; gap: var(--space-3); padding: var(--space-6) 0 var(--space-2);
@@ -1880,14 +1901,14 @@ tr.row-warning td { background: var(--warning-soft); }
 @media (prefers-reduced-motion: reduce) {
   .welcome-door { transition: none; }
   .welcome-door:hover, .welcome-door:active { transform: none; }
-  .welcome-theme-panel { animation: none; }
+  .theme-picker-panel { animation: none; }
 }
 
 @media (max-width: 560px) {
   .welcome-page { gap: var(--space-5); padding-top: var(--space-3); }
   .welcome-nav-label { display: none; }
   .welcome-nav-actions { gap: 0; }
-  .welcome-theme-trigger span:nth-of-type(2) { display: none; }
+  .theme-picker-trigger > span { display: none; }
   .welcome-hero { padding-top: var(--space-5); }
   .welcome-hero h1 { font-size: clamp(2rem, 11vw, 2.7rem); }
   .welcome-hero > p { font-size: var(--text-base); }

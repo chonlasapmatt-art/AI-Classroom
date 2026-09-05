@@ -65,7 +65,9 @@ describe('the welcome page', () => {
     renderFrom('/welcome');
     fireEvent.click(await screen.findByRole('button', { name: /ปรับธีม/ }));
     expect(screen.getByText('สไตล์ของคุณ')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'ใช้โทนสี Ocean Focus' }));
+    // Queried by the label a person actually reads on the swatch: the button no longer carries a
+    // separate aria-label, so its accessible name is its visible name.
+    fireEvent.click(screen.getByRole('button', { name: 'Ocean Focus' }));
     expect(window.localStorage.getItem('theme-preset')).toBe('ocean');
     expect(document.documentElement).toHaveAttribute('data-preset', 'ocean');
   });

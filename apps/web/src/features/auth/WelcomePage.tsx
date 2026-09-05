@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { recall } from '../../app/deviceMemory';
-import { useTheme } from '../../app/ThemeContext';
-import { themeModes, themePresets, type ThemeMode, type ThemePreset } from '../../app/theme';
 import { Icon, type IconName } from '../../ui/Icon';
+import { ThemePicker } from '../../ui/ThemePicker';
 
 /**
  * The page somebody lands on before they are anybody.
@@ -22,6 +21,16 @@ const doors: Door[] = [
   { to: '/login?as=teacher', label: 'ครู', detail: 'ใช้ชื่อและรหัสครูที่โรงเรียนออกให้', icon: 'teachers' },
   { to: '/login?as=student', label: 'นักเรียน', detail: 'ใช้ชื่อและเลขประจำตัวนักเรียน', icon: 'students' },
   { to: '/login?as=parent', label: 'ผู้ปกครอง', detail: 'ใช้ชื่อและรหัสผ่านที่โรงเรียนสร้างให้', icon: 'parents' }
+];
+
+/* The glyphs here are drawn from the same SVG set as the rest of the product rather than typed as
+   characters. A "✦" is whatever the device's font decides it is — a different weight on Android, a
+   colour emoji on some phones, a missing box on a school desktop — and it cannot take the brand
+   colour the way a stroked icon can. */
+const highlights: Array<{ icon: IconName; label: string }> = [
+  { icon: 'star', label: 'ใช้งานง่าย' },
+  { icon: 'sync', label: 'เชื่อมต่อทุกคน' },
+  { icon: 'check', label: 'ข้อมูลเป็นระบบ' }
 ];
 
 const promises: Array<{ icon: IconName; title: string; detail: string }> = [
@@ -45,8 +54,6 @@ const promises: Array<{ icon: IconName; title: string; detail: string }> = [
 
 export function WelcomePage() {
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
-  const [showTheme, setShowTheme] = useState(false);
-  const { mode, preset, motion, setMode, setPreset, setMotion } = useTheme();
   const lastSchool = recall('last-school-name');
 
   useEffect(() => {
@@ -71,61 +78,10 @@ export function WelcomePage() {
         </div>
         <div className="welcome-nav-actions">
           <span className="welcome-nav-label">SCHOOL SPACE</span>
-          <div className={`welcome-theme-picker ${showTheme ? 'open' : ''}`}>
-            <button
-              type="button"
-              className="welcome-theme-trigger"
-              aria-expanded={showTheme}
-              aria-controls="welcome-theme-panel"
-              onClick={() => setShowTheme((value) => !value)}
-            >
-              <Icon name="settings" size={16} />
-              <span>ปรับธีม</span>
-              <span aria-hidden="true">{showTheme ? '⌃' : '⌄'}</span>
-            </button>
-            {showTheme && (
-              <div className="welcome-theme-panel" id="welcome-theme-panel">
-                <div className="welcome-theme-heading">
-                  <div><strong>สไตล์ของคุณ</strong><span>เปลี่ยนแล้วบันทึกอัตโนมัติ</span></div>
-                  <span className="auth-live-dot" aria-hidden="true" />
-                </div>
-                <div className="welcome-theme-presets" aria-label="เลือกโทนสี">
-                  {themePresets.map((item) => (
-                    <button
-                      key={item.value}
-                      type="button"
-                      className={`welcome-theme-preset ${preset === item.value ? 'selected' : ''}`}
-                      onClick={() => setPreset(item.value as ThemePreset)}
-                      aria-label={`ใช้โทนสี ${item.label}`}
-                      aria-pressed={preset === item.value}
-                    >
-                      <span className="welcome-theme-swatch" style={{ background: item.swatch }} aria-hidden="true" />
-                      <span>{item.label}</span>
-                      {preset === item.value && <span aria-hidden="true">✓</span>}
-                    </button>
-                  ))}
-                </div>
-                <div className="welcome-theme-controls">
-                  <label>
-                    <span>โหมดหน้าจอ</span>
-                    <select value={mode} onChange={(event) => setMode(event.target.value as ThemeMode)}>
-                      {themeModes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    className={`welcome-motion-toggle ${motion === 'full' ? 'active' : ''}`}
-                    onClick={() => setMotion(motion === 'full' ? 'reduced' : 'full')}
-                    aria-pressed={motion === 'full'}
-                  >
-                    {motion === 'full' ? '✦ Motion เปิด' : '◍ Motion ลด'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <ThemePicker />
         </div>
       </header>
+
       <section className="welcome-hero">
         <div className="welcome-hero-glow" aria-hidden="true" />
         <span className="ui-eyebrow">ระบบห้องเรียนของโรงเรียน</span>
@@ -135,9 +91,9 @@ export function WelcomePage() {
           รวมไว้ในพื้นที่เดียวที่ทุกคนใช้งานได้อย่างสบายใจ
         </p>
         <div className="welcome-feature-row" aria-label="จุดเด่นของระบบ">
-          <span><i aria-hidden="true">✦</i> ใช้งานง่าย</span>
-          <span><i aria-hidden="true">↗</i> เชื่อมต่อทุกคน</span>
-          <span><i aria-hidden="true">✓</i> ข้อมูลเป็นระบบ</span>
+          {highlights.map((item) => (
+            <span key={item.label}><Icon name={item.icon} size={14} /> {item.label}</span>
+          ))}
         </div>
         {/* What this device is pointed at, before anybody types anything. The school's name is on
             the building and the connection state is already in the phone's status bar; neither is a
