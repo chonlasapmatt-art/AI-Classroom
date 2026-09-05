@@ -7,17 +7,20 @@ import { expect, test } from '@playwright/test';
  * what is proved is what the entrance asks for and what it refuses to ask for. A student has a name
  * and a number that the school gave them, and that is the whole of it: no email address, no
  * password, no one-time code, and no way to create an account for themselves.
+ *
+ * The role is chosen on the public Home and travels in the URL, so these open the student form the
+ * way the student door does.
  */
 test.describe('student entrance', () => {
-  test('sends the old student URL to the one entrance the product has', async ({ page }) => {
+  test('sends the old student URL to the public signpost', async ({ page }) => {
     await page.goto('/student');
-    await expect(page.getByRole('heading', { name: 'คุณคือใคร?' })).toBeVisible();
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Smart Classroom' })).toBeVisible();
   });
 
   test('asks a student for a name and a student number only', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByRole('button', { name: 'นักเรียน', exact: true }).click();
+    await page.goto('/welcome');
+    await page.getByRole('link', { name: /นักเรียน/ }).click();
     await expect(page.getByRole('heading', { name: 'เข้าสู่ระบบนักเรียน' })).toBeVisible();
     await expect(page.getByLabel('ชื่อนักเรียน')).toBeVisible();
     await expect(page.getByLabel('เลขประจำตัวนักเรียน')).toBeVisible();
@@ -30,8 +33,7 @@ test.describe('student entrance', () => {
   });
 
   test('keeps the submit button closed until both fields are filled', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByRole('button', { name: 'นักเรียน', exact: true }).click();
+    await page.goto('/login?as=student');
     const submit = page.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true });
     await expect(submit).toBeDisabled();
     await page.getByLabel('ชื่อนักเรียน').fill('สมชาย ใจดี');
@@ -41,14 +43,13 @@ test.describe('student entrance', () => {
   });
 
   test('says who hands out the account rather than offering to create one', async ({ page }) => {
-    await page.goto('/login');
-    await expect(page.getByText('บัญชีทั้งหมดสร้างและกำหนดรหัสผ่านโดยแอดมินโรงเรียน')).toBeVisible();
+    await page.goto('/welcome');
+    await expect(page.getByText('ทุกบัญชีสร้างและกำหนดรหัสผ่านโดยแอดมินของโรงเรียน')).toBeVisible();
     await expect(page.getByRole('link', { name: /สมัคร/ })).toHaveCount(0);
   });
 
   test('has touch targets a child can hit on a phone', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByRole('button', { name: 'นักเรียน', exact: true }).click();
+    await page.goto('/login?as=student');
     for (const field of ['input[name="displayName"]', 'input[name="studentCode"]']) {
       const box = await page.locator(field).boundingBox();
       expect(box?.height ?? 0, field).toBeGreaterThanOrEqual(48);
@@ -58,5 +59,11 @@ test.describe('student entrance', () => {
     // implementation detail fails for a reason that has nothing to do with what is being checked.
     const submit = await page.getByRole('button', { name: 'เข้าสู่ระบบ' }).boundingBox();
     expect(submit?.height ?? 0, 'submit button').toBeGreaterThanOrEqual(48);
+  });
+
+  test('the door a child taps is a target their thumb can hit', async ({ page }) => {
+    await page.goto('/welcome');
+    const door = await page.getByRole('link', { name: /นักเรียน/ }).boundingBox();
+    expect(door?.height ?? 0, 'student door').toBeGreaterThanOrEqual(48);
   });
 });
