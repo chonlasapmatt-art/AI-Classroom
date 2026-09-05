@@ -425,3 +425,43 @@ input[type="file"] { min-height:auto; padding:.45rem; }
   .page-content > *, .sync-pill.online span, .sidebar-section-items { animation:none; }
   .sidebar nav a:hover, .sidebar nav a:hover .ui-icon, .metric-card:hover, .subject-card:hover, .student-card:hover, .avatar-card:hover { transform:none; }
 }
+
+/*
+ * Crossing between screens.
+ *
+ * These pseudo-elements exist only while a view transition is running, and one only ever runs
+ * because a link handler started it — which it does after checking the reduced-motion setting, the
+ * app's motion toggle and whether the browser has the API at all. Nothing here is a fallback path:
+ * a browser without view transitions simply swaps the screens, which is what it did before.
+ *
+ * The leaving screen goes quicker than the arriving one. Exits that take as long as entrances read
+ * as hesitation, and the thing somebody is waiting for is the screen they asked for, not a farewell
+ * to the one they left.
+ */
+::view-transition-old(root) { animation: page-leave 190ms var(--ease-out) both; }
+::view-transition-new(root) { animation: page-arrive 300ms var(--ease-emphasized) both; }
+@keyframes page-leave { to { opacity: 0; transform: translateX(-2.5%) scale(.99); } }
+@keyframes page-arrive { from { opacity: 0; transform: translateX(3%) scale(.99); } }
+
+/* Going back retraces the way in: the screen being left slides off to the right, and the one
+   returning comes in from the left it went out to. */
+:root[data-nav='back']::view-transition-old(root) { animation-name: page-leave-back; }
+:root[data-nav='back']::view-transition-new(root) { animation-name: page-arrive-back; }
+@keyframes page-leave-back { to { opacity: 0; transform: translateX(2.5%) scale(.99); } }
+@keyframes page-arrive-back { from { opacity: 0; transform: translateX(-3%) scale(.99); } }
+
+/*
+ * The one thing that travels rather than fades.
+ *
+ * Home wears the mark small in its header, the sign-in screen wears it large beside the form, and
+ * naming both of them the same thing tells the browser they are the same object in two places. It
+ * moves and resizes between them, which is the sentence "you are still in the same product, one
+ * step further in" said without any words. A name has to be unique in a page for the browser to
+ * pair it up, so these selectors each match exactly one element on the screen they apply to.
+ */
+.welcome-nav .brand-mark, .auth-art > .brand-mark { view-transition-name: brand-mark; }
+::view-transition-group(brand-mark) { animation-duration: 380ms; animation-timing-function: var(--ease-emphasized); }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

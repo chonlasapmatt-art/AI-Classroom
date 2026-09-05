@@ -6,10 +6,11 @@
 // name and a student number. Nobody self-registers
 // as a teacher or student; those accounts are prepared by the school.
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type MouseEvent } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../app/AuthContext';
 import { recall } from '../../app/deviceMemory';
+import { useAnimationAllowed, usePageTransition } from '../../app/motion';
 import {
   isCompleteMemberLogin, memberLogin, normalizeTeacherCode, teacherLogin, type MemberAccountChoice, type MemberRole
 } from './memberAccess';
@@ -49,6 +50,7 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   const lastSchool = recall('last-school-name');
+  const transitionTo = usePageTransition(useAnimationAllowed());
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -217,7 +219,22 @@ export function LoginPage() {
             เข้าสู่ระบบ
           </Button>
           <p className="fine-print">หากเข้าระบบไม่ได้ ให้ติดต่อแอดมินเพื่อกำหนดรหัสผ่านใหม่</p>
-          <Link className="text-button" to="/welcome">ย้อนกลับไปยังหน้า Home</Link>
+          {/*
+            The way out, and the only control on this card that is not the sign-in button.
+            It reads as a step rather than a link — an arrow pointing back the way somebody came,
+            in a target big enough to hit on a phone — while staying visibly quieter than the
+            button above it, because leaving is not what this screen is for.
+            Marked as a step back, so the pair of screens slides the way it came rather than
+            carrying somebody forward into the page they just left.
+          */}
+          <Link
+            className="auth-back"
+            to="/welcome"
+            onClick={(event: MouseEvent<HTMLAnchorElement>) => transitionTo(event, '/welcome', 'back')}
+          >
+            <span className="auth-back-icon" aria-hidden="true"><Icon name="chevron-left" size={16} /></span>
+            ย้อนกลับไปยังหน้า Home
+          </Link>
         </form>
     </main>
   );
