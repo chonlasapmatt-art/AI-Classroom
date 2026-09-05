@@ -23,21 +23,33 @@ export function UpdatePrompt() {
     onRegisteredSW(_url, registration) {
       if (!registration) return;
 
-      const check = () => {
+      /*
+       * `force` is what separates opening the app from leaving it open.
+       *
+       * The interval exists so a tab left running all day does not ask the server every minute, and
+       * it is remembered across loads. That is correct for the timer and wrong for a fresh load: a
+       * teacher who reloads because the app looked stale was, until this, told to wait out the rest
+       * of a thirty-minute window and served the same old build again. Opening the page is the one
+       * moment somebody is explicitly asking for the current version, so it never gets throttled.
+       */
+      const check = (force = false) => {
         if (!navigator.onLine) return;
-        if (!shouldCheckNow(readLastCheckedAt())) return;
+        if (!force && !shouldCheckNow(readLastCheckedAt())) return;
         void registration.update().then(() => writeLastCheckedAt());
       };
 
-      check();
-      const timer = window.setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+      check(true);
+      const timer = window.setInterval(() => check(), UPDATE_CHECK_INTERVAL_MS);
       const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+      // Wrapped rather than passed directly: an event listener hands the handler an Event, which as
+      // a first argument would read as `force` and turn every one of these into an unthrottled hit.
+      const onOnline = () => check();
       document.addEventListener('visibilitychange', onVisible);
-      window.addEventListener('online', check);
+      window.addEventListener('online', onOnline);
       window.addEventListener('beforeunload', () => {
         window.clearInterval(timer);
         document.removeEventListener('visibilitychange', onVisible);
-        window.removeEventListener('online', check);
+        window.removeEventListener('online', onOnline);
       });
     }
   });
