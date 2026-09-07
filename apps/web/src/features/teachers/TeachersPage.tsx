@@ -3,6 +3,7 @@ import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { TeacherVerificationStatus } from '../../domain/types';
 import { responsibilityLabels, responsibilityOf, type TeacherResponsibility } from '../../data/teacherResponsibilities';
+import { useSyncStatus } from '../../sync/SyncStatusContext';
 import { provisionManagedAccount, setManagedAccountPassword } from '../auth/adminAccount';
 import { EraseAccountButton } from '../auth/EraseAccountButton';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
@@ -31,6 +32,7 @@ const responsibilityOptions: Array<{ value: TeacherResponsibility; label: string
 export function TeachersPage() {
   const { membership, mode } = useSession();
   const repository = useRepository();
+  const sync = useSyncStatus();
   const snapshot = useSchoolSnapshot();
   const { toast } = useToast();
   const [passwordTeacher, setPasswordTeacher] = useState<typeof snapshot.teachers[number] | null>(null);
@@ -72,6 +74,10 @@ export function TeachersPage() {
         subject
       });
       if (mode === 'cloud') {
+        // Same ordering the roster needs: the staff row is queued locally, and the account binds to
+        // it by id on the server, so the queue has to reach the server before the account is asked
+        // for. Without this the provision races the sync debounce and loses on a slow connection.
+        await sync?.syncNow();
         await provisionManagedAccount({ schoolId: membership.schoolId, role: 'teacher', recordId: teacherId, displayName, password });
       }
       toast(`เพิ่มครู ${displayName} แล้ว · ใช้ชื่อกับรหัสผ่านเข้าสู่ระบบได้เลย`);
