@@ -33,9 +33,10 @@ describe('what the dashboard raises as an alert', () => {
     expect(dashboardAlerts(snapshotWith({}), null, { overdue: 0, role: 'teacher' })).toEqual([]);
   });
 
-  it('puts a refused change above everything else', () => {
+  it('puts a refused change above everything else, for the operator who can resolve it', () => {
     const alerts = dashboardAlerts(
-      snapshotWith({ blockedSync: 2, pendingSync: 5 }), null, { overdue: 9, role: 'admin' }
+      snapshotWith({ blockedSync: 2, pendingSync: 5 }), null,
+      { overdue: 9, role: 'admin', isPlatformOperator: true }
     );
     // The server refused it, this device still holds it, and nobody finds out unless they look.
     expect(alerts[0]!.id).toBe('blocked');
@@ -43,11 +44,14 @@ describe('what the dashboard raises as an alert', () => {
     expect(alerts[0]!.to).toBe('/operations');
   });
 
-  it('sends only an administrator to the screen that resolves a conflict', () => {
-    const forTeacher = dashboardAlerts(snapshotWith({ blockedSync: 1 }), null, { overdue: 0, role: 'teacher' })[0]!;
-    // `/operations` is not in a teacher's menu. A link there is a dead end dressed up as an action.
-    expect(forTeacher.to).toBeUndefined();
-    expect(forTeacher.detail).toContain('แจ้งผู้ดูแลระบบ');
+  it('raises a refused change for nobody but the operator looking at the school', () => {
+    // Choosing which copy of a record to keep is platform work. A school administrator could only
+    // pass the question on, and a student or guardian could do nothing with it whatsoever — so the
+    // alert is not raised for them at all rather than raised and made unactionable.
+    for (const role of ['admin', 'teacher', 'student', 'parent'] as const) {
+      const alerts = dashboardAlerts(snapshotWith({ blockedSync: 1 }), null, { overdue: 0, role });
+      expect(alerts.find((alert) => alert.id === 'blocked')).toBeUndefined();
+    }
   });
 
   it('describes a queued change calmly rather than as a failure', () => {
