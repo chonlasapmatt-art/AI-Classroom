@@ -6,6 +6,7 @@ import { useSchoolSnapshot } from '../data/RepositoryContext';
 import { unreadCount } from '../academic/views';
 import { isPreviewModeAvailable } from '../preview/previewMode';
 import { StudentQuizPanel } from '../features/quiz/StudentQuizPanel';
+import { SchoolBroadcastNotice } from '../features/notifications/SchoolBroadcastNotice';
 import { TeacherCodeFirstRun } from '../features/teachers/TeacherCodeFirstRun';
 import { ProfileAvatar } from '../features/avatars/ProfileAvatar';
 import { useSyncStatus } from '../sync/SyncStatusContext';
@@ -455,6 +456,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         )}
         <TeacherCodeFirstRun />
+        {/* Mounted in the shell, with no role or class condition, because the one notice meant for
+            everybody must not depend on which screen somebody happens to be standing on. */}
+        <SchoolBroadcastNotice schoolId={membership.schoolId} />
       </div>
     </div>
   );
