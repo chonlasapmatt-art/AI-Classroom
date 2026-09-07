@@ -10,8 +10,12 @@ test-results/
 .DS_Store
 *.log
 *.tsbuildinfo
-work/
-outputs/
+# The probe scripts under work/ are kept as source; what stays out is the machine-local weight
+# beside them — package and browser caches, and the scratch clone used for bundle checks.
+work/npm-cache/
+work/playwright-browsers/
+work/repository.git/
+apps/web/work/
 .supabase/
 supabase/.temp/
 .claude/
