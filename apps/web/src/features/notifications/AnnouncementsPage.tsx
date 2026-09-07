@@ -4,6 +4,7 @@ import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { consentedStudents } from '../../data/selectors';
 import { Badge, Card, EmptyState, PageHeader } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
+import { SchoolBroadcastComposer } from './SchoolBroadcastComposer';
 
 /** Shared announcement inbox for the school. Parents only receive announcements for linked children. */
 export function AnnouncementsPage() {
@@ -32,6 +33,10 @@ export function AnnouncementsPage() {
           ? 'ข่าวสารจากครูของห้องเรียนบุตรหลานที่เชื่อมบัญชีและได้รับความยินยอมแล้ว'
           : 'ประกาศจากครูและโรงเรียนในห้องเรียนที่คุณมีสิทธิ์ดู'}
       />
+      {/* Raising the school-wide notice is an administrator's authority, and the database enforces
+          that on the settings row this writes. The composer is hidden from everybody else because
+          offering a control that will be refused is worse than not offering it. */}
+      {membership.role === 'admin' && <SchoolBroadcastComposer />}
       {announcements.length === 0 ? (
         <Card>
           <EmptyState

@@ -24,9 +24,12 @@ const avatarStorageKey = (profileId: string) => 'smart-classroom.avatar.' + prof
 
 /** Role-aware home screen: everyone lands on the few things that actually need them today. */
 export function DashboardPage() {
-  const { membership } = useSession();
+  const { membership, support } = useSession();
   const snapshot = useSchoolSnapshot();
   const sync = useSyncStatus();
+  // A support session is a platform operator looking at this school, which is the only viewer the
+  // sync-conflict alert is written for.
+  const isPlatformOperator = Boolean(support);
   const classes = activeClasses(snapshot);
   const subjects = activeSubjects(snapshot);
   const scheme = gradeSchemeFrom(snapshot.settings);
@@ -106,7 +109,7 @@ export function DashboardPage() {
           />
         </section>
 
-        <AlertStack alerts={dashboardAlerts(snapshot, sync, { overdue: overdue.length, role: 'student' })} />
+        <AlertStack alerts={dashboardAlerts(snapshot, sync, { overdue: overdue.length, role: 'student', isPlatformOperator })} />
         <QuickActions actions={quickActionsFor('student', false)} />
 
         <div className="ui-stat-grid">
@@ -193,7 +196,7 @@ export function DashboardPage() {
     return (
       <>
         <PageHeader eyebrow="ผู้ปกครอง" title="สรุปของบุตรหลาน" description="สรุปรายสัปดาห์เฉพาะบุตรหลานที่เชื่อมบัญชีและให้ความยินยอมแล้ว" />
-        <AlertStack alerts={dashboardAlerts(snapshot, sync, { overdue: 0, role: 'parent' })} />
+        <AlertStack alerts={dashboardAlerts(snapshot, sync, { overdue: 0, role: 'parent', isPlatformOperator })} />
         <QuickActions actions={quickActionsFor('parent', false)} />
         {children.length === 0 ? (
           <Card><EmptyState title="ยังไม่มีบุตรหลานที่เชื่อมบัญชี" description="ติดต่อครูประจำชั้นเพื่อขอรหัสผูกบัญชี" /></Card>
@@ -279,7 +282,7 @@ export function DashboardPage() {
         action={canCreateWork && <LinkButton to="/assignments" variant="primary">+ สร้างงาน</LinkButton>}
       />
 
-      <AlertStack alerts={dashboardAlerts(snapshot, sync, { overdue: overdueWork.length, role: membership.role })} />
+      <AlertStack alerts={dashboardAlerts(snapshot, sync, { overdue: overdueWork.length, role: membership.role, isPlatformOperator })} />
       <QuickActions actions={quickActionsFor(membership.role, canCreateWork)} />
 
       <div className="ui-stat-grid">

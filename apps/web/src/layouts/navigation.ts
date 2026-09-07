@@ -150,8 +150,7 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/attendance', 'เช็กชื่อ / การเข้าเรียน', 'attendance')
     ] },
     { key: 'work', label: 'งานและคะแนน', items: [
-      destination('/reports', 'รายงานของลูก', 'reports'),
-      destination('/achievements', 'เหรียญรางวัล', 'achievements')
+      destination('/reports', 'รายงานของลูก', 'reports')
     ] },
     { key: 'timetable', label: 'ตารางเรียน', items: [
       destination('/timetable', 'ตารางสอน', 'timetable')
@@ -159,8 +158,10 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     { key: 'news', label: 'ประกาศ', items: [
       destination('/announcements', 'ประกาศรวม', 'announcements')
     ] },
+    // No `/parents` entry here. For a guardian that screen only redirects to `/my-children`, so it
+    // was a second door onto a page the menu already names — and the two sat under headings that
+    // read as different places.
     { key: 'account', label: 'โปรไฟล์', items: [
-      destination('/parents', 'ผู้ปกครอง', 'parents'),
       destination('/profile', 'โปรไฟล์ของฉัน', 'profile'),
       destination('/settings', 'ตั้งค่า', 'settings')
     ] }

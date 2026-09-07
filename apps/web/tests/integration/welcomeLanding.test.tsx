@@ -9,19 +9,25 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
-import { WelcomePage } from '../../src/features/auth/WelcomePage';
 import { LoginPage } from '../../src/features/auth/LoginPage';
 import { AuthProvider } from '../../src/app/AuthContext';
+import { PublicHome } from '../../src/app/App';
 import { ThemeProvider } from '../../src/app/ThemeContext';
 
 afterEach(() => { cleanup(); window.localStorage.clear(); });
 
+/*
+ * `/welcome` is mounted the way the application mounts it, through `PublicHome` rather than as the
+ * page directly. The guard in front of it sends anybody who is already signed in on to their work,
+ * and every assertion below is about the visitor who is not — so routing them through it is what
+ * keeps the guard from one day answering "signed in" for somebody who is not.
+ */
 function renderFrom(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <ThemeProvider><AuthProvider>
         <Routes>
-          <Route path="/welcome" element={<WelcomePage />} />
+          <Route path="/welcome" element={<PublicHome />} />
           <Route path="/login" element={<LoginPage />} />
         </Routes>
       </AuthProvider></ThemeProvider>

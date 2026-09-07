@@ -32,7 +32,7 @@ export interface DashboardAlert {
 export function dashboardAlerts(
   snapshot: SchoolSnapshot,
   sync: SyncStatus | null,
-  input: { overdue: number; role: Role }
+  input: { overdue: number; role: Role; isPlatformOperator?: boolean }
 ): DashboardAlert[] {
   const alerts: DashboardAlert[] = [];
 
@@ -46,9 +46,16 @@ export function dashboardAlerts(
    */
   const canOpenOperations = input.role === 'admin';
 
-  // A blocked change is the worst case here: the server refused it, this device still holds it, and
-  // nobody finds out unless they look. It outranks anything merely late.
-  if (snapshot.blockedSync > 0) {
+  /*
+   * A blocked change is the worst case here: the server refused it, this device still holds it, and
+   * nobody finds out unless they look. It outranks anything merely late.
+   *
+   * It is also the one alert on this screen that describes the sync protocol rather than the school
+   * day, and choosing which copy of a record to keep is platform work. A teacher shown it can only
+   * pass it on, and the people it reached most often — students and guardians — could do nothing
+   * with it at all. So it is raised for the operator looking at the school and for nobody else.
+   */
+  if (snapshot.blockedSync > 0 && input.isPlatformOperator === true) {
     alerts.push({
       id: 'blocked',
       tone: 'danger',

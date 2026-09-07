@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { TimetableEntry } from '../../domain/types';
@@ -38,7 +39,19 @@ export function TimetablePage() {
   const visibleClasses = membership.role === 'admin' || membership.role === 'teacher'
     ? snapshot.classes
     : snapshot.classes.filter((row) => row.id === ownClassId);
-  const [classId, setClassId] = useState<string>(ownClassId ?? '');
+  /*
+   * A class named in the address wins the first pick.
+   *
+   * Attendance sends people here when the day has no timetable, and it knows which room they were
+   * looking at. Without this they landed on whichever class sorts first and had to find theirs again
+   * — the second half of the errand they were sent on. It is only the starting point: the picker
+   * below still changes it, and an id that names no class this person may see is ignored rather than
+   * shown as an empty table.
+   */
+  const [searchParams] = useSearchParams();
+  const requestedClassId = searchParams.get('class') ?? '';
+  const openingClassId = visibleClasses.some((row) => row.id === requestedClassId) ? requestedClassId : '';
+  const [classId, setClassId] = useState<string>(openingClassId || (ownClassId ?? ''));
   const selectedClassId = classId || visibleClasses[0]?.id || '';
   const canEdit = membership.role === 'admin' || (membership.role === 'teacher' && teacherOwnedSubjectIds(snapshot, membership.profileId, selectedClassId).size > 0);
 

@@ -7,6 +7,7 @@ import { AvatarStudio } from '../avatars/AvatarStudio';
 import type { Student } from '../../domain/types';
 import { previewStudentCsv } from './csvImport';
 import { requireSupabase } from '../../services/supabase';
+import { useSyncStatus } from '../../sync/SyncStatusContext';
 import { provisionManagedAccount, setManagedAccountPassword } from '../auth/adminAccount';
 import { EraseAccountButton } from '../auth/EraseAccountButton';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
@@ -21,6 +22,7 @@ import { useToast } from '../../ui/toastContext';
 export function StudentsPage() {
   const { membership, mode } = useSession();
   const repository = useRepository();
+  const sync = useSyncStatus();
   const snapshot = useSchoolSnapshot();
   const classes = activeClasses(snapshot);
   const [classId, setClassId] = useState('');
@@ -104,7 +106,14 @@ export function StudentsPage() {
       const id = crypto.randomUUID();
       await repository.saveStudent({ id, studentCode, displayName, avatarIndex: snapshot.students.length * 7 });
       if (selectedClassId && term) await repository.enrollStudent(id, selectedClassId, term.id);
-      if (mode === 'cloud') await provisionManagedAccount({ schoolId: membership.schoolId, role: 'student', recordId: id, displayName, password });
+      if (mode === 'cloud') {
+        // The roster row is written locally and queued, and the account is bound to it by id on the
+        // server. Provisioning before that queue drains asks the server about a student it has not
+        // been told about yet, which it answers with NOT_FOUND — so the name and the account behind
+        // it never arrived, on exactly the runs where the network was slower than the sync debounce.
+        await sync?.syncNow();
+        await provisionManagedAccount({ schoolId: membership.schoolId, role: 'student', recordId: id, displayName, password });
+      }
       form.reset();
       setOpen(false);
       toast(`เพิ่ม ${displayName} แล้ว`);
@@ -300,9 +309,12 @@ export function StudentsPage() {
                 toast(password !== confirm ? 'รหัสผ่านไม่ตรงกัน' : 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร', { tone: 'error' });
                 return;
               }
+              // Creating the account here binds it to the roster row by id, so the same rule as the
+              // add form applies: the row has to have reached the server first. Changing a password
+              // needs no such wait — the profile it names already exists.
               void (passwordStudent.profileId
                 ? setManagedAccountPassword({ schoolId: membership.schoolId, role: 'student', profileId: passwordStudent.profileId, password })
-                : provisionManagedAccount({ schoolId: membership.schoolId, role: 'student', recordId: passwordStudent.id, displayName: passwordStudent.displayName, password }))
+                : Promise.resolve(sync?.syncNow()).then(() => provisionManagedAccount({ schoolId: membership.schoolId, role: 'student', recordId: passwordStudent.id, displayName: passwordStudent.displayName, password })))
                 .then(() => { setPasswordStudent(null); toast('บันทึกรหัสผ่านนักเรียนแล้ว', { tone: 'success' }); })
                 .catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกรหัสผ่านไม่สำเร็จ', { tone: 'error' }));
             }}

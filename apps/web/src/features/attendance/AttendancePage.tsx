@@ -7,8 +7,8 @@ import {
 } from '../../data/selectors';
 import type { AttendanceStatus } from '../../domain/types';
 import {
-  Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, PageHeader, ProgressBar, SearchInput,
-  Stat, Toolbar
+  Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, LinkButton, PageHeader, ProgressBar,
+  SearchInput, Stat, Toolbar
 } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
@@ -229,9 +229,28 @@ function StaffAttendancePage() {
         </label>
       </Toolbar>
 
+      {/*
+        * The instruction now carries the door it names.
+        *
+        * This used to end with "เพิ่มตารางสอนเพื่อแยกเช็กเป็นรายวิชา" as flat text — a sentence telling
+        * a teacher to do something with nothing to press, so the way to act on it was to go and find
+        * the timetable in the menu and pick this class again by hand. It also said it to a student
+        * looking at their own attendance, who cannot add a timetable at all: an alert either carries
+        * both a destination and a label or carries neither.
+        *
+        * The class travels in the link, so the timetable opens on the room this screen was showing.
+        */}
       {sessions.length === 1 && sessions[0]?.key === 'daily' && (
         <div className="info-banner">
-          ยังไม่มีตารางสอนของวันนี้ ระบบจึงเปิด “สรุปทั้งวัน” ให้บันทึกชั่วคราว · เพิ่มตารางสอนเพื่อแยกเช็กเป็นรายวิชา
+          <span>
+            ยังไม่มีตารางสอนของวันนี้ ระบบจึงเปิด “สรุปทั้งวัน” ให้บันทึกชั่วคราว
+            {canMark ? ' · เพิ่มตารางสอนเพื่อแยกเช็กเป็นรายวิชา' : ''}
+          </span>
+          {canMark && selectedClassId && (
+            <LinkButton to={`/timetable?class=${encodeURIComponent(selectedClassId)}`} size="sm">
+              เพิ่มตารางสอน
+            </LinkButton>
+          )}
         </div>
       )}
 

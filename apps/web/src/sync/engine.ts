@@ -50,7 +50,13 @@ function fromCloud(row: Record<string, unknown>): Record<string, unknown> { retu
 
 // Fields the local schema carries that an older server build may not return yet. Keeping the local
 // value when the pulled row omits it stops a pull from wiping data the client already holds.
-const LOCAL_ONLY_FIELDS = ['subjectId', 'instructions', 'studentNote', 'driveUrl'] as const;
+//
+// `avatarPhotoId` is here for a stronger reason than version skew: no server table has the column
+// at all, because an uploaded photo is an attachment that stays on the device that holds it. Every
+// pulled row therefore omits it, and without this the first sync after somebody set a photo threw
+// that photo away. `pullParentLinks` already carried the value across by hand; the generic path
+// that students and teachers travel did not.
+const LOCAL_ONLY_FIELDS = ['subjectId', 'instructions', 'studentNote', 'driveUrl', 'avatarPhotoId'] as const;
 function mergeLocal(existing: Record<string, unknown> | undefined, incoming: Record<string, unknown>): Record<string, unknown> {
   if (!existing) return incoming;
   const merged = { ...incoming };

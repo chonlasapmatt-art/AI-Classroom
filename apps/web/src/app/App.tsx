@@ -206,6 +206,26 @@ function CloudRoutes() {
   );
 }
 
+/**
+ * The public Home, for the people it was written for.
+ *
+ * It is a signpost with three role doors, and somebody who is already signed in has walked through
+ * one of them. Opening the app from a bookmark, from the installed icon, or from a tab restored days
+ * later put that signpost in front of them anyway, so returning to work meant first pressing a
+ * button to reach a screen they already had. Now the session decides: no session, the signpost;
+ * a session, straight to where they left off.
+ *
+ * Signing out still lands here, because by then there is no session left to send anywhere.
+ */
+export function PublicHome() {
+  const auth = useAuth();
+  // Not "no session yet" — the session is restored asynchronously, and answering before it arrives
+  // would show the signpost for a frame to everybody who is signed in.
+  if (auth.loading) return <main className="center-state"><div className="spinner" /><p>กำลังตรวจสอบเซสชัน...</p></main>;
+  if (auth.session) return <Navigate to="/" replace />;
+  return <WelcomePage />;
+}
+
 /** Keeps the device in step with the server for as long as a cloud session is on screen. */
 function SyncedShell({ schoolId }: { schoolId: string }) {
   const status = useBackgroundSync(schoolId, Boolean(schoolId));
@@ -258,7 +278,7 @@ function AppRoot() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/welcome" element={<WelcomePage />} />
+        <Route path="/welcome" element={<PublicHome />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin-access" element={<AdminLoginPage />} />
         <Route path="/register" element={<Navigate to="/login" replace />} />

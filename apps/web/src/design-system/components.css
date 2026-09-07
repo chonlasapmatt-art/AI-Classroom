@@ -244,9 +244,18 @@
 .ui-toolbar { display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
 
 /* ---------- Modal ---------- */
+/*
+ * The scrim is the themed one, not a fixed colour.
+ *
+ * It used to be a literal `rgba(22, 19, 39, .45)`, which is a dark wash chosen against a light page.
+ * In dark mode that put a dark 45% veil over an already dark page, so the panel and everything
+ * behind it landed within about 1.03:1 of each other and the dialog stopped reading as being in
+ * front of anything. `--overlay` is defined per theme and is what the drawer already uses, so this
+ * is also one scrim for the product rather than two that happen to look alike in light mode.
+ */
 .ui-modal-backdrop {
   position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: var(--space-5);
-  background: rgba(22, 19, 39, .45); backdrop-filter: blur(4px) saturate(1.2); overflow: auto;
+  background: var(--overlay); backdrop-filter: blur(4px) saturate(1.2); overflow: auto;
   animation: ui-fade var(--duration-normal) var(--ease-out);
 }
 @keyframes ui-fade { from { opacity: 0; } to { opacity: 1; } }
