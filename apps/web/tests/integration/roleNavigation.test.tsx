@@ -151,6 +151,25 @@ describe('shortcuts on the overview page', () => {
     expect(within(hub!).getByRole('link', { name: /กิจกรรมหน้าชั้น/ })).toBeInTheDocument();
   });
 
+  it('narrows two dozen destinations to the one being looked for', async () => {
+    // Opened, a teacher's hub is twenty-five tiles under eight headings, which is a slower way to
+    // reach a screen than the sidebar it shortcuts. Typing is the way through it.
+    renderApp('/');
+    const summary = await screen.findByText('ทางลัดทุกเมนู');
+    const hub = summary.closest('details')!;
+    fireEvent.click(summary);
+
+    const search = await within(hub).findByLabelText('ค้นหาทางลัด');
+    fireEvent.change(search, { target: { value: 'เช็กชื่อ' } });
+    await waitFor(() => expect(within(hub).getByRole('link', { name: /เช็กชื่อ/ })).toBeInTheDocument());
+    expect(within(hub).queryByRole('link', { name: /กิจกรรมหน้าชั้น/ })).not.toBeInTheDocument();
+
+    // A dead end says so and says what to do about it, rather than leaving an empty panel that
+    // reads as the hub having broken.
+    fireEvent.change(search, { target: { value: 'ไม่มีเมนูนี้' } });
+    await waitFor(() => expect(within(hub).getByText(/ไม่พบทางลัดที่ตรงกับ/)).toBeInTheDocument());
+  });
+
   it('gives a student their own destinations and not the staff ones', async () => {
     renderApp('/');
     await switchRole('preview-student');
