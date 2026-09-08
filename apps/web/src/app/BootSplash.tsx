@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { BrandMark } from '../ui/BrandMark';
 
 /**
  * A premium boot experience shared by the customer app and Operations Center.
@@ -44,7 +45,7 @@ export function BootSplash({ children }: { children: ReactNode }) {
           <div className="app-boot-content">
             <div className="boot-logo-ring">
               <div className="boot-logo-inner">
-                <div className="brand-mark boot-mark">SC</div>
+                <div className="brand-mark boot-mark"><BrandMark size={52} /></div>
               </div>
               <svg className="boot-progress-ring" viewBox="0 0 120 120">
                 <circle className="boot-ring-bg" cx="60" cy="60" r="54" />

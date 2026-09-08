@@ -17,6 +17,7 @@ import { destination, isAdvisorOnlyRoute, navigationByRole, type NavGroup, type 
 import { teacherIsAdvisorAnywhere } from '../data/teacherResponsibilities';
 import type { Role } from '../domain/types';
 import type { SessionValue, SupportView } from '../app/SessionContext';
+import { BrandMark } from '../ui/BrandMark';
 
 const roleLabels: Record<Role, string> = { admin: 'ผู้ดูแลระบบ', teacher: 'ครู', student: 'นักเรียน', parent: 'ผู้ปกครอง' };
 
@@ -317,7 +318,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
       <aside className={`sidebar ${open ? 'open' : ''}`} aria-hidden={undefined}>
         <div className="sidebar-brand">
-          <div className="brand-mark small">SC</div>
+          <div className="brand-mark small"><BrandMark size={26} /></div>
           <div><strong>Smart Classroom</strong><span>{membership.schoolName}</span></div>
           {/* Named for what it does next, not for what the menu currently is: a control announced as
               "ย่อเมนู" while the menu is already narrow has told the reader the opposite. */}

@@ -3544,3 +3544,71 @@ tr.row-warning td { background: var(--warning-soft); }
 @media (prefers-reduced-motion: reduce) {
   .update-banner { animation: none; }
 }
+
+/* ── A colour per destination, not per section ─────────────────────────────────────────────────
+   The menu grouped its icons into six colours by section, so five rows in a row wore the same
+   violet and the eye had nothing to aim at but the word — which is the thing the icon was there to
+   save reading. Each destination carries its own hue now, drawn from the accents the product
+   already owns, so the menu reads as a set of stickers rather than a striped list.
+
+   Colour is never the only carrier: every row has its label beside it and its own drawing. This is
+   recognition, not information. */
+.sidebar nav a[data-icon='dashboard'], .shortcut-hub-grid a[data-icon='dashboard'],
+.sidebar nav a[data-icon='profile'], .shortcut-hub-grid a[data-icon='profile'],
+.sidebar nav a[data-icon='teachers'], .shortcut-hub-grid a[data-icon='teachers'] {
+  --nav-soft: var(--brand-50); --nav-ink: var(--brand-600);
+}
+.sidebar nav a[data-icon='students'], .shortcut-hub-grid a[data-icon='students'],
+.sidebar nav a[data-icon='children'], .shortcut-hub-grid a[data-icon='children'],
+.sidebar nav a[data-icon='operations'], .shortcut-hub-grid a[data-icon='operations'] {
+  --nav-soft: var(--accent-cyan-soft); --nav-ink: var(--accent-cyan);
+}
+.sidebar nav a[data-icon='subjects'], .shortcut-hub-grid a[data-icon='subjects'],
+.sidebar nav a[data-icon='timetable'], .shortcut-hub-grid a[data-icon='timetable'],
+.sidebar nav a[data-icon='avatar-gallery'], .shortcut-hub-grid a[data-icon='avatar-gallery'],
+.sidebar nav a[data-icon='question-bank'], .shortcut-hub-grid a[data-icon='question-bank'],
+.sidebar nav a[data-icon='promotion'], .shortcut-hub-grid a[data-icon='promotion'] {
+  --nav-soft: var(--accent-violet-soft); --nav-ink: var(--accent-violet);
+}
+.sidebar nav a[data-icon='attendance'], .shortcut-hub-grid a[data-icon='attendance'],
+.sidebar nav a[data-icon='classes'], .shortcut-hub-grid a[data-icon='classes'],
+.sidebar nav a[data-icon='quiz'], .shortcut-hub-grid a[data-icon='quiz'] {
+  --nav-soft: var(--accent-green-soft); --nav-ink: var(--accent-green);
+}
+.sidebar nav a[data-icon='achievements'], .shortcut-hub-grid a[data-icon='achievements'],
+.sidebar nav a[data-icon='leaderboard'], .shortcut-hub-grid a[data-icon='leaderboard'],
+.sidebar nav a[data-icon='star'], .shortcut-hub-grid a[data-icon='star'],
+.sidebar nav a[data-icon='scores'], .shortcut-hub-grid a[data-icon='scores'],
+.sidebar nav a[data-icon='announcements'], .shortcut-hub-grid a[data-icon='announcements'] {
+  --nav-soft: var(--accent-gold-soft); --nav-ink: var(--accent-gold);
+}
+.sidebar nav a[data-icon='reports'], .shortcut-hub-grid a[data-icon='reports'],
+.sidebar nav a[data-icon='gradebook'], .shortcut-hub-grid a[data-icon='gradebook'],
+.sidebar nav a[data-icon='parents'], .shortcut-hub-grid a[data-icon='parents'],
+.sidebar nav a[data-icon='settings'], .shortcut-hub-grid a[data-icon='settings'] {
+  --nav-soft: var(--accent-mint-soft); --nav-ink: var(--accent-mint);
+}
+.sidebar nav a[data-icon='calendar'], .shortcut-hub-grid a[data-icon='calendar'],
+.sidebar nav a[data-icon='assignments'], .shortcut-hub-grid a[data-icon='assignments'],
+.sidebar nav a[data-icon='import'], .shortcut-hub-grid a[data-icon='import'],
+.sidebar nav a[data-icon='grade-edit'], .shortcut-hub-grid a[data-icon='grade-edit'] {
+  --nav-soft: var(--info-soft); --nav-ink: var(--info);
+}
+.sidebar nav a[data-icon='bell'], .shortcut-hub-grid a[data-icon='bell'],
+.sidebar nav a[data-icon='exams'], .shortcut-hub-grid a[data-icon='exams'],
+.sidebar nav a[data-icon='sit-exam'], .shortcut-hub-grid a[data-icon='sit-exam'] {
+  --nav-soft: var(--warning-soft); --nav-ink: var(--warning);
+}
+
+/* ── Sticker weight ────────────────────────────────────────────────────────────────────────────
+   A hairline drawing inside a coloured tile reads as a diagram; a rounder, heavier one reads as a
+   badge, which is the register this product is written in — it is used by ten-year-olds. The extra
+   weight and the softer corner are the whole difference, applied only where an icon sits in a tile:
+   the same drawings stay thin where they sit inside a sentence or a button. */
+.sidebar nav a .ui-icon, .shortcut-hub-grid a .ui-icon { stroke-width: 2.15; border-radius: 14px; }
+.sidebar nav a:hover .ui-icon, .shortcut-hub-grid a:hover .ui-icon { transform: translateY(-1px) rotate(-3deg) scale(1.04); }
+.sidebar nav a.active .ui-icon { transform: rotate(-2deg) scale(1.03); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar nav a:hover .ui-icon, .shortcut-hub-grid a:hover .ui-icon, .sidebar nav a.active .ui-icon { transform: none; }
+}

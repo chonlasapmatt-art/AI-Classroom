@@ -18,6 +18,7 @@ import { isCompleteStudentLogin, studentLogin, type SchoolChoice } from './stude
 import { Button, PasswordInput } from '../../ui/components';
 import { Icon, type IconName } from '../../ui/Icon';
 import { ThemePicker } from '../../ui/ThemePicker';
+import { BrandMark } from '../../ui/BrandMark';
 
 type Who = Exclude<MemberRole, 'admin'>;
 
@@ -132,7 +133,7 @@ export function LoginPage() {
         public Home speaks, so crossing from one to the other is not a scene change.
       */}
       <section className="auth-art">
-        <div className="brand-mark">SC</div>
+        <div className="brand-mark"><BrandMark size={44} /></div>
         <span className="eyebrow">ห้องเรียนที่ทำงานได้ แม้อินเทอร์เน็ตสะดุด</span>
         <h1>ยินดีต้อนรับสู่<br/>Smart Classroom</h1>
         <p>จัดการชั้นเรียน เช็กชื่อ คะแนน และการสื่อสารกับผู้ปกครองในระบบเดียว</p>

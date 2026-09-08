@@ -1,5 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#5b3df5"/>
-  <path d="M92 152 256 76l164 76-164 76L92 152Zm48 58 116 54 116-54v116c-35 34-74 52-116 52s-81-18-116-52V210Z" fill="#fff"/>
-  <circle cx="389" cy="292" r="32" fill="#31d6c4"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Smart Classroom">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b6bff"/>
+      <stop offset="0.55" stop-color="#5b3df5"/>
+      <stop offset="1" stop-color="#3a259f"/>
+    </linearGradient>
+    <linearGradient id="board" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e9e4ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- The ground: one rounded square, with a lighter sweep so the mark is not a flat block. -->
+  <rect width="512" height="512" rx="118" fill="url(#sky)"/>
+  <circle cx="112" cy="96" r="150" fill="#ffffff" opacity="0.12"/>
+
+  <!-- The cap. A mortarboard reads as school at 32px, where a book turns to mush. -->
+  <path d="M256 116 448 200 256 284 64 200z" fill="url(#board)"/>
+  <path d="M256 300 152 254v78c0 34 47 60 104 60s104-26 104-60v-78z" fill="#ffffff" opacity="0.92"/>
+
+  <!-- The tassel: the one line that gives the mark a bit of movement. -->
+  <path d="M416 216v92" stroke="#31d6c4" stroke-width="18" stroke-linecap="round" fill="none"/>
+  <circle cx="416" cy="330" r="30" fill="#31d6c4"/>
+  <circle cx="407" cy="321" r="9" fill="#ffffff" opacity="0.55"/>
+
+  <!-- A star for the medals the app hands out, in the same gold the achievement screens use. -->
+  <path d="M118 330l16 33 36 5-26 25 6 36-32-17-32 17 6-36-26-25 36-5z" fill="#f7c948"/>
 </svg>

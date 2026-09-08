@@ -11,6 +11,7 @@ import { PlatformOperatorsPage } from './PlatformOperators';
 import { DevicesPage, ErrorsPage, NotificationsPage, OverviewPage, PlatformSettingsPage, SecurityPage } from './PlatformPages';
 import { RecoveryPage } from './PlatformRecovery';
 import { SchoolsPage, SupportModeBanner } from './PlatformSchools';
+import { BrandMark } from '../ui/BrandMark';
 import {
   bootstrapPlatformOperator, currentSupportSession, devSignIn, endSupportSession, enrollPlatformAdmin,
   isDevSignInAvailable, isPlatformAdmin, platformSignIn, PlatformError,
@@ -373,7 +374,7 @@ function OperationsShell() {
     <div className="platform-frame">
       <header className="platform-topbar">
         <div className="platform-brand">
-          <span className="brand-mark small">SC</span>
+          <span className="brand-mark small"><BrandMark size={26} /></span>
           <div><strong>Operations Center</strong><span>Smart Classroom Platform</span></div>
         </div>
         <nav aria-label="เมนูศูนย์ปฏิบัติการ">

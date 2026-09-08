@@ -1,6 +1,7 @@
 import { useAuth, type PublicRegistrationRole } from '../../app/AuthContext';
 import { ChildLinkPanel } from '../parents/ChildLinkPanel';
 import { Button } from '../../ui/components';
+import { BrandMark } from '../../ui/BrandMark';
 
 /**
  * What this account has to do to get into a school, said in the order it has to be done.
@@ -83,7 +84,7 @@ export function AwaitingMembershipPage() {
   if (requestedRole === 'parent') {
     return (
       <main className="center-state account-state onboarding-state parent-onboarding">
-        <div className="brand-mark" aria-hidden="true">SC</div>
+        <div className="brand-mark" aria-hidden="true"><BrandMark size={44} /></div>
         <h1>ลูกของฉัน</h1>
         <p>เพิ่มลูกด้วยชื่อจริงของลูกเท่านั้น เมื่อเชื่อมแล้วข้อมูลของลูกจะแสดงทันที</p>
         <ChildLinkPanel onChanged={() => void auth.refreshMemberships()} />
@@ -94,7 +95,7 @@ export function AwaitingMembershipPage() {
 
   return (
     <main className="center-state account-state onboarding-state">
-      <div className="brand-mark" aria-hidden="true">SC</div>
+      <div className="brand-mark" aria-hidden="true"><BrandMark size={44} /></div>
       {/* "ไม่มีสิทธิ์" reads as an accusation for what is almost always a step nobody has taken yet. */}
       <h1>บัญชีนี้ยังไม่ได้อยู่ในโรงเรียนใด</h1>
       <p>{route.lead}</p>

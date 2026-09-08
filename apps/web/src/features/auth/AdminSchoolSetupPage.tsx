@@ -6,6 +6,7 @@ import {
 } from './schoolActivation';
 import { Button, Field } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
+import { BrandMark } from '../../ui/BrandMark';
 
 /**
  * First-run setup for a school that has just bought the product. It is deliberately shown from the
@@ -132,7 +133,7 @@ export function AdminSchoolSetupPage({ mode = 'first-run' }: { mode?: 'first-run
     <main className="setup-page admin-setup-page">
       <section className="admin-setup-card">
         <div className="admin-setup-intro">
-          <div className="brand-mark" aria-hidden="true">SC</div>
+          <div className="brand-mark" aria-hidden="true"><BrandMark size={44} /></div>
           <span className="eyebrow">{additional ? 'ADD ANOTHER SCHOOL' : 'WELCOME TO YOUR SCHOOL SERVER'}</span>
           <h1>{additional ? 'สร้างโรงเรียนใหม่' : 'ตั้งค่าโรงเรียนของคุณ'}</h1>
           <p>

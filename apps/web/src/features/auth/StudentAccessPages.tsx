@@ -13,11 +13,12 @@ import {
   isCompleteStudentLogin, studentLogin,
   type SchoolChoice, type StudentAccessResult
 } from './studentAccess';
+import { BrandMark } from '../../ui/BrandMark';
 
 function StudentBrandPanel({ headline, lead }: { headline: string; lead: string }) {
   return (
     <section className="auth-art student-art">
-      <div className="brand-mark">SC</div>
+      <div className="brand-mark"><BrandMark size={44} /></div>
       <span className="eyebrow">สำหรับนักเรียน</span>
       <h1>{headline}</h1>
       <p>{lead}</p>

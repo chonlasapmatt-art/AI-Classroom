@@ -1,5 +1,6 @@
 import { Badge, Button } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
+import { BrandMark } from '../../ui/BrandMark';
 
 interface Props {
   /** Only provided by development builds (or VITE_ENABLE_PREVIEW_MODE=true). */
@@ -10,7 +11,7 @@ export function ConfigurationScreen({ onEnterPreview }: Props) {
   return (
     <main className="configuration-page">
       <section className="configuration-hero">
-        <div className="brand-mark" aria-hidden="true">SC</div>
+        <div className="brand-mark" aria-hidden="true"><BrandMark size={44} /></div>
         <span className="eyebrow">AI SMART CLASSROOM v3.1</span>
         <h1>ระบบพร้อมสำหรับเชื่อมต่อ<br/><span>โรงเรียนของคุณ</span></h1>
         <p>Frontend, ฐานข้อมูล Local-first, Sync Engine และ Supabase security boundary ถูกแยกเป็นสัดส่วน พร้อมใช้กับข้อมูลโรงเรียนจริงโดยไม่มีข้อมูลสาธิตใน production</p>

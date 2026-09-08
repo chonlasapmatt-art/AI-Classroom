@@ -7,6 +7,7 @@ import { recall } from '../../app/deviceMemory';
 import { useAnimationAllowed, usePageTransition } from '../../app/motion';
 import { Icon, type IconName } from '../../ui/Icon';
 import { ThemePicker } from '../../ui/ThemePicker';
+import { BrandMark } from '../../ui/BrandMark';
 
 /**
  * The page somebody lands on before they are anybody.
@@ -198,7 +199,7 @@ export function WelcomePage() {
       {/* The header parts come in from the edges they sit against. */}
       <header className="welcome-nav" aria-label="ส่วนหัว Smart Classroom">
         <div className="welcome-brand" data-reveal style={from(0, { x: -40, y: -14, scale: 0.96 })}>
-          <div className="brand-mark small">SC</div>
+          <div className="brand-mark small"><BrandMark size={26} /></div>
           <div>
             <strong>Smart Classroom</strong>
             <span>ระบบจัดการห้องเรียน</span>

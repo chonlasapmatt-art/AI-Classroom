@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { isPreviewModeAvailable } from './previewMode';
 import { Button } from '../ui/components';
 import { ForbiddenPage } from '../features/errors/ForbiddenPage';
+import { BrandMark } from '../ui/BrandMark';
 
 /** A direct entrance; the existing environment gate still decides availability. */
 export function PreviewEntryPage({ onEnter }: { onEnter: () => void }) {
@@ -10,7 +11,7 @@ export function PreviewEntryPage({ onEnter }: { onEnter: () => void }) {
   return (
     <main className="admin-access-page">
       <section className="admin-access-card">
-        <div className="brand-mark">SC</div>
+        <div className="brand-mark"><BrandMark size={44} /></div>
         <h1>โหมดตัวอย่าง</h1>
         <p>ข้อมูลในโหมดนี้เป็นข้อมูลสาธิตในหน่วยความจำ ไม่บันทึกลงโรงเรียนจริง และเริ่มใหม่เมื่อรีเฟรช</p>
         <Button onClick={() => { onEnter(); navigate('/', { replace: true }); }}>เข้าสู่โหมดตัวอย่าง</Button>

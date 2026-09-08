@@ -5,6 +5,7 @@ import { useTheme } from '../../app/ThemeContext';
 import { isCompleteMemberLogin, memberLogin, type MemberAccountChoice } from './memberAccess';
 import { Button, PasswordInput } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
+import { BrandMark } from '../../ui/BrandMark';
 
 /** A separate, deliberately quiet entrance for the school administrator. */
 export function AdminLoginPage() {
@@ -38,7 +39,7 @@ export function AdminLoginPage() {
       <div className="admin-access-orbit admin-access-orbit-two" aria-hidden="true" />
       <section className="admin-access-card" aria-labelledby="admin-access-title">
         <div className="admin-access-heading">
-          <div className="brand-mark">SC</div>
+          <div className="brand-mark"><BrandMark size={44} /></div>
           <span className="eyebrow">PRIVATE CONTROL ROOM</span>
           <h1 id="admin-access-title">เข้าสู่ศูนย์ควบคุม</h1>
           <p>พื้นที่เฉพาะสำหรับผู้ดูแลโรงเรียน จัดการห้องเรียน บุคลากร นักเรียน และระบบทั้งหมด</p>
