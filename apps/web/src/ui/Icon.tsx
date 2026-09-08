@@ -21,7 +21,10 @@ type IconName =
   | 'plus' | 'edit' | 'trash' | 'check' | 'info' | 'warning' | 'error'
   | 'success' | 'star' | 'download' | 'upload' | 'refresh'
   | 'arrow-up' | 'arrow-down' | 'external-link' | 'copy'
-  | 'send' | 'eye' | 'filter' | 'sort' | 'more';
+  | 'send' | 'eye' | 'filter' | 'sort' | 'more'
+  // Drawn for the badges, which used emoji until now: a picture the device chooses is a picture the
+  // design does not control, and on a Thai system font half of them arrive as a box or as colour.
+  | 'clock' | 'trend-up' | 'book' | 'bulb' | 'flask' | 'palette';
 
 const icons: Record<IconName, string> = {
   // Navigation
@@ -151,6 +154,18 @@ const icons: Record<IconName, string> = {
     '<line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>',
   more:
     '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  clock:
+    '<circle cx="12" cy="12" r="9"/><polyline points="12 6.8 12 12 15.6 14"/>',
+  'trend-up':
+    '<polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/>',
+  book:
+    '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><line x1="8" y1="7.5" x2="16" y2="7.5"/><line x1="8" y1="11.5" x2="13.5" y2="11.5"/>',
+  bulb:
+    '<path d="M9.5 18h5"/><path d="M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.4 10.9c.6.4.9 1.1.9 1.8V16h5v-.3c0-.7.3-1.4.9-1.8A6 6 0 0 0 12 3z"/>',
+  flask:
+    '<path d="M9.5 3h5"/><path d="M11 3v6.3L5.7 18a2 2 0 0 0 1.7 3h9.2a2 2 0 0 0 1.7-3L13 9.3V3"/><line x1="8" y1="15" x2="16" y2="15"/>',
+  palette:
+    '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.5-1.9-.2-1 .5-1.9 1.5-1.9H17a4 4 0 0 0 4-4C21 7.7 17 3 12 3z"/><circle cx="8.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="15.5" cy="10.5" r="1"/>',
 };
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
@@ -158,7 +173,18 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   size?: number;
 }
 
+/**
+ * A name with no drawing behind it used to render an empty <svg>: an invisible box of the right
+ * size, in the right place, with nothing in it. Every way an icon can go wrong — a key from stored
+ * data, a rename, a typo behind a cast — came out looking like a deliberate gap. It draws a marked
+ * circle instead, so the mistake is visible in the one place somebody can see it, and says which
+ * name it was while a developer is watching.
+ */
+const UNKNOWN_ICON = '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12" y2="16.6"/>';
+
 export function Icon({ name, size = 18, className = '', ...rest }: IconProps) {
+  const drawing = icons[name] as string | undefined;
+  if (!drawing && import.meta.env.DEV) console.warn(`Icon: ไม่มีไอคอนชื่อ "${name}" ในชุดไอคอน`);
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -170,10 +196,10 @@ export function Icon({ name, size = 18, className = '', ...rest }: IconProps) {
       strokeWidth="1.75"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={`ui-icon ${className}`.trim()}
+      className={`ui-icon${drawing ? '' : ' ui-icon-unknown'} ${className}`.trim()}
       aria-hidden="true"
       {...rest}
-      dangerouslySetInnerHTML={{ __html: icons[name] }}
+      dangerouslySetInnerHTML={{ __html: drawing ?? UNKNOWN_ICON }}
     />
   );
 }

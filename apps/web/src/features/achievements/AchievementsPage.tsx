@@ -106,7 +106,7 @@ export function AchievementsPage() {
                 <select name="achievementKey" required defaultValue="">
                   <option value="" disabled>เลือกเหรียญ</option>
                   {achievementCatalog.map((item) => (
-                    <option key={item.key} value={item.key}>{item.icon} {item.label}</option>
+                    <option key={item.key} value={item.key}>{item.label}</option>
                   ))}
                 </select>
               </Field>
@@ -162,7 +162,7 @@ export function AchievementsPage() {
                           // tablet never shows at all — and the reason is the whole point of the badge.
                           <Tooltip key={badge.id} tip={badge.note || definition.description}>
                             <span className="achievement-badge">
-                              <span aria-hidden="true">{definition.icon}</span>
+                              <Icon name={definition.icon} size={18} />
                               {definition.label}
                             </span>
                           </Tooltip>
@@ -183,7 +183,7 @@ export function AchievementsPage() {
         <ul className="badge-catalog">
           {achievementCatalog.map((item) => (
             <li key={item.key}>
-              <span aria-hidden="true" className="badge-icon">{item.icon}</span>
+              <span className="badge-icon"><Icon name={item.icon} size={22} /></span>
               <div><strong>{item.label}</strong><span>{item.description}</span></div>
             </li>
           ))}

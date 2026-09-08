@@ -273,7 +273,7 @@ export function AssignmentsPage() {
                     {submission?.driveUrl && (
                       <div className="drive-submit-panel drive-submit-panel--saved">
                         <div><strong>ส่งผ่าน Google Drive แล้ว</strong><Badge tone="success">ลิงก์พร้อมเปิด</Badge></div>
-                        <a href={submission.driveUrl} target="_blank" rel="noreferrer">เปิดไฟล์ที่ส่ง ↗</a>
+                        <a href={submission.driveUrl} target="_blank" rel="noreferrer">เปิดไฟล์ที่ส่ง <Icon name="external-link" size={14} /></a>
                       </div>
                     )}
                     <div className="turn-in-actions">
@@ -288,7 +288,7 @@ export function AssignmentsPage() {
                       {['upcoming', 'soon', 'urgent', 'overdue', 'revision_requested'].includes(state) && (
                         <>
                           <div className="drive-submit-panel">
-                            <div className="drive-submit-heading"><span className="drive-submit-icon">↗</span><div><strong>ส่งงานผ่าน Google Drive</strong><small>รูปแบบเดียวกับ Google Classroom</small></div></div>
+                            <div className="drive-submit-heading"><span className="drive-submit-icon"><Icon name="external-link" size={18} /></span><div><strong>ส่งงานผ่าน Google Drive</strong><small>รูปแบบเดียวกับ Google Classroom</small></div></div>
                             <p>อัปโหลดไฟล์ใน Google Drive แล้วตั้งค่าแชร์เป็น “ทุกคนที่มีลิงก์” หรือแชร์ให้อีเมลครู จากนั้นวางลิงก์ไว้ที่นี่</p>
                             <Field label="ลิงก์ไฟล์หรือโฟลเดอร์ Google Drive">
                               <input
@@ -381,7 +381,7 @@ export function AssignmentsPage() {
               <button key={item.work.id} type="button" className="student-status-row" onClick={() => setExpanded(item.work.id)}>
                 <span className="student-status-copy"><strong>{item.work.title}</strong><small>{item.dueAt ? `กำหนดส่ง ${new Date(item.dueAt).toLocaleString('th-TH')}` : 'ไม่กำหนดวันส่ง'}</small></span>
                 <Badge tone={workStateTone[item.state]}>{workStateLabels[item.state]}</Badge>
-                <span className="student-status-arrow">ดูงาน →</span>
+                <span className="student-status-arrow">ดูงาน <Icon name="chevron-right" size={14} /></span>
               </button>
             ))}
           </div>

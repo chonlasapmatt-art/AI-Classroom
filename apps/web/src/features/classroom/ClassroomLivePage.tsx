@@ -4,7 +4,7 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses, rosterFor } from '../../data/selectors';
 import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 import type { AchievementKey, Student } from '../../domain/types';
-import { Icon } from '../../ui/Icon';
+import { Icon, type IconName } from '../../ui/Icon';
 import { Badge, Button, Card, EmptyState, PageHeader } from '../../ui/components';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { achievementCatalog } from '../achievements/achievementCatalog';
@@ -25,7 +25,7 @@ const timerPresets = [30, 60, 120, 300];
 /** How long the celebration stays up. Long enough for a room to read it, short enough to teach past. */
 const CELEBRATION_MS = 5000;
 
-interface Celebration { title: string; detail: string; icon: string }
+interface Celebration { title: string; detail: string; icon: IconName }
 
 /**
  * The board a teacher runs the room from.
@@ -155,7 +155,7 @@ export function ClassroomLivePage() {
         detail: studentIds.length === 1
           ? `${studentsById.get(studentIds[0]!)?.displayName ?? 'นักเรียน'} · ${reason}`
           : `${studentIds.length} คน · ${reason}`,
-        icon: '⚡'
+        icon: 'star'
       });
     } catch (reason_) {
       toast(reason_ instanceof Error ? reason_.message : 'ให้คะแนนไม่สำเร็จ');
@@ -272,7 +272,7 @@ export function ClassroomLivePage() {
                 {achievementCatalog.slice(0, 5).map((badge) => (
                   <button key={badge.key} type="button" className="classroom-badge"
                     disabled={busy} onClick={() => void awardBadge(current.id, badge.key)}>
-                    <span aria-hidden="true">{badge.icon}</span>{badge.label}
+                    <Icon name={badge.icon} size={16} />{badge.label}
                   </button>
                 ))}
               </div>
@@ -334,7 +334,10 @@ export function ClassroomLivePage() {
                 <ol className="classroom-choices">
                   {question.choices.map((choice) => (
                     <li key={choice.id} className={answerShown && question.answerKey.includes(choice.id) ? 'correct' : ''}>
-                      {choice.text}{answerShown && question.answerKey.includes(choice.id) ? ' ✓' : ''}
+                      {choice.text}
+                      {answerShown && question.answerKey.includes(choice.id) && (
+                        <Icon name="check" size={16} className="classroom-choice-check" />
+                      )}
                     </li>
                   ))}
                 </ol>
@@ -387,7 +390,7 @@ export function ClassroomLivePage() {
       {celebration && (
         <div className="classroom-celebration" role="status">
           <div>
-            <span aria-hidden="true">{celebration.icon}</span>
+            <Icon name={celebration.icon} size={32} />
             <strong>{celebration.title}</strong>
             <p>{celebration.detail}</p>
           </div>

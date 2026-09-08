@@ -145,7 +145,7 @@ export function AdminSchoolSetupPage({ mode = 'first-run' }: { mode?: 'first-run
           )}
         </div>
         <ol className="admin-setup-steps" aria-label="ขั้นตอนการตั้งค่าโรงเรียน">
-          {steps.map((item) => <li key={item.number} className={step === item.number ? 'current' : step > item.number ? 'done' : ''}><span>{step > item.number ? '✓' : item.number}</span><div><strong>{item.title}</strong><small>{item.description}</small></div></li>)}
+          {steps.map((item) => <li key={item.number} className={step === item.number ? 'current' : step > item.number ? 'done' : ''}><span>{step > item.number ? <Icon name="check" size={14} /> : item.number}</span><div><strong>{item.title}</strong><small>{item.description}</small></div></li>)}
         </ol>
 
         {step === 1 && (

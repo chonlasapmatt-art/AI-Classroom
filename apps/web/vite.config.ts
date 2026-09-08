@@ -73,6 +73,16 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './tests/setup.ts',
+    /*
+     * Five seconds is the default and it is not enough for this suite.
+     *
+     * The heaviest screens here mount the whole shell against a fixture school — four seconds on an
+     * idle machine for one of them — and the suite runs several files at once. Every failure this
+     * produced was a timeout on a test that passes on its own, which reports a product bug that is
+     * not there and hides the ones that are.
+     */
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     include: ['tests/unit/**/*.test.{ts,tsx}', 'tests/integration/**/*.test.{ts,tsx}'],
     coverage: { provider: 'v8', reporter: ['text', 'html'], include: ['src/**/*.{ts,tsx}'] }
   }

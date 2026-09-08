@@ -11,6 +11,7 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { scoreEventsFor } from '../../data/selectors';
 import type { Role, ScoreCategory, Student } from '../../domain/types';
 import { canManageAcademicItem } from '../../data/teacherResponsibilities';
+import { Icon } from '../../ui/Icon';
 
 const quickAmounts = [-1, 1, 2, 5];
 
@@ -76,7 +77,7 @@ export function QuickScorePanel({ student, classId, subjectId, actorProfileId, a
           <strong>{student.displayName}</strong>
           <span>เลขประจำตัว {student.studentCode} · คะแนนพิเศษสะสม {awarded}</span>
         </div>
-        <button type="button" className="text-button" onClick={onClose} aria-label="ปิด">✕</button>
+        <button type="button" className="text-button" onClick={onClose} aria-label="ปิด"><Icon name="close" size={16} /></button>
       </header>
 
       {flash !== null && (

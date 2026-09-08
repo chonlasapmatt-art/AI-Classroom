@@ -195,7 +195,7 @@ export function StudentDetailPage() {
           <Segmented ariaLabel="กรองรายละเอียดงาน" value={filter} onChange={setFilter} options={detailFilters} />
         </Toolbar>
         {visibleItems.length === 0 ? (
-          <EmptyState icon={filter === 'done' ? '✓' : '⌕'} title="ไม่พบงานที่ตรงกับตัวกรอง" description="ลองเปลี่ยนคำค้นหาหรือเลือกดูทุกงาน" />
+          <EmptyState icon={<Icon name={filter === 'done' ? 'check' : 'search'} size={28} />} title="ไม่พบงานที่ตรงกับตัวกรอง" description="ลองเปลี่ยนคำค้นหาหรือเลือกดูทุกงาน" />
         ) : (
           <div className="student-work-list">
             {visibleItems.map((item) => {

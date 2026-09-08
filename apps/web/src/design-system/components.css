@@ -315,6 +315,10 @@
 .ui-table tbody tr:hover { background: var(--surface-muted); }
 
 /* ---------- Icons ---------- */
+/* An icon with no drawing behind it. Amber rather than invisible: a gap that looks like a mistake
+   gets reported, and a gap that looks like spacing ships. */
+.ui-icon-unknown { color: var(--warning); }
+
 .ui-icon {
   flex: none; display: inline-block; vertical-align: middle;
   transition: color var(--duration-fast) var(--ease-out);
