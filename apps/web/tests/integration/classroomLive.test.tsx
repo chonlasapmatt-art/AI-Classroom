@@ -24,7 +24,7 @@ function renderApp(path = '/classroom') {
 describe('classroom live tools', () => {
   it('opens on the picker with every tool one tap away', async () => {
     renderApp();
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('กิจกรรมหน้าชั้น'));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('เปิดคาบเรียน'));
     const tabs = within(screen.getByRole('tablist', { name: 'เครื่องมือหน้าชั้น' }));
     for (const label of ['สุ่มชื่อ', 'สุ่มทีม', 'สุ่มคำถาม', 'จับเวลา']) {
       expect(tabs.getByRole('tab', { name: label })).toBeInTheDocument();

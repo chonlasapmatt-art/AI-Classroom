@@ -3167,3 +3167,42 @@ tr.row-warning td { background: var(--warning-soft); }
   .feedback-row { grid-template-columns: auto auto minmax(0, 1fr); }
   .feedback-row > .ui-button { grid-column: 1 / -1; justify-self: end; }
 }
+
+/* ── The register, inside the lesson ───────────────────────────────────────────────────────────
+   Marked from a phone at the classroom door, so the four marks are one row of large targets beside
+   each name and the state of a row is legible from arm's length: a tinted row for anybody already
+   marked, and the mark itself in words rather than in colour alone. */
+.period-register { display: grid; gap: var(--space-3); }
+.period-register-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.period-register-list li {
+  --register-accent: var(--color-border);
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-3); align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  border-inline-start: 3px solid var(--register-accent);
+}
+.period-register-list li[data-status="present"] { --register-accent: var(--color-success); }
+.period-register-list li[data-status="late"] { --register-accent: var(--color-warning); }
+.period-register-list li[data-status="absent"] { --register-accent: var(--color-danger); }
+.period-register-list li[data-status="leave"] { --register-accent: var(--color-info); }
+.period-register-person { min-inline-size: 0; display: grid; gap: 2px; }
+.period-register-person strong { color: var(--color-text-primary); overflow-wrap: anywhere; }
+.period-register-person small { color: var(--color-text-muted); font-size: var(--text-xs); }
+.period-register-marks { display: flex; gap: var(--space-1); flex-wrap: wrap; justify-content: flex-end; }
+.period-mark {
+  min-inline-size: 52px; min-block-size: 44px; padding: 0 var(--space-2);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface); color: var(--color-text-secondary);
+  font-size: var(--text-sm); font-weight: var(--weight-strong);
+}
+.period-mark:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.period-mark[data-mark="present"][aria-pressed="true"] { color: #fff; background: var(--color-success); border-color: var(--color-success); }
+.period-mark[data-mark="late"][aria-pressed="true"] { color: #fff; background: var(--color-warning); border-color: var(--color-warning); }
+.period-mark[data-mark="absent"][aria-pressed="true"] { color: #fff; background: var(--color-danger); border-color: var(--color-danger); }
+.period-mark[data-mark="leave"][aria-pressed="true"] { color: #fff; background: var(--color-info); border-color: var(--color-info); }
+
+@media (max-width: 640px) {
+  .period-register-list li { grid-template-columns: auto minmax(0, 1fr); }
+  .period-register-marks { grid-column: 1 / -1; justify-content: space-between; }
+  .period-mark { flex: 1; }
+}

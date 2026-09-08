@@ -7,6 +7,7 @@ import type { AchievementKey, Student } from '../../domain/types';
 import { Icon, type IconName } from '../../ui/Icon';
 import { Badge, Button, Card, EmptyState, PageHeader } from '../../ui/components';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
+import { PeriodRegister } from '../attendance/PeriodRegister';
 import { achievementCatalog } from '../achievements/achievementCatalog';
 import { listBankQuestions, type BankQuestion } from '../questions/questionBank';
 import {
@@ -199,8 +200,8 @@ export function ClassroomLivePage() {
 
   return (
     <>
-      <PageHeader eyebrow="ห้องเรียนสด" title="กิจกรรมหน้าชั้น"
-        description="สุ่มชื่อ แบ่งทีม สุ่มคำถาม และให้คะแนนหน้าชั้นเรียน · คะแนนที่ให้จากหน้านี้เป็นคะแนนการมีส่วนร่วม ไม่ใช่คะแนนเก็บของวิชา" />
+      <PageHeader eyebrow="ห้องเรียนสด" title="เปิดคาบเรียน"
+        description="เช็กชื่อของคาบนี้ก่อน แล้วต่อด้วยกิจกรรมหน้าชั้น · คะแนนที่ให้จากหน้านี้เป็นคะแนนการมีส่วนร่วม ไม่ใช่คะแนนเก็บของวิชา" />
 
       <div className="toolbar classroom-toolbar">
         <label>ห้องเรียน
@@ -225,6 +226,10 @@ export function ClassroomLivePage() {
         </fieldset>
         <div className="sync-pill online"><span />{roster.length} คนในห้อง</div>
       </div>
+
+      {/* Opening the room is taking the register. It is first because it is the first thing that
+          happens in a lesson, and because a register taken later is a register taken from memory. */}
+      <PeriodRegister classId={selectedClassId} />
 
       <div className="ui-tabs classroom-tabs" role="tablist" aria-label="เครื่องมือหน้าชั้น">
         {(Object.keys(toolLabels) as Tool[]).map((key) => (

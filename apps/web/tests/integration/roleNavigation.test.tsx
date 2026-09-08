@@ -64,10 +64,11 @@ describe('the menu each role gets', () => {
   it('keeps a teacher inside a handful of sections named for their day', async () => {
     renderApp();
     await switchRole('preview-teacher');
-    await waitFor(() => expect(sectionNames()).toContain('เช็กชื่อ'));
+    await waitFor(() => expect(sectionNames()).toContain('สอนวันนี้'));
     const sections = sectionNames();
     expect(sections.length).toBeLessThanOrEqual(9);
-    for (const label of ['วันนี้', 'เช็กชื่อ', 'กิจกรรม', 'งานและคะแนน', 'นักเรียน', 'รายงาน']) {
+    // Taking the register is inside the lesson now, so the teacher's day is one section fewer.
+    for (const label of ['วันนี้', 'สอนวันนี้', 'งานและคะแนน', 'นักเรียน', 'รายงาน']) {
       expect(sections).toContain(label);
     }
   });
@@ -104,10 +105,11 @@ describe('the menu each role gets', () => {
 });
 
 /**
- * Reports, for the two roles that used not to have any.
+ * The inbox, and who it is for.
  *
- * A student and a guardian were told the school had reports and given no way to read one about
- * themselves. These are the same four questions the staff reports answer, asked about one person.
+ * It says what named children did in the last few hours, which makes it a staff-room noticeboard:
+ * a teacher gets their own rooms, an administrator gets the school without being nudged about it,
+ * and the two roles it is about are refused it by address as well as by menu.
  */
 describe('the staff-room inbox behind /reports', () => {
   it('gives a teacher the last few hours of their own rooms', async () => {

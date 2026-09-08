@@ -83,11 +83,16 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/calendar', 'ปฏิทิน', 'calendar'),
       destination('/timetable', 'ตารางสอน', 'timetable')
     ] },
-    { key: 'attendance', label: 'เช็กชื่อ', items: [
-      destination('/attendance', 'เช็กชื่อ / การเข้าเรียน', 'attendance')
-    ] },
-    { key: 'activities', label: 'กิจกรรม', items: [
-      destination('/classroom', 'กิจกรรมหน้าชั้น', 'star'),
+    /*
+     * Taking the register is not an errand of its own any more.
+     *
+     * "เช็กชื่อ" was a screen a teacher had to remember to visit, choose the room on and choose the
+     * period on — all of which the timetable already knows the moment they open the room they are
+     * teaching. So the register lives in the lesson: opening the class is taking the register, and
+     * each period has its own sheet, so the next teacher into the room starts from a clean one.
+     */
+    { key: 'activities', label: 'สอนวันนี้', items: [
+      destination('/classroom', 'เปิดคาบเรียน · เช็กชื่อ', 'attendance'),
       destination('/quiz', 'Quiz Challenge', 'quiz'),
       destination('/question-bank', 'คลังข้อสอบ', 'question-bank'),
       destination('/exams', 'ข้อสอบ', 'exams')

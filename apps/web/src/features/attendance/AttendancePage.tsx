@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRememberedClass } from '../../app/useRememberedClass';
+import { sessionLabel, sessionsForClass } from './sessions';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import {
   activeClasses, attendanceDailySummary, attendanceDayStatus, attendanceSummary, consentedStudents,
@@ -33,16 +34,6 @@ const statusFilters: Array<{ value: StatusFilter; label: string }> = [
   { value: 'leave', label: 'ลา' }
 ];
 
-type AttendanceSession = {
-  key: string; label: string; type: 'daily' | 'class' | 'homeroom';
-  period: number | null; subjectId: string | null; timetableEntryId: string | null; time: string;
-};
-
-function isoWeekday(date: string): number {
-  const day = new Date(`${date}T00:00:00`).getDay();
-  return day === 0 ? 7 : day;
-}
-
 /**
  * Why a write was refused, always in words.
  *
@@ -50,12 +41,6 @@ function isoWeekday(date: string): number {
  * and nothing to act on or repeat to support, which is the one case where the reason mattered most.
  */
 const failureText = (reason: unknown) => reason instanceof Error ? reason.message : 'ระบบไม่ได้แจ้งสาเหตุไว้ กรุณาลองใหม่อีกครั้ง';
-
-function sessionLabel(session: AttendanceSession, subjectName?: string): string {
-  if (session.type === 'homeroom') return 'โฮมรูม';
-  if (session.type === 'daily') return 'สรุปทั้งวัน';
-  return `${subjectName ?? 'ไม่ระบุวิชา'} · คาบ ${session.period ?? '-'}`;
-}
 
 export function AttendancePage() {
   const { membership } = useSession();
@@ -97,28 +82,7 @@ function StaffAttendancePage() {
   const roster = useMemo(() => rosterFor(snapshot, selectedClassId), [snapshot, selectedClassId]);
   const canMark = membership.role === 'admin' || membership.role === 'teacher';
 
-  const sessions = useMemo<AttendanceSession[]>(() => {
-    const classroom = classes.find((item) => item.id === selectedClassId);
-    const entries = snapshot.timetable
-      .filter((item) => item.classId === selectedClassId
-        && item.academicTermId === classroom?.academicTermId
-        && item.dayOfWeek === isoWeekday(date)
-        && item.status === 'active')
-      .sort((a, b) => a.period - b.period);
-    const classSessions = entries.map((entry) => ({
-      key: entry.id, label: '', type: 'class' as const, period: entry.period,
-      subjectId: entry.subjectId, timetableEntryId: entry.id, time: `${entry.startTime}–${entry.endTime}`
-    }));
-    return [
-      { key: 'homeroom', label: 'โฮมรูม', type: 'homeroom', period: null, subjectId: null, timetableEntryId: null, time: '' },
-      ...classSessions,
-      // A day with no timetable still has to be recordable, or the mark waits until somebody builds
-      // the schedule — by which time nobody remembers who was there.
-      ...(classSessions.length === 0
-        ? [{ key: 'daily', label: 'สรุปทั้งวัน', type: 'daily' as const, period: null, subjectId: null, timetableEntryId: null, time: '' }]
-        : [])
-    ];
-  }, [classes, date, selectedClassId, snapshot.timetable]);
+  const sessions = useMemo(() => sessionsForClass(snapshot, selectedClassId, date), [date, selectedClassId, snapshot]);
 
   const selectedSession = sessions.find((session) => session.key === sessionKey) ?? sessions[0];
   const sessionName = selectedSession
