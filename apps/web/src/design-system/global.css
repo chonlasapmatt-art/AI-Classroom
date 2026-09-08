@@ -12,9 +12,10 @@ html { background:var(--canvas); }
 body {
   margin:0; min-width:320px; min-height:100vh; color:var(--ink-900);
   background:
-    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--brand-500) 7%, transparent), transparent 62%),
-    radial-gradient(90% 65% at 100% 0%, color-mix(in srgb, var(--accent-cyan) 5%, transparent), transparent 58%),
-    var(--canvas);
+    radial-gradient(110% 70% at 50% -12%, color-mix(in srgb, var(--brand-500) 16%, transparent), transparent 60%),
+    radial-gradient(80% 55% at 100% 2%, color-mix(in srgb, var(--accent-cyan) 13%, transparent), transparent 55%),
+    radial-gradient(70% 55% at 0% 100%, color-mix(in srgb, var(--accent-violet) 10%, transparent), transparent 60%),
+    color-mix(in srgb, var(--brand-500) 4%, var(--canvas));
   background-attachment: fixed;
 }
 button,input,select,textarea { font:inherit; }
