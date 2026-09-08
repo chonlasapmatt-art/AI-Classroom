@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
+import { useRememberedClass } from '../../app/useRememberedClass';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import {
   activeClasses, attendanceDailySummary, attendanceDayStatus, attendanceSummary, consentedStudents,
@@ -83,7 +84,6 @@ function StaffAttendancePage() {
   // person who pressed "go and register this room" does not have to find it in the picker again.
   const [searchParams] = useSearchParams();
   const requestedClassId = searchParams.get('class') ?? '';
-  const [classId, setClassId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [sessionKey, setSessionKey] = useState('');
   const [query, setQuery] = useState('');
@@ -91,10 +91,9 @@ function StaffAttendancePage() {
   const [confirming, setConfirming] = useState<'present-all' | 'close' | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // The link's room wins until the person picks another one themselves. Reading it here rather than
-  // in the initial state matters: the rooms arrive from the projection a tick after the first paint.
-  const linkedClassId = classes.some((item) => item.id === requestedClassId) ? requestedClassId : '';
-  const selectedClassId = classId || linkedClassId || classes[0]?.id || '';
+  // The link's room wins over the remembered one: somebody who followed "go and register this room"
+  // asked for that room, not for the room they were in last time.
+  const [selectedClassId, setClassId] = useRememberedClass(classes, requestedClassId);
   const roster = useMemo(() => rosterFor(snapshot, selectedClassId), [snapshot, selectedClassId]);
   const canMark = membership.role === 'admin' || membership.role === 'teacher';
 

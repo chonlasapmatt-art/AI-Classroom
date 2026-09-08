@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
+import { useRememberedClass } from '../../app/useRememberedClass';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import type { TimetableEntry } from '../../domain/types';
 import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
@@ -65,9 +66,7 @@ export function TimetablePage() {
    */
   const [searchParams] = useSearchParams();
   const requestedClassId = searchParams.get('class') ?? '';
-  const openingClassId = visibleClasses.some((row) => row.id === requestedClassId) ? requestedClassId : '';
-  const [classId, setClassId] = useState<string>(openingClassId || (ownClassId ?? ''));
-  const selectedClassId = classId || visibleClasses[0]?.id || '';
+  const [selectedClassId, setClassId] = useRememberedClass(visibleClasses, requestedClassId || ownClassId);
   const canEdit = membership.role === 'admin' || (membership.role === 'teacher' && teacherOwnedSubjectIds(snapshot, membership.profileId, selectedClassId).size > 0);
 
   const slots = useMemo(() => {

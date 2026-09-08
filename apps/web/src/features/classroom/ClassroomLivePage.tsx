@@ -13,6 +13,7 @@ import {
   formatCountdown, pickNextIndex, pickNextStudent, splitIntoTeams, teamCountOptions, teamName, xpPresets
 } from './classroomGames';
 import { useToast } from '../../ui/toastContext';
+import { useRememberedClass } from '../../app/useRememberedClass';
 
 type Tool = 'pick' | 'teams' | 'question' | 'timer';
 
@@ -45,14 +46,13 @@ export function ClassroomLivePage() {
   const isStaff = membership.role === 'admin' || membership.role === 'teacher';
 
   const [tool, setTool] = useState<Tool>('pick');
-  const [classId, setClassId] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [points, setPoints] = useState<number>(2);
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
 
-  const selectedClassId = classId || classes[0]?.id || '';
+  const [selectedClassId, setClassId] = useRememberedClass(classes);
   const roster = useMemo(() => rosterFor(snapshot, selectedClassId), [snapshot, selectedClassId]);
   const subjects = useMemo(() => {
     if (membership.role !== 'teacher') return snapshot.subjects.filter((item) => item.status === 'active');

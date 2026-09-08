@@ -10,6 +10,7 @@ import {
 import { gradePointFor, gradeSchemeFrom } from '../../academic/gradeScheme';
 import { Badge, Card, CardHeader, DataTable, EmptyState, Field, PageHeader, ProgressBar, Stat, Toolbar } from '../../ui/components';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
+import { useRememberedClass } from '../../app/useRememberedClass';
 
 /** The gradebook: category columns, weighted average and the grade each student currently holds. */
 export function GradebookPage() {
@@ -23,12 +24,12 @@ export function GradebookPage() {
   const student = snapshot.students.find((item) => item.profileId === membership.profileId);
   const ownClassId = membership.role === 'student' ? classIdOfStudent(snapshot, student?.id ?? '') : null;
 
-  const [classId, setClassId] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [termId, setTermId] = useState('');
 
-  const effectiveClassId = ownClassId ?? classId ?? classes[0]?.id ?? '';
-  const selectedClassId = effectiveClassId || classes[0]?.id || '';
+  // A student's own room is not a preference, so it comes first; everybody else resumes where they
+  // were, which for a teacher moving between the register and the marks is the same room.
+  const [selectedClassId, setClassId] = useRememberedClass(classes, ownClassId);
   const classroom = classes.find((item) => item.id === selectedClassId);
   const term = snapshot.terms.find((item) => item.id === termId)
     ?? snapshot.terms.find((item) => item.status === 'active')
