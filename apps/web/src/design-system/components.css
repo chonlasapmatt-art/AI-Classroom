@@ -52,15 +52,36 @@
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 
 /* ---------- Surfaces ---------- */
+/*
+ * Cards, everywhere in the product.
+ *
+ * A flat white panel on a near-white page has one edge and nothing else: twenty of them down a
+ * screen and the eye has nothing to hold. Three faint things fix that without adding colour anybody
+ * would name. The fill leans a shade towards the muted surface as it goes down, so a card has a top
+ * and a bottom. A hairline of the page's own light sits along its upper edge, which is what makes it
+ * read as raised rather than drawn. And the border takes a hint of the school's colour, so the shape
+ * belongs to the theme instead of being a grey outline. All three come from tokens, so a school that
+ * picks another palette — or a person who reads in the dark — gets its own version.
+ */
 .ui-card {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xs); animation: ui-rise var(--duration-slow) var(--ease-emphasized) both;
+  background:
+    linear-gradient(180deg, var(--surface) 62%, color-mix(in srgb, var(--surface-muted) 70%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--brand-500) 7%, var(--line));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs), inset 0 1px 0 color-mix(in srgb, var(--surface) 92%, #fff);
+  animation: ui-rise var(--duration-slow) var(--ease-emphasized) both;
   transition: border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out),
     transform var(--duration-normal) var(--ease-spring);
 }
 .ui-card:hover { border-color: color-mix(in srgb, var(--brand-400) 30%, var(--line-strong)); box-shadow: var(--shadow-md); transform: translateY(-3px); }
 .ui-card-padded { padding: var(--space-5); }
-.ui-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
+/* The title of a card sat in the same white as its contents, so a long card had no head. A rule the
+   colour of the theme, and a little more air under it, gives one. */
+.ui-card-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4);
+  margin-bottom: var(--space-4); padding-bottom: var(--space-3);
+  border-bottom: 1px solid color-mix(in srgb, var(--brand-500) 9%, var(--line));
+}
 .ui-card-header h2 { margin: 0; font-size: var(--text-md); font-weight: var(--weight-strong); }
 .ui-card-header p { margin: var(--space-1) 0 0; color: var(--ink-500); font-size: var(--text-sm); }
 
@@ -89,8 +110,12 @@
 .ui-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--space-3); }
 .ui-stat {
   display: flex; flex-direction: column; gap: var(--space-1);
-  padding: var(--space-4) var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-lg);
-  background: var(--surface); box-shadow: var(--shadow-xs); position: relative; overflow: hidden;
+  padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--brand-500) 7%, var(--line));
+  background:
+    linear-gradient(180deg, var(--surface) 58%, color-mix(in srgb, var(--surface-muted) 75%, var(--surface)));
+  box-shadow: var(--shadow-xs), inset 0 1px 0 color-mix(in srgb, var(--surface) 92%, #fff);
+  position: relative; overflow: hidden;
   animation: ui-rise var(--duration-slow) var(--ease-emphasized) both;
   transition: border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out),
     transform var(--duration-normal) var(--ease-out);
@@ -127,7 +152,13 @@
 .ui-stat-hint { color: var(--ink-400); font-size: var(--text-xs); }
 
 /* ---------- Empty, error, loading ---------- */
-.ui-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-8) var(--space-5); text-align: center; animation: ui-rise var(--duration-slow) var(--ease-emphasized) both; }
+.ui-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3);
+  padding: var(--space-8) var(--space-5); text-align: center; border-radius: var(--radius-lg);
+  border: 1px dashed color-mix(in srgb, var(--brand-500) 14%, var(--line));
+  background: color-mix(in srgb, var(--brand-50) 45%, transparent);
+  animation: ui-rise var(--duration-slow) var(--ease-emphasized) both;
+}
 .ui-empty-icon { width: 64px; height: 64px; display: grid; place-items: center; border-radius: var(--radius-lg); background: var(--brand-50); color: var(--brand-600); font-size: 1.6rem; animation: empty-icon-float 3s ease-in-out infinite; }
 @keyframes empty-icon-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 .ui-empty h3 { margin: var(--space-1) 0 0; font-size: var(--text-md); color: var(--ink-800); }
@@ -241,7 +272,11 @@
 .ui-segmented button:active { transform: scale(0.96); }
 .ui-segmented button.selected { background: var(--surface); color: var(--ink-900); box-shadow: var(--shadow-xs); }
 
-.ui-toolbar { display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.ui-toolbar {
+  display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4);
+  padding: var(--space-3); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-sunken) 60%, transparent);
+}
 
 /* ---------- Modal ---------- */
 /*
@@ -312,7 +347,11 @@
 }
 .ui-table td { padding: var(--space-3); border-bottom: 1px solid var(--line); vertical-align: middle; font-variant-numeric: tabular-nums lining-nums; }
 .ui-table tbody tr:last-child td { border-bottom: 0; }
-.ui-table tbody tr:hover { background: var(--surface-muted); }
+/* A hundred rows of white is a wall. The banding is the quietest one that still works — the muted
+   surface at just over half strength — and the hover state stays a step above it so pointing at a
+   row is still visibly different from the row simply being odd. */
+.ui-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-muted) 55%, var(--surface)); }
+.ui-table tbody tr:hover td { background: var(--surface-muted); }
 
 /* ---------- Icons ---------- */
 /* An icon with no drawing behind it. Amber rather than invisible: a gap that looks like a mistake
