@@ -1,20 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { recallRecord, rememberRecord } from '../../app/deviceMemory';
 import { Badge, Button, Card, CardHeader, EmptyState, PageHeader, Segmented } from '../../ui/components';
 import { Icon, type IconName } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
-import { FEEDBACK_WINDOW_MS, feedbackFeed, pruneDismissed, type FeedbackItem, type FeedbackKind } from './feedbackFeed';
+import {
+  FEEDBACK_WINDOW_MS, feedbackFeed, pruneDismissed, requestsAsFeedback,
+  type FeedbackItem, type FeedbackKind
+} from './feedbackFeed';
+import { listSubjectRequests, type SubjectRequest } from '../subjects/subjectRequests';
 
 type Filter = 'all' | FeedbackKind;
 
 const filterLabels: Record<Filter, string> = {
-  all: 'ทั้งหมด', submission: 'ส่งงาน', attendance: 'การมาเรียน'
+  all: 'ทั้งหมด', submission: 'ส่งงาน', attendance: 'การมาเรียน', request: 'คำร้องผู้ปกครอง'
 };
 
 const kindIcons: Record<FeedbackKind, IconName> = {
-  submission: 'assignments', attendance: 'attendance'
+  submission: 'assignments', attendance: 'attendance', request: 'parents'
 };
 
 const dismissedKey = (profileId: string) => `feedback-inbox-cleared:${profileId}`;
@@ -50,11 +54,33 @@ export function FeedbackInboxPage() {
     () => pruneDismissed(Object.entries(recallRecord<Record<string, string>>(dismissedKey(membership.profileId), {})))
   );
 
-  const items = useMemo(() => feedbackFeed(snapshot, {
-    role: membership.role,
-    profileId: membership.profileId,
-    dismissed: new Set(Object.keys(dismissed))
-  }), [dismissed, membership.profileId, membership.role, snapshot]);
+  // Guardians' questions live on the server rather than in the local projection, so they are
+  // fetched rather than read from the snapshot — and a device with no connection simply shows the
+  // rest of the box instead of failing all of it.
+  const [requests, setRequests] = useState<SubjectRequest[]>([]);
+  useEffect(() => {
+    let active = true;
+    void listSubjectRequests(membership.schoolId)
+      .then((rows) => { if (active) setRequests(rows); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [membership.schoolId]);
+
+  const items = useMemo(() => {
+    const hidden = new Set(Object.keys(dismissed));
+    const fromSchool = feedbackFeed(snapshot, {
+      role: membership.role,
+      profileId: membership.profileId,
+      dismissed: hidden
+    });
+    const fromGuardians = requestsAsFeedback({
+      requests,
+      subjectName: (subjectId) => snapshot.subjects.find((item) => item.id === subjectId)?.name ?? null,
+      studentName: (studentId) => snapshot.students.find((item) => item.id === studentId)?.displayName ?? null,
+      dismissed: hidden
+    });
+    return [...fromGuardians, ...fromSchool].sort((left, right) => right.at.localeCompare(left.at));
+  }, [dismissed, membership.profileId, membership.role, requests, snapshot]);
 
   const visible = filter === 'all' ? items : items.filter((item) => item.kind === filter);
 
@@ -87,7 +113,7 @@ export function FeedbackInboxPage() {
       <PageHeader
         eyebrow="กล่องข้อความจากห้องเรียน"
         title="รายงานความเคลื่อนไหว"
-        description={`สิ่งที่นักเรียนทำใน ${hours} ชั่วโมงล่าสุด — ส่งงาน ขาด ลา มาสาย · ระบบลบให้เองเมื่อพ้น ${hours} ชั่วโมง`}
+        description={`สิ่งที่เกิดขึ้นใน ${hours} ชั่วโมงล่าสุด — ส่งงาน ขาด ลา มาสาย และคำร้องจากผู้ปกครอง · ระบบลบให้เองเมื่อพ้น ${hours} ชั่วโมง (คำร้องที่ยังไม่ดำเนินการจะอยู่ต่อ)`}
         action={items.length > 0 && (
           <Button variant="secondary" icon={<Icon name="trash" size={16} />} onClick={() => hide(items.map((item) => item.id))}>
             ล้างทั้งกล่อง
@@ -106,7 +132,7 @@ export function FeedbackInboxPage() {
               ariaLabel="กรองประเภทข้อความ"
               value={filter}
               onChange={setFilter}
-              options={(['all', 'submission', 'attendance'] as Filter[]).map((value) => ({
+              options={(['all', 'submission', 'attendance', 'request'] as Filter[]).map((value) => ({
                 value, label: filterLabels[value]
               }))}
             />

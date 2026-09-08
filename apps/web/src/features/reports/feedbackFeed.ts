@@ -15,7 +15,7 @@ import type { Role } from '../../domain/types';
  * few hours, because a message about "this period" is worth nothing tomorrow and a school running
  * for a year should not be carrying a year of them.
  */
-export type FeedbackKind = 'submission' | 'attendance';
+export type FeedbackKind = 'submission' | 'attendance' | 'request';
 
 export interface FeedbackItem {
   /** Stable across rebuilds of the feed, so a deletion on this device keeps the item away. */
@@ -149,4 +149,40 @@ export function pruneDismissed(dismissed: Iterable<[string, string]>, now = Date
     if (Number.isFinite(stamp) && now - stamp <= windowMs) kept[id] = at;
   }
   return kept;
+}
+
+/**
+ * A guardian's question, in the same box as everything else the day produced.
+ *
+ * Requests do not age out with the rest of the feed. An unanswered question is not stale news the
+ * way "handed in twenty minutes ago" is; it is a thing somebody is waiting for, so it stays until
+ * a member of staff marks it handled. Handled ones fall back into the ordinary three-hour window.
+ */
+export function requestsAsFeedback(input: {
+  requests: { id: string; subjectId: string; studentId: string | null; raisedByName: string; body: string; status: 'open' | 'handled'; createdAt: string }[];
+  subjectName: (subjectId: string) => string | null;
+  studentName: (studentId: string) => string | null;
+  dismissed?: Set<string>;
+  now?: Date;
+  windowMs?: number;
+}): FeedbackItem[] {
+  const now = (input.now ?? new Date()).getTime();
+  const windowMs = input.windowMs ?? FEEDBACK_WINDOW_MS;
+  const dismissed = input.dismissed ?? new Set<string>();
+  return input.requests
+    .filter((request) => request.status === 'open' || withinWindow(request.createdAt, now, windowMs))
+    .map((request) => ({
+      id: `request:${request.id}`,
+      kind: 'request' as const,
+      studentId: request.studentId ?? '',
+      studentName: request.studentId ? input.studentName(request.studentId) ?? '' : '',
+      classId: '',
+      className: '',
+      subjectName: input.subjectName(request.subjectId),
+      title: `คำร้องจาก ${request.raisedByName || 'ผู้ปกครอง'}`,
+      body: request.body,
+      at: request.createdAt,
+      tone: request.status === 'open' ? 'warning' as const : 'info' as const
+    }))
+    .filter((item) => !dismissed.has(item.id));
 }
