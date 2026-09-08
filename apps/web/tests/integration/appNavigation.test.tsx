@@ -115,6 +115,40 @@ describe('application shell and routes', () => {
     await waitFor(() => expect(within(dialog).getAllByRole('option', { name: /อวตาร/ })).toHaveLength(1));
   });
 
+  it('lets somebody try a pose before they commit to an avatar', async () => {
+    renderApp();
+    await switchRole('preview-student');
+    fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'เปลี่ยน Avatar' }));
+    const dialog = await screen.findByRole('dialog');
+
+    // The drawings already knew how to wave; the picker never let anybody see it.
+    const celebrate = within(dialog).getByRole('button', { name: 'ดีใจ' });
+    expect(within(dialog).getByRole('button', { name: 'ทักทาย' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(celebrate);
+    expect(celebrate).toHaveAttribute('aria-pressed', 'true');
+    expect(within(dialog).getByRole('button', { name: 'ทักทาย' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('walks the avatar gallery with the arrow keys instead of a hundred and sixty tab stops', async () => {
+    renderApp();
+    await switchRole('preview-student');
+    fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'เปลี่ยน Avatar' }));
+    const dialog = await screen.findByRole('dialog');
+    const gallery = within(dialog).getByRole('listbox', { name: 'รายการ avatar' });
+    const options = within(gallery).getAllByRole('option');
+
+    // One tab stop for the whole gallery: everything else is reachable, none of it is in the way.
+    expect(options.filter((option) => option.getAttribute('tabindex') === '0')).toHaveLength(1);
+    fireEvent.click(options[0]!);
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+    fireEvent.keyDown(gallery, { key: 'ArrowRight' });
+    expect(options[1]).toHaveAttribute('aria-selected', 'true');
+    fireEvent.keyDown(gallery, { key: 'End' });
+    expect(options[options.length - 1]).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('keeps the student dashboard personal and shows their avatar beside their name', async () => {
     renderApp('/');
     await switchRole('preview-student');

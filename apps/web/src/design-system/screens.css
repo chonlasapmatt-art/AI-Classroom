@@ -532,12 +532,81 @@
 /* ---------- Avatar picker / profile ---------- */
 .avatar-picker { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: var(--space-5); }
 .avatar-picker-preview { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-5); border-radius: var(--radius-lg); background: linear-gradient(160deg, var(--brand-50), var(--brand-100)); text-align: center; }
+
+/*
+ * The stage the chosen drawing stands on.
+ *
+ * A picker that shows a still figure asks somebody to imagine what they are choosing. The glow
+ * breathes, the figure lands with a small bounce each time the choice changes, and the pose buttons
+ * let a child make it wave — which is the entire reason a child opens this screen.
+ */
+.avatar-stage { position: relative; display: grid; place-items: center; width: 168px; height: 168px; }
+.avatar-stage-glow {
+  position: absolute; inset: 6px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, var(--surface), color-mix(in srgb, var(--brand-200) 70%, transparent));
+  animation: avatarGlow 4.5s var(--ease-in-out, ease-in-out) infinite;
+}
+.avatar-stage-figure { position: relative; animation: avatarLand var(--duration-slow, 420ms) cubic-bezier(.22, 1.4, .36, 1) both; }
+@keyframes avatarGlow { 0%, 100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.05); opacity: 1; } }
+@keyframes avatarLand { from { transform: translateY(10px) scale(.86); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.avatar-pose-picker { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: var(--space-2); }
+.avatar-pose-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.avatar-pose {
+  min-height: 34px; padding: 0 var(--space-3); border: 1px solid transparent; border-radius: var(--radius-pill);
+  color: var(--ink-600); background: color-mix(in srgb, var(--surface) 75%, transparent);
+  font-size: var(--text-xs); font-weight: var(--weight-strong); cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+.avatar-pose:hover { background: var(--surface); transform: translateY(-1px); }
+.avatar-pose.selected { color: var(--brand-700); background: var(--surface); border-color: var(--brand-300); }
+.avatar-pose:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.avatar-detail-filters > summary { cursor: pointer; color: var(--ink-500); font-size: var(--text-xs); font-weight: var(--weight-strong); padding: var(--space-2) 0; }
+.avatar-detail-filters > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
 .avatar-picker-filters { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-3); }
 .avatar-part-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
-.avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--space-2); max-height: 46vh; overflow-y: auto; padding-right: var(--space-1); }
-.avatar-option { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); font-size: var(--text-xs); color: var(--ink-400); }
-.avatar-option:hover { border-color: var(--brand-200); }
-.avatar-option.selected { border-color: var(--brand-500); background: var(--brand-50); box-shadow: var(--focus-ring); color: var(--brand-700); }
+.avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--space-2); max-height: 46vh; overflow-y: auto; padding: var(--space-1); }
+/*
+ * One drawing, its name, and a tick when it is yours.
+ *
+ * The tiles used to be labelled with the catalogue id — "#012" — which is the one thing about an
+ * avatar that means nothing to the person picking it. The name is what somebody is choosing between,
+ * so the name is what the tile says, and the id stays in the tooltip for anybody who needs it.
+ */
+.avatar-option {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: var(--space-2) 6px; border: 1px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface); font-size: var(--text-xs); color: var(--ink-500); cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  /* Capped so the last tile of a hundred and sixty is a quarter of a second behind, not four. */
+  animation: avatarTileIn 260ms var(--ease-out) both;
+  animation-delay: min(calc(var(--enter, 0) * 12ms), 240ms);
+}
+.avatar-option-figure { display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; background: var(--surface-sunken); transition: background var(--duration-fast) var(--ease-out), transform var(--duration-normal) var(--ease-out); }
+.avatar-option-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avatar-option-check {
+  position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 20px; height: 20px;
+  border-radius: 50%; color: var(--surface); background: var(--brand-500);
+  opacity: 0; transform: scale(.4); transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring, cubic-bezier(.22, 1.4, .36, 1));
+}
+.avatar-option:hover { border-color: var(--brand-300); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.avatar-option:hover .avatar-option-figure { background: var(--brand-50); transform: scale(1.04); }
+.avatar-option:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.avatar-option.selected { border-color: var(--brand-500); background: var(--brand-50); color: var(--brand-700); font-weight: var(--weight-strong); }
+.avatar-option.selected .avatar-option-figure { background: var(--surface); animation: avatarPick 380ms cubic-bezier(.22, 1.4, .36, 1); }
+.avatar-option.selected .avatar-option-check { opacity: 1; transform: scale(1); }
+@keyframes avatarTileIn { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes avatarPick { 0% { transform: scale(1); } 45% { transform: scale(1.14); } 100% { transform: scale(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-stage-glow, .avatar-stage-figure, .avatar-option { animation: none; }
+  .avatar-option, .avatar-option-figure, .avatar-option-check, .avatar-pose { transition: none; }
+  .avatar-option:hover, .avatar-pose:hover { transform: none; }
+  .avatar-option:hover .avatar-option-figure { transform: none; }
+  .avatar-option.selected .avatar-option-figure { animation: none; }
+  .avatar-option.selected .avatar-option-check { transform: scale(1); }
+}
 .ui-avatar-initials { display: grid; place-items: center; border-radius: var(--radius-md); background: var(--brand-100); color: var(--brand-700); font-weight: var(--weight-heavy); }
 
 .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: var(--space-4); }

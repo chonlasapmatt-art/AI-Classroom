@@ -24,8 +24,14 @@ function sourceFiles(directory: string): string[] {
 
 const files = sourceFiles(sourceRoot).map((path) => ({ path, source: readFileSync(path, 'utf8') }));
 
-/** Symbols and emoji. Ordinary punctuation and the arrows inside sentences are left alone. */
-const pictograph = /[←-⇿─-➿⬀-⯿☀-⛿️]|[\uD83C-\uDBFF][\uDC00-\uDFFF]/;
+/**
+ * Symbols and emoji. Ordinary punctuation and the arrows inside sentences are left alone.
+ *
+ * Written as escapes rather than the characters themselves: a variation selector inside a character
+ * class is a combining mark sitting next to a range, which reads to a linter — and to a reader — as
+ * a mistake, so it is matched on its own.
+ */
+const pictograph = /[←-⇿─-➿⬀-⯿☀-⛿]|️|[\uD83C-\uDBFF][\uDC00-\uDFFF]/;
 
 describe('icons are drawings, not characters', () => {
   it('never renders a symbol as the whole content of an element', () => {
