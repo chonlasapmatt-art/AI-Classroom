@@ -21,9 +21,13 @@ describe('development fixtures', () => {
     expect(roster.length).toBeLessThanOrEqual(30);
   });
 
+  // Every mark a teacher can choose, so a demo school shows each of them at least once. The retired
+  // 'leave' is deliberately absent: it is readable, but nothing writes it any more.
   it('covers every attendance status', () => {
     const statuses = new Set(data.attendance.map((item) => item.status));
-    for (const status of ['present', 'late', 'absent', 'leave']) expect(statuses.has(status as never)).toBe(true);
+    for (const status of ['present', 'late', 'absent', 'leave_sick', 'leave_personal']) {
+      expect(statuses.has(status as never)).toBe(true);
+    }
   });
 
   it('is deterministic across builds', () => {

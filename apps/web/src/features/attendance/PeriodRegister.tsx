@@ -9,17 +9,22 @@ import { Icon } from '../../ui/Icon';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { useToast } from '../../ui/toastContext';
 import { currentSessionFor, sessionLabel, sessionsForClass } from './sessions';
+import { attendanceMarkLabels, attendanceMarkOrder, attendanceMarkShortLabels } from './attendanceMarks';
 
-const marks: { value: AttendanceStatus; label: string }[] = [
-  { value: 'present', label: 'มา' },
-  { value: 'late', label: 'สาย' },
-  { value: 'absent', label: 'ขาด' },
-  { value: 'leave', label: 'ลา' }
-];
+/*
+ * Five marks, not four.
+ *
+ * "ลา" was one button covering both ลาป่วย and ลากิจ, and teachers were writing which one into the
+ * note by hand — a distinction the school reports on, kept somewhere no report could count. The two
+ * sit next to each other at the end of the row because they are the one decision a teacher makes
+ * between them, and each still carries its own word: the colours tell them apart at a glance down a
+ * class of forty, but nothing here depends on seeing the colour.
+ */
+const marks: { value: AttendanceStatus; label: string }[] = attendanceMarkOrder.map((value) => ({
+  value, label: attendanceMarkShortLabels[value]
+}));
 
-const markLabels: Record<AttendanceStatus, string> = {
-  present: 'มาเรียน', late: 'มาสาย', absent: 'ขาดเรียน', leave: 'ลา'
-};
+const markLabels = attendanceMarkLabels;
 
 /**
  * The register for the period being taught, where the lesson is.

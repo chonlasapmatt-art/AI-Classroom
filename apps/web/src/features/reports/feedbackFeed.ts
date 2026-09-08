@@ -39,6 +39,8 @@ export const FEEDBACK_WINDOW_MS = 3 * 60 * 60 * 1000;
 const attendanceWords: Record<string, { label: string; tone: FeedbackItem['tone'] }> = {
   absent: { label: 'ขาดเรียน', tone: 'danger' },
   late: { label: 'มาสาย', tone: 'warning' },
+  leave_sick: { label: 'ลาป่วย', tone: 'info' },
+  leave_personal: { label: 'ลากิจ', tone: 'info' },
   leave: { label: 'ลา', tone: 'info' }
 };
 

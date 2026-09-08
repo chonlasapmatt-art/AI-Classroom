@@ -152,14 +152,14 @@ export function buildFixtureData(): FixtureData {
 
   const attendance: Attendance[] = [];
   const days = recentSchoolDays(10);
-  const statuses: AttendanceStatus[] = ['present', 'present', 'present', 'present', 'present', 'late', 'absent', 'leave'];
+  const statuses: AttendanceStatus[] = ['present', 'present', 'present', 'present', 'late', 'absent', 'leave_sick', 'leave_personal'];
   for (const day of days) {
     for (const studentId of primaryRoster) {
       const status = statuses[Math.floor(random() * statuses.length)] ?? 'present';
       attendance.push({
         ...record(`fixture-attendance-${day}-${studentId}`, `${day}T02:00:00.000Z`),
         classId: primaryClassId, studentId, attendanceDate: day, status,
-        note: status === 'leave' ? 'ลากิจ (ผู้ปกครองแจ้ง)' : ''
+        note: status === 'leave_personal' ? 'ผู้ปกครองแจ้งลากิจ' : status === 'leave_sick' ? 'ผู้ปกครองแจ้งว่าป่วย' : ''
       });
     }
   }

@@ -1,4 +1,5 @@
 import type { Attendance, AttendanceStatus, Classroom, ClassroomNotification, ClassTeacher, ScoreEvent, Setting, Student, Subject } from '../domain/types';
+import { isLeave } from '../features/attendance/attendanceMarks';
 import { calculateTotal, defaultScorePolicy, gradeFor, type Category, type ScoreItem, type ScorePolicy } from '../features/scores/scoreEngine';
 import type { SchoolSnapshot } from './schoolRepository';
 
@@ -65,7 +66,13 @@ export function consentedStudents(snapshot: SchoolSnapshot): Student[] {
   return snapshot.students.filter((item) => linkedIds.has(item.id));
 }
 
-export interface AttendanceSummary { present: number; late: number; absent: number; leave: number; total: number; presentRate: number }
+export interface AttendanceSummary {
+  present: number; late: number; absent: number;
+  /** Every kind of leave, including rows written before the two kinds were told apart. */
+  leave: number;
+  leaveSick: number; leavePersonal: number;
+  total: number; presentRate: number;
+}
 
 export function attendanceSummary(snapshot: SchoolSnapshot, filter: { classId?: string; studentId?: string; date?: string; sessionKey?: string } = {}): AttendanceSummary {
   const rows = snapshot.attendance.filter((item) =>
@@ -78,7 +85,9 @@ export function attendanceSummary(snapshot: SchoolSnapshot, filter: { classId?: 
   const late = count('late');
   const total = rows.length;
   return {
-    present, late, absent: count('absent'), leave: count('leave'), total,
+    present, late, absent: count('absent'),
+    leave: rows.filter((item) => isLeave(item.status)).length,
+    leaveSick: count('leave_sick'), leavePersonal: count('leave_personal'), total,
     presentRate: total === 0 ? 0 : Math.round(((present + late) / total) * 1000) / 10
   };
 }
@@ -89,7 +98,9 @@ export type AttendanceDayStatus = AttendanceStatus | 'unmarked';
 export function attendanceDayStatus(rows: Attendance[]): AttendanceDayStatus {
   if (rows.length === 0) return 'unmarked';
   if (rows.some((row) => row.status === 'absent')) return 'absent';
-  if (rows.some((row) => row.status === 'leave')) return 'leave';
+  // A day holding any kind of leave reads as leave; which kind is on the period, where it was set.
+  const leaveRow = rows.find((row) => isLeave(row.status));
+  if (leaveRow) return leaveRow.status;
   if (rows.some((row) => row.status === 'late')) return 'late';
   return 'present';
 }
@@ -109,7 +120,9 @@ export function attendanceDailySummary(snapshot: SchoolSnapshot, filter: { class
   const present = count('present');
   const late = count('late');
   return {
-    present, late, absent: count('absent'), leave: count('leave'), total: totalDays,
+    present, late, absent: count('absent'),
+    leave: statuses.filter((value) => value !== 'unmarked' && isLeave(value)).length,
+    leaveSick: count('leave_sick'), leavePersonal: count('leave_personal'), total: totalDays,
     totalDays, unmarked: count('unmarked'), checkedSessions: rows.length,
     presentRate: totalDays === 0 ? 0 : Math.round(((present + late) / totalDays) * 1000) / 10
   };

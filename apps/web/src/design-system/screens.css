@@ -3357,3 +3357,38 @@ tr.row-warning td { background: var(--warning-soft); }
   .timetable-grid .slot:not(.filled) .slot-button:hover .slot-empty-icon,
   .timetable-grid .slot:not(.filled) .slot-button:focus-visible .slot-empty-icon { transform: none; }
 }
+
+/* ── Five marks on a register row ──────────────────────────────────────────────────────────────
+   Splitting "ลา" into ลาป่วย and ลากิจ puts a fifth target in a row sized for four, so the row now
+   wraps deliberately rather than squeezing: each button keeps a 44px hit height and a width that
+   fits its word, and on a phone the marks take a line of their own under the name.
+
+   The two leaves are neighbouring hues — sky for illness, violet for a family's own business — and
+   each keeps its word, so the pair is separable without seeing colour at all. */
+.period-register-marks { row-gap: var(--space-1); }
+.period-mark { min-inline-size: 46px; padding: 0 var(--space-2); }
+.period-mark[data-mark="leave_sick"][aria-pressed="true"] {
+  color: #fff; background: var(--color-info); border-color: var(--color-info);
+}
+.period-mark[data-mark="leave_personal"][aria-pressed="true"] {
+  color: #fff; background: var(--color-primary); border-color: var(--color-primary);
+}
+/* A row already marked is tinted by its mark, and the two leaves have to differ there too. */
+.period-register-list li[data-status="leave_sick"] { --register-accent: var(--color-info); }
+.period-register-list li[data-status="leave_personal"] { --register-accent: var(--color-primary); }
+.period-register-list li[data-status="leave"] { --register-accent: var(--color-info); }
+
+/* The status pill on the guardian's day view and the roster table. */
+.attendance-status.leave_sick { color: var(--color-info); background: var(--info-soft); }
+.attendance-status.leave_personal { color: var(--color-primary-strong); background: var(--brand-50); }
+
+/*
+ * On a phone the five marks become a three-column grid rather than a wrapping row: wrapping left
+ * "ลากิจ" alone on a full-width second line, which reads as a different kind of control from the
+ * four above it. Three columns puts มา/สาย/ขาด on one line and the two leaves together on the next,
+ * which is the grouping a teacher already has in their head.
+ */
+@media (max-width: 560px) {
+  .period-register-marks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1); }
+  .period-mark { inline-size: 100%; min-inline-size: 0; }
+}

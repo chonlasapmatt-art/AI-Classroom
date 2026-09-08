@@ -16,11 +16,12 @@ import {
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
+import { attendanceMarkLabels, attendanceMarkOrder } from './attendanceMarks';
 
-const labels: Record<AttendanceStatus, string> = { present: 'มาเรียน', late: 'สาย', absent: 'ขาด', leave: 'ลา' };
-const order: AttendanceStatus[] = ['present', 'late', 'absent', 'leave'];
+const labels = attendanceMarkLabels;
+const order = attendanceMarkOrder;
 const dayLabels: Record<AttendanceStatus | 'unmarked', string> = {
-  present: 'มาเรียน', late: 'สาย', absent: 'ขาด', leave: 'ลา', unmarked: 'ยังไม่เช็ก'
+  ...attendanceMarkLabels, unmarked: 'ยังไม่เช็ก'
 };
 
 /** The status filter is the mark plus the absence of one — "ยังไม่เช็ก" is the answer people hunt for. */
@@ -31,7 +32,8 @@ const statusFilters: Array<{ value: StatusFilter; label: string }> = [
   { value: 'present', label: 'มาเรียน' },
   { value: 'late', label: 'สาย' },
   { value: 'absent', label: 'ขาด' },
-  { value: 'leave', label: 'ลา' }
+  { value: 'leave_sick', label: 'ลาป่วย' },
+  { value: 'leave_personal', label: 'ลากิจ' }
 ];
 
 /**
@@ -231,7 +233,13 @@ function StaffAttendancePage() {
         <Stat label="มาเรียน" value={summary.present} hint="คาบนี้" tone="success" icon={<Icon name="check" size={18} />} />
         <Stat label="สาย" value={summary.late} hint="คาบนี้" tone="warning" icon={<Icon name="info" size={18} />} />
         <Stat label="ขาด" value={summary.absent} hint="คาบนี้" tone={summary.absent > 0 ? 'danger' : 'neutral'} icon={<Icon name="warning" size={18} />} />
-        <Stat label="ลา" value={summary.leave} hint="คาบนี้" tone="info" icon={<Icon name="calendar" size={18} />} />
+        <Stat
+          label="ลา"
+          value={summary.leave}
+          hint={summary.leave === 0 ? 'คาบนี้' : `ป่วย ${summary.leaveSick} · กิจ ${summary.leavePersonal}`}
+          tone="info"
+          icon={<Icon name="calendar" size={18} />}
+        />
         <Stat
           label="ยังไม่เช็ก" value={unmarked.length}
           hint={`จากนักเรียน ${roster.length} คน`}

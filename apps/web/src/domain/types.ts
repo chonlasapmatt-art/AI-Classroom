@@ -1,5 +1,11 @@
 export type Role = 'admin' | 'teacher' | 'student' | 'parent';
-export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave';
+/**
+ * A mark on a register.
+ *
+ * 'leave' is the mark this product used before it distinguished ลาป่วย from ลากิจ. It is kept so
+ * rows written then stay readable, and it is never offered as a choice again.
+ */
+export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave_sick' | 'leave_personal' | 'leave';
 export type AttendanceSessionType = 'daily' | 'class' | 'homeroom';
 export type SyncEntityType = 'student' | 'enrollment' | 'assignment' | 'submission' | 'activity' | 'activity_score' | 'test' | 'test_score' | 'attendance' | 'setting' | 'timetable_entry' | 'achievement' | 'score_event';
 export type SyncOperation = 'upsert' | 'delete';
