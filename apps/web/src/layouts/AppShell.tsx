@@ -447,7 +447,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {quickNav.length > 0 && (
           <nav className="bottom-nav" aria-label="เมนูลัด">
             {quickNav.map((item) => (
-              <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+              <NavLink key={item.to} to={item.to} end={item.to === '/'} data-icon={item.icon}>
                 <span className="bottom-nav-icon">
                   <Icon name={item.icon} size={20} />
                   {item.to === '/notifications' && unread > 0 && <span className="bottom-nav-badge" aria-hidden="true" />}

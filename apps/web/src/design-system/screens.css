@@ -119,6 +119,52 @@
   --nav-soft: color-mix(in srgb, var(--accent-mint-soft) 76%, var(--accent-cyan-soft));
   --nav-ink: color-mix(in srgb, var(--accent-mint) 80%, var(--accent-cyan));
 }
+/*
+ * Keep the icons distinct inside a section too.
+ *
+ * A section colour is useful for scanning the menu, but making every item in "กิจกรรม" gold made
+ * the star, lightning bolt, question mark and exam paper blend into one long strip. These are still
+ * the same soft, theme-aware tokens; the difference is now per destination, so the eye can find a
+ * familiar action without reading every label again.
+ */
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='star'] {
+  --nav-soft: var(--danger-soft); --nav-ink: var(--danger);
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='quiz'] {
+  --nav-soft: var(--accent-cyan-soft); --nav-ink: var(--accent-cyan);
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='question-bank'] {
+  --nav-soft: var(--accent-violet-soft); --nav-ink: var(--accent-violet);
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='exams'] {
+  --nav-soft: var(--accent-green-soft); --nav-ink: var(--accent-green);
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='assignments'] {
+  --nav-soft: var(--accent-mint-soft); --nav-ink: var(--accent-mint);
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='scores'] {
+  --nav-soft: var(--accent-gold-soft); --nav-ink: var(--accent-gold);
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='gradebook'] {
+  --nav-soft: var(--accent-cyan-soft); --nav-ink: var(--accent-cyan);
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='grade-edit'] {
+  --nav-soft: color-mix(in srgb, var(--danger-soft) 72%, var(--accent-violet-soft));
+  --nav-ink: color-mix(in srgb, var(--danger) 72%, var(--accent-violet));
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='leaderboard'] {
+  --nav-soft: var(--brand-50); --nav-ink: var(--brand-600);
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='achievements'] {
+  --nav-soft: color-mix(in srgb, var(--danger-soft) 58%, var(--accent-gold-soft));
+  --nav-ink: color-mix(in srgb, var(--danger) 68%, var(--accent-gold));
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='attendance'] {
+  --nav-soft: var(--accent-green-soft); --nav-ink: var(--accent-green);
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='reports'] {
+  --nav-soft: var(--accent-mint-soft); --nav-ink: var(--accent-mint);
+}
 .sidebar nav a:hover { background: var(--surface-sunken); color: var(--ink-900); transform: translateX(2px); }
 .sidebar nav a:hover .ui-icon { transform: scale(1.08); }
 .sidebar nav a:active { transform: scale(0.98); }
@@ -1066,11 +1112,49 @@
  * A day label that scrolls away with it turns row four into an anonymous row of lessons, so it is
  * pinned to the left edge and keeps its own background to sit over what passes underneath.
  */
-.timetable-grid tbody th { position: sticky; left: 0; z-index: 1; display: flex; flex-direction: column; gap: 2px; align-items: center; justify-content: center; min-width: 96px; min-height: 96px; color: var(--ink-700); font-weight: var(--weight-strong); border-radius: var(--radius-md); background: linear-gradient(180deg, var(--surface-muted), var(--surface)); box-shadow: 6px 0 12px -10px color-mix(in srgb, var(--ink-900) 40%, transparent); }
+/*
+ * The pinned day, and the seven pixels around it.
+ *
+ * The table is drawn with separate borders and a 7px gutter between cells, which is what gives the
+ * week its cards. A sticky cell only paints its own box, so while the week scrolled sideways the
+ * lesson passing underneath showed through those gutters: a white card edge appeared to the left of
+ * "จันทร์" and a subject name leaked out to its right, which looked like the layout coming apart.
+ *
+ * A ring around the cell is not enough: the gap on its right is wider than the gutter, because the
+ * lesson sliding under it keeps its own rounded card and its own padding. So the cell carries a
+ * panel of its own — a layer pinned behind its text and in front of everything scrolling past,
+ * stretched a little wider than the cell on every side. Everything that passes underneath is
+ * covered by it, and the cards on either side keep their gaps.
+ */
+.timetable-grid tbody th { position: sticky; left: 0; z-index: 2; display: flex; flex-direction: column; gap: 2px; align-items: center; justify-content: center; min-width: 120px; min-height: 96px; color: var(--ink-700); font-weight: var(--weight-strong); border-radius: var(--radius-md); background: linear-gradient(180deg, var(--surface-muted), var(--surface)); }
+.timetable-grid tbody th::before {
+  content: ''; position: absolute; inset: -5px -9px -5px -12px; z-index: -1;
+  border-radius: var(--radius-lg); background: var(--surface);
+  box-shadow: 12px 0 16px -12px color-mix(in srgb, var(--ink-900) 45%, transparent);
+}
+/*
+ * The lesson that is halfway under the pinned day.
+ *
+ * A column held in place has to have something slide beneath it, and at most scroll positions what
+ * lands against its edge is the last centimetre of a card — a rounded corner and two syllables of a
+ * subject, which reads as a piece of the layout that has broken off rather than as a card passing
+ * behind. The fragment fades into the panel instead of being cut against it.
+ */
+.timetable-grid tbody th::after {
+  content: ''; position: absolute; top: -5px; bottom: -5px; left: 100%; width: 26px; pointer-events: none;
+  background: linear-gradient(90deg, var(--surface) 30%, color-mix(in srgb, var(--surface) 55%, transparent) 70%, transparent);
+}
 .timetable-grid tbody th span { font-size: var(--text-xs); color: var(--ink-400); font-weight: var(--weight-regular); }
-.timetable-grid thead .timetable-corner { position: sticky; left: 0; z-index: 2; min-width: 96px; background: var(--surface); }
+.timetable-grid thead .timetable-corner { position: sticky; left: 0; z-index: 3; min-width: 120px; background: var(--surface); box-shadow: 0 0 0 9px var(--surface); }
+.timetable-grid thead .timetable-corner::after {
+  content: ''; position: absolute; top: -9px; bottom: -9px; left: 100%; width: 26px; pointer-events: none;
+  background: linear-gradient(90deg, var(--surface) 30%, color-mix(in srgb, var(--surface) 55%, transparent) 70%, transparent);
+}
 .timetable-grid thead th span { display: block; color: var(--ink-400); font-size: 10px; font-weight: var(--weight-regular); }
-.timetable-grid .slot { position: relative; min-width: 132px; background: var(--surface-sunken); border: 1px solid transparent; border-radius: var(--radius-md); vertical-align: top; transition: background var(--duration-normal) var(--ease-out), border-color var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out); }.timetable-grid .slot.filled { background: linear-gradient(145deg, var(--brand-50), color-mix(in srgb, var(--surface) 78%, var(--brand-50))); border-color: color-mix(in srgb, var(--brand-500) 18%, var(--line)); }.timetable-grid .slot.filled::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; border-radius: var(--radius-md) 0 0 var(--radius-md); background: var(--brand-500); }
+/* A lesson stays inside its own slot. A long subject name used to run past the edge of its cell,
+   which was invisible in the middle of the week and unmistakable beside the pinned day column: the
+   tail of Wednesday's second period appeared to be growing out of the word "พุธ". */
+.timetable-grid .slot { overflow: hidden; position: relative; min-width: 132px; background: var(--surface-sunken); border: 1px solid transparent; border-radius: var(--radius-md); vertical-align: top; transition: background var(--duration-normal) var(--ease-out), border-color var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out); }.timetable-grid .slot.filled { background: linear-gradient(145deg, var(--brand-50), color-mix(in srgb, var(--surface) 78%, var(--brand-50))); border-color: color-mix(in srgb, var(--brand-500) 18%, var(--line)); }.timetable-grid .slot.filled::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; border-radius: var(--radius-md) 0 0 var(--radius-md); background: var(--brand-500); }
 .timetable-grid .slot-button, .timetable-grid .slot > span, .timetable-grid .slot > strong { display: flex; flex-direction: column; gap: 4px; width: 100%; min-height: 96px; padding: var(--space-3); border: 0; background: none; border-radius: var(--radius-md); font: inherit; color: inherit; text-align: left; cursor: pointer; }.timetable-grid .slot-button:hover { background: color-mix(in srgb, var(--brand-100) 70%, transparent); transform: translateY(-2px); box-shadow: var(--shadow-sm); }.timetable-grid .slot-button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .timetable-grid .slot-topline { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 2px; }.timetable-grid .slot-period-label { color: var(--brand-600); font-size: 10px; font-weight: var(--weight-heavy); text-transform: uppercase; }/* The word is for a screen reader, not for the 6px dot: clipping it inside the dot left real text
    painted at the size of a full stop, in whatever colour it inherited. */
@@ -1092,7 +1176,7 @@
 .timetable-moving-copy span { color: var(--ink-600); font-size: var(--text-xs); }
 
 .timetable-grid .slot-status { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px var(--success-soft); position: relative; }
-.timetable-grid .slot-status > * { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }.timetable-grid .slot strong { display: block; overflow: hidden; color: var(--ink-900); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }.timetable-grid .slot span { display: block; color: var(--ink-500); font-size: var(--text-xs); }.timetable-grid .slot-time { color: var(--ink-400); }.timetable-grid .slot-empty-icon { align-items: center; justify-content: center; width: 28px !important; min-height: 28px !important; padding: 0 !important; margin: 0 auto 2px; border: 1px dashed var(--line-strong); border-radius: 50%; color: var(--ink-400); font-size: 1rem !important; }.timetable-grid .slot-empty { align-items: center; min-height: auto !important; padding: 0 !important; color: var(--ink-400); font-size: var(--text-xs) !important; text-align: center; }.timetable-grid .slot small { color: var(--ink-400); font-size: 10px; text-align: center; }.timetable-grid .slot:not(.filled):hover { background: var(--surface-hover); border-color: var(--line-strong); }
+.timetable-grid .slot-status > * { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }.timetable-grid .slot strong { display: block; overflow: hidden; color: var(--ink-900); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }.timetable-grid .slot span { display: block; overflow: hidden; color: var(--ink-500); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }.timetable-grid .slot-time { color: var(--ink-400); }.timetable-grid .slot-empty-icon { align-items: center; justify-content: center; width: 28px !important; min-height: 28px !important; padding: 0 !important; margin: 0 auto 2px; border: 1px dashed var(--line-strong); border-radius: 50%; color: var(--ink-400); font-size: 1rem !important; }.timetable-grid .slot-empty { align-items: center; min-height: auto !important; padding: 0 !important; color: var(--ink-400); font-size: var(--text-xs) !important; text-align: center; }.timetable-grid .slot small { color: var(--ink-400); font-size: 10px; text-align: center; }.timetable-grid .slot:not(.filled):hover { background: var(--surface-hover); border-color: var(--line-strong); }
 
 
 .badge-row { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
