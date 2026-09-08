@@ -2,10 +2,23 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../../src/app/App';
+import { isRouteAllowed } from '../../src/layouts/navigation';
 import { resetFixtureRepository } from '../../src/data/fixtureSchoolRepository';
 import { disablePreviewMode, enablePreviewMode } from '../../src/preview/previewMode';
 
 afterEach(() => { cleanup(); disablePreviewMode(); resetFixtureRepository(); });
+
+describe('the school noticeboard', () => {
+  it('belongs to the administrator and to nobody else', () => {
+    // "ประกาศรวม" is every announcement in the school, for every class and every audience. What a
+    // teacher, a student or a guardian should see is the news for their own rooms, which reaches
+    // them on the dashboard, in the notification centre and on the class screens.
+    expect(isRouteAllowed('admin', '/announcements')).toBe(true);
+    for (const role of ['teacher', 'student', 'parent'] as const) {
+      expect(isRouteAllowed(role, '/announcements')).toBe(false);
+    }
+  });
+});
 
 function renderApp(path = '/') {
   enablePreviewMode();

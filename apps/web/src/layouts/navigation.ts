@@ -24,6 +24,15 @@ export const destination = (to: string, label: string, icon: IconName): NavItem 
  * Nothing became unreachable in the regrouping: every route a role could open before is still in
  * that role's menu, under a heading that says why they would want it.
  */
+/*
+ * "ประกาศรวม" is the school's own noticeboard and belongs to the administrator alone.
+ *
+ * It was on every role's menu, which put the whole school's announcements — every class, every
+ * audience — in front of a teacher, a student and a guardian. What each of them should see is the
+ * news for their own rooms, which reaches them where it is meant to: the dashboard, the
+ * notification centre and the class screens. The menu is what grants a route, so taking the entry
+ * away also refuses the address to everybody but an administrator.
+ */
 export const navigationByRole: Record<Role, NavGroup[]> = {
   admin: [
     { key: 'overview', label: 'ภาพรวม', items: [
@@ -70,7 +79,6 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
   teacher: [
     { key: 'today', label: 'วันนี้', items: [
       destination('/', 'ภาพรวม', 'dashboard'),
-      destination('/announcements', 'ประกาศรวม', 'announcements'),
       destination('/calendar', 'ปฏิทิน', 'calendar'),
       destination('/timetable', 'ตารางสอน', 'timetable')
     ] },
@@ -113,7 +121,6 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
   student: [
     { key: 'today', label: 'วันนี้', items: [
       destination('/', 'ภาพรวม', 'dashboard'),
-      destination('/announcements', 'ประกาศรวม', 'announcements'),
       destination('/notifications', 'การแจ้งเตือน', 'bell'),
       destination('/calendar', 'ปฏิทิน', 'calendar')
     ] },
@@ -154,9 +161,6 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     ] },
     { key: 'timetable', label: 'ตารางเรียน', items: [
       destination('/timetable', 'ตารางสอน', 'timetable')
-    ] },
-    { key: 'news', label: 'ประกาศ', items: [
-      destination('/announcements', 'ประกาศรวม', 'announcements')
     ] },
     // No `/parents` entry here. For a guardian that screen only redirects to `/my-children`, so it
     // was a second door onto a page the menu already names — and the two sat under headings that
