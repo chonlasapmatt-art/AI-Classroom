@@ -287,11 +287,17 @@ export function TimetablePage() {
                       </>
                     ) : (
                       <>
-                        {/* Was the full-width plus sign "＋", which is a different glyph from the
-                            ordinary one and renders at a different size in most Thai fonts. */}
-                        <span className="slot-empty-icon" aria-hidden="true"><Icon name="plus" size={16} /></span>
-                        <span className="slot-empty">ว่าง</span>
-                        {canEdit && <small>เพิ่มคาบเรียน</small>}
+                        {/*
+                          One label, not two.
+                          The cell used to say "ว่าง" and then "เพิ่มคาบเรียน" underneath it in 10px
+                          grey — the same fact twice, the second time below the size at which body
+                          text is legible. Somebody who can put a lesson here is told what pressing
+                          does; somebody who cannot is told what the cell is. Neither needs both.
+                          The glyph is the product's own plus, not the full-width "＋", which is a
+                          different character and renders at a different size in most Thai fonts.
+                        */}
+                        <span className="slot-empty-icon" aria-hidden="true"><Icon name="plus" size={18} /></span>
+                        <span className="slot-empty">{canEdit ? 'เพิ่มคาบเรียน' : 'ว่าง'}</span>
                       </>
                     );
                     const place = `${dayNames[day - 1]} คาบ ${period}`;

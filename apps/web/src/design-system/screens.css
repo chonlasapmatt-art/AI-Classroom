@@ -3309,3 +3309,51 @@ tr.row-warning td { background: var(--warning-soft); }
   inline-size: 100%; block-size: 68vh; border: 1px solid var(--color-border); border-radius: var(--radius-md);
   background: var(--color-surface);
 }
+
+/* ── The empty period, as an invitation ────────────────────────────────────────────────────────
+   An empty cell was a grey dashed ring and two greys of text, the smaller one at 10px. It read as
+   a disabled placeholder rather than the way a lesson gets added, which it is — the only way, since
+   this grid has no separate "add" button anywhere.
+
+   So it is drawn as a control now: the ring carries the brand at a low tint, the label is at body
+   size in ink a person can actually read, and the whole cell answers the press it is offering. It
+   still has to stay quieter than a filled period — the timetable's content is the lessons, not the
+   gaps — so the tint is 6% at rest and only the hover reaches for attention. */
+.timetable-grid .slot:not(.filled) {
+  border: 1px dashed color-mix(in srgb, var(--brand-500) 26%, var(--line));
+  background: color-mix(in srgb, var(--brand-50) 45%, var(--surface-sunken));
+}
+.timetable-grid .slot-empty-icon {
+  align-items: center; justify-content: center;
+  width: 34px !important; min-height: 34px !important; padding: 0 !important;
+  margin: 0 auto 4px; border: 0; border-radius: 50%;
+  color: var(--brand-700);
+  background: color-mix(in srgb, var(--brand-500) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand-500) 22%, transparent);
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+/* 10px grey under a grey ring was the least legible thing on the screen; this is body size in the
+   brand's ink, which reads as a label on a control rather than as a caption on a blank. */
+.timetable-grid .slot-empty {
+  align-items: center; min-height: auto !important; padding: 0 !important;
+  color: var(--brand-700); font-size: var(--text-xs) !important; font-weight: var(--weight-strong);
+  text-align: center;
+}
+
+/* The press, answered: the ring fills, the glyph turns, the cell lifts with the rest of the grid. */
+.timetable-grid .slot:not(.filled) .slot-button:hover .slot-empty-icon,
+.timetable-grid .slot:not(.filled) .slot-button:focus-visible .slot-empty-icon {
+  color: #fff; background: var(--brand-600); box-shadow: none; transform: scale(1.06) rotate(90deg);
+}
+.timetable-grid .slot:not(.filled):hover {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--brand-500) 45%, transparent);
+  background: color-mix(in srgb, var(--brand-100) 55%, var(--surface));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timetable-grid .slot-empty-icon { transition: none; }
+  .timetable-grid .slot:not(.filled) .slot-button:hover .slot-empty-icon,
+  .timetable-grid .slot:not(.filled) .slot-button:focus-visible .slot-empty-icon { transform: none; }
+}
