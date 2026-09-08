@@ -113,6 +113,11 @@ export function CalendarPage() {
   const canCompose = membership.role === 'admin' || membership.role === 'teacher';
   const roster = rosterFor(snapshot, selectedClassId);
 
+  /** "7 ก.ย. 2026", for a label somebody hears rather than reads. */
+  function readableDay(day: string): string {
+    return new Date(`${day}T00:00`).toLocaleDateString('th-TH', { dateStyle: 'long' });
+  }
+
   /** Opens the work form with a deadline of 16:00 on the day that was clicked. */
   function composeOn(day: string) {
     if (!canCompose) return;
@@ -139,9 +144,17 @@ export function CalendarPage() {
         description={membership.role === 'student'
           ? 'งานและวันสอบทั้งหมดของฉัน เรียงตามกำหนด'
           : 'ดูภาระงานและวันสอบของห้องเรียนก่อนมอบหมายงานใหม่'}
+        // Both entrances open the same form; only this one picks the day for you. It used to be
+        // called "สร้างงานใหม่", which says nothing about landing on today — so a teacher planning
+        // next Tuesday pressed the biggest button on the screen and got today's date to correct.
+        // The day cells carry the other entrance, and now the label says which is which.
         action={canCompose && (
-          <Button variant="primary" size="lg" icon={<Icon name="plus" size={16} />} onClick={() => composeOn(today)}>
-            สร้างงานใหม่
+          <Button
+            variant="primary" size="lg" icon={<Icon name="plus" size={16} />}
+            title={`กำหนดส่ง ${readableDay(today)} · เลือกวันอื่นได้จากช่องวันในปฏิทิน`}
+            onClick={() => composeOn(today)}
+          >
+            สร้างงานส่งวันนี้
           </Button>
         )}
       />
@@ -224,10 +237,13 @@ export function CalendarPage() {
                       <button
                         type="button"
                         className="calendar-add"
-                        aria-label={`สร้างงานกำหนดส่งวันที่ ${cell.day}`}
+                        // Read as a date, not as ten digits. "2026-09-07" is what a screen reader
+                        // was given before, and it says it one character at a time.
+                        aria-label={`สร้างงาน กำหนดส่ง ${readableDay(cell.day)}`}
+                        title={`สร้างงาน กำหนดส่ง ${readableDay(cell.day)}`}
                         onClick={() => composeOn(cell.day!)}
                       >
-                        +
+                        <Icon name="plus" size={14} />
                       </button>
                     )}
                   </div>
