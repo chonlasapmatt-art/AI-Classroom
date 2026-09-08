@@ -42,10 +42,21 @@
  */
 /* The phone's shortcut sheet is the same menu, so it carries the same colours. */
 .shortcut-hub-grid a .ui-icon,
-.sidebar nav a .ui-icon {
-  box-sizing: content-box; padding: 6px; border-radius: 10px;
-  color: var(--nav-ink, var(--ink-400)); background: var(--nav-soft, var(--surface-sunken));
-  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring);
+.sidebar nav a .ui-icon,
+.bottom-nav a .ui-icon {
+  box-sizing: content-box; width: 18px; height: 18px; padding: 6px; border-radius: 11px;
+  color: var(--nav-ink, var(--ink-400));
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--nav-soft, var(--surface-sunken)) 72%, #fff 28%),
+    var(--nav-soft, var(--surface-sunken)));
+  border: 1px solid color-mix(in srgb, var(--nav-ink, var(--ink-400)) 18%, transparent);
+  box-shadow:
+    0 3px 8px color-mix(in srgb, var(--nav-ink, var(--ink-400)) 13%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 58%, transparent);
+  stroke-width: 2;
+  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-spring);
 }
 .shortcut-hub-grid a[data-icon='dashboard'], .shortcut-hub-grid a[data-icon='announcements'],
 .shortcut-hub-grid a[data-icon='calendar'], .shortcut-hub-grid a[data-icon='timetable'],
@@ -81,6 +92,33 @@
 .sidebar nav a[data-icon='question-bank'] { --nav-soft: var(--accent-gold-soft); --nav-ink: var(--accent-gold); }
 .sidebar nav a[data-icon='reports'], .sidebar nav a[data-icon='operations'],
 .sidebar nav a[data-icon='settings'] { --nav-soft: var(--accent-mint-soft); --nav-ink: var(--accent-mint); }
+.sidebar nav a[data-icon='announcements'], .shortcut-hub-grid a[data-icon='announcements'] {
+  --nav-soft: color-mix(in srgb, var(--danger-soft) 78%, var(--brand-50));
+  --nav-ink: color-mix(in srgb, var(--danger) 78%, var(--brand-700));
+}
+.sidebar nav a[data-icon='calendar'], .shortcut-hub-grid a[data-icon='calendar'],
+.sidebar nav a[data-icon='timetable'], .shortcut-hub-grid a[data-icon='timetable'] {
+  --nav-soft: color-mix(in srgb, var(--accent-cyan-soft) 78%, var(--brand-50));
+  --nav-ink: color-mix(in srgb, var(--accent-cyan) 82%, var(--brand-700));
+}
+.sidebar nav a[data-icon='classes'], .shortcut-hub-grid a[data-icon='classes'],
+.sidebar nav a[data-icon='subjects'], .shortcut-hub-grid a[data-icon='subjects'] {
+  --nav-soft: color-mix(in srgb, var(--accent-violet-soft) 72%, var(--accent-cyan-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-violet) 76%, var(--accent-cyan));
+}
+.sidebar nav a[data-icon='assignments'], .shortcut-hub-grid a[data-icon='assignments'] {
+  --nav-soft: color-mix(in srgb, var(--accent-green-soft) 72%, var(--brand-50));
+  --nav-ink: color-mix(in srgb, var(--accent-green) 78%, var(--brand-700));
+}
+.sidebar nav a[data-icon='quiz'], .shortcut-hub-grid a[data-icon='quiz'],
+.sidebar nav a[data-icon='star'], .shortcut-hub-grid a[data-icon='star'] {
+  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 74%, var(--accent-green-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-gold) 78%, var(--accent-green));
+}
+.sidebar nav a[data-icon='reports'], .shortcut-hub-grid a[data-icon='reports'] {
+  --nav-soft: color-mix(in srgb, var(--accent-mint-soft) 76%, var(--accent-cyan-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-mint) 80%, var(--accent-cyan));
+}
 .sidebar nav a:hover { background: var(--surface-sunken); color: var(--ink-900); transform: translateX(2px); }
 .sidebar nav a:hover .ui-icon { transform: scale(1.08); }
 .sidebar nav a:active { transform: scale(0.98); }
@@ -89,7 +127,16 @@
 /* The tile keeps its own colour when the row is current: the row is already saying "you are here"
    with a bar, a fill and a weight, and taking the colour away would remove the one mark that says
    which place this is. It gains a ring instead. */
-.sidebar nav a.active .ui-icon { box-shadow: 0 0 0 2px color-mix(in srgb, var(--nav-ink, var(--brand-500)) 28%, transparent); }
+.sidebar nav a.active .ui-icon {
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--nav-ink, var(--brand-500)) 20%, var(--nav-soft, var(--brand-50))),
+    var(--nav-soft, var(--brand-50)));
+  border-color: color-mix(in srgb, var(--nav-ink, var(--brand-500)) 38%, transparent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--nav-ink, var(--brand-500)) 28%, transparent),
+    0 5px 12px color-mix(in srgb, var(--nav-ink, var(--brand-500)) 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 68%, transparent);
+}
 .sidebar-user {
   margin-top: auto; display: grid; grid-template-columns: 40px 1fr 36px; align-items: center; gap: var(--space-3);
   padding: var(--space-3); border-top: 1px solid var(--line);
