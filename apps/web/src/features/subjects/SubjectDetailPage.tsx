@@ -195,8 +195,10 @@ export function SubjectDetailPage() {
         )}
       />
 
-      <Card className="subject-hero subject-tint" style={{ '--subject-color': color.solid } as CSSProperties}>
-        <div className="subject-hero-head">
+      <Card className="subject-hero">
+        {/* The subject's colour is carried on the inner element: `Card` takes a class, not a style,
+            and the tint is a property of this block rather than of the card around it. */}
+        <div className="subject-hero-head subject-tint" style={{ '--subject-color': color.solid } as CSSProperties}>
           <span className="subject-card-icon"><SubjectIcon iconKey={subject.iconKey} size={26} /></span>
           <div>
             <strong>{subject.name}</strong>
