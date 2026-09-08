@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { consentedStudents } from '../../data/selectors';
@@ -19,6 +20,7 @@ export function AchievementsPage() {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const canAward = membership.role === 'admin' || membership.role === 'teacher';
   const ownStudent = snapshot.students.find((student) => student.profileId === membership.profileId);
@@ -59,12 +61,28 @@ export function AchievementsPage() {
     }
   }
 
+  /*
+   * One person's medals, when that is what was asked for.
+   *
+   * The wall shows everybody, which is right for a teacher looking across a class and wrong for
+   * anybody who followed "ดูเหรียญทั้งหมดของคนนี้" from a student's own card. An id in the address
+   * narrows the wall to that student — and only to a student this account may already see, so the
+   * address cannot be used to look at somebody else's.
+   */
+  const focusStudentId = searchParams.get('student') ?? '';
+  const focusStudent = visibleStudents.find((row) => row.id === focusStudentId) ?? null;
+
   const needle = query.trim().toLocaleLowerCase('th');
-  const shownStudents = needle
+  const shownStudents = focusStudent ? [focusStudent] : needle
     ? visibleStudents.filter((student) => student.displayName.toLocaleLowerCase('th').includes(needle)
       || student.studentCode.toLocaleLowerCase('th').includes(needle))
     : visibleStudents;
   const awardedStudents = visibleStudents.filter((student) => (byStudent.get(student.id) ?? []).length > 0).length;
+  const clearFocus = () => setSearchParams((current) => {
+    const next = new URLSearchParams(current);
+    next.delete('student');
+    return next;
+  }, { replace: true });
 
   return (
     <>
@@ -127,11 +145,16 @@ export function AchievementsPage() {
           description="แตะหรือชี้ที่เหรียญเพื่อดูเหตุผลที่ครูบันทึกไว้"
           action={<Badge tone="neutral">{shownStudents.length} คน</Badge>}
         />
-        {visibleStudents.length > 1 && (
+        {focusStudent ? (
+          <Toolbar>
+            <span className="award-focus">กำลังดูเฉพาะ <strong>{focusStudent.displayName}</strong></span>
+            <Button variant="secondary" size="sm" onClick={clearFocus}>ดูทุกคน</Button>
+          </Toolbar>
+        ) : visibleStudents.length > 1 ? (
           <Toolbar>
             <SearchInput value={query} onChange={setQuery} placeholder="ค้นหาชื่อหรือเลขประจำตัว" label="ค้นหานักเรียน" />
           </Toolbar>
-        )}
+        ) : null}
         {shownStudents.length === 0 ? (
           <EmptyState
             icon={<Icon name={visibleStudents.length === 0 ? 'students' : 'search'} size={28} />}

@@ -18,6 +18,7 @@ import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 import { ActivityCard, AlertStack, AnnouncementCard, QuickActions, SyncLine } from './dashboardSignals';
 import { dashboardAlerts, quickActionsFor, recentActivity, recentAnnouncements } from './dashboardData';
+import { AdminEntry } from './AdminEntry';
 import { ShortcutHub } from './ShortcutHub';
 
 const avatarStorageKey = (profileId: string) => 'smart-classroom.avatar.' + profileId;
@@ -428,7 +429,8 @@ export function DashboardPage() {
           </>
         )}
       </Card>
-        <ShortcutHub role={membership.role} />
+      <AdminEntry role={membership.role} />
+      <ShortcutHub role={membership.role} />
     </>
   );
 }

@@ -5,6 +5,7 @@ import { Icon } from '../../ui/Icon';
 import {
   AVATAR_CATALOG_SIZE, avatarCategoryLabels, searchAvatars, type AvatarCategory
 } from './avatarCatalog';
+import { avatarOutfits, defaultOutfit } from './avatarOutfits';
 import { avatarPalettes, hairStyles, skinTones } from './avatarThemes';
 import { ProfileAvatar } from './ProfileAvatar';
 import { ThemedAvatar } from './ThemedAvatar';
@@ -12,7 +13,14 @@ import { ThemedAvatar } from './ThemedAvatar';
 interface Props {
   displayName: string;
   currentAvatarId: string | null;
-  onSave(avatarId: string): Promise<void> | void;
+  /**
+   * The clothes this person is wearing, when they are somebody who has clothes.
+   *
+   * Only a student record carries an outfit, so the wardrobe appears only when an outfit is passed:
+   * a teacher or a guardian picking their avatar sees the picker exactly as it was.
+   */
+  currentOutfit?: string | null;
+  onSave(avatarId: string, outfit: string | null): Promise<void> | void;
   onClose(): void;
 }
 
@@ -37,8 +45,10 @@ const poses: Array<{ value: AvatarAnimation; label: string }> = [
 ];
 
 /** Self-service avatar picker: preview a pose, search, filter, choose, save. */
-export function AvatarPicker({ displayName, currentAvatarId, onSave, onClose }: Props) {
+export function AvatarPicker({ displayName, currentAvatarId, currentOutfit, onSave, onClose }: Props) {
   const [selected, setSelected] = useState<string | null>(currentAvatarId);
+  const wardrobe = currentOutfit !== undefined;
+  const [outfit, setOutfit] = useState<string>(currentOutfit ?? defaultOutfit.id);
   const [pose, setPose] = useState<AvatarAnimation>('wave');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<AvatarCategory | 'all'>('all');
@@ -99,7 +109,7 @@ export function AvatarPicker({ displayName, currentAvatarId, onSave, onClose }: 
     setSaving(true);
     setError(null);
     try {
-      await onSave(selected);
+      await onSave(selected, wardrobe ? outfit : null);
       onClose();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ');
@@ -128,11 +138,39 @@ export function AvatarPicker({ displayName, currentAvatarId, onSave, onClose }: 
             {/* Keyed on the choice so the drawing plays its entrance again each time one is picked:
                 the answer to "did that do anything?" arrives before anybody has to ask. */}
             <div className="avatar-stage-figure" key={`${selected ?? 'none'}-${pose}`}>
-              <ProfileAvatar displayName={displayName} avatarId={selected} size={148} animation={pose} />
+              <ProfileAvatar
+                displayName={displayName}
+                avatarId={selected}
+                size={148}
+                animation={pose}
+                {...(wardrobe ? { avatarConfig: { archetype: 0, palette: 0, skinTone: 0, hair: 0, accessory: 0, badge: 0, outfit } } : {})}
+              />
             </div>
           </div>
           <strong>{displayName}</strong>
           <Badge tone={selected ? 'brand' : 'neutral'}>{chosen?.name ?? 'ยังไม่ได้เลือก'}</Badge>
+          {/* The clothes, beside the poses: both are things you try on the drawing in front of you
+              rather than search for, and both take effect on the preview as they are pressed. */}
+          {wardrobe && (
+            <div className="avatar-pose-picker">
+              <span className="ui-field-label" id="avatar-outfit-label">ชุดเสื้อผ้า</span>
+              <div className="avatar-pose-options" role="group" aria-labelledby="avatar-outfit-label">
+                {avatarOutfits.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`avatar-pose ${outfit === option.id ? 'selected' : ''}`}
+                    aria-pressed={outfit === option.id}
+                    title={option.description}
+                    onClick={() => setOutfit(option.id)}
+                  >
+                    {option.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="avatar-pose-picker">
             <span className="ui-field-label" id="avatar-pose-label">ลองท่าทาง</span>
             <div className="avatar-pose-options" role="group" aria-labelledby="avatar-pose-label">
@@ -217,7 +255,12 @@ export function AvatarPicker({ displayName, currentAvatarId, onSave, onClose }: 
                 title={`${avatar.name} (${avatar.id})`}
               >
                 <span className="avatar-option-figure">
-                  <ThemedAvatar avatarIndex={avatar.index} config={avatar.config} size={64} animation="idle" />
+                  <ThemedAvatar
+                    avatarIndex={avatar.index}
+                    config={wardrobe ? { ...avatar.config, outfit } : avatar.config}
+                    size={64}
+                    animation="idle"
+                  />
                 </span>
                 <span className="avatar-option-name">{avatar.name}</span>
                 <span className="avatar-option-check" aria-hidden="true"><Icon name="check" size={13} /></span>

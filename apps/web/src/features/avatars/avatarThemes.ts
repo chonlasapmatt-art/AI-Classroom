@@ -1,4 +1,5 @@
 import type { AvatarAnimation, AvatarConfig } from '../../domain/types';
+import { outfitById, type AvatarOutfit } from './avatarOutfits';
 
 /**
  * Avatar catalogue. An avatar is a combination of theme, palette, skin tone, hair, accessory and
@@ -98,6 +99,7 @@ export interface AvatarIdentity {
   hair: HairStyle;
   accessory: AvatarAccessory;
   badge: AvatarBadge;
+  outfit: AvatarOutfit;
   config: AvatarConfig;
 }
 
@@ -128,6 +130,7 @@ export function resolveAvatar(avatarIndex: number, config?: AvatarConfig | null)
     hair: pick(hairStyles, resolved.hair),
     accessory: pick(avatarAccessories, resolved.accessory),
     badge: pick(avatarBadges, resolved.badge),
+    outfit: outfitById(resolved.outfit),
     config: resolved
   };
 }

@@ -11,6 +11,8 @@ import { gradeSchemeFrom, resolveGrade } from '../academic/gradeScheme';
 import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
+import { isValidOutfitId } from '../features/avatars/avatarOutfits';
+import { configFromIndex } from '../features/avatars/avatarThemes';
 import { attachmentKindFor } from './attachmentKind';
 import { buildFixtureData, FIXTURE_SCHOOL_ID, type FixtureData } from './fixtures/schoolFixture';
 import { scopeSchoolSnapshot, type VisibilityScope } from './visibility';
@@ -688,6 +690,18 @@ export class FixtureSchoolRepository implements SchoolRepository {
       const record = this.data.parentLinks.find((item) => item.id === owner.id)!;
       this.data.parentLinks = this.upsert(this.data.parentLinks, { ...record, ...patch, updatedAt: timestamp });
     }
+    this.emit();
+  }
+
+  async saveOwnOutfit(actorProfileId: string, outfitId: string): Promise<void> {
+    if (!isValidOutfitId(outfitId)) throw new Error('ไม่พบชุดที่เลือก');
+    const student = this.data.students.find((item) => item.profileId === actorProfileId);
+    if (!student) throw new Error('เปลี่ยนชุดได้เฉพาะอวตารของตัวเองเท่านั้น');
+    this.data.students = this.upsert(this.data.students, {
+      ...student,
+      avatarConfig: { ...(student.avatarConfig ?? configFromIndex(student.avatarIndex)), outfit: outfitId },
+      updatedAt: nowIso()
+    });
     this.emit();
   }
 

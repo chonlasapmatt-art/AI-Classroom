@@ -1,5 +1,6 @@
 import type { AvatarAnimation, AvatarConfig } from '../../domain/types';
 import { resolveAvatar, type AvatarAccessory, type AvatarAnimal, type AvatarProp, type AvatarTheme, type HairStyle } from './avatarThemes';
+import type { AvatarOutfit } from './avatarOutfits';
 import styles from './ThemedAvatar.module.css';
 
 interface Props {
@@ -154,6 +155,99 @@ function AnimalFigure({ animal, shirt, accent, skinTone, theme, accessory }: {
   );
 }
 
+/**
+ * The clothes.
+ *
+ * Every outfit covers the same torso — x 6 to 18, y 17 to 23 — so a change of clothes never changes
+ * where the figure stands, and the arm the animation swings keeps working whatever is worn. The
+ * colour comes from the avatar's own palette unless the outfit names one, because a lab coat that
+ * is not white is not a lab coat.
+ */
+function Outfit({ outfit, shirt, accent, skinTone }: {
+  outfit: AvatarOutfit; shirt: string; accent: string; skinTone: string;
+}) {
+  const cloth = outfit.primary ?? shirt;
+  const trim = outfit.accent ?? accent;
+  const body = <rect x="6" y="17" width="12" height="6" fill={cloth} />;
+
+  switch (outfit.shape) {
+    case 'collar':
+      return (
+        <g>
+          {body}
+          <rect x="9.6" y="17" width="4.8" height="1.2" fill={trim} />
+          <rect x="11.4" y="17" width="1.2" height="3" fill={trim} />
+        </g>
+      );
+    case 'hoodie':
+      return (
+        <g>
+          {body}
+          <rect x="8.2" y="16.2" width="7.6" height="1.6" fill={trim} />
+          <rect x="11.4" y="18" width="1.2" height="2.6" fill={trim} />
+          <rect x="8.4" y="20.6" width="7.2" height="1.6" fill={trim} opacity="0.55" />
+        </g>
+      );
+    case 'blazer':
+      return (
+        <g>
+          {body}
+          <rect x="10.6" y="17" width="2.8" height="6" fill={trim} />
+          <rect x="9" y="17" width="1.4" height="4" fill={cloth} opacity="0.75" />
+          <rect x="13.6" y="17" width="1.4" height="4" fill={cloth} opacity="0.75" />
+          <rect x="11.6" y="19.4" width="0.8" height="0.8" fill={cloth} />
+        </g>
+      );
+    case 'jersey':
+      return (
+        <g>
+          {body}
+          <rect x="6" y="19.2" width="12" height="1.4" fill={trim} />
+          <rect x="9.8" y="17" width="4.4" height="1.2" fill={trim} />
+          <rect x="11.2" y="21" width="1.6" height="1.6" fill={trim} />
+        </g>
+      );
+    case 'labcoat':
+      return (
+        <g>
+          {body}
+          <rect x="11.5" y="17" width="1" height="6" fill={trim} />
+          <rect x="7.2" y="20.4" width="2.4" height="1.8" fill={trim} opacity="0.5" />
+          <rect x="9.8" y="17" width="1.6" height="1.6" fill={shirt} />
+          <rect x="12.6" y="17" width="1.6" height="1.6" fill={shirt} />
+        </g>
+      );
+    case 'apron':
+      return (
+        <g>
+          {body}
+          <rect x="8.6" y="18.4" width="6.8" height="4.6" fill={trim} />
+          <rect x="9.6" y="17" width="1" height="1.6" fill={trim} />
+          <rect x="13.4" y="17" width="1" height="1.6" fill={trim} />
+          <rect x="10.4" y="20" width="3.2" height="1.6" fill={cloth} opacity="0.65" />
+        </g>
+      );
+    case 'dungarees':
+      return (
+        <g>
+          <rect x="6" y="17" width="12" height="6" fill={skinTone} />
+          <rect x="6.6" y="18.6" width="10.8" height="4.4" fill={cloth} />
+          <rect x="9.2" y="17" width="1.2" height="2" fill={cloth} />
+          <rect x="13.6" y="17" width="1.2" height="2" fill={cloth} />
+          <rect x="10.6" y="19.6" width="2.8" height="1.8" fill={trim} opacity="0.7" />
+        </g>
+      );
+    case 'uniform':
+    default:
+      return (
+        <g>
+          {body}
+          <rect x="10.5" y="17" width="3" height="2.4" fill={trim} />
+        </g>
+      );
+  }
+}
+
 function Prop({ prop, primary, accent }: { prop: AvatarProp; primary: string; accent: string }) {
   switch (prop) {
     case 'flask':
@@ -224,10 +318,10 @@ function Prop({ prop, primary, accent }: { prop: AvatarProp; primary: string; ac
  */
 export function ThemedAvatar({ avatarIndex, config, animation = 'idle', size = 96, label }: Props) {
   const identity = resolveAvatar(avatarIndex, config);
-  const { theme, palette, skinTone, hair, accessory, badge } = identity;
+  const { theme, palette, skinTone, hair, accessory, badge, outfit } = identity;
   const shirt = palette.primary;
   const accent = palette.accent;
-  const title = label ?? `${theme.name} · ${hair.name}`;
+  const title = label ?? `${theme.name} · ${hair.name} · ${outfit.name}`;
 
   return (
     <svg
@@ -244,10 +338,9 @@ export function ThemedAvatar({ avatarIndex, config, animation = 'idle', size = 9
         {theme.kind === 'animal' ? <AnimalFigure
           animal={theme.animal ?? 'cat'} shirt={shirt} accent={accent} skinTone={skinTone} theme={theme} accessory={accessory}
         /> : <>
-          <rect x="6" y="17" width="12" height="6" fill={shirt} />
-          <rect x="10.5" y="17" width="3" height="2.4" fill={accent} />
+          <Outfit outfit={outfit} shirt={shirt} accent={accent} skinTone={skinTone} />
           <g className={styles.arm}>
-            <rect x="4.4" y="16.4" width="1.8" height="5" fill={shirt} />
+            <rect x="4.4" y="16.4" width="1.8" height="5" fill={outfit.primary ?? shirt} />
             <rect x="4.2" y="15" width="2.2" height="2" fill={skinTone} />
           </g>
           <rect x="7" y="6" width="10" height="10" fill={skinTone} />

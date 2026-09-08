@@ -99,7 +99,14 @@ export interface Attendance extends SyncRecord {
 }
 export interface Setting extends SyncRecord { scopeType: string; scopeId: string | null; key: string; valueJson: Record<string, unknown>; }
 
-export interface AvatarConfig { archetype: number; palette: number; skinTone: number; hair: number; accessory: number; badge: number; }
+export interface AvatarConfig {
+  archetype: number; palette: number; skinTone: number; hair: number; accessory: number; badge: number;
+  /**
+   * The clothes, by id from the outfit catalogue. Optional on purpose: every avatar saved before
+   * outfits existed has none, and an avatar with none wears the school uniform it always wore.
+   */
+  outfit?: string;
+}
 export type AvatarAnimation = 'idle' | 'blink' | 'wave' | 'study' | 'celebrate' | 'thinking';
 
 export interface SyncQueueItem {

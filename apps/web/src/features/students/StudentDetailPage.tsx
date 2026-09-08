@@ -6,6 +6,7 @@ import { activeClasses, attendanceDailySummary, subjectById } from '../../data/s
 import { calendarItemsFor } from '../../academic/views';
 import { timeRemainingLabel, workStateLabels, workStateTone, type WorkState } from '../../academic/workStatus';
 import { Badge, Card, CardHeader, EmptyState, Field, LinkButton, PageHeader, ProgressBar, Segmented, Stat, Toolbar } from '../../ui/components';
+import { AvatarWidget } from '../avatars/AvatarWidget';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { Icon } from '../../ui/Icon';
 
@@ -151,6 +152,10 @@ export function StudentDetailPage() {
           )}
         </Card>
       </div>
+
+      {/* Who this student is to themselves — the avatar they chose, what it wears, and the medals
+          that are theirs — beside the work numbers above, which are who they are to a teacher. */}
+      <AvatarWidget student={student} />
 
       <div className="ui-stat-grid student-detail-stats">
         <Stat label="งานทั้งหมด" value={summary.total} hint="ทุกห้องที่มองเห็นได้" tone="brand" />

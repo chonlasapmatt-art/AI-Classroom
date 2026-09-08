@@ -57,8 +57,16 @@ export function ProfileAvatar({ displayName, avatarId, avatarPhotoId, avatarInde
     );
   }
 
+  /*
+   * The clothes follow the person, not the drawing they picked.
+   *
+   * An avatar chosen from the catalogue brings its whole look with it, which would throw away the
+   * outfit the student chose the moment they changed avatar. The outfit is the one part of a saved
+   * configuration that outlives that choice, so it is laid over the catalogue's own.
+   */
   const chosen = configForAvatarId(avatarId);
-  const config = chosen ?? avatarConfig ?? null;
+  const base = chosen ?? avatarConfig ?? null;
+  const config = base && avatarConfig?.outfit ? { ...base, outfit: avatarConfig.outfit } : base;
 
   if (!config && avatarIndex === undefined) {
     return (

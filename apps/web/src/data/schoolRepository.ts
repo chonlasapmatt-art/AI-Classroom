@@ -282,6 +282,14 @@ export interface SchoolRepository {
    * refuses to touch anybody else's record — the UI is not the thing enforcing this.
    */
   saveOwnAvatar(actorProfileId: string, role: 'teacher' | 'student' | 'parent', avatarId: string): Promise<void>;
+  /**
+   * The clothes on one's own avatar.
+   *
+   * Only a student has clothes to change — an outfit is stored in `students.avatar_config`, which is
+   * the only avatar record that has one — and only their own row is ever written. It merges into the
+   * configuration a teacher may have set, so nothing else about the drawing is lost.
+   */
+  saveOwnOutfit(actorProfileId: string, outfitId: string): Promise<void>;
   /** Uploads a photo of your own and uses it as your profile picture. */
   saveOwnAvatarPhoto(actorProfileId: string, role: 'teacher' | 'student' | 'parent', file: File): Promise<void>;
   /** Goes back to the drawn avatar and deletes the stored photo. */

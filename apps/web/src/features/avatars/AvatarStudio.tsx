@@ -4,6 +4,7 @@ import {
   AVATAR_VARIANT_COUNT, avatarAccessories, avatarBadges, avatarPalettes, avatarThemes, configFromIndex,
   hairStyles, resolveAvatar, skinTones
 } from './avatarThemes';
+import { avatarOutfits } from './avatarOutfits';
 import { ThemedAvatar } from './ThemedAvatar';
 import { Button, Modal } from '../../ui/components';
 
@@ -15,7 +16,8 @@ interface Props {
   onClose(): void;
 }
 
-type Part = keyof AvatarConfig;
+/** Every part but the clothes is an index into a list; the clothes are named, so they get their own setter. */
+type Part = Exclude<keyof AvatarConfig, 'outfit'>;
 
 function randomConfig(): AvatarConfig {
   const roll = (size: number) => Math.floor(Math.random() * size);
@@ -30,6 +32,7 @@ export function AvatarStudio({ avatarIndex, config, studentName, onSave, onClose
   const [draft, setDraft] = useState<AvatarConfig>(config ?? configFromIndex(avatarIndex));
   const identity = resolveAvatar(avatarIndex, draft);
   const set = (part: Part, value: number) => setDraft((current) => ({ ...current, [part]: value }));
+  const wear = (outfit: string) => setDraft((current) => ({ ...current, outfit }));
 
   return (
     <Modal
@@ -58,6 +61,22 @@ export function AvatarStudio({ avatarIndex, config, studentName, onSave, onClose
           </aside>
 
           <div className="studio-parts">
+            <fieldset>
+              <legend>ชุดเสื้อผ้า</legend>
+              <div className="chip-grid">
+                {avatarOutfits.map((outfit) => (
+                  <button
+                    key={outfit.id}
+                    className={`part-chip ${(draft.outfit ?? 'uniform') === outfit.id ? 'selected' : ''}`}
+                    onClick={() => wear(outfit.id)}
+                    title={outfit.description}
+                  >
+                    <ThemedAvatar avatarIndex={0} config={{ ...draft, outfit: outfit.id }} size={44} animation="idle" />
+                    <span>{outfit.name}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
             <fieldset>
               <legend>บุคลิก</legend>
               <div className="chip-grid">

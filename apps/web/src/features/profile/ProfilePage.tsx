@@ -4,6 +4,7 @@ import { recall, remember } from '../../app/deviceMemory';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { Badge, Button, Card, CardHeader, Field, FieldGroup, PageHeader } from '../../ui/components';
 import { AvatarPicker } from '../avatars/AvatarPicker';
+import { AvatarWidget } from '../avatars/AvatarWidget';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { useToast } from '../../ui/toastContext';
 
@@ -38,12 +39,17 @@ export function ProfilePage() {
   const canPickAvatar = membership.role === 'admin' || ['teacher', 'student', 'parent'].includes(membership.role);
   const preference = snapshot.notificationPreferences.find((item) => item.profileId === membership.profileId);
 
-  async function saveAvatar(nextAvatarId: string) {
+  async function saveAvatar(nextAvatarId: string, nextOutfit: string | null) {
     if (membership.role === 'admin') {
       remember(avatarStorageKey(membership.profileId), nextAvatarId);
       setLocalAvatarId(nextAvatarId);
     } else {
       await repository.saveOwnAvatar(membership.profileId, membership.role, nextAvatarId);
+    }
+    // The clothes are a student's own record and are saved through their own route, so a school
+    // that lets a student choose an avatar has not thereby let them write anything else.
+    if (student && nextOutfit && nextOutfit !== (student.avatarConfig?.outfit ?? null)) {
+      await repository.saveOwnOutfit(membership.profileId, nextOutfit);
     }
     remember(avatarStorageKey(membership.profileId), nextAvatarId);
     setLocalAvatarId(nextAvatarId);
@@ -98,6 +104,11 @@ export function ProfilePage() {
         title="โปรไฟล์"
         description="ปรับ avatar และการแจ้งเตือนของบัญชีตัวเอง — ไม่สามารถแก้ไขของผู้อื่นได้"
       />
+
+      {/* The person's own card: what they are wearing, what they have been given, how far their
+          points have taken them. It only appears for an account that has a student record, because
+          medals and points belong to a student rather than to a role. */}
+      {student && <AvatarWidget student={student} />}
 
       <div className="profile-grid">
         <Card className="profile-card">
@@ -185,6 +196,7 @@ export function ProfilePage() {
         <AvatarPicker
           displayName={membership.displayName}
           currentAvatarId={avatarId}
+          {...(student ? { currentOutfit: student.avatarConfig?.outfit ?? null } : {})}
           onSave={saveAvatar}
           onClose={() => setPickerOpen(false)}
         />

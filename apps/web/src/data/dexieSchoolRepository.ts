@@ -16,6 +16,8 @@ import { gradeSchemeFrom, resolveGrade } from '../academic/gradeScheme';
 import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
+import { isValidOutfitId } from '../features/avatars/avatarOutfits';
+import { configFromIndex } from '../features/avatars/avatarThemes';
 import { scopeSchoolSnapshot, type VisibilityScope } from './visibility';
 import {
   DEVELOPMENT_SEED_SETTING_KEY, emptySnapshot, MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, attendanceRecordId, newId, nowIso,
@@ -884,6 +886,20 @@ export class DexieSchoolRepository implements SchoolRepository {
     const parentLink = await db.parentLinks.where({ schoolId: this.schoolId, profileId: actorProfileId }).first()
       ?? await db.parentLinks.where({ schoolId: this.schoolId, lineUserId: actorProfileId }).first();
     if (parentLink) await db.parentLinks.put({ ...parentLink, avatarId, updatedAt: timestamp });
+  }
+
+  async saveOwnOutfit(actorProfileId: string, outfitId: string): Promise<void> {
+    if (!isValidOutfitId(outfitId)) throw new Error('ไม่พบชุดที่เลือก');
+    const timestamp = nowIso();
+    await this.rpc('set_own_outfit', { p_school_id: this.schoolId, p_outfit: outfitId });
+    const student = await db.students.where({ schoolId: this.schoolId, profileId: actorProfileId }).first();
+    if (student) {
+      await db.students.put({
+        ...student,
+        avatarConfig: { ...(student.avatarConfig ?? configFromIndex(student.avatarIndex)), outfit: outfitId },
+        updatedAt: timestamp
+      });
+    }
   }
 
   async saveSubmission(input: SubmissionInput): Promise<void> {
