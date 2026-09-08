@@ -41,18 +41,27 @@
  * contrast in both light and dark and follow whichever theme the school picked.
  */
 /* The phone's shortcut sheet is the same menu, so it carries the same colours. */
+/*
+ * The tile a menu icon sits on.
+ *
+ * The first version washed the colour out at the top to make the tile look lit, which left several
+ * of them almost white — the point of colouring a menu is lost the moment two families read as the
+ * same pale square. The light still falls from the top, but the bottom of the tile now carries a
+ * little of the icon's own colour, so each family has presence at a glance. The icon stays the
+ * accent's full strength, which is the half that has to stay readable.
+ */
 .shortcut-hub-grid a .ui-icon,
 .sidebar nav a .ui-icon,
 .bottom-nav a .ui-icon {
   box-sizing: content-box; width: 18px; height: 18px; padding: 6px; border-radius: 11px;
   color: var(--nav-ink, var(--ink-400));
-  background: linear-gradient(145deg,
-    color-mix(in srgb, var(--nav-soft, var(--surface-sunken)) 72%, #fff 28%),
-    var(--nav-soft, var(--surface-sunken)));
-  border: 1px solid color-mix(in srgb, var(--nav-ink, var(--ink-400)) 18%, transparent);
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--nav-soft, var(--surface-sunken)) 82%, #fff 18%),
+    color-mix(in srgb, var(--nav-soft, var(--surface-sunken)) 86%, var(--nav-ink, var(--ink-400)) 14%));
+  border: 1px solid color-mix(in srgb, var(--nav-ink, var(--ink-400)) 26%, transparent);
   box-shadow:
-    0 3px 8px color-mix(in srgb, var(--nav-ink, var(--ink-400)) 13%, transparent),
-    inset 0 1px 0 color-mix(in srgb, #fff 58%, transparent);
+    0 3px 8px color-mix(in srgb, var(--nav-ink, var(--ink-400)) 16%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--surface) 55%, #fff);
   stroke-width: 2;
   transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out),
@@ -92,9 +101,16 @@
 .sidebar nav a[data-icon='question-bank'] { --nav-soft: var(--accent-gold-soft); --nav-ink: var(--accent-gold); }
 .sidebar nav a[data-icon='reports'], .sidebar nav a[data-icon='operations'],
 .sidebar nav a[data-icon='settings'] { --nav-soft: var(--accent-mint-soft); --nav-ink: var(--accent-mint); }
+/*
+ * A notice is not an error.
+ *
+ * The noticeboard was drawn in the same red this product uses for a failed save and a destructive
+ * confirmation, so the one permanent item on the menu looked like something had gone wrong. It is
+ * warm now — the amber of news rather than the red of alarm — and red goes back to meaning red.
+ */
 .sidebar nav a[data-icon='announcements'], .shortcut-hub-grid a[data-icon='announcements'] {
-  --nav-soft: color-mix(in srgb, var(--danger-soft) 78%, var(--brand-50));
-  --nav-ink: color-mix(in srgb, var(--danger) 78%, var(--brand-700));
+  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 82%, var(--brand-50));
+  --nav-ink: color-mix(in srgb, var(--accent-gold) 72%, var(--brand-700));
 }
 .sidebar nav a[data-icon='calendar'], .shortcut-hub-grid a[data-icon='calendar'],
 .sidebar nav a[data-icon='timetable'], .shortcut-hub-grid a[data-icon='timetable'] {
@@ -127,46 +143,76 @@
  * the same soft, theme-aware tokens; the difference is now per destination, so the eye can find a
  * familiar action without reading every label again.
  */
+/*
+ * Two rules hold this together.
+ *
+ * Red is not a section colour. It means a failed save and a delete you cannot take back, and a menu
+ * that spends it on "กิจกรรมหน้าชั้น" or "แก้ไขคะแนน" leaves nothing to say those things with. Both
+ * are warm now, and neither is the red the rest of the product answers with.
+ *
+ * And a destination shifts within its section rather than jumping out of it. Making every item in
+ * one section the same gold did blur them into a strip — that was the right complaint — but sending
+ * one to cyan and the next to violet costs the thing the colour was for: violet is rooms and
+ * subjects everywhere else in this menu, so a violet tile under "งาน คะแนน" says the wrong word.
+ * Each of these is its own anchor mixed a fifth of the way towards a neighbour: near enough to read
+ * as one family, far enough apart to pick one out without reading the label.
+ */
 :is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='star'] {
-  --nav-soft: var(--danger-soft); --nav-ink: var(--danger);
+  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 78%, var(--brand-50));
+  --nav-ink: color-mix(in srgb, var(--accent-gold) 62%, var(--brand-700));
 }
 :is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='quiz'] {
-  --nav-soft: var(--accent-cyan-soft); --nav-ink: var(--accent-cyan);
+  --nav-soft: color-mix(in srgb, var(--accent-green-soft) 76%, var(--accent-gold-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-green) 76%, var(--accent-gold));
 }
 :is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='question-bank'] {
-  --nav-soft: var(--accent-violet-soft); --nav-ink: var(--accent-violet);
+  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 80%, var(--accent-violet-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-gold) 80%, var(--accent-violet));
 }
 :is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='exams'] {
-  --nav-soft: var(--accent-green-soft); --nav-ink: var(--accent-green);
-}
-:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='assignments'] {
-  --nav-soft: var(--accent-mint-soft); --nav-ink: var(--accent-mint);
-}
-:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='scores'] {
   --nav-soft: var(--accent-gold-soft); --nav-ink: var(--accent-gold);
 }
-:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='gradebook'] {
-  --nav-soft: var(--accent-cyan-soft); --nav-ink: var(--accent-cyan);
-}
-:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='grade-edit'] {
-  --nav-soft: color-mix(in srgb, var(--danger-soft) 72%, var(--accent-violet-soft));
-  --nav-ink: color-mix(in srgb, var(--danger) 72%, var(--accent-violet));
-}
-:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='leaderboard'] {
-  --nav-soft: var(--brand-50); --nav-ink: var(--brand-600);
-}
-:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='achievements'] {
-  --nav-soft: color-mix(in srgb, var(--danger-soft) 58%, var(--accent-gold-soft));
-  --nav-ink: color-mix(in srgb, var(--danger) 68%, var(--accent-gold));
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='assignments'] {
+  --nav-soft: var(--accent-green-soft); --nav-ink: var(--accent-green);
 }
 :is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='attendance'] {
-  --nav-soft: var(--accent-green-soft); --nav-ink: var(--accent-green);
+  --nav-soft: color-mix(in srgb, var(--accent-green-soft) 78%, var(--accent-cyan-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-green) 78%, var(--accent-cyan));
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='scores'] {
+  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 86%, var(--accent-cyan-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-gold) 86%, var(--accent-cyan));
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='gradebook'] {
+  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 70%, var(--accent-mint-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-gold) 70%, var(--accent-mint));
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='grade-edit'] {
+  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 66%, var(--accent-violet-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-gold) 66%, var(--accent-violet));
+}
+/* The last three of the report section. A medal in the product's error red was the loudest thing on
+   the menu, and the leaderboard in plain brand made it a twin of "ภาพรวม" four sections above. Both
+   stay in their section's mint and shift from it instead. */
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='leaderboard'] {
+  --nav-soft: color-mix(in srgb, var(--accent-mint-soft) 72%, var(--accent-violet-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-mint) 72%, var(--accent-violet));
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='achievements'] {
+  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 72%, var(--accent-mint-soft));
+  --nav-ink: color-mix(in srgb, var(--accent-gold) 72%, var(--accent-mint));
 }
 :is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='reports'] {
   --nav-soft: var(--accent-mint-soft); --nav-ink: var(--accent-mint);
 }
-.sidebar nav a:hover { background: var(--surface-sunken); color: var(--ink-900); transform: translateX(2px); }
-.sidebar nav a:hover .ui-icon { transform: scale(1.08); }
+.sidebar nav a:hover { background: color-mix(in srgb, var(--nav-soft, var(--surface-sunken)) 45%, var(--surface-sunken)); color: var(--ink-900); transform: translateX(2px); }
+.sidebar nav a:hover .ui-icon {
+  transform: scale(1.08);
+  border-color: color-mix(in srgb, var(--nav-ink, var(--ink-400)) 42%, transparent);
+  box-shadow:
+    0 5px 12px color-mix(in srgb, var(--nav-ink, var(--ink-400)) 24%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--surface) 55%, #fff);
+}
 .sidebar nav a:active { transform: scale(0.98); }
 .sidebar nav a:active .ui-icon { transform: scale(0.92); }
 .sidebar nav a.active { background: var(--brand-50); color: var(--brand-700); font-weight: var(--weight-strong); box-shadow: inset 3px 0 0 var(--brand-500); }
