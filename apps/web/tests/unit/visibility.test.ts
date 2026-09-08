@@ -29,6 +29,24 @@ describe('role room visibility', () => {
     expect(view.students.map((item) => item.id)).toEqual(['student-1', 'student-3']);
     expect(view.assignments.map((item) => item.id)).toEqual(['assignment-1']);
     expect(view.teachers.map((item) => item.id)).toEqual(['teacher-1']);
+    expect(view.terms.map((item) => item.id)).toEqual(['term-1']);
+  });
+
+  it('keeps a teacher with no room out of every room, and still hands them their own record', () => {
+    const view = scopeSchoolSnapshot({
+      ...sample(),
+      classTeachers: []
+    }, { role: 'teacher', profileId: 'profile-teacher-1' });
+    expect(view.classes).toHaveLength(0);
+    expect(view.terms).toHaveLength(0);
+    expect(view.teachers.map((item) => item.id)).toEqual(['teacher-1']);
+  });
+
+  it('keeps a student and a parent out of terms that are not theirs', () => {
+    const student = scopeSchoolSnapshot(sample(), { role: 'student', profileId: 'profile-student-1' });
+    expect(student.terms.map((item) => item.id)).toEqual(['term-1']);
+    const parent = scopeSchoolSnapshot(sample(), { role: 'parent', profileId: 'profile-parent-2' });
+    expect(parent.terms.map((item) => item.id)).toEqual(['term-2']);
   });
 
   it('shows a student their room roster while keeping the other room private', () => {

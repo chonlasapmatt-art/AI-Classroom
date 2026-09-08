@@ -292,7 +292,11 @@ export class DexieSchoolRepository implements SchoolRepository {
   }
 
   async deleteClass(classId: string): Promise<void> {
-    const enrolled = await db.enrollments.where({ classId, status: 'active' }).count();
+    // Counts what the screen counts. A removed student keeps an enrolment row with deletedAt set,
+    // and counting those refused the deletion of a room the roster already showed as empty — while
+    // the server, which ignores them, would have allowed it.
+    const enrolled = await db.enrollments.where({ classId, status: 'active' })
+      .filter((row) => !row.deletedAt && row.schoolId === this.schoolId).count();
     if (enrolled > 0) throw new Error(`ยังมีนักเรียน ${enrolled} คนอยู่ในห้องนี้ ย้ายห้องก่อนจึงจะลบได้`);
     await this.rpc('delete_class', { p_school_id: this.schoolId, p_class_id: classId });
     const existing = await db.classes.get(classId);

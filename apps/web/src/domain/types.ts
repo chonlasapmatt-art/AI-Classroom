@@ -151,6 +151,8 @@ export interface ClassTeacher extends SyncRecord {
   role: 'primary' | 'assistant';
   /** Optional subject responsibility; null means the teacher advises the class generally. */
   subjectId?: string | null;
+  /** Set when the assignment ended. The server stops honouring the link past this moment. */
+  activeUntil?: string | null;
 }
 
 export type ParentLinkStatus = 'invited' | 'linked' | 'revoked';

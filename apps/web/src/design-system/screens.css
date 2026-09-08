@@ -571,6 +571,19 @@
 .class-card-title strong { font-size: var(--text-lg); color: var(--ink-900); }
 .class-card-title span { color: var(--ink-500); font-size: var(--text-xs); }
 .class-card-teacher { margin: 0; display: flex; align-items: center; gap: 6px; color: var(--ink-600); font-size: var(--text-sm); }
+/* Who looks after the room, one person per line with the part they play. A comma-separated run of
+   names told a teacher nothing about which of them is the homeroom teacher. */
+.class-card-staff { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.class-card-staff li { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--ink-700); font-size: var(--text-sm); }
+.class-staff-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.class-roster-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 46vh; overflow-y: auto; }
+.class-roster-list li { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); padding: var(--space-2); border-radius: var(--radius-md); }
+.class-roster-list li:nth-child(odd) { background: var(--surface-muted); }
+.class-roster-index { color: var(--ink-500); font-size: var(--text-xs); text-align: right; font-variant-numeric: tabular-nums; }
+.class-roster-name { color: var(--ink-900); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.class-roster-code { color: var(--ink-500); font-size: var(--text-xs); white-space: nowrap; }
+
 .class-card-actions { margin-top: auto; padding-top: var(--space-2); display: flex; flex-wrap: wrap; gap: var(--space-2); border-top: 1px solid var(--line); }
 
 /* ---------- Gradebook ---------- */

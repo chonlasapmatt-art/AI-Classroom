@@ -1,9 +1,9 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
-import { rosterFor } from '../../data/selectors';
+import { classTeacherLinks, rosterFor, subjectById } from '../../data/selectors';
 import {
-  Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, Field, FieldGroup, Modal,
+  Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, Field, FieldGroup, LinkButton, Modal,
   PageHeader, ProgressBar, SearchInput, Segmented, Stat, Toolbar
 } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
@@ -21,6 +21,27 @@ interface StudentSearchResult {
 }
 
 type StatusFilter = 'all' | 'active' | 'archived';
+
+/**
+ * The class functions on the server answer a refusal with a code, not a sentence, and the code was
+ * reaching the toast unchanged. Longest, most specific match first: a refusal to delete a room that
+ * still holds children is a different sentence from a refusal to write anything at all.
+ */
+const CLASS_ERROR_MESSAGES: readonly (readonly [string, string])[] = [
+  ['class has active enrollments', 'ยังมีนักเรียนอยู่ในห้องนี้ ต้องย้ายนักเรียนออกให้หมดก่อนจึงจะลบห้องได้'],
+  ['capacity below enrollment', 'ความจุที่ตั้งไว้น้อยกว่าจำนวนนักเรียนที่อยู่ในห้องแล้ว'],
+  ['AUTH_REQUIRED', 'เซสชันหมดอายุแล้ว กรุณาเข้าสู่ระบบอีกครั้งแล้วลองใหม่'],
+  ['FORBIDDEN', 'บัญชีนี้ยังไม่มีสิทธิ์จัดการห้องเรียน ครูต้องได้รับการยืนยันเป็นครูของโรงเรียนจากผู้ดูแลก่อน'],
+  ['NOT_FOUND', 'ไม่พบห้องเรียนนี้แล้ว อาจถูกลบไปจากอีกเครื่องหนึ่ง'],
+  ['VALIDATION_ERROR', 'ข้อมูลห้องเรียนไม่ถูกต้อง กรุณาตรวจชื่อห้อง ระดับชั้น และความจุ'],
+  ['Could not find the function', 'ฐานข้อมูลของโรงเรียนยังไม่มีคำสั่งจัดการห้องเรียน ต้องอัปเดตฐานข้อมูลก่อน']
+];
+
+function classErrorMessage(reason: unknown, fallback: string): string {
+  const raw = reason instanceof Error ? reason.message : '';
+  const matched = CLASS_ERROR_MESSAGES.find(([code]) => raw.includes(code));
+  return matched ? matched[1] : (raw || fallback);
+}
 
 /** Full, nearly full, or room to spare — the reason an administrator opens this screen. */
 function capacityTone(enrolled: number, capacity: number): 'danger' | 'warning' | 'success' {
@@ -46,10 +67,13 @@ export function ClassesPage() {
   const [searching, setSearching] = useState(false);
   const [classQuery, setClassQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [rosterView, setRosterView] = useState<Classroom | null>(null);
 
-  const isOperator = membership.role === 'admin' || membership.role === 'teacher';
+  // Rooms are school structure: the administrator opens them, names them and sets their size. A
+  // teacher sees the rooms they were put in charge of, reads the roster, and goes on to register.
+  const isAdmin = membership.role === 'admin';
   const term = snapshot.terms.find((item) => item.status === 'active') ?? snapshot.terms[0];
-  const canEdit = isOperator && repository.canManageStructure && Boolean(term);
+  const canEdit = isAdmin && repository.canManageStructure && Boolean(term);
   const classes = [...snapshot.classes].sort((a, b) => a.name.localeCompare(b.name, 'th'));
   const activeClassrooms = classes.filter((item) => item.status === 'active');
 
@@ -60,6 +84,11 @@ export function ClassesPage() {
     return classroom.name.toLocaleLowerCase('th').includes(needle)
       || classroom.gradeLevel.toLocaleLowerCase('th').includes(needle);
   });
+
+  const rosterOfView = useMemo(
+    () => (rosterView ? rosterFor(snapshot, rosterView.id) : []),
+    [rosterView, snapshot]
+  );
 
   const totals = useMemo(() => {
     const enrolled = activeClassrooms.reduce((sum, classroom) => sum + rosterFor(snapshot, classroom.id).length, 0);
@@ -125,7 +154,7 @@ export function ClassesPage() {
       toast(editing ? 'แก้ไขห้องเรียนแล้ว' : 'สร้างห้องเรียนแล้ว');
       closeForm();
     } catch (reason) {
-      toast(reason instanceof Error ? reason.message : 'บันทึกห้องเรียนไม่สำเร็จ', { tone: 'error' });
+      toast(classErrorMessage(reason, 'บันทึกห้องเรียนไม่สำเร็จ'), { tone: 'error' });
     }
   }
 
@@ -134,9 +163,19 @@ export function ClassesPage() {
       await repository.deleteClass(classroom.id);
       toast(`ลบห้อง ${classroom.name} แล้ว`);
     } catch (reason) {
-      toast(reason instanceof Error ? reason.message : 'ลบห้องเรียนไม่สำเร็จ', { tone: 'error' });
+      toast(classErrorMessage(reason, 'ลบห้องเรียนไม่สำเร็จ'), { tone: 'error' });
     } finally {
       setConfirmDelete(null);
+    }
+  }
+
+  async function setArchived(classroom: Classroom, archived: boolean) {
+    try {
+      if (archived) await repository.archiveClass(classroom.id);
+      else await repository.restoreClass(classroom.id);
+      toast(archived ? `เก็บห้อง ${classroom.name} เข้าคลังแล้ว` : `นำห้อง ${classroom.name} กลับมาเปิดสอนแล้ว`);
+    } catch (reason) {
+      toast(classErrorMessage(reason, archived ? 'เก็บห้องเรียนเข้าคลังไม่สำเร็จ' : 'นำห้องเรียนกลับมาไม่สำเร็จ'), { tone: 'error' });
     }
   }
 
@@ -229,16 +268,28 @@ export function ClassesPage() {
       <PageHeader
         eyebrow="โครงสร้างโรงเรียน"
         title="ห้องเรียน"
-        description={`ปีการศึกษา ${term?.academicYear ?? '—'} ภาคเรียนที่ ${term?.term ?? '—'}`}
+        description={isAdmin
+          ? `ปีการศึกษา ${term?.academicYear ?? '—'} ภาคเรียนที่ ${term?.term ?? '—'}`
+          : `ห้องที่คุณดูแล ${classes.length} ห้อง · กดดูรายชื่อนักเรียน แล้วไปเช็กชื่อห้องนั้นต่อได้จากที่นี่`}
         action={canEdit ? <Button variant="primary" icon={<Icon name="plus" size={16} />} onClick={openCreate}>เพิ่มห้องเรียน</Button> : undefined}
       />
 
-      {!repository.canManageStructure && isOperator && (
+      {!repository.canManageStructure && isAdmin && (
         <Card>
           <EmptyState
             icon={<Icon name="sync" size={28} />}
             title="ยังแก้ไขห้องเรียนไม่ได้ในโหมดนี้"
             description="ห้องเรียนเป็นข้อมูลฝั่งเซิร์ฟเวอร์ ต้องเชื่อมต่อ Supabase ก่อนจึงจะสร้าง แก้ไข หรือลบได้ · ข้อมูลที่เห็นอยู่ยังอ่านได้ตามปกติ"
+          />
+        </Card>
+      )}
+
+      {repository.canManageStructure && isAdmin && !term && (
+        <Card>
+          <EmptyState
+            icon={<Icon name="calendar" size={28} />}
+            title="ยังไม่มีภาคเรียนสำหรับสร้างห้องเรียน"
+            description="ห้องเรียนทุกห้องอยู่ในภาคเรียนหนึ่งเสมอ · ให้ผู้ดูแลโรงเรียนเปิดภาคเรียนที่หน้า ปีการศึกษา ก่อน แล้วหน้านี้จะสร้างห้องได้ทันที"
           />
         </Card>
       )}
@@ -285,9 +336,11 @@ export function ClassesPage() {
         {visibleClasses.length === 0 ? (
           <EmptyState
             icon={<Icon name={classes.length === 0 ? 'classes' : 'search'} size={28} />}
-            title={classes.length === 0 ? 'ยังไม่มีห้องเรียน' : 'ไม่พบห้องที่ค้นหา'}
+            title={classes.length === 0 ? (isAdmin ? 'ยังไม่มีห้องเรียน' : 'ยังไม่มีห้องที่คุณดูแล') : 'ไม่พบห้องที่ค้นหา'}
             description={classes.length === 0
-              ? 'เริ่มจากสร้างห้องแรก แล้วค่อยเพิ่มนักเรียนเข้าห้อง'
+              ? (isAdmin
+                ? 'เริ่มจากสร้างห้องแรก แล้วค่อยเพิ่มนักเรียนเข้าห้อง'
+                : 'ผู้ดูแลโรงเรียนเป็นผู้กำหนดว่าครูคนใดดูแลห้องใด · เมื่อถูกเพิ่มเข้าห้องแล้ว ห้องนั้นจะขึ้นที่นี่')
               : 'ลองพิมพ์ชื่อห้องแบบสั้นลง หรือเปลี่ยนตัวกรองสถานะ'}
             action={classes.length === 0
               ? (canEdit ? <Button variant="primary" icon={<Icon name="plus" size={16} />} onClick={openCreate}>เพิ่มห้องเรียน</Button> : undefined)
@@ -297,11 +350,21 @@ export function ClassesPage() {
           <ul className="class-grid">
             {visibleClasses.map((classroom) => {
               const roster = rosterFor(snapshot, classroom.id);
-              const teacherNames = snapshot.classTeachers
-                .filter((item) => item.classId === classroom.id)
-                .map((link) => snapshot.teachers.find((teacher) => teacher.id === link.teacherId)?.displayName)
-                .filter(Boolean)
-                .join(', ');
+              // One person can hold a room twice: as its homeroom teacher and as the owner of a
+              // subject taught in it. Two rows for the same name reads as two people, so the rows
+              // are folded into one per teacher with everything they do in this room on it.
+              const staff = classTeacherLinks(snapshot, classroom.id).reduce<{
+                id: string; name: string; homeroom: boolean; subjects: string[];
+              }[]>((rows, link) => {
+                const name = snapshot.teachers.find((teacher) => teacher.id === link.teacherId)?.displayName ?? '';
+                if (!name) return rows;
+                const subject = link.subjectId ? subjectById(snapshot, link.subjectId)?.name ?? null : null;
+                const existing = rows.find((row) => row.id === link.teacherId);
+                const target = existing ?? { id: link.teacherId, name, homeroom: false, subjects: [] };
+                if (link.role === 'primary') target.homeroom = true;
+                if (subject && !target.subjects.includes(subject)) target.subjects.push(subject);
+                return existing ? rows : [...rows, target];
+              }, []);
               return (
                 <li key={classroom.id} className="class-card">
                   <div className="class-card-top">
@@ -313,27 +376,50 @@ export function ClassesPage() {
                       {classroom.status === 'active' ? 'เปิดสอน' : 'เก็บถาวร'}
                     </Badge>
                   </div>
-                  <p className="class-card-teacher">
-                    <Icon name="teachers" size={14} />
-                    {teacherNames || 'ยังไม่กำหนดครูประจำห้อง'}
-                  </p>
+                  {staff.length === 0 ? (
+                    <p className="class-card-teacher">
+                      <Icon name="teachers" size={14} />
+                      ยังไม่กำหนดครูประจำห้อง
+                    </p>
+                  ) : (
+                    <ul className="class-card-staff">
+                      {staff.map((entry) => (
+                        <li key={entry.id}>
+                          <Icon name="teachers" size={14} />
+                          <span className="class-staff-name">{entry.name}</span>
+                          <Badge tone={entry.homeroom ? 'brand' : 'neutral'}>
+                            {[entry.homeroom ? 'ครูประจำชั้น' : 'ครูผู้สอน', ...entry.subjects].join(' · ')}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <ProgressBar
                     value={roster.length}
                     max={classroom.capacity}
                     tone={capacityTone(roster.length, classroom.capacity)}
                     label={`${roster.length} / ${classroom.capacity} คน`}
                   />
-                  {canEdit && (
-                    <div className="class-card-actions">
-                      <Button variant="secondary" icon={<Icon name="edit" size={16} />} onClick={() => openEdit(classroom)}>แก้ไข</Button>
-                      {classroom.status === 'active' ? (
-                        <Button variant="ghost" onClick={() => void repository.archiveClass(classroom.id)}>เก็บถาวร</Button>
-                      ) : (
-                        <Button variant="ghost" onClick={() => void repository.restoreClass(classroom.id)}>นำกลับมาใช้</Button>
-                      )}
-                      <Button variant="danger" icon={<Icon name="trash" size={16} />} onClick={() => setConfirmDelete(classroom)}>ลบ</Button>
-                    </div>
-                  )}
+                  <div className="class-card-actions">
+                    <Button
+                      variant="secondary"
+                      icon={<Icon name="students" size={16} />}
+                      onClick={() => setRosterView(classroom)}
+                    >
+                      ดูรายชื่อนักเรียน
+                    </Button>
+                    {canEdit && (
+                      <>
+                        <Button variant="secondary" icon={<Icon name="edit" size={16} />} onClick={() => openEdit(classroom)}>แก้ไข</Button>
+                        {classroom.status === 'active' ? (
+                          <Button variant="ghost" onClick={() => void setArchived(classroom, true)}>เก็บถาวร</Button>
+                        ) : (
+                          <Button variant="ghost" onClick={() => void setArchived(classroom, false)}>นำกลับมาใช้</Button>
+                        )}
+                        <Button variant="danger" icon={<Icon name="trash" size={16} />} onClick={() => setConfirmDelete(classroom)}>ลบ</Button>
+                      </>
+                    )}
+                  </div>
                 </li>
               );
             })}
@@ -397,7 +483,7 @@ export function ClassesPage() {
         </Card>
       )}
 
-      {isOperator && (
+      {canEdit && (
         <Card>
           <CardHeader
             title="ย้ายนักเรียนระหว่างห้อง"
@@ -498,6 +584,36 @@ export function ClassesPage() {
               <Button variant="primary" icon={<Icon name="check" size={16} />}>{editing ? 'บันทึกการแก้ไข' : 'สร้างห้องเรียน'}</Button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {rosterView && (
+        <Modal
+          title={`รายชื่อนักเรียนห้อง ${rosterView.name}`}
+          description={`${rosterView.gradeLevel} · ${rosterOfView.length} คน จากความจุ ${rosterView.capacity} ที่นั่ง`}
+          onClose={() => setRosterView(null)}
+        >
+          {rosterOfView.length === 0 ? (
+            <EmptyState
+              icon={<Icon name="students" size={28} />}
+              title="ยังไม่มีนักเรียนในห้องนี้"
+              description="เมื่อผู้ดูแลโรงเรียนเพิ่มนักเรียนเข้าห้องแล้ว รายชื่อจะขึ้นที่นี่"
+            />
+          ) : (
+            <ol className="class-roster-list">
+              {rosterOfView.map((student, index) => (
+                <li key={student.id}>
+                  <span className="class-roster-index">{index + 1}</span>
+                  <span className="class-roster-name">{student.displayName}</span>
+                  <span className="class-roster-code">เลขประจำตัว {student.studentCode}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+          <div className="ui-form-actions">
+            <Button type="button" variant="ghost" onClick={() => setRosterView(null)}>ปิด</Button>
+            <LinkButton to={`/attendance?class=${rosterView.id}`} variant="primary">ไปเช็กชื่อห้องนี้</LinkButton>
+          </div>
         </Modal>
       )}
 
