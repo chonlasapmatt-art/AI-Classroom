@@ -12,7 +12,8 @@ import { ProfileAvatar } from '../features/avatars/ProfileAvatar';
 import { useSyncStatus } from '../sync/SyncStatusContext';
 import { PageLoading } from '../ui/components';
 import { Icon } from '../ui/Icon';
-import { destination, navigationByRole, type NavGroup, type NavItem } from './navigation';
+import { destination, isAdvisorOnlyRoute, navigationByRole, type NavGroup, type NavItem } from './navigation';
+import { teacherIsAdvisorAnywhere } from '../data/teacherResponsibilities';
 import type { Role } from '../domain/types';
 import type { SessionValue, SupportView } from '../app/SessionContext';
 
@@ -185,7 +186,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const ownParentLink = snapshot.parentLinks.find((item) => item.profileId === membership.profileId || item.lineUserId === membership.profileId);
   const unread = ownStudent ? unreadCount(snapshot, ownStudent.id) : 0;
   const visibleGroups = useMemo(() => {
-    const groups: NavGroup[] = navigationByRole[membership.role].map((group) => ({ ...group }));
+    // The guardians' screen belongs to whoever looks after a room, so a teacher who only takes a
+    // subject in it is not offered the door the route guard would refuse them anyway.
+    const advisor = membership.role !== 'teacher' || teacherIsAdvisorAnywhere(snapshot, membership.profileId);
+    const groups: NavGroup[] = navigationByRole[membership.role]
+      .map((group) => ({ ...group, items: group.items.filter((item) => advisor || !isAdvisorOnlyRoute(item.to)) }));
     if (isPreviewModeAvailable && session.mode === 'preview') {
       groups.push({
         key: 'preview', label: 'ชุดเดโม Preview',
@@ -193,7 +198,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       });
     }
     return groups.filter((group) => group.items.length > 0);
-  }, [membership.role, session.mode]);
+  }, [membership.profileId, membership.role, session.mode, snapshot]);
   const [expandedGroups, setExpandedGroups] = useState(() => readExpandedGroups(membership.role, visibleGroups, location.pathname));
   const [menuQuery, setMenuQuery] = useState('');
   const { nav: navElement, marker } = useActiveRowMarker([location.pathname, expandedGroups, collapsed, menuQuery, membership.role]);

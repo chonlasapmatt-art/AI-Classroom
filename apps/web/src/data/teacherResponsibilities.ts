@@ -74,3 +74,78 @@ export function canManageAcademicItem(
 ): boolean {
   return role === 'admin' || (role === 'teacher' && teacherCanEditSubject(snapshot, profileId, classId, subjectId));
 }
+
+/**
+ * The rooms a teacher is on the staff list for.
+ *
+ * This is the outer gate on everything to do with marks. A teacher who was never put in charge of a
+ * room has no business reading that room's marks, and a picker that offers every room in the school
+ * is how a teacher ends up looking at one — so the picker is built from this rather than filtered
+ * after the fact.
+ */
+export function teacherClassIds(snapshot: SchoolSnapshot, profileId: string): Set<string> {
+  return new Set(teacherLinksForProfile(snapshot, profileId).map((link) => link.classId));
+}
+
+/** An advisor is on the room itself rather than on one of its subjects. */
+export function teacherIsAdvisor(snapshot: SchoolSnapshot, profileId: string, classId: string): boolean {
+  return teacherLinksForProfile(snapshot, profileId, classId).some((link) => link.subjectId === null);
+}
+
+export interface TeacherClassScope {
+  /** Whether the teacher is on this room at all. Everything else is meaningless when false. */
+  assigned: boolean;
+  /** An advisor reads the whole room: every subject, and the totals that combine them. */
+  advisor: boolean;
+  /** The subjects this teacher teaches in the room, whether as owner or as a co-teacher. */
+  subjectIds: Set<string>;
+  /** The subjects this teacher may write marks into: the ones they own. */
+  editableSubjectIds: Set<string>;
+}
+
+/**
+ * What one teacher may see and change in one room.
+ *
+ * Three separate answers, because they are genuinely three different rights: being on the room at
+ * all, being allowed to read the room's combined marks, and being allowed to write a mark. A
+ * subject teacher reads and writes their own subject and nothing else; the advisor reads everything
+ * in their room, because a total that omits half the subjects is not a total; and a teacher who is
+ * on neither gets nothing, which is the case that used to leak through a class picker listing every
+ * room in the school.
+ */
+export function teacherClassScope(
+  snapshot: SchoolSnapshot, profileId: string, classId: string
+): TeacherClassScope {
+  const links = teacherLinksForProfile(snapshot, profileId, classId);
+  const advisor = links.some((link) => link.subjectId === null);
+  const subjectIds = new Set(links.filter((link) => link.subjectId).map((link) => link.subjectId as string));
+  const editableSubjectIds = new Set(links
+    .filter((link) => responsibilityOf(link) === 'SUBJECT_OWNER' && link.subjectId)
+    .map((link) => link.subjectId as string));
+  return { assigned: links.length > 0, advisor, subjectIds, editableSubjectIds };
+}
+
+/**
+ * Whether this account may open the marks of a room at all.
+ *
+ * An administrator may; a teacher may when they are on the room's staff list. Nobody else does, and
+ * that includes a teacher who teaches the same subject in a different room.
+ */
+export function canOpenClassMarks(
+  snapshot: SchoolSnapshot, role: Role, profileId: string, classId: string
+): boolean {
+  if (role === 'admin') return true;
+  if (role !== 'teacher') return false;
+  return teacherClassScope(snapshot, profileId, classId).assigned;
+}
+
+/**
+ * Whether this teacher looks after a room, anywhere in the school.
+ *
+ * An advisor or their assistant is on the room itself rather than on one of its subjects, and that
+ * is the difference that decides who holds the guardians' screen: the person who would ring a
+ * parent, not everybody who teaches the child something.
+ */
+export function teacherIsAdvisorAnywhere(snapshot: SchoolSnapshot, profileId: string): boolean {
+  return teacherLinksForProfile(snapshot, profileId).some((link) => link.subjectId === null);
+}

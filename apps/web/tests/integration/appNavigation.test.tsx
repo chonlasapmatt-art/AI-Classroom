@@ -263,10 +263,14 @@ describe('application shell and routes', () => {
     expect(screen.getAllByRole('button', { name: /^ย้าย .* มาที่ .* ซึ่งว่างอยู่$/ }).length).toBeGreaterThan(0);
   });
 
+  // The marks and the grade summary are one screen with two views now, so reaching the category
+  // columns means asking for the summary — which is what a teacher does when they want the grade
+  // rather than the individual marks.
   it('renders the gradebook with category columns', async () => {
     renderApp('/gradebook');
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('สมุดเกรด'));
-    expect(screen.getByRole('columnheader', { name: 'การบ้าน' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('สมุดเกรดรายวิชา'));
+    fireEvent.click(screen.getByRole('tab', { name: 'เกรดรวมของห้อง' }));
+    expect(await screen.findByRole('columnheader', { name: 'การบ้าน' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'GPA' })).toBeInTheDocument();
   });
 });

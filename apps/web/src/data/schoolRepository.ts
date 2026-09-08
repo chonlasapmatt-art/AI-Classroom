@@ -370,6 +370,8 @@ export interface SchoolRepository {
   markAllNotificationsRead(studentId: string): Promise<void>;
   /** Moves reminders whose time has come into the student's notification centre. */
   deliverDueReminders(now?: Date): Promise<number>;
+  /** Turns the medals this student has been given into notices addressed to them. */
+  deliverAchievementNotices(studentId: string): Promise<number>;
   saveSubmission(input: SubmissionInput): Promise<void>;
   /** Student turn-in. */
   submitWork(assignmentId: string, studentId: string, studentNote: string, isLate: boolean, driveUrl?: string | null): Promise<void>;

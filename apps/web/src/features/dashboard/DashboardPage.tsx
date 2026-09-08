@@ -34,6 +34,8 @@ export function DashboardPage() {
   const classes = activeClasses(snapshot);
   const subjects = activeSubjects(snapshot);
   const scheme = gradeSchemeFrom(snapshot.settings);
+  /** The term the school is in. Everybody sees it; only an administrator opens or closes one. */
+  const openTerm = snapshot.terms.find((item) => item.status === 'active') ?? snapshot.terms[0] ?? null;
 
   const student = snapshot.students.find((item) => item.profileId === membership.profileId);
   const [localAvatarId, setLocalAvatarId] = useState(() => recall(avatarStorageKey(membership.profileId)));
@@ -277,9 +279,14 @@ export function DashboardPage() {
       <PageHeader
         eyebrow={membership.role === 'admin' ? 'ภาพรวมโรงเรียน' : classroom ? `${classroom.name} · ${classroom.gradeLevel}` : 'ห้องเรียนของฉัน'}
         title={`สวัสดี ${membership.displayName}`}
-        description={membership.role === 'admin'
-          ? `${classes.length} ห้องเรียน · ${subjects.length} รายวิชา · นักเรียน ${snapshot.students.length} คน`
-          : 'สิ่งที่ต้องตัดสินใจวันนี้ อยู่ด้านบนสุด'}
+        // Which term is open is the one thing everybody needed from the year-group screen, and that
+        // screen is the administrator's. So the answer lives here, where every role already looks.
+        description={[
+          openTerm ? `ภาคเรียนที่ ${openTerm.term} / ${openTerm.academicYear}` : 'ยังไม่ได้เปิดภาคเรียน',
+          membership.role === 'admin'
+            ? `${classes.length} ห้องเรียน · ${subjects.length} รายวิชา · นักเรียน ${snapshot.students.length} คน`
+            : 'สิ่งที่ต้องตัดสินใจวันนี้ อยู่ด้านบนสุด'
+        ].join(' · ')}
         action={canCreateWork && <LinkButton to="/assignments" variant="primary">+ สร้างงาน</LinkButton>}
       />
 

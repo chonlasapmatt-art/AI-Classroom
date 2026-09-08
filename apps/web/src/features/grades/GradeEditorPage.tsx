@@ -11,7 +11,7 @@ import {
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { Assignment, Student } from '../../domain/types';
-import { teacherCanEditSubject } from '../../data/teacherResponsibilities';
+import { teacherCanEditSubject, teacherClassIds, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 import { useToast } from '../../ui/toastContext';
 import { Icon } from '../../ui/Icon';
 
@@ -39,7 +39,18 @@ export function GradeEditorPage() {
   const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
 
-  const selectedClassId = classId || classes[0]?.id || '';
+  // The rooms this account may mark in. A teacher is offered the ones they were put in charge of,
+  // never the whole school — landing on somebody else's room and being told "no permission" is how
+  // a teacher concludes the subject they were assigned did not take.
+  const visibleClasses = useMemo(() => {
+    if (membership.role !== 'teacher') return classes;
+    const mine = teacherClassIds(snapshot, membership.profileId);
+    return classes.filter((item) => mine.has(item.id));
+  }, [classes, membership.profileId, membership.role, snapshot]);
+
+  const selectedClassId = visibleClasses.some((item) => item.id === classId)
+    ? classId
+    : visibleClasses[0]?.id ?? '';
   const roster = rosterFor(snapshot, selectedClassId);
 
   const works = useMemo(() => snapshot.assignments
@@ -48,7 +59,19 @@ export function GradeEditorPage() {
     .sort((a, b) => (b.dueAt ?? b.assignedAt).localeCompare(a.dueAt ?? a.assignedAt)),
     [membership.profileId, membership.role, snapshot, selectedClassId]);
 
-  const canEdit = membership.role === 'admin' || (membership.role === 'teacher' && works.length > 0);
+  /*
+   * The right to mark comes from the staff list, not from whether there is anything to mark yet.
+   *
+   * This was read off the filtered work list, so a teacher who had just been made owner of a
+   * subject — and whose only piece of work was still a draft — was told the screen was for people
+   * with permission to give marks. They had the permission. What they did not have was a published
+   * piece of work, which is a different sentence and a different thing to do about it.
+   */
+  const ownedSubjects = useMemo(
+    () => teacherOwnedSubjectIds(snapshot, membership.profileId),
+    [membership.profileId, snapshot]
+  );
+  const canEdit = membership.role === 'admin' || (membership.role === 'teacher' && ownedSubjects.size > 0);
 
   const work: Assignment | undefined = works.find((item) => item.id === workId) ?? works[0];
   const rows = useMemo(() => (work ? rosterRowsFor(snapshot, work, roster) : []), [snapshot, work, roster]);
@@ -124,7 +147,12 @@ export function GradeEditorPage() {
     return (
       <>
         <PageHeader eyebrow="คะแนน" title="แก้ไขคะแนนและเกรด" />
-        <Card><EmptyState title="เฉพาะครูและผู้ดูแลระบบ" description="หน้านี้ใช้สำหรับผู้ที่มีสิทธิ์ให้คะแนนเท่านั้น" /></Card>
+        <Card>
+          <EmptyState
+            title="ยังไม่ได้เป็นครูเจ้าของรายวิชา"
+            description="การให้คะแนนเปิดให้เฉพาะครูเจ้าของรายวิชาในห้องนั้น ให้ผู้ดูแลระบบกำหนดคุณเป็นครูประจำวิชาที่หน้าห้องเรียนก่อน"
+          />
+        </Card>
       </>
     );
   }
@@ -145,7 +173,7 @@ export function GradeEditorPage() {
       <Toolbar>
         <Field label="ห้องเรียน">
           <select value={selectedClassId} onChange={(event) => { setClassId(event.target.value); setWorkId(''); setDrafts({}); }}>
-            {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            {visibleClasses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </Field>
         <Field label="งานที่ต้องการให้คะแนน">

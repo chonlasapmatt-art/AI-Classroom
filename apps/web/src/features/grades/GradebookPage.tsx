@@ -11,13 +11,19 @@ import { gradePointFor, gradeSchemeFrom } from '../../academic/gradeScheme';
 import { Badge, Card, CardHeader, DataTable, EmptyState, Field, PageHeader, ProgressBar, Stat, Toolbar } from '../../ui/components';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { useRememberedClass } from '../../app/useRememberedClass';
+import { teacherClassIds, teacherClassScope } from '../../data/teacherResponsibilities';
 
-/** The gradebook: category columns, weighted average and the grade each student currently holds. */
-export function GradebookPage() {
+/**
+ * The gradebook: category columns, weighted average and the grade each student currently holds.
+ *
+ * `embedded` drops the page's own heading, for the teacher's screen where this sits beside the
+ * marks entry under a single title.
+ */
+export function GradebookPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { membership } = useSession();
   const snapshot = useSchoolSnapshot();
-  const classes = activeClasses(snapshot);
-  const subjects = activeSubjects(snapshot);
+  const allClasses = activeClasses(snapshot);
+  const allSubjects = activeSubjects(snapshot);
   const scheme = gradeSchemeFrom(snapshot.settings);
   const weights = categoryWeightsFrom(snapshot.settings);
 
@@ -27,10 +33,31 @@ export function GradebookPage() {
   const [subjectId, setSubjectId] = useState('');
   const [termId, setTermId] = useState('');
 
+  // The same gate the marks entry uses: a teacher is offered their own rooms, and inside one of
+  // them their own subjects — unless they are the room's advisor, whose job is the whole total.
+  const teachingClassIds = useMemo(
+    () => (membership.role === 'teacher' ? teacherClassIds(snapshot, membership.profileId) : null),
+    [membership.profileId, membership.role, snapshot]
+  );
+  const classes = teachingClassIds ? allClasses.filter((item) => teachingClassIds.has(item.id)) : allClasses;
+
   // A student's own room is not a preference, so it comes first; everybody else resumes where they
   // were, which for a teacher moving between the register and the marks is the same room.
   const [selectedClassId, setClassId] = useRememberedClass(classes, ownClassId);
   const classroom = classes.find((item) => item.id === selectedClassId);
+  const scope = useMemo(
+    () => teacherClassScope(snapshot, membership.profileId, selectedClassId),
+    [membership.profileId, selectedClassId, snapshot]
+  );
+  const teacherHoldsOneSubject = membership.role === 'teacher' && !scope.advisor;
+  const subjects = teacherHoldsOneSubject
+    ? allSubjects.filter((item) => scope.subjectIds.has(item.id))
+    : allSubjects;
+  // A subject teacher has no "every subject" view to fall back on: the combined total of a room is
+  // the advisor's, so the filter starts on one of their own subjects and stays on one.
+  const effectiveSubjectId = teacherHoldsOneSubject
+    ? (subjects.some((item) => item.id === subjectId) ? subjectId : subjects[0]?.id ?? '')
+    : subjectId;
   const term = snapshot.terms.find((item) => item.id === termId)
     ?? snapshot.terms.find((item) => item.status === 'active')
     ?? snapshot.terms[0];
@@ -48,8 +75,8 @@ export function GradebookPage() {
     testScores: snapshot.testScores,
     weights,
     scheme,
-    subjectId: subjectId || null
-  }), [visibleRoster, snapshot, selectedClassId, weights, scheme, subjectId]);
+    subjectId: effectiveSubjectId || null
+  }), [visibleRoster, snapshot, selectedClassId, weights, scheme, effectiveSubjectId]);
 
   const distribution = gradeDistribution(rows, scheme);
   const weightTotal = totalWeight(weights);
@@ -63,14 +90,30 @@ export function GradebookPage() {
     work.classId === selectedClassId && work.status !== 'draft' && work.status !== 'cancelled').length
     + snapshot.tests.filter((test) => test.classId === selectedClassId && test.status !== 'draft').length;
 
+  if (membership.role === 'teacher' && classes.length === 0) {
+    return (
+      <>
+        {!embedded && <PageHeader eyebrow="ผลการเรียน" title="สมุดเกรด" />}
+        <Card>
+          <EmptyState
+            title="ยังไม่ได้รับมอบหมายให้สอนห้องใด"
+            description="สมุดเกรดเปิดให้เฉพาะครูที่สอนรายวิชาในห้องนั้น หรือเป็นครูที่ปรึกษาของห้องนั้น"
+          />
+        </Card>
+      </>
+    );
+  }
+
   return (
     <>
-      <PageHeader
-        eyebrow="ผลการเรียน"
-        title="สมุดเกรด"
-        description={`${classroom?.name ?? 'ทุกห้อง'} · ${subjects.find((item) => item.id === subjectId)?.name ?? 'ทุกวิชา'} · ภาคเรียนที่ ${term?.term ?? '-'} ปีการศึกษา ${term?.academicYear ?? '-'}`}
-        action={<Badge tone="brand">อัปเดตจากข้อมูลล่าสุด</Badge>}
-      />
+      {!embedded && (
+        <PageHeader
+          eyebrow="ผลการเรียน"
+          title="สมุดเกรด"
+          description={`${classroom?.name ?? 'ทุกห้อง'} · ${subjects.find((item) => item.id === effectiveSubjectId)?.name ?? 'ทุกวิชา'} · ภาคเรียนที่ ${term?.term ?? '-'} ปีการศึกษา ${term?.academicYear ?? '-'}`}
+          action={<Badge tone="brand">อัปเดตจากข้อมูลล่าสุด</Badge>}
+        />
+      )}
 
       <section className="gradebook-overview" aria-label="ภาพรวมสมุดเกรด">
         <div>
@@ -108,8 +151,9 @@ export function GradebookPage() {
             </Field>
           )}
           <Field label="รายวิชา">
-            <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
-              <option value="">ทุกวิชา</option>
+            <select value={effectiveSubjectId} onChange={(event) => setSubjectId(event.target.value)}>
+              {/* "ทุกวิชา" combines subjects, so it belongs to whoever may read all of them. */}
+              {!teacherHoldsOneSubject && <option value="">ทุกวิชา</option>}
               {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
             </select>
           </Field>
@@ -208,13 +252,13 @@ export function GradebookPage() {
               </div>
             ))}
           </div>
-          {subjectId && (
+          {effectiveSubjectId && (
             <p className="ui-field-hint">
-              <SubjectIcon iconKey={subjects.find((item) => item.id === subjectId)?.iconKey ?? 'default'} size={14} />{' '}
-              กรองเฉพาะวิชา {subjects.find((item) => item.id === subjectId)?.name}
+              <SubjectIcon iconKey={subjects.find((item) => item.id === effectiveSubjectId)?.iconKey ?? 'default'} size={14} />{' '}
+              กรองเฉพาะวิชา {subjects.find((item) => item.id === effectiveSubjectId)?.name}
               <span
                 className="subject-dot"
-                style={{ background: subjectColor(subjects.find((item) => item.id === subjectId)?.colorIndex ?? 0).solid }}
+                style={{ background: subjectColor(subjects.find((item) => item.id === effectiveSubjectId)?.colorIndex ?? 0).solid }}
               />
             </p>
           )}

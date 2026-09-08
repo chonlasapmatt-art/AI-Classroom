@@ -21,8 +21,13 @@ export function NotificationCenterPage() {
 
   const student = snapshot.students.find((item) => item.profileId === membership.profileId);
 
-  // Reminders whose time has come move into the centre as soon as the page is open.
-  useEffect(() => { void repository.deliverDueReminders(); }, [repository, snapshot.notifications.length]);
+  // Reminders whose time has come move into the centre as soon as the page is open, and so does a
+  // medal that arrived through sync since the last look — the award row travels, the notice about
+  // it is written here, on the device of the child it belongs to.
+  useEffect(() => {
+    void repository.deliverDueReminders();
+    if (student) void repository.deliverAchievementNotices(student.id);
+  }, [repository, snapshot.achievements.length, snapshot.notifications.length, student]);
 
   const entries = useMemo(
     () => (student ? notificationEntries(snapshot, student.id) : []),
@@ -89,7 +94,10 @@ export function NotificationCenterPage() {
                           className={`notification-icon ${color ? 'subject-tint' : ''}`.trim()}
                           style={color ? ({ '--subject-color': color.solid } as CSSProperties) : undefined}
                         >
-                          {subject ? <SubjectIcon iconKey={subject.iconKey} size={20} /> : <Icon name="bell" size={20} />}
+                          {/* A medal is not a piece of work, and the glyph says so before the words do. */}
+                          {entry.notification.kind === 'achievement_awarded'
+                            ? <Icon name="achievements" size={20} />
+                            : subject ? <SubjectIcon iconKey={subject.iconKey} size={20} /> : <Icon name="bell" size={20} />}
                         </div>
                         <div>
                           <div className="notification-title">
@@ -98,7 +106,9 @@ export function NotificationCenterPage() {
                           </div>
                           <p>{entry.notification.body}</p>
                           <span className="notification-meta">
-                            {subject?.name ?? 'ประกาศห้องเรียน'}
+                            {entry.notification.kind === 'achievement_awarded'
+                              ? 'เหรียญเกียรติยศ'
+                              : subject?.name ?? 'ประกาศห้องเรียน'}
                             {entry.dueAt && ` · ${timeRemainingLabel(entry.dueAt)}`}
                             {entry.notification.sentAt && ` · ${new Date(entry.notification.sentAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}`}
                           </span>

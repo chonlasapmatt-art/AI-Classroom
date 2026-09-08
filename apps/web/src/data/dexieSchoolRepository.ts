@@ -15,6 +15,7 @@ import { defaultReminderOffsets, dueReminders } from '../academic/reminderEngine
 import { gradeSchemeFrom, resolveGrade } from '../academic/gradeScheme';
 import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
+import { achievementNoticesFor } from '../academic/achievementNotices';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
 import { isValidOutfitId } from '../features/avatars/avatarOutfits';
 import { configFromIndex } from '../features/avatars/avatarThemes';
@@ -813,6 +814,40 @@ export class DexieSchoolRepository implements SchoolRepository {
       ...row, state: 'delivered' as const, sentAt: timestamp, updatedAt: timestamp
     })));
     return due.length;
+  }
+
+  /**
+   * Says the medals out loud, to the child who was given them.
+   *
+   * Notices live only on the device that writes them, and that is what makes this the right place
+   * for it: the award row arrives through sync, and the student's own device turns it into the
+   * notice they read. A teacher's device never writes a notice addressed to somebody else, and a
+   * medal given while a child was offline is still there to be told when they open the app.
+   */
+  async deliverAchievementNotices(studentId: string): Promise<number> {
+    if (!studentId) return 0;
+    const [awards, notifications, enrollments] = await Promise.all([
+      db.achievements.where({ schoolId: this.schoolId }).toArray(),
+      db.notifications.where({ schoolId: this.schoolId }).toArray(),
+      db.enrollments.where({ schoolId: this.schoolId }).toArray()
+    ]);
+    const enrollment = enrollments.find((row) =>
+      row.studentId === studentId && row.status === 'active' && !row.deletedAt);
+    const drafts = achievementNoticesFor({
+      awards: awards.filter((row) => !row.deletedAt),
+      studentId,
+      classId: enrollment?.classId ?? '',
+      existing: notifications
+    });
+    if (drafts.length === 0) return 0;
+    await db.notifications.bulkPut(drafts.map((draft) => ({
+      ...base(this.schoolId),
+      studentId: draft.studentId, classId: draft.classId, assignmentId: null,
+      kind: 'achievement_awarded' as const, title: draft.title, body: draft.body,
+      dedupeKey: draft.dedupeKey, state: 'delivered' as const,
+      scheduledAt: draft.awardedAt, sentAt: draft.awardedAt, readAt: null
+    })));
+    return drafts.length;
   }
 
   /**

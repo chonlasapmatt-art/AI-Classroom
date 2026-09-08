@@ -7,6 +7,7 @@ import {
   PageHeader, ProgressBar, SearchInput, Segmented, Stat, Toolbar
 } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
+import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import type { Classroom } from '../../domain/types';
 import { requireSupabase } from '../../services/supabase';
 import { useSyncStatus } from '../../sync/SyncStatusContext';
@@ -68,6 +69,7 @@ export function ClassesPage() {
   const [classQuery, setClassQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [rosterView, setRosterView] = useState<Classroom | null>(null);
+  const [rosterQuery, setRosterQuery] = useState('');
 
   // Rooms are school structure: the administrator opens them, names them and sets their size. A
   // teacher sees the rooms they were put in charge of, reads the roster, and goes on to register.
@@ -89,6 +91,13 @@ export function ClassesPage() {
     () => (rosterView ? rosterFor(snapshot, rosterView.id) : []),
     [rosterView, snapshot]
   );
+  const visibleRosterOfView = useMemo(() => {
+    const needle = rosterQuery.trim().toLocaleLowerCase('th');
+    if (!needle) return rosterOfView;
+    return rosterOfView.filter((student) =>
+      student.displayName.toLocaleLowerCase('th').includes(needle)
+      || student.studentCode.toLocaleLowerCase('th').includes(needle));
+  }, [rosterOfView, rosterQuery]);
 
   const totals = useMemo(() => {
     const enrolled = activeClassrooms.reduce((sum, classroom) => sum + rosterFor(snapshot, classroom.id).length, 0);
@@ -294,6 +303,14 @@ export function ClassesPage() {
         </Card>
       )}
 
+      {/*
+        The school-wide totals are the administrator's view of the school, and only theirs.
+        A teacher's snapshot already holds nothing but their own rooms, so these tiles were counting
+        their two rooms and calling it "ห้องที่เปิดสอน" — a school overview that was never true. What
+        a teacher needs is on each room's own card: who is in it, how full it is, and where to go
+        next.
+      */}
+      {isAdmin && (
       <div className="ui-stat-grid">
         <Stat label="ห้องที่เปิดสอน" value={activeClassrooms.length} hint={`จากทั้งหมด ${classes.length} ห้อง`} tone="brand" icon={<Icon name="classes" size={18} />} />
         <Stat label="นักเรียนที่มีห้องแล้ว" value={totals.enrolled} hint={`จากที่นั่งทั้งหมด ${totals.seats}`} tone="info" icon={<Icon name="students" size={18} />} />
@@ -312,6 +329,7 @@ export function ClassesPage() {
           icon={<Icon name="check" size={18} />}
         />
       </div>
+      )}
 
       <Card>
         <CardHeader
@@ -587,11 +605,19 @@ export function ClassesPage() {
         </Modal>
       )}
 
+      {/*
+        The roster was three columns of text: a number, a name and a code, forty rows deep. A class
+        list is a list of faces to the person reading it, and every child in this product already has
+        one — the avatar they chose — so it is what the row leads with. The name is next, the code is
+        the small print under it, and the search box only appears when the room is big enough that
+        scanning it by eye stops working.
+      */}
       {rosterView && (
         <Modal
           title={`รายชื่อนักเรียนห้อง ${rosterView.name}`}
           description={`${rosterView.gradeLevel} · ${rosterOfView.length} คน จากความจุ ${rosterView.capacity} ที่นั่ง`}
           onClose={() => setRosterView(null)}
+          wide
         >
           {rosterOfView.length === 0 ? (
             <EmptyState
@@ -600,15 +626,44 @@ export function ClassesPage() {
               description="เมื่อผู้ดูแลโรงเรียนเพิ่มนักเรียนเข้าห้องแล้ว รายชื่อจะขึ้นที่นี่"
             />
           ) : (
-            <ol className="class-roster-list">
-              {rosterOfView.map((student, index) => (
-                <li key={student.id}>
-                  <span className="class-roster-index">{index + 1}</span>
-                  <span className="class-roster-name">{student.displayName}</span>
-                  <span className="class-roster-code">เลขประจำตัว {student.studentCode}</span>
-                </li>
-              ))}
-            </ol>
+            <>
+              {rosterOfView.length > 12 && (
+                <SearchInput
+                  value={rosterQuery}
+                  onChange={setRosterQuery}
+                  placeholder="ค้นหาชื่อหรือเลขประจำตัว"
+                  label="ค้นหานักเรียนในห้องนี้"
+                />
+              )}
+              {visibleRosterOfView.length === 0 ? (
+                <EmptyState
+                  icon={<Icon name="search" size={28} />}
+                  title="ไม่พบชื่อที่ค้นหา"
+                  description="ลองพิมพ์เพียงบางส่วนของชื่อ หรือเลขประจำตัว"
+                />
+              ) : (
+                <ol className="class-roster-grid">
+                  {visibleRosterOfView.map((student, index) => (
+                    <li key={student.id}>
+                      <span className="class-roster-seat">{index + 1}</span>
+                      <ProfileAvatar
+                        displayName={student.displayName}
+                        avatarId={student.avatarId}
+                        avatarPhotoId={student.avatarPhotoId}
+                        avatarIndex={student.avatarIndex}
+                        avatarConfig={student.avatarConfig}
+                        size={48}
+                      />
+                      <span className="class-roster-person">
+                        <strong>{student.displayName}</strong>
+                        <small>เลขประจำตัว {student.studentCode}</small>
+                      </span>
+                      <LinkButton to={`/students/${student.id}`} size="sm" variant="ghost">ดูข้อมูล</LinkButton>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </>
           )}
           <div className="ui-form-actions">
             <Button type="button" variant="ghost" onClick={() => setRosterView(null)}>ปิด</Button>

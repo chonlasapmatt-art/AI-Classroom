@@ -10,6 +10,7 @@ import { defaultReminderOffsets, dueReminders } from '../academic/reminderEngine
 import { gradeSchemeFrom, resolveGrade } from '../academic/gradeScheme';
 import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
+import { achievementNoticesFor } from '../academic/achievementNotices';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
 import { isValidOutfitId } from '../features/avatars/avatarOutfits';
 import { configFromIndex } from '../features/avatars/avatarThemes';
@@ -641,6 +642,31 @@ export class FixtureSchoolRepository implements SchoolRepository {
       ids.has(item.id) ? { ...item, state: 'delivered' as const, sentAt: timestamp, updatedAt: timestamp } : item);
     this.emit();
     return due.length;
+  }
+
+  async deliverAchievementNotices(studentId: string): Promise<number> {
+    if (!studentId) return 0;
+    const enrollment = this.data.enrollments.find((row) =>
+      row.studentId === studentId && row.status === 'active' && !row.deletedAt);
+    const drafts = achievementNoticesFor({
+      awards: this.data.achievements.filter((row) => !row.deletedAt),
+      studentId,
+      classId: enrollment?.classId ?? '',
+      existing: this.data.notifications
+    });
+    if (drafts.length === 0) return 0;
+    this.data.notifications = [
+      ...this.data.notifications,
+      ...drafts.map((draft) => ({
+        ...this.base(),
+        studentId: draft.studentId, classId: draft.classId, assignmentId: null,
+        kind: 'achievement_awarded' as const, title: draft.title, body: draft.body,
+        dedupeKey: draft.dedupeKey, state: 'delivered' as const,
+        scheduledAt: draft.awardedAt, sentAt: draft.awardedAt, readAt: null
+      }))
+    ];
+    this.emit();
+    return drafts.length;
   }
 
   /**

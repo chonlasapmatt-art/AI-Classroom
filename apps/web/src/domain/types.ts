@@ -199,7 +199,8 @@ export interface Subject extends SyncRecord {
 
 export type ClassroomNotificationKind =
   | 'assignment_published' | 'submission_reminder' | 'work_returned'
-  | 'deadline_changed' | 'work_cancelled' | 'revision_requested' | 'announcement' | 'grade_posted';
+  | 'deadline_changed' | 'work_cancelled' | 'revision_requested' | 'announcement' | 'grade_posted'
+  | 'achievement_awarded';
 
 /** Delivery lifecycle, kept separate from creation so other channels can be added later. */
 export type NotificationState = 'queued' | 'scheduled' | 'sent' | 'delivered' | 'failed' | 'read';

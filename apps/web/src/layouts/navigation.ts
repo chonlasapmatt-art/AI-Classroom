@@ -91,19 +91,29 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/question-bank', 'คลังข้อสอบ', 'question-bank'),
       destination('/exams', 'ข้อสอบ', 'exams')
     ] },
+    /*
+     * "คะแนนและเกรด" and "สมุดเกรด" were one screen split in two, and a teacher had to know which
+     * of them held the number they were after. They are now one entry over both views.
+     *
+     * "นำเข้ารายชื่อ" is gone from a teacher's menu on purpose: adding children to a room now
+     * happens on the student screen, where a teacher already is, and the bulk import of a whole
+     * school's roster stays an administrator's tool.
+     */
     { key: 'work', label: 'งานและคะแนน', items: [
       destination('/assignments', 'งานและกิจกรรม', 'assignments'),
-      destination('/scores', 'คะแนนและเกรด', 'scores'),
-      destination('/gradebook', 'สมุดเกรด', 'gradebook'),
+      destination('/gradebook', 'สมุดเกรดรายวิชา', 'gradebook'),
       destination('/grade-editor', 'แก้ไขคะแนน', 'grade-edit')
     ] },
+    /*
+     * "ปีการศึกษา" opens and closes terms and moves whole year groups between them, which is the
+     * school's calendar rather than one teacher's work. It belongs to the administrator; what a
+     * teacher needs from it — which term is open right now — is on the dashboard.
+     */
     { key: 'people', label: 'นักเรียน', items: [
       destination('/students', 'นักเรียน', 'students'),
       destination('/classes', 'ห้องเรียน', 'classes'),
       destination('/subjects', 'รายวิชา', 'subjects'),
-      destination('/parents', 'ผู้ปกครอง', 'parents'),
-      destination('/import', 'นำเข้ารายชื่อ', 'import'),
-      destination('/promotion', 'ปีการศึกษา', 'promotion')
+      destination('/parents', 'ผู้ปกครอง', 'parents')
     ] },
     { key: 'reports', label: 'รายงาน', items: [
       destination('/reports', 'รายงาน', 'reports'),
@@ -128,9 +138,17 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/assignments', 'งานและกิจกรรม', 'assignments'),
       destination('/sit-exam', 'สอบ', 'sit-exam')
     ] },
+    /*
+     * Medals are given, not browsed.
+     *
+     * The screen behind "เหรียญรางวัล" is the one a teacher awards from: it lists every child in
+     * the school and what each of them has been given, which is a leaderboard of worth that nobody
+     * asked a ten-year-old to read about themselves. A child learns about their own medal the way
+     * they learn about a returned piece of work — a notification addressed to them — and sees the
+     * ones they hold on their own profile. Taking the entry away also refuses the address.
+     */
     { key: 'activities', label: 'กิจกรรม', items: [
-      destination('/leaderboard', 'Leaderboard', 'leaderboard'),
-      destination('/achievements', 'เหรียญรางวัล', 'achievements')
+      destination('/leaderboard', 'Leaderboard', 'leaderboard')
     ] },
     { key: 'scores', label: 'คะแนน', items: [
       destination('/scores', 'คะแนนและเกรด', 'scores'),
@@ -191,4 +209,18 @@ export function isRouteAllowed(role: Role, path: string): boolean {
   return navigationByRole[role].some((group) => group.items.some((item) => (
     item.to === '/' ? path === '/' : path === item.to || path.startsWith(`${item.to}/`)
   )));
+}
+
+/**
+ * Screens a teacher only holds by looking after a room, rather than by teaching in one.
+ *
+ * Guardians belong to a homeroom: the person who rings a parent is the child's advisor or their
+ * assistant, and a teacher who takes one subject in the room has no business holding the school's
+ * list of parents and their contact details. The role alone cannot say this — it depends on the
+ * staff list — so the menu asks, and so does the route guard.
+ */
+export const ADVISOR_ONLY_ROUTES: readonly string[] = ['/parents'];
+
+export function isAdvisorOnlyRoute(path: string): boolean {
+  return ADVISOR_ONLY_ROUTES.some((route) => path === route || path.startsWith(`${route}/`));
 }

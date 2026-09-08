@@ -6,7 +6,7 @@ import { subjectColor } from '../../data/subjectCatalog';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { SchoolSnapshot } from '../../data/schoolRepository';
 import type { Subject } from '../../domain/types';
-import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { canManageAcademicItem, teacherClassIds, teacherClassScope } from '../../data/teacherResponsibilities';
 import {
   Badge, Button, Card, CardHeader, ConfirmDialog, DataTable, Drawer, EmptyState, Field, FieldGroup,
   PageHeader, ProgressBar, SearchInput, Segmented, Stat, Toolbar
@@ -202,12 +202,18 @@ function StudentScoresView({ snapshot, studentId, classId, subjects, policy }: {
   );
 }
 
-export function ScoresPage() {
+/**
+ * `embedded` drops the page's own heading.
+ *
+ * The teacher's marks live on one screen now — this view and the gradebook under one title — and
+ * two `PageHeader`s stacked on top of each other read as two pages that failed to separate.
+ */
+export function ScoresPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { membership } = useSession();
   const repository = useRepository();
   const snapshot = useSchoolSnapshot();
-  const classes = activeClasses(snapshot);
-  const subjects = activeSubjects(snapshot);
+  const allClasses = activeClasses(snapshot);
+  const allSubjects = activeSubjects(snapshot);
   const [subjectFilter, setSubjectFilter] = useState('');
   const [classId, setClassId] = useState('');
   const [tab, setTab] = useState<Tab>('summary');
@@ -220,9 +226,29 @@ export function ScoresPage() {
   const isTeacher = membership.role === 'admin' || membership.role === 'teacher';
   const ownStudentId = snapshot.students.find((item) => item.profileId === membership.profileId)?.id ?? null;
   const ownClassId = membership.role === 'student' && ownStudentId ? classIdOfStudent(snapshot, ownStudentId) : null;
+
+  // A teacher is offered the rooms they were put in charge of and no others. Filtering the marks
+  // after the fact still shows a teacher which rooms exist and how many children are in them, and
+  // the room list of a school is not something a teacher is owed for a room they do not teach.
+  const teachingClassIds = useMemo(
+    () => (membership.role === 'teacher' ? teacherClassIds(snapshot, membership.profileId) : null),
+    [membership.profileId, membership.role, snapshot]
+  );
+  const classes = teachingClassIds ? allClasses.filter((item) => teachingClassIds.has(item.id)) : allClasses;
+
   const selectedClassId = membership.role === 'student'
     ? (ownClassId ?? '')
-    : (classId || classes[0]?.id || '');
+    : (classes.some((item) => item.id === classId) ? classId : classes[0]?.id ?? '');
+
+  // Inside a room the teacher reads their own subjects; the advisor reads all of them, because the
+  // room's total is the thing an advisor is there to watch.
+  const scope = useMemo(
+    () => teacherClassScope(snapshot, membership.profileId, selectedClassId),
+    [membership.profileId, selectedClassId, snapshot]
+  );
+  const subjects = membership.role === 'teacher' && !scope.advisor
+    ? allSubjects.filter((subject) => scope.subjectIds.has(subject.id))
+    : allSubjects;
 
   const roster = rosterFor(snapshot, selectedClassId);
   const policy = scorePolicyFrom(snapshot.settings);
@@ -230,21 +256,39 @@ export function ScoresPage() {
   const bySubject = <T extends { subjectId: string | null }>(items: T[]) => items.filter((item) => !subjectFilter || item.subjectId === subjectFilter);
   const activities = bySubject(snapshot.activities.filter((item) => item.classId === selectedClassId));
   const tests = bySubject(snapshot.tests.filter((item) => item.classId === selectedClassId));
-  const ownedSubjectIds = teacherOwnedSubjectIds(snapshot, membership.profileId, selectedClassId);
-  const canManageSelectedClass = membership.role === 'admin' || ownedSubjectIds.size > 0;
+  const canManageSelectedClass = membership.role === 'admin' || scope.editableSubjectIds.size > 0;
   const editableSubjects = membership.role === 'teacher'
-    ? subjects.filter((subject) => ownedSubjectIds.has(subject.id))
-    : subjects;
+    ? allSubjects.filter((subject) => scope.editableSubjectIds.has(subject.id))
+    : allSubjects;
 
   if (membership.role === 'student') {
     return (
       <>
-        <PageHeader
-          eyebrow="คะแนนและเกรด · มุมมองนักเรียน"
-          title="คะแนนของฉัน"
-          description="สรุปคะแนนแยกตามรายวิชา กดที่วิชาเพื่อดูรายละเอียดงาน กิจกรรม และการสอบ"
-        />
+        {!embedded && (
+          <PageHeader
+            eyebrow="คะแนนและเกรด · มุมมองนักเรียน"
+            title="คะแนนของฉัน"
+            description="สรุปคะแนนแยกตามรายวิชา กดที่วิชาเพื่อดูรายละเอียดงาน กิจกรรม และการสอบ"
+          />
+        )}
         <StudentScoresView snapshot={snapshot} studentId={ownStudentId} classId={selectedClassId} subjects={subjects} policy={policy} />
+      </>
+    );
+  }
+
+  // A teacher who is on no room's staff list has nothing to be shown here, and saying so plainly is
+  // better than an empty table that reads as a school with no marks in it.
+  if (membership.role === 'teacher' && classes.length === 0) {
+    return (
+      <>
+        {!embedded && <PageHeader eyebrow="คะแนนและเกรด" title="คะแนน" />}
+        <Card>
+          <EmptyState
+            icon={<Icon name="scores" size={28} />}
+            title="ยังไม่ได้รับมอบหมายให้สอนห้องใด"
+            description="สมุดคะแนนเปิดให้เฉพาะครูที่ได้รับมอบหมายรายวิชาหรือเป็นครูที่ปรึกษาของห้องนั้น ให้ผู้ดูแลระบบเพิ่มคุณเข้าห้องเรียนก่อน"
+          />
+        </Card>
       </>
     );
   }
@@ -295,11 +339,13 @@ export function ScoresPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="คะแนนและเกรด"
-        title="คะแนน"
-        description={`น้ำหนัก งาน ${policy.weights.assignment}% · กิจกรรม ${policy.weights.activity}% · สอบ ${policy.weights.test}% · หักงานส่งช้า ${policy.latePenaltyPercent}%`}
-      />
+      {!embedded && (
+        <PageHeader
+          eyebrow="คะแนนและเกรด"
+          title="คะแนน"
+          description={`น้ำหนัก งาน ${policy.weights.assignment}% · กิจกรรม ${policy.weights.activity}% · สอบ ${policy.weights.test}% · หักงานส่งช้า ${policy.latePenaltyPercent}%`}
+        />
+      )}
 
       <Toolbar>
         {!ownClassId && (

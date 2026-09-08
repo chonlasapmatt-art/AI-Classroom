@@ -20,7 +20,7 @@ import { StudentsPage } from '../features/students/StudentsPage';
 import { StudentDetailPage } from '../features/students/StudentDetailPage';
 import { ClassesPage } from '../features/classes/ClassesPage';
 import { SubjectsPage } from '../features/subjects/SubjectsPage';
-import { GradebookPage } from '../features/grades/GradebookPage';
+import { SubjectGradebookPage } from '../features/grades/SubjectGradebookPage';
 import { GradeEditorPage } from '../features/grades/GradeEditorPage';
 import { ImportPage } from '../features/imports/ImportPage';
 import { CalendarPage } from '../features/calendar/CalendarPage';
@@ -47,7 +47,9 @@ import { PromotionPage } from '../features/promotion/PromotionPage';
 import { AvatarGalleryPage } from '../features/avatars/AvatarGalleryPage';
 import { ForbiddenPage } from '../features/errors/ForbiddenPage';
 import { NotFoundPage } from '../features/errors/NotFoundPage';
-import { isRouteAllowed } from '../layouts/navigation';
+import { isAdvisorOnlyRoute, isRouteAllowed } from '../layouts/navigation';
+import { useSchoolSnapshot } from '../data/RepositoryContext';
+import { teacherIsAdvisorAnywhere } from '../data/teacherResponsibilities';
 import { PreviewDemoPage } from '../preview/PreviewDemoPage';
 import { ToastProvider } from '../ui/components';
 import { isCloudConfigured, requireSupabase } from '../services/supabase';
@@ -74,7 +76,7 @@ const appRoutes: AppRoute[] = [
   { path: 'students/:studentId', element: <StudentDetailPage /> },
   { path: 'classes', element: <ClassesPage /> },
   { path: 'subjects', element: <SubjectsPage /> },
-  { path: 'gradebook', element: <GradebookPage /> },
+  { path: 'gradebook', element: <SubjectGradebookPage /> },
   { path: 'grade-editor', element: <GradeEditorPage /> },
   { path: 'calendar', element: <CalendarPage /> },
   { path: 'timetable', element: <TimetablePage /> },
@@ -116,8 +118,14 @@ const appRoutes: AppRoute[] = [
  */
 function Guarded({ children }: { children: ReactElement }) {
   const { membership } = useSession();
+  const snapshot = useSchoolSnapshot();
   const location = useLocation();
   if (!isRouteAllowed(membership.role, location.pathname)) return <ForbiddenPage />;
+  // A handful of screens belong to the person who looks after a room rather than to every teacher
+  // in it, and that cannot be read off the role alone — it is on the class staff list.
+  if (membership.role === 'teacher'
+    && isAdvisorOnlyRoute(location.pathname)
+    && !teacherIsAdvisorAnywhere(snapshot, membership.profileId)) return <ForbiddenPage />;
   return children;
 }
 
