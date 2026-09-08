@@ -1,4 +1,5 @@
 import type { Role } from '../domain/types';
+import { isActiveClassTeacher } from './selectors';
 import type { SchoolSnapshot } from './schoolRepository';
 
 /** The projection a signed-in member is allowed to use on this device. */
@@ -28,7 +29,9 @@ export function scopeSchoolSnapshot(snapshot: SchoolSnapshot, scope: VisibilityS
 
   const allowedClassIds = scope.role === 'teacher'
     ? new Set(snapshot.classTeachers
-      .filter((link) => ownTeacherIds.has(link.teacherId))
+      // An assignment that has ended is not a room a teacher still holds. The server already says
+      // so; saying it here too keeps a stale local projection from showing a room they left.
+      .filter((link) => ownTeacherIds.has(link.teacherId) && isActiveClassTeacher(link))
       .map((link) => link.classId))
     : new Set(snapshot.enrollments
       .filter((enrollment) => ownStudentIds.has(enrollment.studentId) && enrollment.status === 'active')
@@ -41,6 +44,7 @@ export function scopeSchoolSnapshot(snapshot: SchoolSnapshot, scope: VisibilityS
   const allowedTermIds = new Set(snapshot.classes
     .filter((classroom) => allowedClassIds.has(classroom.id))
     .map((classroom) => classroom.academicTermId));
+  const visibleTerms = snapshot.terms.filter((term) => allowedTermIds.has(term.id));
   const allowedClassTeacherIds = new Set(snapshot.classTeachers
     .filter((link) => allowedClassIds.has(link.classId))
     .map((link) => link.teacherId));
@@ -71,10 +75,12 @@ export function scopeSchoolSnapshot(snapshot: SchoolSnapshot, scope: VisibilityS
 
   return {
     ...snapshot,
-    terms: snapshot.terms.filter((term) => allowedTermIds.has(term.id)),
+    terms: visibleTerms,
     classes: snapshot.classes.filter((classroom) => allowedClassIds.has(classroom.id)),
     classTeachers: snapshot.classTeachers.filter((link) => allowedClassIds.has(link.classId)),
-    teachers: snapshot.teachers.filter((teacher) => allowedClassTeacherIds.has(teacher.id)),
+    // Their own record always stays. The server policy says the same, and a teacher between rooms
+    // still has a profile to read.
+    teachers: snapshot.teachers.filter((teacher) => allowedClassTeacherIds.has(teacher.id) || teacher.profileId === scope.profileId),
     students: snapshot.students.filter((student) => rosterStudentIds.has(student.id)),
     enrollments: snapshot.enrollments.filter((enrollment) => rosterStudentIds.has(enrollment.studentId) && allowedClassIds.has(enrollment.classId)),
     assignments: snapshot.assignments.filter((assignment) => allowedAssignmentIds.has(assignment.id)),

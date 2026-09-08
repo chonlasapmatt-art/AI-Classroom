@@ -179,6 +179,30 @@ describe('application shell and routes', () => {
     expect(within(form).getByRole('button', { name: '100 คน' })).toBeInTheDocument();
   });
 
+  it('gives a teacher their rooms read-only, with the roster and the way on to registering', async () => {
+    renderApp('/classes');
+    await switchRole('preview-teacher');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ห้องเรียน'));
+    // Rooms are school structure: a teacher reads the ones they hold and changes none of them.
+    expect(screen.queryByRole('button', { name: 'เพิ่มห้องเรียน' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'ลบ' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'แก้ไข' })).not.toBeInTheDocument();
+    // One row per teacher, carrying both the part they play and the subject they own in the room.
+    expect(screen.getByText('ครูประจำชั้น · วิทยาศาสตร์และเทคโนโลยี')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'ดูรายชื่อนักเรียน' })[0]!);
+    const roster = await screen.findByRole('dialog');
+    expect(within(roster).getAllByText(/เลขประจำตัว/).length).toBeGreaterThan(0);
+    expect(within(roster).getByRole('link', { name: 'ไปเช็กชื่อห้องนี้' }))
+      .toHaveAttribute('href', expect.stringContaining('/attendance?class='));
+  });
+
+  it('opens the attendance screen on the room the classes screen linked to', async () => {
+    renderApp('/attendance?class=fixture-class-2');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('เช็กชื่อ'));
+    expect(screen.getByLabelText('ห้องเรียน')).toHaveValue('fixture-class-2');
+  });
+
   it('renders the gradebook with category columns', async () => {
     renderApp('/gradebook');
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('สมุดเกรด'));

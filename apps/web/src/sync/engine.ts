@@ -97,13 +97,16 @@ export async function pullStructure(schoolId: string): Promise<number> {
   const client = requireSupabase();
   let applied = 0;
 
-  const mirror = async (cloudTable: string, localTable: string, columns = '*') => {
+  const mirror = async (
+    cloudTable: string, localTable: string, columns = '*',
+    shape: (row: Record<string, unknown>) => Record<string, unknown> = (row) => row
+  ) => {
     const { data, error } = await client.from(cloudTable).select(columns).eq('school_id', schoolId);
     if (error) throw error;
     const rows = (data ?? []) as unknown as Record<string, unknown>[];
     const table = db.table<Record<string, unknown>, string>(localTable);
     for (const row of rows) {
-      const incoming = fromCloud(row);
+      const incoming = shape(fromCloud(row));
       const current = await table.get(String(incoming.id));
       await table.put({ ...mergeLocal(current, incoming), deletedAt: incoming.deletedAt ?? null });
       applied += 1;
@@ -114,7 +117,13 @@ export async function pullStructure(schoolId: string): Promise<number> {
   await mirror('classes', 'classes');
   await mirror('subjects', 'subjects');
   await mirror('teachers', 'teachers');
-  await mirror('class_teachers', 'classTeachers');
+  // The server column is role_in_class; the local record calls it role. Left untranslated the field
+  // arrived as roleInClass and every room card lost the difference between the homeroom teacher and
+  // a subject teacher — they all read as the same person.
+  await mirror('class_teachers', 'classTeachers', '*', (row) => {
+    const { roleInClass, ...rest } = row;
+    return { ...rest, role: roleInClass === 'assistant' ? 'assistant' : 'primary' };
+  });
   await mirror('announcements', 'announcements');
   applied += await pullParentLinks(schoolId);
   return applied;

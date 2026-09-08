@@ -1,4 +1,4 @@
-import type { Attendance, AttendanceStatus, Classroom, ClassroomNotification, ScoreEvent, Setting, Student, Subject } from '../domain/types';
+import type { Attendance, AttendanceStatus, Classroom, ClassroomNotification, ClassTeacher, ScoreEvent, Setting, Student, Subject } from '../domain/types';
 import { calculateTotal, defaultScorePolicy, gradeFor, type Category, type ScoreItem, type ScorePolicy } from '../features/scores/scoreEngine';
 import type { SchoolSnapshot } from './schoolRepository';
 
@@ -31,6 +31,21 @@ export function privacyPolicyFrom(settings: Setting[]): { policyVersion: string;
 
 export function activeClasses(snapshot: SchoolSnapshot): Classroom[] {
   return snapshot.classes.filter((item) => item.status === 'active').sort((a, b) => a.name.localeCompare(b.name, 'th'));
+}
+
+/** An assignment that has not been ended. The server applies the same rule to every room read. */
+export function isActiveClassTeacher(link: ClassTeacher, at: Date = new Date()): boolean {
+  return !link.activeUntil || new Date(link.activeUntil) > at;
+}
+
+/**
+ * Who looks after a room, homeroom teacher first. The screens that name a room's staff all need the
+ * same order and the same rule about ended assignments.
+ */
+export function classTeacherLinks(snapshot: SchoolSnapshot, classId: string): ClassTeacher[] {
+  return snapshot.classTeachers
+    .filter((link) => link.classId === classId && isActiveClassTeacher(link))
+    .sort((a, b) => (a.role === b.role ? 0 : a.role === 'primary' ? -1 : 1));
 }
 
 export function rosterFor(snapshot: SchoolSnapshot, classId: string): Student[] {

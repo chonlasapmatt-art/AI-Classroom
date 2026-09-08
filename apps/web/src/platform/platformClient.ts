@@ -301,7 +301,11 @@ async function gateway(body: Record<string, unknown>): Promise<Record<string, un
       ? await context.json().catch(() => null) as Record<string, unknown> | null
       : null;
     const code = typeof parsed?.code === 'string' ? parsed.code : 'PLATFORM_ACCESS_DENIED';
-    throw new PlatformError(code, messages[code] ?? 'ยืนยันสิทธิ์ไม่สำเร็จ');
+    // A refusal the gateway could not name carries the server's own reason. Showing it is the
+    // difference between "it failed, try again" and knowing which piece of the deployment is short.
+    const detail = typeof parsed?.detail === 'string' && parsed.detail.trim() ? parsed.detail.trim() : '';
+    const base = messages[code] ?? 'ยืนยันสิทธิ์ไม่สำเร็จ';
+    throw new PlatformError(code, detail ? `${base} · ${detail}` : base);
   }
   return (data ?? {}) as Record<string, unknown>;
 }

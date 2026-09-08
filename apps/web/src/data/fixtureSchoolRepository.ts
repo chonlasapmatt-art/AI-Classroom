@@ -216,7 +216,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
   }
 
   async deleteClass(classId: string): Promise<void> {
-    const enrolled = this.data.enrollments.filter((item) => item.classId === classId && item.status === 'active').length;
+    const enrolled = this.data.enrollments.filter((item) => item.classId === classId && item.status === 'active' && !item.deletedAt).length;
     if (enrolled > 0) throw new Error(`ยังมีนักเรียน ${enrolled} คนอยู่ในห้องนี้ ย้ายห้องก่อนจึงจะลบได้`);
     this.data.classes = this.data.classes.filter((item) => item.id !== classId);
     this.data.classTeachers = this.data.classTeachers.filter((item) => item.classId !== classId);
