@@ -135,17 +135,35 @@ export function AssignmentsPage() {
     toast(publish ? 'เผยแพร่งานให้นักเรียนแล้ว' : 'บันทึกฉบับร่างแล้ว');
   }
 
+  /**
+   * Handing work in, whichever way the child did it.
+   *
+   * A Drive link used to be compulsory, which meant a student who had photographed their worksheet
+   * and attached the picture — the most common way work arrives on a phone — could not press "send"
+   * at all, and the file sat there unsubmitted with the teacher seeing nothing. A turn-in now needs
+   * one of the three: a file attached to this piece of work, a Drive link, or a written note. Only
+   * an empty submission is refused, and it says which of the three would fix it.
+   */
   async function turnIn(work: Assignment) {
     if (!ownStudent) return;
-    const driveUrl = normalizeGoogleDriveUrl(turnInDriveUrls[work.id]);
-    if (!driveUrl) {
-      toast('กรุณาวางลิงก์ Google Drive ที่เป็น HTTPS ก่อนส่งงาน');
+    const raw = turnInDriveUrls[work.id]?.trim() ?? '';
+    const driveUrl = normalizeGoogleDriveUrl(raw);
+    if (raw && !driveUrl) {
+      toast('ลิงก์ที่วางไม่ใช่ลิงก์ Google Drive แบบ HTTPS · แก้ลิงก์ หรือแนบไฟล์แทนได้', { tone: 'error' });
+      return;
+    }
+    const attachedFiles = snapshot.attachments.filter((item) =>
+      item.ownerType === 'submission' && item.ownerId === `${work.id}:${ownStudent.id}`).length;
+    if (!driveUrl && attachedFiles === 0 && turnInNote.trim() === '') {
+      toast('แนบไฟล์งาน วางลิงก์ Google Drive หรือเขียนบันทึกถึงครูอย่างน้อยหนึ่งอย่างก่อนส่ง', { tone: 'error' });
       return;
     }
     await repository.submitWork(work.id, ownStudent.id, turnInNote, false, driveUrl);
-    setTurnInDriveUrls((current) => ({ ...current, [work.id]: driveUrl }));
+    setTurnInDriveUrls((current) => ({ ...current, [work.id]: driveUrl ?? '' }));
     setTurnInNote('');
-    toast('ส่งงานเรียบร้อยแล้ว');
+    toast(driveUrl
+      ? 'ส่งงานเรียบร้อยแล้ว · ครูเปิดลิงก์ได้ทันที'
+      : `ส่งงานเรียบร้อยแล้ว${attachedFiles > 0 ? ` · แนบไฟล์ ${attachedFiles} ไฟล์` : ''}`);
   }
 
   return (
@@ -267,7 +285,7 @@ export function AssignmentsPage() {
                     />
                     <AttachmentPanel
                       ownerType="submission" ownerId={`${work.id}:${ownStudent.id}`} uploadedBy={membership.profileId}
-                      canUpload title="ไฟล์งานของฉัน"
+                      canUpload title="ไฟล์งานของฉัน (รูปถ่าย PDF วิดีโอ หรือไฟล์อื่น)"
                     />
                     {submission?.teacherNote && <p className="teacher-note">ความเห็นครู: {submission.teacherNote}</p>}
                     {submission?.driveUrl && (
@@ -288,8 +306,8 @@ export function AssignmentsPage() {
                       {['upcoming', 'soon', 'urgent', 'overdue', 'revision_requested'].includes(state) && (
                         <>
                           <div className="drive-submit-panel">
-                            <div className="drive-submit-heading"><span className="drive-submit-icon"><Icon name="external-link" size={18} /></span><div><strong>ส่งงานผ่าน Google Drive</strong><small>รูปแบบเดียวกับ Google Classroom</small></div></div>
-                            <p>อัปโหลดไฟล์ใน Google Drive แล้วตั้งค่าแชร์เป็น “ทุกคนที่มีลิงก์” หรือแชร์ให้อีเมลครู จากนั้นวางลิงก์ไว้ที่นี่</p>
+                            <div className="drive-submit-heading"><span className="drive-submit-icon"><Icon name="external-link" size={18} /></span><div><strong>หรือส่งเป็นลิงก์ Google Drive</strong><small>ไม่บังคับ · แนบไฟล์ด้านบนก็ส่งได้เลย</small></div></div>
+                            <p>ถ้างานอยู่ใน Google Drive ให้ตั้งค่าแชร์เป็น “ทุกคนที่มีลิงก์” หรือแชร์ให้อีเมลครู แล้ววางลิงก์ไว้ที่นี่ · ถ้าแนบไฟล์ (รูปถ่าย PDF วิดีโอ) ไว้แล้ว ไม่ต้องใส่ลิงก์</p>
                             <Field label="ลิงก์ไฟล์หรือโฟลเดอร์ Google Drive">
                               <input
                                 type="url"

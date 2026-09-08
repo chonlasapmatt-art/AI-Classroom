@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { attachmentIcons, attachmentLabels, formatBytes } from '../../data/attachmentKind';
-import type { AttachmentOwner } from '../../domain/types';
+import type { Attachment, AttachmentOwner } from '../../domain/types';
+import { AttachmentViewer } from './AttachmentViewer';
 
 interface Props {
   ownerType: AttachmentOwner;
@@ -25,6 +26,9 @@ export function AttachmentPanel({ ownerType, ownerId, uploadedBy, canUpload, can
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Reading a file opens it here rather than downloading it: on a school tablet a download is
+  // often the last anybody sees of a worksheet.
+  const [viewing, setViewing] = useState<Attachment | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -89,7 +93,7 @@ export function AttachmentPanel({ ownerType, ownerId, uploadedBy, canUpload, can
             <li key={file.id}>
               <span className="attachment-icon" aria-hidden="true">{attachmentIcons[file.kind]}</span>
               <div>
-                <button className="link-button" onClick={() => void open(file.id, file.fileName)}>{file.fileName}</button>
+                <button className="link-button" onClick={() => setViewing(file)}>{file.fileName}</button>
                 <span>
                   {attachmentLabels[file.kind]} · {formatBytes(file.byteSize)} ·{' '}
                   {file.storagePath ? 'แชร์กับห้องเรียนแล้ว' : 'อยู่เฉพาะเครื่องนี้'}
@@ -109,6 +113,7 @@ export function AttachmentPanel({ ownerType, ownerId, uploadedBy, canUpload, can
       )}
 
       {error && <p className="attachment-error">{error}</p>}
+      {viewing && <AttachmentViewer file={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }

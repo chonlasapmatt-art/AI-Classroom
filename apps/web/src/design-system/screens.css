@@ -3253,3 +3253,18 @@ tr.row-warning td { background: var(--warning-soft); }
   .subject-material-list li > .ui-button { grid-column: span 1; }
   .subject-hero-head { grid-template-columns: auto minmax(0, 1fr); }
 }
+
+/* ── Reading an attachment in place ────────────────────────────────────────────────────────────
+   The media fills the dialog's width and is capped by the viewport height, so a portrait photo of a
+   worksheet and a landscape lesson video both open at a size worth reading without the dialog
+   growing past the screen. */
+.attachment-view-image, .attachment-view-media {
+  display: block; inline-size: 100%; max-block-size: 68vh; margin: 0 auto;
+  border-radius: var(--radius-md); background: var(--color-surface-sunken, var(--color-surface));
+  object-fit: contain;
+}
+.attachment-view-audio { inline-size: 100%; }
+.attachment-view-frame {
+  inline-size: 100%; block-size: 68vh; border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
