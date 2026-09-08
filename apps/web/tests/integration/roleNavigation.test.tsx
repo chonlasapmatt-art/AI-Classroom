@@ -8,6 +8,18 @@ import { disablePreviewMode, enablePreviewMode } from '../../src/preview/preview
 
 afterEach(() => { cleanup(); disablePreviewMode(); resetFixtureRepository(); });
 
+describe('the highlight behind the current menu row', () => {
+  it('is one travelling element rather than a background on each row', async () => {
+    renderApp('/');
+    await waitFor(() => expect(screen.getByRole('navigation', { name: 'เมนูหลัก' })).toBeInTheDocument());
+    const menu = screen.getByRole('navigation', { name: 'เมนูหลัก' });
+    // One marker for the whole menu: two would mean a row had started painting its own again.
+    expect(menu.querySelectorAll('.sidebar-marker')).toHaveLength(1);
+    // And it is scenery — nothing for a screen reader to read or a keyboard to land on.
+    expect(menu.querySelector('.sidebar-marker')).toHaveAttribute('aria-hidden', 'true');
+  });
+});
+
 describe('the school noticeboard', () => {
   it('belongs to the administrator and to nobody else', () => {
     // "ประกาศรวม" is every announcement in the school, for every class and every audience. What a

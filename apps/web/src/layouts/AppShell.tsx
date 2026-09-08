@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../app/SessionContext';
 import { recall, recallRecord, remember, rememberRecord } from '../app/deviceMemory';
@@ -113,6 +113,51 @@ function readExpandedGroups(role: Role, groups: NavGroup[], path: string): Recor
   }
 }
 
+/**
+ * Where the highlight behind the current menu item is, and how tall it is.
+ *
+ * Every row used to paint its own background when it became current, so moving between screens made
+ * one block vanish and another appear somewhere else — two events for one movement, which is why
+ * pressing through the menu felt like a series of jumps. There is one highlight now and it travels:
+ * the same object slides from the row you left to the row you chose, which is the thing that reads
+ * as a single continuous action.
+ */
+function useActiveRowMarker(dependencies: unknown[]) {
+  const nav = useRef<HTMLElement>(null);
+  const [marker, setMarker] = useState<{ top: number; height: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const element = nav.current;
+    if (!element) return;
+    const measure = () => {
+      const current = element.querySelector<HTMLElement>('a.active');
+      if (!current) { setMarker(null); return; }
+      // Measured against the menu's own box rather than by offsetTop: a row's offset parent changes
+      // with the section it sits in, and reading the two rectangles is true wherever it ends up.
+      const bounds = element.getBoundingClientRect();
+      const row = current.getBoundingClientRect();
+      setMarker({ top: row.top - bounds.top + element.scrollTop, height: row.height });
+    };
+    measure();
+    // The row keeps moving after the render that put it there — a section folding open, a font
+    // arriving, the rail narrowing — so it is measured again on the next frame and then watched.
+    const frame = requestAnimationFrame(measure);
+    const observers: (() => void)[] = [() => cancelAnimationFrame(frame)];
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(measure);
+      observer.observe(element);
+      for (const row of element.querySelectorAll('a')) observer.observe(row);
+      observers.push(() => observer.disconnect());
+    }
+    element.addEventListener('transitionend', measure);
+    observers.push(() => element.removeEventListener('transitionend', measure));
+    return () => { for (const stop of observers) stop(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, dependencies);
+
+  return { nav, marker };
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
   const snapshot = useSchoolSnapshot();
@@ -151,6 +196,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [membership.role, session.mode]);
   const [expandedGroups, setExpandedGroups] = useState(() => readExpandedGroups(membership.role, visibleGroups, location.pathname));
   const [menuQuery, setMenuQuery] = useState('');
+  const { nav: navElement, marker } = useActiveRowMarker([location.pathname, expandedGroups, collapsed, menuQuery, membership.role]);
   // Matching the section name as well as the entry answers "where did they put the timetable?" —
   // somebody searching "คะแนน" wants everything filed under it, not only the screen with that name.
   const menuMatches = useMemo(() => {
@@ -277,7 +323,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={16} />
           </button>
         </div>
-        <nav aria-label="เมนูหลัก">
+        <nav aria-label="เมนูหลัก" ref={navElement} data-marker={marker ? 'on' : 'off'}>
+          {/* One highlight for the whole menu, which slides. It is drawn behind the rows and has no
+              text of its own, so it is scenery to a screen reader and nothing to a keyboard. */}
+          {marker && (
+            <span
+              className="sidebar-marker"
+              aria-hidden="true"
+              style={{ transform: `translateY(${marker.top}px)`, height: `${marker.height}px` }}
+            />
+          )}
           {/* A menu of seven sections is still seven sections to open when somebody knows the name of
               what they want. Typing it is the shortest path, and the search collapses the whole menu
               into the matches rather than adding a second place to look. */}

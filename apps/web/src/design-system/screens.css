@@ -24,7 +24,25 @@
 .sidebar-brand { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-2) var(--space-5); }
 .sidebar-brand strong { display: block; font-size: var(--text-base); }
 .sidebar-brand span { display: block; margin-top: 2px; color: var(--ink-400); font-size: var(--text-xs); }
-.sidebar nav { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.sidebar nav { position: relative; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+/*
+ * The highlight behind whichever row you are on.
+ *
+ * It is one element for the whole menu, moved by transform, so going from one screen to another is
+ * a single object travelling rather than one block disappearing and another arriving. The spring is
+ * slightly overshooting on purpose: an ease that only decelerates reads as sliding, and a little
+ * overshoot reads as landing. Height animates with it because the rows are not all the same size.
+ */
+.sidebar-marker {
+  position: absolute; left: 0; right: 0; top: 0; z-index: 0; pointer-events: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(120deg, var(--brand-50), color-mix(in srgb, var(--brand-100) 70%, var(--surface)));
+  box-shadow: inset 3px 0 0 var(--brand-500);
+  transition:
+    transform var(--duration-normal) cubic-bezier(.34, 1.28, .48, 1),
+    height var(--duration-normal) cubic-bezier(.34, 1.28, .48, 1);
+}
+.sidebar nav > section, .sidebar nav > label { position: relative; z-index: 1; }
 .sidebar nav a {
   display: flex; align-items: center; gap: var(--space-3); min-height: var(--control-md);
   padding: 0 var(--space-3); border-radius: var(--radius-sm);
@@ -205,7 +223,7 @@
 :is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='reports'] {
   --nav-soft: var(--accent-mint-soft); --nav-ink: var(--accent-mint);
 }
-.sidebar nav a:hover { background: color-mix(in srgb, var(--nav-soft, var(--surface-sunken)) 45%, var(--surface-sunken)); color: var(--ink-900); transform: translateX(2px); }
+.sidebar nav a:hover { background: color-mix(in srgb, var(--nav-soft, var(--surface-sunken)) 45%, var(--surface-sunken)); color: var(--ink-900); }
 .sidebar nav a:hover .ui-icon {
   transform: scale(1.08);
   border-color: color-mix(in srgb, var(--nav-ink, var(--ink-400)) 42%, transparent);
@@ -213,9 +231,12 @@
     0 5px 12px color-mix(in srgb, var(--nav-ink, var(--ink-400)) 24%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--surface) 55%, #fff);
 }
-.sidebar nav a:active { transform: scale(0.98); }
-.sidebar nav a:active .ui-icon { transform: scale(0.92); }
-.sidebar nav a.active { background: var(--brand-50); color: var(--brand-700); font-weight: var(--weight-strong); box-shadow: inset 3px 0 0 var(--brand-500); }
+.sidebar nav a { position: relative; z-index: 1; }
+.sidebar nav a:active { transform: scale(0.985); transition-duration: 90ms; }
+.sidebar nav a:active .ui-icon { transform: scale(0.94); transition-duration: 90ms; }
+.sidebar nav a.active { background: transparent; color: var(--brand-700); font-weight: var(--weight-strong); }
+/* With no marker — an address the menu does not list — the row still has to look current. */
+.sidebar nav[data-marker='off'] a.active { background: var(--brand-50); box-shadow: inset 3px 0 0 var(--brand-500); }
 /* The tile keeps its own colour when the row is current: the row is already saying "you are here"
    with a bar, a fill and a weight, and taking the colour away would remove the one mark that says
    which place this is. It gains a ring instead. */
@@ -806,6 +827,9 @@
 @keyframes avatarPick { 0% { transform: scale(1); } 45% { transform: scale(1.14); } 100% { transform: scale(1); } }
 
 @media (prefers-reduced-motion: reduce) {
+  /* The marker still moves — it has to be where the current row is — but it arrives rather than
+     travels, which is the distinction this setting is asking for. */
+  .sidebar-marker { transition: none; }
   .avatar-stage-glow, .avatar-stage-figure, .avatar-option { animation: none; }
   .avatar-option, .avatar-option-figure, .avatar-option-check, .avatar-pose { transition: none; }
   .avatar-option:hover, .avatar-pose:hover { transform: none; }
