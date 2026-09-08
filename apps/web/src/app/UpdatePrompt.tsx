@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/components';
+import { Icon } from '../ui/Icon';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db } from '../db/database';
-import { APP_VERSION, prepareForUpdate, readLastCheckedAt, shouldCheckNow, UPDATE_CHECK_INTERVAL_MS, writeLastCheckedAt } from './appUpdate';
+import {
+  APP_VERSION, fetchIncomingVersion, prepareForUpdate, readLastCheckedAt, shouldCheckNow,
+  UPDATE_CHECK_INTERVAL_MS, updateCopy, updateKindFor, writeLastCheckedAt
+} from './appUpdate';
 
 /**
  * Shows the "a new version is ready" banner and applies it on the user's word.
@@ -14,6 +18,7 @@ export function UpdatePrompt() {
   const [dismissed, setDismissed] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [preparationError, setPreparationError] = useState<string | null>(null);
+  const [incomingVersion, setIncomingVersion] = useState<string | null>(null);
 
   const {
     offlineReady: [offlineReady, setOfflineReady],
@@ -54,12 +59,24 @@ export function UpdatePrompt() {
     }
   });
 
+  /*
+   * Which version is waiting, and therefore which of the two prompts this is.
+   *
+   * The service worker only says "something newer exists"; the build writes its version into
+   * `version.json`, which is read here once the prompt is about to appear. A read that fails leaves
+   * the kind unknown, and the prompt words itself generally rather than not appearing — knowing
+   * less about an update is never a reason to hide it.
+   */
   useEffect(() => {
-    if (needRefresh) {
-      setDismissed(false);
-      setPreparationError(null);
-    }
+    if (!needRefresh) return;
+    setDismissed(false);
+    setPreparationError(null);
+    let active = true;
+    void fetchIncomingVersion().then((version) => { if (active) setIncomingVersion(version); });
+    return () => { active = false; };
   }, [needRefresh]);
+
+  const kind = updateKindFor(APP_VERSION, incomingVersion);
 
   const applyUpdateSafely = async () => {
     if (preparing) return;
@@ -84,16 +101,32 @@ export function UpdatePrompt() {
   if (dismissed && !offlineReady) return null;
 
   if (needRefresh) {
+    const copy = updateCopy[kind];
     return (
-      <div className="update-banner" role="status">
-        <div>
-          <strong>มีเวอร์ชันใหม่พร้อมใช้งาน</strong>
-          <span>เวอร์ชันที่ใช้อยู่ {APP_VERSION} · ระบบจะซิงก์ข้อมูลก่อนรีโหลด เพื่อไม่ให้ข้อมูลหาย</span>
+      <div className="update-banner" data-kind={kind} role="status">
+        <span className="update-mark" aria-hidden="true">
+          <Icon name={kind === 'patch' ? 'check' : 'sync'} size={22} />
+        </span>
+        <div className="update-copy">
+          <span className="update-eyebrow">{copy.eyebrow}</span>
+          <strong>{copy.title}</strong>
+          <span className="update-versions">
+            {incomingVersion ? `${APP_VERSION} → ${incomingVersion}` : `เวอร์ชันที่ใช้อยู่ ${APP_VERSION}`}
+          </span>
+          <span>{copy.body}</span>
           {preparationError && <span className="update-error" role="alert">{preparationError}</span>}
         </div>
         <div className="update-actions">
-          <button className="text-button" disabled={preparing} onClick={() => { setNeedRefresh(false); setDismissed(true); }}>ภายหลัง</button>
-          <Button variant="primary" loading={preparing} onClick={() => void applyUpdateSafely()}>อัปเดตตอนนี้</Button>
+          <Button
+            variant="ghost"
+            disabled={preparing}
+            onClick={() => { setNeedRefresh(false); setDismissed(true); }}
+          >
+            ภายหลัง
+          </Button>
+          <Button variant="primary" loading={preparing} onClick={() => void applyUpdateSafely()}>
+            {copy.action}
+          </Button>
         </div>
       </div>
     );

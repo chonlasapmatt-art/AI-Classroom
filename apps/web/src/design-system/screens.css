@@ -3469,3 +3469,78 @@ tr.row-warning td { background: var(--warning-soft); }
   .subject-swatch, .subject-icon-option { transition: none; }
   .subject-swatch:hover, .subject-icon-option:hover { transform: none; }
 }
+
+/* ── The update prompt ─────────────────────────────────────────────────────────────────────────
+   It was a dark pill at the bottom of the screen with 12.5px grey subtext, which on a classroom
+   projector or a phone in a corridor is a thing people genuinely did not see for days. It is a card
+   now: a coloured mark that says which kind of update this is, a heading at reading size, the
+   version it is moving from and to, and two real buttons.
+
+   The two kinds share every one of those. Only the words change — a patch says it is a fix and
+   asks to be installed, a version update says there is new work — because that is the only real
+   difference to the person deciding whether to press it now or after the lesson. The mark's colour
+   follows: an ordinary confirmation for a fix, the brand for new work. Neither carries meaning
+   alone; the eyebrow above the heading says which it is in words. */
+.update-banner {
+  --update-accent: var(--color-primary);
+  position: fixed; left: 50%; bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 70;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center;
+  gap: var(--space-4);
+  inline-size: min(680px, calc(100% - 2rem));
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--update-accent) 32%, var(--color-border));
+  border-radius: var(--radius-lg);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  animation: update-banner-in .42s var(--motion-ease-emphasized) both;
+}
+.update-banner[data-kind="patch"] { --update-accent: var(--color-success); }
+.update-banner::before {
+  content: ""; position: absolute; inset-inline: 0; inset-block-start: 0; block-size: 4px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: linear-gradient(90deg, var(--update-accent), color-mix(in srgb, var(--update-accent) 30%, transparent));
+}
+.update-mark {
+  inline-size: 46px; block-size: 46px; flex: none;
+  display: grid; place-items: center; border-radius: var(--radius-md);
+  color: var(--update-accent);
+  background: color-mix(in srgb, var(--update-accent) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--update-accent) 26%, transparent);
+}
+.update-copy { min-inline-size: 0; display: grid; gap: 2px; }
+.update-eyebrow {
+  color: var(--update-accent); font-size: var(--text-xs); font-weight: var(--weight-heavy);
+  letter-spacing: .08em;
+}
+.update-banner strong { display: block; font-size: var(--text-md); color: var(--color-text-primary); }
+.update-banner span { display: block; color: var(--color-text-secondary); font-size: var(--text-sm); }
+.update-versions { color: var(--color-text-muted) !important; font-variant-numeric: tabular-nums; }
+.update-banner .update-error { color: var(--color-danger) !important; font-weight: var(--weight-strong); }
+.update-actions { margin-inline-start: auto; display: flex; align-items: center; gap: var(--space-2); }
+
+/* The offline notice keeps the calm end of the same shape: no accent band, no mark, one action. */
+.update-banner.offline { --update-accent: var(--color-info); grid-template-columns: minmax(0, 1fr) auto; }
+
+@keyframes update-banner-in {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* On a phone the card stacks and the actions become full-width targets, and it sits above the
+   bottom navigation rather than on top of it. */
+@media (max-width: 720px) {
+  .update-banner {
+    grid-template-columns: auto minmax(0, 1fr);
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    padding: var(--space-4);
+  }
+  .update-actions { grid-column: 1 / -1; margin-inline-start: 0; }
+  .update-actions > * { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .update-banner { animation: none; }
+}

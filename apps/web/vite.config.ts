@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+import type { PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -17,6 +18,26 @@ const { version } = JSON.parse(readFileSync(new URL('./package.json', import.met
 const includePlatformConsole = process.env.INCLUDE_PLATFORM_CONSOLE !== 'false';
 const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
+/**
+ * Writes the built version where a running tab can read it.
+ *
+ * A tab notices that a new service worker is waiting, but the worker never tells it what version is
+ * waiting — so the app could say "there is an update" and nothing more. This one small file is the
+ * answer: fetched when the prompt appears, compared with the running version, and turned into the
+ * difference between "a fix" and "a new version". It is written at build time and carries nothing
+ * a school owns.
+ */
+const versionManifest = (): PluginOption => ({
+  name: 'app-version-manifest',
+  generateBundle(this: { emitFile(file: { type: 'asset'; fileName: string; source: string }): void }) {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'version.json',
+      source: JSON.stringify({ version, buildTime: new Date().toISOString() })
+    });
+  }
+});
+
 export default defineConfig({
   // Surfaced in the update banner and on the Settings screen.
   define: {
@@ -25,6 +46,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    versionManifest(),
     VitePWA({
       registerType: 'prompt',
       // The app asks before reloading, so a lesson is never interrupted by an automatic swap.
