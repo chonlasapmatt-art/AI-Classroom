@@ -1,11 +1,13 @@
-import type { Assignment, Setting, Student, Submission, TestRecord, TestScore, WorkType } from '../domain/types';
+import type { Activity, ActivityScore, Assignment, Setting, Student, Submission, TestRecord, TestScore, WorkType } from '../domain/types';
 import { gradeForPercentage, gradeSchemeFrom, percentageOf, type GradeScheme } from './gradeScheme';
 
 /**
  * Gradebook maths: category weights, per-category averages and the weighted total.
  *
- * Weights are school settings, validated to add up to 100, so a term average always means the same
- * thing on the teacher screen, the student screen and the exported report.
+ * This is the one place a total is computed. The dashboard, the scores screen, the gradebook, the
+ * leaderboard, the parent portal and every report read their numbers from here, so a student's
+ * average means the same thing on all of them. Weights are school settings, validated to add up to
+ * 100; the late-work and missing-work policy is a school setting too.
  */
 export type GradeCategory = 'homework' | 'assignment' | 'activity' | 'project' | 'test';
 
@@ -40,6 +42,31 @@ export function weightsAreValid(weights: CategoryWeights): boolean {
   return Math.round(totalWeight(weights)) === 100;
 }
 
+/**
+ * How late and missing work count.
+ *
+ * `latePenaltyPercent` is taken off the mark of a piece of work handed in late; `missingItem` says
+ * whether unmarked work counts as zero or is left out of the average; `decimals` is how the total
+ * is shown. The category weights used to sit beside these under a different name and with three
+ * categories instead of five, so two screens could weigh the same marks differently. They live in
+ * `gradebook_weights` only.
+ */
+export interface ScorePolicy { latePenaltyPercent: number; missingItem: 'zero' | 'exclude'; decimals: number }
+
+export const defaultScorePolicy: ScorePolicy = { latePenaltyPercent: 10, missingItem: 'zero', decimals: 2 };
+
+export function scorePolicyFrom(settings: Setting[]): ScorePolicy {
+  const stored = settings.find((item) => item.key === 'score_policy')?.valueJson;
+  if (!stored) return defaultScorePolicy;
+  const penalty = Number(stored.latePenaltyPercent ?? defaultScorePolicy.latePenaltyPercent);
+  const decimals = Number(stored.decimals ?? defaultScorePolicy.decimals);
+  return {
+    latePenaltyPercent: Number.isFinite(penalty) ? Math.min(100, Math.max(0, penalty)) : defaultScorePolicy.latePenaltyPercent,
+    missingItem: stored.missingItem === 'exclude' ? 'exclude' : 'zero',
+    decimals: Number.isFinite(decimals) ? Math.min(4, Math.max(0, Math.round(decimals))) : defaultScorePolicy.decimals
+  };
+}
+
 /** Work types map onto gradebook categories; a test row comes from the tests table. */
 export function categoryForWorkType(workType: WorkType): GradeCategory {
   return workType;
@@ -52,6 +79,8 @@ export interface GradebookRow {
   categories: CategoryResult[];
   percentage: number | null;
   grade: string | null;
+  /** Pieces of work, activities and tests that counted towards the average. */
+  itemCount: number;
 }
 
 export interface GradebookInput {
@@ -60,8 +89,12 @@ export interface GradebookInput {
   submissions: Submission[];
   tests: TestRecord[];
   testScores: TestScore[];
+  /** Published activities count in the activity category alongside activity-type work. */
+  activities?: Activity[];
+  activityScores?: ActivityScore[];
   weights?: CategoryWeights;
   scheme?: GradeScheme;
+  policy?: ScorePolicy;
   /** Restricts the book to one subject when set. */
   subjectId?: string | null;
 }
@@ -70,42 +103,63 @@ function emptyResult(category: GradeCategory, weight: number): CategoryResult {
   return { category, earned: 0, possible: 0, percentage: null, weight };
 }
 
+function roundTo(value: number, decimals: number): number {
+  const factor = 10 ** decimals;
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
 /**
- * Builds one row per student. A category with no published work is dropped from the average
- * instead of counting as zero, and its weight is redistributed across the categories that exist.
+ * Builds one row per student. A category with no counted item is dropped from the average instead
+ * of counting as zero, and its weight is redistributed across the categories that exist. A test
+ * counts only once its scores are published; an unmarked piece of work counts as zero or is left
+ * out, as the school's policy says; a late piece of work loses the policy's share of its mark.
  */
 export function buildGradebook(input: GradebookInput): GradebookRow[] {
   const weights = input.weights ?? defaultCategoryWeights;
   const scheme = input.scheme ?? gradeSchemeFrom([]);
+  const policy = input.policy ?? defaultScorePolicy;
+  const inSubject = (subjectId: string | null) => !input.subjectId || subjectId === input.subjectId;
   const works = input.works.filter((work) =>
-    work.status !== 'draft' && work.status !== 'cancelled' &&
-    (!input.subjectId || work.subjectId === input.subjectId));
-  const tests = input.tests.filter((test) => !input.subjectId || test.subjectId === input.subjectId);
+    work.status !== 'draft' && work.status !== 'cancelled' && !work.deletedAt && inSubject(work.subjectId));
+  const tests = input.tests.filter((test) => !test.deletedAt && inSubject(test.subjectId));
+  const activities = (input.activities ?? []).filter((activity) => activity.status === 'published' && !activity.deletedAt && inSubject(activity.subjectId));
+  const activityScores = input.activityScores ?? [];
 
   return input.students.map((student) => {
     const results = new Map<GradeCategory, CategoryResult>(
       gradeCategories.map((category) => [category, emptyResult(category, weights[category])])
     );
+    let itemCount = 0;
+
+    const count = (category: GradeCategory, score: number | null | undefined, maxScore: number, late = false) => {
+      if (!(maxScore > 0)) return;
+      const bucket = results.get(category)!;
+      if (score === null || score === undefined) {
+        // Unmarked work still counts towards what was possible, so the average is honest — unless
+        // the school chose to leave missing work out.
+        if (policy.missingItem === 'exclude') return;
+        bucket.possible += maxScore;
+        itemCount += 1;
+        return;
+      }
+      const penalised = late ? score * (1 - policy.latePenaltyPercent / 100) : score;
+      bucket.earned += Math.min(maxScore, Math.max(0, penalised));
+      bucket.possible += maxScore;
+      itemCount += 1;
+    };
 
     for (const work of works) {
-      const category = categoryForWorkType(work.workType);
-      const bucket = results.get(category)!;
-      const submission = input.submissions.find((item) => item.assignmentId === work.id && item.studentId === student.id);
-      if (submission?.score === null || submission?.score === undefined) {
-        // Unmarked work still counts towards what was possible, so the average is honest.
-        bucket.possible += work.maxScore;
-        continue;
-      }
-      bucket.earned += submission.score;
-      bucket.possible += work.maxScore;
+      const submission = input.submissions.find((item) => item.assignmentId === work.id && item.studentId === student.id && !item.deletedAt);
+      count(categoryForWorkType(work.workType), submission?.score, work.maxScore, submission?.isLate ?? false);
     }
-
+    for (const activity of activities) {
+      const score = activityScores.find((item) => item.activityId === activity.id && item.studentId === student.id && !item.deletedAt);
+      count('activity', score?.score, activity.maxScore);
+    }
     for (const test of tests) {
-      const score = input.testScores.find((item) => item.testId === test.id && item.studentId === student.id);
+      const score = input.testScores.find((item) => item.testId === test.id && item.studentId === student.id && !item.deletedAt);
       if (!score?.publishedAt) continue;
-      const bucket = results.get('test')!;
-      bucket.earned += score.score ?? 0;
-      bucket.possible += test.maxScore;
+      count('test', score.score ?? 0, test.maxScore);
     }
 
     const categories = [...results.values()].map((result) => ({
@@ -116,10 +170,10 @@ export function buildGradebook(input: GradebookInput): GradebookRow[] {
     const active = categories.filter((result) => result.percentage !== null && result.weight > 0);
     const activeWeight = active.reduce((sum, result) => sum + result.weight, 0);
     const percentage = activeWeight > 0
-      ? Math.round(active.reduce((sum, result) => sum + result.percentage! * (result.weight / activeWeight), 0) * 100) / 100
+      ? roundTo(active.reduce((sum, result) => sum + result.percentage! * (result.weight / activeWeight), 0), policy.decimals)
       : null;
 
-    return { student, categories, percentage, grade: gradeForPercentage(percentage, scheme) };
+    return { student, categories, percentage, grade: gradeForPercentage(percentage, scheme), itemCount };
   });
 }
 

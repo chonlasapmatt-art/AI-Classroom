@@ -20,7 +20,10 @@ export const conflictEntityLabels: Record<string, string> = {
   student: 'นักเรียน', enrollment: 'การลงทะเบียนเรียน', assignment: 'งานที่มอบหมาย',
   submission: 'งานที่ส่ง', activity: 'กิจกรรม', activity_score: 'คะแนนกิจกรรม',
   test: 'ข้อสอบ', test_score: 'คะแนนสอบ', attendance: 'การเช็กชื่อ', setting: 'การตั้งค่า',
-  timetable_entry: 'ตารางสอน', achievement: 'เหรียญรางวัล', score_event: 'คะแนน'
+  timetable_entry: 'ตารางสอน', achievement: 'เหรียญรางวัล', score_event: 'คะแนน',
+  rubric: 'เกณฑ์การให้คะแนน', rubric_score: 'คะแนนตามเกณฑ์', submission_version: 'ประวัติการส่งงาน',
+  deadline_extension: 'การขยายเวลาส่งงาน', notification_preference: 'การตั้งค่าการแจ้งเตือน',
+  classroom_notification: 'การแจ้งเตือนนักเรียน', academic_audit: 'ประวัติการแก้ไขคะแนน'
 };
 
 // Bookkeeping that is different on every version by definition and tells a person nothing about

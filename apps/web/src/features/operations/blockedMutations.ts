@@ -1,5 +1,5 @@
 import { db } from '../../db/database';
-import { announceLocalMutation } from '../../db/localMutation';
+import { announceLocalMutation, localTableForEntity } from '../../db/localMutation';
 import type { SyncEntityType, SyncQueueItem, SyncRecord } from '../../domain/types';
 
 /**
@@ -14,15 +14,13 @@ const entityLabels: Record<SyncEntityType, string> = {
   student: 'นักเรียน', enrollment: 'การเข้าห้องเรียน', assignment: 'งานที่มอบหมาย',
   submission: 'งานที่ส่ง', activity: 'กิจกรรมเก็บคะแนน', activity_score: 'คะแนนกิจกรรม',
   test: 'รายการสอบ', test_score: 'คะแนนสอบ', attendance: 'การเช็กชื่อ', setting: 'การตั้งค่า',
-  timetable_entry: 'คาบในตารางสอน', achievement: 'เหรียญรางวัล', score_event: 'คะแนนพิเศษ'
+  timetable_entry: 'คาบในตารางสอน', achievement: 'เหรียญรางวัล', score_event: 'คะแนนพิเศษ',
+  rubric: 'เกณฑ์การให้คะแนน', rubric_score: 'คะแนนตามเกณฑ์', submission_version: 'ประวัติการส่งงาน',
+  deadline_extension: 'การขยายเวลาส่งงาน', notification_preference: 'การตั้งค่าการแจ้งเตือน',
+  classroom_notification: 'การแจ้งเตือนนักเรียน', academic_audit: 'ประวัติการแก้ไขคะแนน'
 };
 
-const localTables: Record<SyncEntityType, string> = {
-  student: 'students', enrollment: 'enrollments', assignment: 'assignments', submission: 'submissions',
-  activity: 'activities', activity_score: 'activityScores', test: 'tests', test_score: 'testScores',
-  attendance: 'attendance', setting: 'settings', timetable_entry: 'timetable',
-  achievement: 'achievements', score_event: 'scoreEvents'
-};
+const localTables: Record<SyncEntityType, string> = localTableForEntity;
 
 /**
  * What the server said, and what it means here.
@@ -50,6 +48,21 @@ const reasons: Array<{ match: string; reason: string; fix: string }> = [
     match: 'duplicate key value',
     reason: 'ข้อมูลนี้มีอยู่แล้วในระบบ บันทึกซ้ำไม่ได้',
     fix: 'ถ้าบันทึกไปแล้วให้ทิ้งรายการนี้ได้'
+  },
+  {
+    match: 'violates foreign key constraint',
+    reason: 'รายการนี้อ้างถึงข้อมูลที่เซิร์ฟเวอร์ยังไม่มี เช่น นักเรียนหรือห้องเรียนที่ยังซิงก์ไม่สำเร็จ',
+    fix: 'แก้รายการที่ถูกบล็อกก่อนหน้านี้ให้ผ่านก่อน แล้วกดลองใหม่ที่รายการนี้'
+  },
+  {
+    match: 'class is not in that term',
+    reason: 'ห้องเรียนที่เลือกไม่ได้อยู่ในภาคเรียนเดียวกับการลงทะเบียนนี้',
+    fix: 'ลงทะเบียนใหม่จากหน้าห้องเรียนของภาคเรียนที่ถูกต้อง แล้วทิ้งรายการนี้'
+  },
+  {
+    match: 'unknown student',
+    reason: 'ไม่พบนักเรียนคนนี้ในโรงเรียนบนเซิร์ฟเวอร์',
+    fix: 'ตรวจว่ารายการนักเรียนซิงก์ผ่านแล้ว จึงกดลองใหม่'
   },
   {
     match: 'SYNC_CONFLICT',

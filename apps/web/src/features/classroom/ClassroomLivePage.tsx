@@ -13,6 +13,7 @@ import {
   formatCountdown, pickNextIndex, pickNextStudent, splitIntoTeams, teamCountOptions, teamName, xpPresets
 } from './classroomGames';
 import { useToast } from '../../ui/toastContext';
+import { localDateKey } from '../../domain/dates';
 
 type Tool = 'pick' | 'teams' | 'question' | 'timer';
 
@@ -182,7 +183,7 @@ export function ClassroomLivePage() {
     } finally { setBusy(false); }
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateKey();
   const boardAwards = useMemo(() => snapshot.scoreEvents
     .filter((event) => event.sourceType === 'board' && event.occurredAt.slice(0, 10) === today)
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))

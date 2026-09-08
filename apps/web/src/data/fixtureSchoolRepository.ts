@@ -11,7 +11,7 @@ import { gradeSchemeFrom, resolveGrade } from '../academic/gradeScheme';
 import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
-import { attachmentKindFor } from './attachmentKind';
+import { attachmentKindFor, blockedAttachmentReason } from './attachmentKind';
 import { buildFixtureData, FIXTURE_SCHOOL_ID, type FixtureData } from './fixtures/schoolFixture';
 import { scopeSchoolSnapshot, type VisibilityScope } from './visibility';
 import { canManageAcademicItem } from './teacherResponsibilities';
@@ -748,7 +748,7 @@ export class FixtureSchoolRepository implements SchoolRepository {
     if (driveUrl !== undefined && driveUrl !== null && !normalizedDriveUrl) {
       throw new Error('ลิงก์ส่งงานต้องเป็น Google Drive หรือ Google Docs แบบ HTTPS');
     }
-    const plan = planSubmission(work, this.submissionHead(assignmentId, studentId), studentId, studentNote, due, (id) => this.base(id), new Date(), normalizedDriveUrl);
+    const plan = planSubmission(work, this.submissionHead(assignmentId, studentId), studentId, studentNote, due, (id) => this.base(id), new Date(), normalizedDriveUrl, this.data.submissionVersions);
     this.data.submissions = this.upsert(this.data.submissions, plan.submission);
     this.data.submissionVersions = [...this.data.submissionVersions, plan.version];
     // A student who has handed the work in no longer needs the remaining reminders.
@@ -864,6 +864,8 @@ export class FixtureSchoolRepository implements SchoolRepository {
 
   async addAttachment(input: AttachmentInput): Promise<void> {
     if (input.file.size > MAX_ATTACHMENT_BYTES) throw new Error('ไฟล์ใหญ่เกิน 15 MB');
+    const blocked = blockedAttachmentReason(input.file.name, input.file.type);
+    if (blocked) throw new Error(blocked);
     const meta: Attachment = {
       ...this.base(),
       ownerType: input.ownerType, ownerId: input.ownerId, uploadedBy: input.uploadedBy,
@@ -882,6 +884,11 @@ export class FixtureSchoolRepository implements SchoolRepository {
       return;
     }
     this.emit();
+  }
+
+  async shareAttachment(attachmentId: string): Promise<void> {
+    // Preview files are already as shared as they can be: inside this tab.
+    if (!this.data.attachments.some((item) => item.id === attachmentId)) throw new Error('ไม่พบไฟล์นี้');
   }
 
   async refreshAttachments(_ownerType: AttachmentOwner, _ownerId: string): Promise<void> {

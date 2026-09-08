@@ -2,6 +2,9 @@ import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses, activeSubjects, classIdOfStudent, rosterFor, scorePolicyFrom, standingsFor, subjectById, subjectResultsFor } from '../../data/selectors';
+import { gradeSchemeFrom } from '../../academic/gradeScheme';
+import { localDateKey } from '../../domain/dates';
+import { categoryLabels, categoryWeightsFrom, gradeCategories } from '../../academic/gradebook';
 import { subjectColor } from '../../data/subjectCatalog';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { SchoolSnapshot } from '../../data/schoolRepository';
@@ -21,8 +24,10 @@ const detailKindLabels: Record<'assignment' | 'homework' | 'project' | 'activity
 };
 
 /** Marks are read far more often than they are typed, so the scale is spelled out beside the number. */
-function GradeBadge({ grade }: { grade: string }) {
-  return <Badge tone={grade === 'F' ? 'danger' : grade.startsWith('4') || grade.startsWith('3') ? 'success' : 'info'}>เกรด {grade}</Badge>;
+/** The scheme grade as a badge. Below the lowest band is the one tone that has to stand out. */
+function GradeBadge({ grade, below }: { grade: string | null; below: string }) {
+  if (grade === null) return <Badge tone="neutral">ยังไม่มีเกรด</Badge>;
+  return <Badge tone={grade === below ? 'danger' : 'success'}>เกรด {grade}</Badge>;
 }
 
 const thaiDate = (value: string | null) => value ? new Date(value).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '—';
@@ -65,6 +70,7 @@ function StudentScoresView({ snapshot, studentId, classId, subjects, policy }: {
   policy: ReturnType<typeof scorePolicyFrom>;
 }) {
   const [detailSubjectId, setDetailSubjectId] = useState<string | null>(null);
+  const scheme = gradeSchemeFrom(snapshot.settings);
   const results = studentId && classId ? subjectResultsFor(snapshot, studentId, classId, policy) : [];
   const selectedSubject = subjects.find((subject) => subject.id === detailSubjectId) ?? null;
   const detailItems = selectedSubject && studentId
@@ -104,7 +110,7 @@ function StudentScoresView({ snapshot, studentId, classId, subjects, policy }: {
     : [];
 
   const average = results.length === 0 ? 0 : results.reduce((sum, item) => sum + item.total, 0) / results.length;
-  const failing = results.filter((item) => item.grade === 'F').length;
+  const failing = results.filter((item) => item.grade === scheme.belowGrade).length;
 
   return (
     <>
@@ -156,9 +162,9 @@ function StudentScoresView({ snapshot, studentId, classId, subjects, policy }: {
                   <span className="student-subject-icon"><SubjectIcon iconKey={result.subject.iconKey} size={22} /></span>
                   <span className="student-subject-card-head"><strong>{result.subject.name}</strong><span>{result.itemCount} รายการที่มีคะแนน</span></span>
                   <span className="student-subject-total">{result.total.toFixed(policy.decimals)}<small>/ 100</small></span>
-                  <ProgressBar value={result.total} max={100} tone={result.grade === 'F' ? 'danger' : 'brand'} />
+                  <ProgressBar value={result.total} max={100} tone={result.grade === scheme.belowGrade ? 'danger' : 'brand'} />
                   <span className="student-subject-foot">
-                    <GradeBadge grade={result.grade} />
+                    <GradeBadge grade={result.grade} below={scheme.belowGrade} />
                     <span className="student-subject-open">ดูรายละเอียด<Icon name="more" size={14} /></span>
                   </span>
                 </button>
@@ -226,6 +232,8 @@ export function ScoresPage() {
 
   const roster = rosterFor(snapshot, selectedClassId);
   const policy = scorePolicyFrom(snapshot.settings);
+  const scheme = gradeSchemeFrom(snapshot.settings);
+  const weights = categoryWeightsFrom(snapshot.settings);
   const standings = useMemo(() => standingsFor(snapshot, selectedClassId, policy), [snapshot, selectedClassId, policy]);
   const bySubject = <T extends { subjectId: string | null }>(items: T[]) => items.filter((item) => !subjectFilter || item.subjectId === subjectFilter);
   const activities = bySubject(snapshot.activities.filter((item) => item.classId === selectedClassId));
@@ -254,7 +262,7 @@ export function ScoresPage() {
   const visibleRoster = roster.filter((student) => matchesQuery(student.displayName));
 
   const classAverage = standings.length === 0 ? 0 : standings.reduce((sum, entry) => sum + entry.total, 0) / standings.length;
-  const passing = standings.filter((entry) => entry.grade !== 'F').length;
+  const passing = standings.filter((entry) => entry.grade !== null && entry.grade !== scheme.belowGrade).length;
   const missingTotal = standings.reduce((sum, entry) => sum + entry.missingWork, 0);
 
   /** How many of the class already have a mark for one activity or test — the thing a teacher is deciding by. */
@@ -269,7 +277,7 @@ export function ScoresPage() {
       classId: selectedClassId,
       title: String(data.get('title') ?? '').trim(),
       subjectId: String(data.get('subjectId') ?? '') || null,
-      activityDate: String(data.get('date') ?? new Date().toISOString().slice(0, 10)),
+      activityDate: String(data.get('date') || localDateKey()),
       maxScore: Number(data.get('maxScore') ?? 10),
       status: 'published'
     });
@@ -285,7 +293,7 @@ export function ScoresPage() {
       classId: selectedClassId,
       title: String(data.get('title') ?? '').trim(),
       subjectId: String(data.get('subjectId') ?? '') || null,
-      testDate: String(data.get('date') ?? new Date().toISOString().slice(0, 10)),
+      testDate: String(data.get('date') || localDateKey()),
       maxScore: Number(data.get('maxScore') ?? 100),
       status: 'draft'
     });
@@ -298,7 +306,7 @@ export function ScoresPage() {
       <PageHeader
         eyebrow="คะแนนและเกรด"
         title="คะแนน"
-        description={`น้ำหนัก งาน ${policy.weights.assignment}% · กิจกรรม ${policy.weights.activity}% · สอบ ${policy.weights.test}% · หักงานส่งช้า ${policy.latePenaltyPercent}%`}
+        description={`น้ำหนัก ${gradeCategories.map((category) => `${categoryLabels[category]} ${weights[category]}%`).join(' · ')} · หักงานส่งช้า ${policy.latePenaltyPercent}%`}
       />
 
       <Toolbar>
@@ -399,10 +407,10 @@ export function ScoresPage() {
                   <td>
                     <div className="score-total">
                       <span>{entry.total.toFixed(policy.decimals)}</span>
-                      <ProgressBar value={entry.total} max={100} tone={entry.grade === 'F' ? 'danger' : 'brand'} />
+                      <ProgressBar value={entry.total} max={100} tone={entry.grade === scheme.belowGrade ? 'danger' : 'brand'} />
                     </div>
                   </td>
-                  <td><GradeBadge grade={entry.grade} /></td>
+                  <td><GradeBadge grade={entry.grade} below={scheme.belowGrade} /></td>
                   <td>{entry.missingWork === 0 ? <Badge tone="success">ครบ</Badge> : <Badge tone="warning">{entry.missingWork} ชิ้น</Badge>}</td>
                 </tr>
               ))}
@@ -425,7 +433,7 @@ export function ScoresPage() {
                       {editableSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
                     </select>
                   </Field>
-                  <Field label="วันที่"><input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></Field>
+                  <Field label="วันที่"><input name="date" type="date" defaultValue={localDateKey()} /></Field>
                   <Field label="คะแนนเต็ม" hint="ใช้เป็นตัวหารตอนคิดคะแนนรวม"><input name="maxScore" type="number" min="1" defaultValue="10" /></Field>
                 </FieldGroup>
                 <div className="ui-form-actions">
@@ -521,7 +529,7 @@ export function ScoresPage() {
                       {editableSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
                     </select>
                   </Field>
-                  <Field label="วันที่สอบ"><input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></Field>
+                  <Field label="วันที่สอบ"><input name="date" type="date" defaultValue={localDateKey()} /></Field>
                   <Field label="คะแนนเต็ม" hint="ใช้เป็นตัวหารตอนคิดคะแนนรวม"><input name="maxScore" type="number" min="1" defaultValue="100" /></Field>
                 </FieldGroup>
                 <div className="ui-form-actions">

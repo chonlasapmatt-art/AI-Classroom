@@ -13,12 +13,13 @@ const classId = fixture.primaryClassId;
 describe('snapshot selectors', () => {
   it('reads the score policy from settings', () => {
     const policy = scorePolicyFrom(snapshot.settings);
-    expect(policy.weights.assignment + policy.weights.activity + policy.weights.test).toBe(100);
     expect(policy.latePenaltyPercent).toBe(10);
+    expect(policy.missingItem).toBe('zero');
   });
 
   it('falls back to the default policy when the setting is missing', () => {
-    expect(scorePolicyFrom([]).weights.assignment).toBe(60);
+    expect(scorePolicyFrom([]).latePenaltyPercent).toBe(10);
+    expect(scorePolicyFrom([]).decimals).toBe(2);
     expect(privacyPolicyFrom([]).showLeaderboardToStudents).toBe(true);
   });
 

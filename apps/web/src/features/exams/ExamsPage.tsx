@@ -17,6 +17,7 @@ import {
 } from '../questions/questionBank';
 import { previewExamStore } from '../../preview/previewData';
 import { teacherCanEditSubject, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { localDateKey } from '../../domain/dates';
 
 /**
  * Derived the same way the server derives it, so the list does not claim an exam is open an hour
@@ -158,7 +159,7 @@ export function ExamsPage() {
               </select>
             </Field>
             <Field label="วันสอบ">
-              <input name="testDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+              <input name="testDate" type="date" defaultValue={localDateKey()} required />
             </Field>
             <Field label="คะแนนเต็ม"><input name="maxScore" type="number" min={1} defaultValue={100} required /></Field>
           </Toolbar>
@@ -203,8 +204,10 @@ function ExamDetail({ exam, schoolId, questionCount, canEdit, onBack, onMessage 
   canEdit: boolean;
   onBack(): void; onMessage(message: string): void;
 }) {
+  const snapshot = useSchoolSnapshot();
   const [count, setCount] = useState(questionCount);
   const [attempts, setAttempts] = useState<ExamAttemptRow[]>([]);
+  const studentName = (studentId: string) => snapshot.students.find((student) => student.id === studentId)?.displayName ?? 'นักเรียน (ไม่พบชื่อในเครื่อง)';
   const [pool, setPool] = useState<BankQuestion[] | null>(null);
   const [categories, setCategories] = useState<QuestionCategory[]>([]);
   const [chosen, setChosen] = useState<string[]>([]);
@@ -411,9 +414,10 @@ function ExamDetail({ exam, schoolId, questionCount, canEdit, onBack, onMessage 
       {attempts.length > 0 && (
         <Card>
           <CardHeader title="การเข้าสอบ" description="คะแนนอัตโนมัติมาจากข้อปรนัย ครูตรวจข้ออัตนัยเพิ่มได้ที่หน้าคะแนน" />
-          <DataTable head={<tr><th>ครั้งที่</th><th>เริ่ม</th><th>ส่ง</th><th>เหตุที่ปิด</th><th>คะแนนอัตโนมัติ</th></tr>}>
+          <DataTable head={<tr><th>นักเรียน</th><th>ครั้งที่</th><th>เริ่ม</th><th>ส่ง</th><th>เหตุที่ปิด</th><th>คะแนนอัตโนมัติ</th></tr>}>
             {attempts.map((attempt) => (
               <tr key={attempt.id}>
+                <td>{studentName(attempt.studentId)}</td>
                 <td>{attempt.attemptNumber}</td>
                 <td>{new Date(attempt.startedAt).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
                 <td>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit' }) : 'ยังไม่ส่ง'}</td>

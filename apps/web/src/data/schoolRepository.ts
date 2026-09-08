@@ -354,6 +354,11 @@ export interface SchoolRepository {
   publishTestScores(testId: string): Promise<void>;
 
   addAttachment(input: AttachmentInput): Promise<void>;
+  /**
+   * Uploads a file this device still holds only locally — one added while offline, or whose upload
+   * failed — so the rest of the class can download it. No-op for a file already shared.
+   */
+  shareAttachment(attachmentId: string): Promise<void>;
   removeAttachment(attachmentId: string): Promise<void>;
   openAttachment(attachmentId: string): Promise<Blob | null>;
   /** Pulls the file list another device shared for this owner into the local projection. */

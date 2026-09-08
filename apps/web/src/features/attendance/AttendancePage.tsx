@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
+import { localDateKey } from '../../domain/dates';
 import {
   activeClasses, attendanceDailySummary, attendanceDayStatus, attendanceSummary, consentedStudents,
   rosterFor, subjectById
@@ -84,7 +85,7 @@ function StaffAttendancePage() {
   const [searchParams] = useSearchParams();
   const requestedClassId = searchParams.get('class') ?? '';
   const [classId, setClassId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(localDateKey());
   const [sessionKey, setSessionKey] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -398,7 +399,7 @@ function ParentAttendanceSummary() {
   const snapshot = useSchoolSnapshot();
   const children = consentedStudents(snapshot);
   const [studentId, setStudentId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(localDateKey());
   const child = children.find((item) => item.id === (studentId || children[0]?.id));
   const todayRows = useMemo(
     () => snapshot.attendance.filter((item) => item.studentId === child?.id && item.attendanceDate === date),

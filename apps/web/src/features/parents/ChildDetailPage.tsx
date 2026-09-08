@@ -24,6 +24,7 @@ import {
   scorePolicyFrom, subjectById, subjectResultsFor
 } from '../../data/selectors';
 import { calendarItemsFor } from '../../academic/views';
+import { gradeSchemeFrom } from '../../academic/gradeScheme';
 import { timeRemainingLabel, workStateLabels, workStateTone, type WorkState } from '../../academic/workStatus';
 import {
   Badge, Card, CardHeader, EmptyState, LinkButton, PageHeader, ProgressBar, Segmented, Stat
@@ -74,6 +75,7 @@ export function ChildDetailPage() {
     if (!child || !classId || !privacy.shareScoresWithParents) return [];
     return subjectResultsFor(snapshot, child.id, classId, scorePolicyFrom(snapshot.settings));
   }, [snapshot, child, classId, privacy.shareScoresWithParents]);
+  const belowGrade = gradeSchemeFrom(snapshot.settings).belowGrade;
 
   const counts = useMemo(() => ({
     pending: items.filter((item) => pendingStates.has(item.state)).length,
@@ -204,7 +206,7 @@ export function ChildDetailPage() {
                     <span>บันทึกคะแนนแล้ว {result.itemCount} รายการ</span>
                     <ProgressBar value={result.total} max={100} tone="brand" label={`${result.total.toFixed(2)} / 100`} />
                   </div>
-                  <Badge tone={result.total >= 50 ? 'success' : 'warning'}>เกรด {result.grade}</Badge>
+                  <Badge tone={result.grade === belowGrade ? 'warning' : 'success'}>เกรด {result.grade ?? '—'}</Badge>
                 </article>
               </li>
             ))}

@@ -1,24 +1,11 @@
 import type { Attendance, AttendanceStatus, Classroom, ClassroomNotification, ClassTeacher, ScoreEvent, Setting, Student, Subject } from '../domain/types';
-import { calculateTotal, defaultScorePolicy, gradeFor, type Category, type ScoreItem, type ScorePolicy } from '../features/scores/scoreEngine';
+import { buildGradebook, categoryWeightsFrom, scorePolicyFrom, type GradebookRow, type ScorePolicy } from '../academic/gradebook';
+import { gradePointFor, gradeSchemeFrom } from '../academic/gradeScheme';
 import type { SchoolSnapshot } from './schoolRepository';
 
 /** Derived views over a snapshot. Pure functions so every screen and test agrees on the numbers. */
 
-export function scorePolicyFrom(settings: Setting[]): ScorePolicy {
-  const stored = settings.find((item) => item.key === 'score_policy')?.valueJson;
-  if (!stored) return defaultScorePolicy;
-  const weights = stored.weights as Partial<Record<Category, number>> | undefined;
-  return {
-    weights: {
-      assignment: Number(weights?.assignment ?? defaultScorePolicy.weights.assignment),
-      activity: Number(weights?.activity ?? defaultScorePolicy.weights.activity),
-      test: Number(weights?.test ?? defaultScorePolicy.weights.test)
-    },
-    latePenaltyPercent: Number(stored.latePenaltyPercent ?? defaultScorePolicy.latePenaltyPercent),
-    missingItem: stored.missingItem === 'exclude' ? 'exclude' : 'zero',
-    decimals: Number(stored.decimals ?? defaultScorePolicy.decimals)
-  };
-}
+export { scorePolicyFrom };
 
 export function privacyPolicyFrom(settings: Setting[]): { policyVersion: string; showLeaderboardToStudents: boolean; shareScoresWithParents: boolean } {
   const stored = settings.find((item) => item.key === 'privacy_policy')?.valueJson ?? {};
@@ -115,33 +102,12 @@ export function attendanceDailySummary(snapshot: SchoolSnapshot, filter: { class
   };
 }
 
-export function scoreItemsFor(snapshot: SchoolSnapshot, studentId: string, classId: string): ScoreItem[] {
-  const items: ScoreItem[] = [];
-  for (const assignment of snapshot.assignments.filter((item) => item.classId === classId && item.status !== 'draft')) {
-    const submission = snapshot.submissions.find((item) => item.assignmentId === assignment.id && item.studentId === studentId);
-    items.push({
-      category: 'assignment', score: submission?.score ?? null, maxScore: assignment.maxScore,
-      published: true, late: submission?.isLate ?? false
-    });
-  }
-  for (const activity of snapshot.activities.filter((item) => item.classId === classId && item.status === 'published')) {
-    const score = snapshot.activityScores.find((item) => item.activityId === activity.id && item.studentId === studentId);
-    items.push({ category: 'activity', score: score?.score ?? null, maxScore: activity.maxScore, published: true });
-  }
-  for (const test of snapshot.tests.filter((item) => item.classId === classId)) {
-    const score = snapshot.testScores.find((item) => item.testId === test.id && item.studentId === studentId);
-    items.push({
-      category: 'test', score: score?.score ?? null, maxScore: test.maxScore,
-      published: Boolean(score?.publishedAt)
-    });
-  }
-  return items;
-}
-
 export interface StudentStanding {
   student: Student;
+  /** The gradebook percentage; 0 until anything has been counted. */
   total: number;
-  grade: ReturnType<typeof gradeFor>;
+  /** The scheme grade, or null while nothing has been counted. */
+  grade: string | null;
   rank: number;
   previousRank: number;
   rankChange: number;
@@ -149,26 +115,54 @@ export interface StudentStanding {
   missingWork: number;
 }
 
-function availableCategories(items: ScoreItem[]): Set<Category> {
-  return new Set(items.filter((item) => item.published && item.maxScore > 0).map((item) => item.category));
+/** The gradebook for one room, built the same way on every screen that shows a total. */
+export function classGradebook(snapshot: SchoolSnapshot, classId: string, students: Student[], options: { subjectId?: string | null; exclude?: Set<string>; policy?: ScorePolicy } = {}): GradebookRow[] {
+  const exclude = options.exclude ?? new Set<string>();
+  return buildGradebook({
+    students,
+    works: snapshot.assignments.filter((work) => work.classId === classId && !exclude.has(work.id)),
+    submissions: snapshot.submissions,
+    tests: snapshot.tests.filter((test) => test.classId === classId && !exclude.has(test.id)),
+    testScores: snapshot.testScores,
+    activities: snapshot.activities.filter((activity) => activity.classId === classId && !exclude.has(activity.id)),
+    activityScores: snapshot.activityScores,
+    weights: categoryWeightsFrom(snapshot.settings),
+    scheme: gradeSchemeFrom(snapshot.settings),
+    policy: options.policy ?? scorePolicyFrom(snapshot.settings),
+    subjectId: options.subjectId ?? null
+  });
+}
+
+/** The most recently changed counted item in a room: what the rank-change arrow compares against. */
+function newestItemId(snapshot: SchoolSnapshot, classId: string): string | null {
+  const items = [
+    ...snapshot.assignments.filter((work) => work.classId === classId && work.status !== 'draft' && work.status !== 'cancelled'),
+    ...snapshot.tests.filter((test) => test.classId === classId),
+    ...snapshot.activities.filter((activity) => activity.classId === classId && activity.status === 'published')
+  ];
+  return items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.id ?? null;
 }
 
 export function standingsFor(snapshot: SchoolSnapshot, classId: string, policy = scorePolicyFrom(snapshot.settings)): StudentStanding[] {
   const roster = rosterFor(snapshot, classId);
-  const scored = roster.map((student) => {
-    const items = scoreItemsFor(snapshot, student.id, classId);
-    const total = calculateTotal(items, availableCategories(items), policy);
-    // "Previous" standing = the same calculation without the newest published category item,
-    // which is what the rank-change indicator compares against.
-    const withoutLatest = items.slice(0, Math.max(0, items.length - 1));
-    const previousTotal = calculateTotal(withoutLatest, availableCategories(withoutLatest), policy);
+  const rows = classGradebook(snapshot, classId, roster, { policy });
+  // "Previous" standing = the same book without the newest counted item, which is what the
+  // rank-change indicator compares against.
+  const newest = newestItemId(snapshot, classId);
+  const previousRows = classGradebook(snapshot, classId, roster, { policy, exclude: new Set(newest ? [newest] : []) });
+  const scored = rows.map((row) => {
+    const student = row.student;
     const missingWork = snapshot.assignments
-      .filter((assignment) => assignment.classId === classId && assignment.status !== 'draft')
+      .filter((assignment) => assignment.classId === classId && assignment.status !== 'draft' && assignment.status !== 'cancelled')
       .filter((assignment) => {
         const submission = snapshot.submissions.find((item) => item.assignmentId === assignment.id && item.studentId === student.id);
         return !submission || ['not_started', 'in_progress', 'assigned', 'draft', 'overdue'].includes(submission.status);
       }).length;
-    return { student, total, previousTotal, missingWork, presentRate: attendanceDailySummary(snapshot, { studentId: student.id }).presentRate };
+    const previous = previousRows.find((item) => item.student.id === student.id);
+    return {
+      student, total: row.percentage ?? 0, grade: row.grade, previousTotal: previous?.percentage ?? 0, missingWork,
+      presentRate: attendanceDailySummary(snapshot, { studentId: student.id }).presentRate
+    };
   });
 
   const byTotal = [...scored].sort((a, b) => b.total - a.total || a.student.studentCode.localeCompare(b.student.studentCode));
@@ -179,7 +173,7 @@ export function standingsFor(snapshot: SchoolSnapshot, classId: string, policy =
     const rank = index + 1;
     const previousRank = previousRankOf.get(entry.student.id) ?? rank;
     return {
-      student: entry.student, total: entry.total, grade: gradeFor(entry.total), rank, previousRank,
+      student: entry.student, total: entry.total, grade: entry.grade, rank, previousRank,
       rankChange: previousRank - rank, presentRate: entry.presentRate, missingWork: entry.missingWork
     };
   });
@@ -208,49 +202,21 @@ export function subjectById(snapshot: SchoolSnapshot, subjectId: string | null):
   return snapshot.subjects.find((item) => item.id === subjectId) ?? null;
 }
 
-/** Score items limited to one subject, so a gradebook column means one learning area. */
-export function scoreItemsForSubject(snapshot: SchoolSnapshot, studentId: string, classId: string, subjectId: string): ScoreItem[] {
-  const items: ScoreItem[] = [];
-  for (const assignment of snapshot.assignments.filter((item) => item.classId === classId && item.subjectId === subjectId && item.status !== 'draft')) {
-    const submission = snapshot.submissions.find((item) => item.assignmentId === assignment.id && item.studentId === studentId);
-    items.push({
-      category: 'assignment', score: submission?.score ?? null, maxScore: assignment.maxScore,
-      published: true, late: submission?.isLate ?? false
-    });
-  }
-  for (const activity of snapshot.activities.filter((item) => item.classId === classId && item.subjectId === subjectId && item.status === 'published')) {
-    const score = snapshot.activityScores.find((item) => item.activityId === activity.id && item.studentId === studentId);
-    items.push({ category: 'activity', score: score?.score ?? null, maxScore: activity.maxScore, published: true });
-  }
-  for (const test of snapshot.tests.filter((item) => item.classId === classId && item.subjectId === subjectId)) {
-    const score = snapshot.testScores.find((item) => item.testId === test.id && item.studentId === studentId);
-    items.push({ category: 'test', score: score?.score ?? null, maxScore: test.maxScore, published: Boolean(score?.publishedAt) });
-  }
-  return items;
-}
-
-export interface SubjectResult { subject: Subject; total: number; grade: ReturnType<typeof gradeFor>; itemCount: number }
+export interface SubjectResult { subject: Subject; total: number; grade: string | null; itemCount: number }
 
 /** Per-subject totals for one student — the row a gradebook or a report card shows. */
 export function subjectResultsFor(snapshot: SchoolSnapshot, studentId: string, classId: string, policy = scorePolicyFrom(snapshot.settings)): SubjectResult[] {
+  const student = snapshot.students.find((item) => item.id === studentId);
+  if (!student) return [];
   return activeSubjects(snapshot).map((subject) => {
-    const items = scoreItemsForSubject(snapshot, studentId, classId, subject.id);
-    const graded = items.filter((item) => item.published && item.maxScore > 0);
-    const total = calculateTotal(items, new Set(graded.map((item) => item.category)), policy);
-    return { subject, total, grade: gradeFor(total), itemCount: graded.length };
-  }).filter((result) => result.itemCount > 0);
+    const [row] = classGradebook(snapshot, classId, [student], { subjectId: subject.id, policy });
+    return { subject, total: row?.percentage ?? 0, grade: row?.grade ?? null, itemCount: row?.itemCount ?? 0 };
+  }).filter((result) => result.itemCount > 0 && result.grade !== null);
 }
 
-/** Grade point on the standard Thai 4.0 scale. */
+/** Grade point on the standard Thai 4.0 scale — the same table the gradebook uses. */
 export function gradePoint(total: number): number {
-  if (total >= 80) return 4;
-  if (total >= 75) return 3.5;
-  if (total >= 70) return 3;
-  if (total >= 65) return 2.5;
-  if (total >= 60) return 2;
-  if (total >= 55) return 1.5;
-  if (total >= 50) return 1;
-  return 0;
+  return gradePointFor(total);
 }
 
 export function gradePointAverage(results: SubjectResult[]): number {

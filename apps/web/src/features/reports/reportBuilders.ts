@@ -1,4 +1,5 @@
 import { attendanceDailySummary, classIdOfStudent, rosterFor, scorePolicyFrom, standingsFor } from '../../data/selectors';
+import { gradeSchemeFrom } from '../../academic/gradeScheme';
 import type { SchoolSnapshot } from '../../data/schoolRepository';
 
 export type ReportId = 'student' | 'class' | 'attendance' | 'score' | 'grade' | 'missing' | 'at-risk';
@@ -21,6 +22,7 @@ export const AT_RISK_MISSING_WORK = 2;
 
 export function buildReport(id: ReportId, snapshot: SchoolSnapshot, classId: string): ReportTable {
   const policy = scorePolicyFrom(snapshot.settings);
+  const scheme = gradeSchemeFrom(snapshot.settings);
   const roster = rosterFor(snapshot, classId);
   const standings = standingsFor(snapshot, classId, policy);
   const classroom = snapshot.classes.find((item) => item.id === classId);
@@ -59,19 +61,19 @@ export function buildReport(id: ReportId, snapshot: SchoolSnapshot, classId: str
     case 'score':
       return {
         id, title, columns: ['อันดับ', 'รหัสนักเรียน', 'ชื่อ-สกุล', 'คะแนนรวม', 'เกรด'],
-        rows: standings.map((entry) => [entry.rank, entry.student.studentCode, entry.student.displayName, entry.total, entry.grade])
+        rows: standings.map((entry) => [entry.rank, entry.student.studentCode, entry.student.displayName, entry.total, entry.grade ?? '-'])
       };
 
     case 'grade': {
-      const grades = ['A', 'B', 'C', 'D', 'F'];
-      return {
-        id, title, columns: ['เกรด', 'จำนวนนักเรียน', 'สัดส่วน (%)'],
-        rows: grades.map((grade) => {
-          const count = standings.filter((entry) => entry.grade === grade).length;
-          const percent = standings.length === 0 ? 0 : Math.round((count / standings.length) * 1000) / 10;
-          return [grade, count, percent];
-        })
-      };
+      // The school's own scheme, in its own order, plus the students nothing has been counted for
+      // yet — so the rows always add up to the roster.
+      const grades = [...scheme.bands.map((band) => band.grade), scheme.belowGrade];
+      const counted = (grade: string | null) => standings.filter((entry) => entry.grade === grade).length;
+      const percent = (count: number) => standings.length === 0 ? 0 : Math.round((count / standings.length) * 1000) / 10;
+      const rows: (string | number)[][] = grades.map((grade) => [grade, counted(grade), percent(counted(grade))]);
+      const ungraded = counted(null);
+      if (ungraded > 0) rows.push(['ยังไม่มีคะแนน', ungraded, percent(ungraded)]);
+      return { id, title, columns: ['เกรด', 'จำนวนนักเรียน', 'สัดส่วน (%)'], rows };
     }
 
     case 'missing':
@@ -88,12 +90,12 @@ export function buildReport(id: ReportId, snapshot: SchoolSnapshot, classId: str
         id, title: reportTitles['at-risk'],
         columns: ['รหัสนักเรียน', 'ชื่อ-สกุล', 'อัตราเข้าเรียน (%)', 'งานค้างส่ง', 'คะแนนรวม', 'เหตุผล'],
         rows: standings
-          .filter((entry) => entry.presentRate < AT_RISK_PRESENT_RATE || entry.missingWork >= AT_RISK_MISSING_WORK || entry.grade === 'F')
+          .filter((entry) => entry.presentRate < AT_RISK_PRESENT_RATE || entry.missingWork >= AT_RISK_MISSING_WORK || entry.grade === scheme.belowGrade)
           .map((entry) => {
             const reasons: string[] = [];
             if (entry.presentRate < AT_RISK_PRESENT_RATE) reasons.push('เข้าเรียนน้อย');
             if (entry.missingWork >= AT_RISK_MISSING_WORK) reasons.push('งานค้างส่ง');
-            if (entry.grade === 'F') reasons.push('คะแนนต่ำกว่าเกณฑ์');
+            if (entry.grade === scheme.belowGrade) reasons.push('คะแนนต่ำกว่าเกณฑ์');
             return [entry.student.studentCode, entry.student.displayName, entry.presentRate, entry.missingWork, entry.total, reasons.join(' / ')];
           })
       };

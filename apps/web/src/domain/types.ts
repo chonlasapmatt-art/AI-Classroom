@@ -1,7 +1,16 @@
 export type Role = 'admin' | 'teacher' | 'student' | 'parent';
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'leave';
 export type AttendanceSessionType = 'daily' | 'class' | 'homeroom';
-export type SyncEntityType = 'student' | 'enrollment' | 'assignment' | 'submission' | 'activity' | 'activity_score' | 'test' | 'test_score' | 'attendance' | 'setting' | 'timetable_entry' | 'achievement' | 'score_event';
+/**
+ * Every record the trusted mutation boundary accepts. The academic workflow's records — rubrics,
+ * rubric marks, submission history, personal deadlines, delivery preferences, the in-app notices a
+ * student reads and the academic audit trail — travel the same queue as everything else.
+ */
+export type SyncEntityType =
+  | 'student' | 'enrollment' | 'assignment' | 'submission' | 'activity' | 'activity_score' | 'test' | 'test_score'
+  | 'attendance' | 'setting' | 'timetable_entry' | 'achievement' | 'score_event'
+  | 'rubric' | 'rubric_score' | 'submission_version' | 'deadline_extension' | 'notification_preference'
+  | 'classroom_notification' | 'academic_audit';
 export type SyncOperation = 'upsert' | 'delete';
 
 export interface SyncRecord {
@@ -68,7 +77,10 @@ export interface Submission extends SyncRecord {
   isLate: boolean;
   teacherNote: string;
   studentNote: string;
-  /** Latest version number; every turn-in is also kept in submissionVersions. */
+  /**
+   * The sync version the server assigns, like every other record — not the turn-in count. How many
+   * times the student handed the work in is the number of rows in submissionVersions.
+   */
   version: number;
   openedAt: string | null;
   acknowledgedAt: string | null;
@@ -117,6 +129,12 @@ export interface SyncQueueItem {
   lastError: string | null;
   status: 'pending' | 'processing' | 'blocked';
   createdAt: string;
+  /**
+   * Strictly increasing on the device that made the change. Changes are pushed in this order, so a
+   * record always reaches the server before the records that refer to it. Rows queued by an older
+   * build omit it and fall back to createdAt.
+   */
+  sequence?: number;
 }
 
 export interface SyncState { key: string; deviceId: string; schoolId: string; lastPullRevision: number; lastSuccessfulSyncAt: string | null; localSchemaVersion: number; syncProtocolVersion: number; }
@@ -197,7 +215,7 @@ export type ClassroomNotificationKind =
 /** Delivery lifecycle, kept separate from creation so other channels can be added later. */
 export type NotificationState = 'queued' | 'scheduled' | 'sent' | 'delivered' | 'failed' | 'read';
 
-/** In-app notice for one student. Local-first, mirrored to the server notification outbox. */
+/** In-app notice for one student. Created on the teacher's device, delivered and read on the student's, through the sync queue. */
 export interface ClassroomNotification extends SyncRecord {
   studentId: string;
   classId: string;

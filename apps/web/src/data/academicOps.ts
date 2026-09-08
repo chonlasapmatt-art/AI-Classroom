@@ -204,7 +204,13 @@ export function planCancellation(work: Assignment, context: PublishContext, reas
   return { notifications, removeNotificationIds };
 }
 
-/** A student turning work in: a new version row plus the updated submission head. */
+/**
+ * A student turning work in: a new version row plus the updated submission head.
+ *
+ * The turn-in count comes from the version rows already kept for this student on this work. The
+ * head's own `version` is the sync version the server assigns and says nothing about turn-ins;
+ * reading it as one produced "v3" for a student who had handed the work in once.
+ */
 export function planSubmission(
   work: Assignment,
   submission: Submission | undefined,
@@ -213,11 +219,14 @@ export function planSubmission(
   effectiveDue: string | null,
   createRecord: RecordFactory,
   now = new Date(),
-  driveUrl?: string | null
+  driveUrl?: string | null,
+  existingVersions: SubmissionVersion[] = []
 ): { submission: Submission; version: SubmissionVersion; cancelledReminderKeys: string[] } {
   const timestamp = now.toISOString();
   const isLate = Boolean(effectiveDue && Date.parse(effectiveDue) < now.getTime());
-  const versionNumber = (submission?.version ?? 0) + 1;
+  const versionNumber = existingVersions
+    .filter((item) => item.assignmentId === work.id && item.studentId === studentId && !item.deletedAt)
+    .reduce((highest, item) => Math.max(highest, item.versionNumber), 0) + 1;
   const wasRevision = submission?.status === 'revision_requested';
 
   const head: Submission = {
@@ -231,7 +240,7 @@ export function planSubmission(
     isLate,
     teacherNote: submission?.teacherNote ?? '',
     studentNote,
-    version: versionNumber,
+    version: submission?.version ?? 0,
     openedAt: submission?.openedAt ?? timestamp,
     acknowledgedAt: submission?.acknowledgedAt ?? null,
     revisionNote: submission?.revisionNote ?? '',
@@ -324,7 +333,7 @@ export function planScoring(
       return {
         ...(existing ?? createRecord()),
         assignmentId: work.id, studentId, criterionId: entry.criterionId,
-        score: entry.score, comment: entry.comment ?? existing?.comment ?? '', updatedAt: timestamp
+        score: entry.score, comment: entry.comment ?? existing?.comment ?? '', deletedAt: null, updatedAt: timestamp
       };
     })
     : [];

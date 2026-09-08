@@ -3,12 +3,12 @@ import { useSession } from '../../app/SessionContext';
 import { recall } from '../../app/deviceMemory';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import {
-  activeClasses, activeSubjects, attendanceDailySummary, classIdOfStudent, consentedStudents, rosterFor, subjectById
+  activeClasses, activeSubjects, attendanceDailySummary, classGradebook, classIdOfStudent, consentedStudents, rosterFor, subjectById
 } from '../../data/selectors';
 import { subjectColor } from '../../data/subjectCatalog';
 import { calendarItemsFor, unreadCount } from '../../academic/views';
 import { timeRemainingLabel, workStateLabels, workStateTone } from '../../academic/workStatus';
-import { buildGradebook, categoryWeightsFrom, gradeDistribution } from '../../academic/gradebook';
+import { gradeDistribution } from '../../academic/gradebook';
 import { gradeSchemeFrom } from '../../academic/gradeScheme';
 import { followUpInsights } from '../../academic/workload';
 import { Badge, Card, CardHeader, EmptyState, LinkButton, PageHeader, ProgressBar, Stat } from '../../ui/components';
@@ -60,15 +60,7 @@ export function DashboardPage() {
     includeDrafts: membership.role !== 'student'
   }), [snapshot, classes, classId, student?.id, membership.role]);
 
-  const gradebook = useMemo(() => buildGradebook({
-    students: roster,
-    works: snapshot.assignments.filter((work) => work.classId === classId),
-    submissions: snapshot.submissions,
-    tests: snapshot.tests.filter((test) => test.classId === classId),
-    testScores: snapshot.testScores,
-    weights: categoryWeightsFrom(snapshot.settings),
-    scheme
-  }), [roster, snapshot, classId, scheme]);
+  const gradebook = useMemo(() => classGradebook(snapshot, classId, roster), [roster, snapshot, classId]);
 
   /*
    * There is no wait here any more, and that is deliberate.

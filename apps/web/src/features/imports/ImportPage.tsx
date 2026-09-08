@@ -148,39 +148,73 @@ export function ImportPage() {
     setRows((current) => current.filter((row) => row.rowId !== rowId));
   }
 
+  /**
+   * Writes the rows, one at a time, and keeps going.
+   *
+   * One refused row used to stop the whole run with a single error toast, so a teacher with a
+   * typo in row 40 had rows 41 to 120 silently not imported and no way to tell. Every row now
+   * either lands, is skipped for a reason the table already shows, or fails on its own — and the
+   * run is recorded, like the student import, so an administrator can see what happened later.
+   * A teacher who already exists is updated by code; a guardian already on file for the student
+   * is left alone rather than invited a second time.
+   */
   async function runImport() {
-    if (!spec) return;
+    if (!spec || !parsedFile) return;
     setBusy(true);
-    let imported = 0;
-    let skipped = 0;
-    try {
-      for (const row of rows) {
-        const missingRequired = spec.fields.some((field) => field.required && !(row[field.key] ?? '').trim());
-        if (missingRequired) { skipped += 1; continue; }
-
+    const startedAt = new Date().toISOString();
+    let created = 0; let updated = 0; let skipped = 0; let failed = 0;
+    const problems: string[] = [];
+    const teachersByCode = new Map(snapshot.teachers.map((teacher) => [teacher.teacherCode.trim().toLowerCase(), teacher]));
+    const seenInFile = new Set<string>();
+    for (const [index, row] of rows.entries()) {
+      const missingRequired = spec.fields.some((field) => field.required && !(row[field.key] ?? '').trim());
+      if (missingRequired) { skipped += 1; continue; }
+      try {
         if (target === 'teacher') {
+          const code = row.teacherCode!.trim();
+          const key = `teacher:${code.toLowerCase()}`;
+          if (seenInFile.has(key)) { skipped += 1; problems.push(`แถว ${index + 1}: รหัสครู ${code} ซ้ำในไฟล์`); continue; }
+          seenInFile.add(key);
+          const existing = teachersByCode.get(code.toLowerCase());
           await repository.saveTeacher({
-            teacherCode: row.teacherCode!.trim(), displayName: row.displayName!.trim(),
-            email: (row.email ?? '').trim(), subject: (row.subject ?? '').trim()
+            ...(existing ? { id: existing.id } : {}),
+            teacherCode: code, displayName: row.displayName!.trim(),
+            email: (row.email ?? '').trim() || existing?.email || '', subject: (row.subject ?? '').trim() || existing?.subject || ''
           });
+          if (existing) updated += 1; else created += 1;
         } else {
-          const student = snapshot.students.find((item) => item.studentCode === (row.studentCode ?? '').trim());
-          if (!student) { skipped += 1; continue; }
+          const studentCode = (row.studentCode ?? '').trim();
+          const student = snapshot.students.find((item) => item.studentCode === studentCode);
+          if (!student) { skipped += 1; problems.push(`แถว ${index + 1}: ไม่พบนักเรียนรหัส ${studentCode}`); continue; }
+          const parentName = row.parentName!.trim();
+          const key = `parent:${student.id}:${parentName.toLowerCase()}`;
+          if (seenInFile.has(key)) { skipped += 1; problems.push(`แถว ${index + 1}: ${parentName} ซ้ำในไฟล์`); continue; }
+          seenInFile.add(key);
+          const alreadyLinked = snapshot.parentLinks.some((link) =>
+            link.studentId === student.id && link.status !== 'revoked' && link.parentName.trim().toLowerCase() === parentName.toLowerCase());
+          if (alreadyLinked) { skipped += 1; problems.push(`แถว ${index + 1}: ${parentName} เป็นผู้ปกครองของ ${student.displayName} อยู่แล้ว`); continue; }
           await repository.saveParentLink({
-            studentId: student.id, parentName: row.parentName!.trim(),
+            studentId: student.id, parentName,
             relationship: (row.relationship ?? 'ผู้ปกครอง').trim(), contact: (row.contact ?? '').trim()
           });
+          created += 1;
         }
-        imported += 1;
+      } catch (reason) {
+        failed += 1;
+        problems.push(`แถว ${index + 1}: ${reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ'}`);
       }
-      setRows([]);
-      setTable(null);
-      toast(`นำเข้า ${imported} รายการ${skipped > 0 ? ` · ข้าม ${skipped} แถว` : ''}`);
-    } catch (reason) {
-      toast(reason instanceof Error ? reason.message : 'นำเข้าไม่สำเร็จ', { tone: 'error' });
-    } finally {
-      setBusy(false);
     }
+    try {
+      await repository.recordImportRun({
+        target, actorProfileId: membership.profileId, fileName, fileKind: parsedFile.kind, startedAt,
+        rowsDetected: rows.length, created, updated, skipped, failed, notes: problems.slice(0, 50).join('\n')
+      });
+    } catch { /* the receipt is a convenience; the rows above are already written */ }
+    setBusy(false);
+    if (failed === 0) { setRows([]); setTable(null); }
+    const summary = `สร้าง ${created} · อัปเดต ${updated}${skipped > 0 ? ` · ข้าม ${skipped}` : ''}${failed > 0 ? ` · ไม่สำเร็จ ${failed}` : ''}`;
+    if (failed > 0) toast(`${summary} — ${problems.find((item) => item.includes('ไม่สำเร็จ') || item.includes('แถว')) ?? ''}`.trim(), { tone: 'error' });
+    else toast(`นำเข้า${spec.label}แล้ว · ${summary}`);
   }
 
   /**

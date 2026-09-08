@@ -27,24 +27,20 @@ export function SettingsPage() {
   const [section, setSection] = useState<Section>('display');
 
   /*
-    The three weights are held here rather than read out of the form at submit time, because they
-    have to add up to 100 and the only way anyone found out they did not was to press save and be
-    refused. The running total is now beside the fields while they are being typed.
+    Category weights are not here. They used to be: three weights on this card and five on the
+    academic card, read by different screens, so the scores page and the gradebook could disagree
+    about the same marks. One set of weights, on the academic card, is what every total is built from.
   */
-  const [weights, setWeights] = useState(policy.weights);
-  const weightTotal = weights.assignment + weights.activity + weights.test;
-  const weightsBalanced = weightTotal === 100;
-
   async function saveScorePolicy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    if (!weightsBalanced) {
-      toast('น้ำหนักรวมต้องเท่ากับ 100', { tone: 'error' });
+    const latePenaltyPercent = Number(data.get('latePenalty') ?? policy.latePenaltyPercent);
+    if (!Number.isFinite(latePenaltyPercent) || latePenaltyPercent < 0 || latePenaltyPercent > 100) {
+      toast('การหักคะแนนงานส่งช้าต้องอยู่ระหว่าง 0 ถึง 100', { tone: 'error' });
       return;
     }
     await repository.saveSetting('score_policy', {
-      weights,
-      latePenaltyPercent: Number(data.get('latePenalty') ?? policy.latePenaltyPercent),
+      latePenaltyPercent,
       missingItem: String(data.get('missingItem') ?? policy.missingItem),
       decimals: policy.decimals
     });
@@ -154,37 +150,9 @@ export function SettingsPage() {
           <Card>
             <CardHeader
               title="นโยบายคะแนน"
-              description="กำหนดว่าคะแนนรวมของนักเรียนคิดจากอะไรบ้าง มีผลกับสมุดเกรดและรายงานทุกฉบับ"
-              action={(
-                <Badge tone={weightsBalanced ? 'success' : 'danger'}>
-                  น้ำหนักรวม {weightTotal}%
-                </Badge>
-              )}
+              description="งานส่งช้าและงานที่ไม่ส่งคิดอย่างไร มีผลกับหน้าคะแนน สมุดเกรด Leaderboard และรายงานทุกฉบับเหมือนกัน · สัดส่วนคะแนนแต่ละหมวดตั้งได้ที่แท็บ “วิชาการ”"
             />
             <form onSubmit={(event) => void saveScorePolicy(event)}>
-              <FieldGroup title="สัดส่วนคะแนน (รวมต้องได้ 100%)" columns={3}>
-                <Field
-                  label="งานที่มอบหมาย (%)"
-                  {...(weightsBalanced ? {} : { error: `ตอนนี้รวมได้ ${weightTotal}% ต้องปรับให้ครบ 100%` })}
-                >
-                  <input
-                    name="assignment" type="number" min="0" max="100" value={weights.assignment} disabled={!isAdmin}
-                    onChange={(event) => setWeights((current) => ({ ...current, assignment: Number(event.target.value) || 0 }))}
-                  />
-                </Field>
-                <Field label="กิจกรรม (%)">
-                  <input
-                    name="activity" type="number" min="0" max="100" value={weights.activity} disabled={!isAdmin}
-                    onChange={(event) => setWeights((current) => ({ ...current, activity: Number(event.target.value) || 0 }))}
-                  />
-                </Field>
-                <Field label="สอบ (%)">
-                  <input
-                    name="test" type="number" min="0" max="100" value={weights.test} disabled={!isAdmin}
-                    onChange={(event) => setWeights((current) => ({ ...current, test: Number(event.target.value) || 0 }))}
-                  />
-                </Field>
-              </FieldGroup>
               <FieldGroup title="งานที่ส่งช้าและงานที่ไม่ส่ง" columns={2}>
                 <Field label="หักคะแนนงานส่งช้า (%)" hint="หักจากคะแนนเต็มของงานชิ้นนั้น">
                   <input name="latePenalty" type="number" min="0" max="100" defaultValue={policy.latePenaltyPercent} disabled={!isAdmin} />
@@ -197,7 +165,7 @@ export function SettingsPage() {
                 </Field>
               </FieldGroup>
               <div className="ui-form-actions">
-                <Button variant="primary" disabled={!isAdmin || !weightsBalanced} icon={<Icon name="check" size={16} />}>
+                <Button variant="primary" disabled={!isAdmin} icon={<Icon name="check" size={16} />}>
                   บันทึกนโยบายคะแนน
                 </Button>
               </div>

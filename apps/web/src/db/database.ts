@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { AcademicTerm, AcademicAuditEntry, Announcement, Attachment, Activity, ActivityScore, Assignment, Attendance, ClassTeacher, ClassroomNotification, Classroom, DeviceMetadata, Enrollment, LocalSessionMetadata, ParentLink, DeadlineExtension, NotificationPreference, Rubric, RubricScore, Setting, Student, StudentAchievement, Subject, Submission, SubmissionVersion,
   ImportRun, ScoreEvent, SyncQueueItem, SyncState, Teacher, TestRecord, TestScore, TimetableEntry } from '../domain/types';
 
-export const LOCAL_SCHEMA_VERSION = 13;
+export const LOCAL_SCHEMA_VERSION = 14;
 
 /**
  * Attachment row as stored locally: metadata plus the file bytes when this device has them.
@@ -167,10 +167,20 @@ export class SmartClassroomDatabase extends Dexie {
     });
     // v13 keeps the student's Google Drive turn-in link with the submission head. It is metadata,
     // not a separate index, so the upgrade only backfills old rows safely.
-    this.version(LOCAL_SCHEMA_VERSION).upgrade(async (transaction) => {
+    this.version(13).upgrade(async (transaction) => {
       await transaction.table('submissions').toCollection().modify((row: Record<string, unknown>) => {
         row.driveUrl ??= null;
       });
+    });
+    // v14 sends the academic workflow through the sync queue. The new indexes are the lookups the
+    // server's natural keys need on this side: a notice by its dedupe key, a rubric mark by
+    // criterion, delivery preferences by profile, and tombstones on the tables that never had them.
+    this.version(LOCAL_SCHEMA_VERSION).stores({
+      notifications: 'id, schoolId, studentId, classId, assignmentId, kind, readAt, createdAt, dedupeKey, [schoolId+dedupeKey], deletedAt',
+      rubricScores: 'id, schoolId, assignmentId, studentId, criterionId, [assignmentId+studentId], [assignmentId+studentId+criterionId], deletedAt',
+      submissionVersions: 'id, schoolId, assignmentId, studentId, [assignmentId+studentId], versionNumber, submittedAt, deletedAt',
+      deadlineExtensions: 'id, schoolId, assignmentId, studentId, [assignmentId+studentId], dueAt, deletedAt',
+      notificationPreferences: 'id, schoolId, profileId, [schoolId+profileId]'
     });
   }
 }

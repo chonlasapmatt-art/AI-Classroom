@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
-import { activeClasses, activeSubjects, bonusTotalFor, classIdOfStudent, privacyPolicyFrom, recentScoreEvents, rosterFor } from '../../data/selectors';
-import { buildGradebook, categoryWeightsFrom } from '../../academic/gradebook';
+import { activeClasses, activeSubjects, bonusTotalFor, classGradebook, classIdOfStudent, privacyPolicyFrom, recentScoreEvents, rosterFor } from '../../data/selectors';
 import { gradeSchemeFrom } from '../../academic/gradeScheme';
 import { Badge, Card, EmptyState, Field, PageHeader, ProgressBar, Segmented, Toolbar } from '../../ui/components';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
@@ -47,16 +46,10 @@ export function LeaderboardPage() {
   const effectiveClassId = selectedClassId || classes[0]?.id || '';
   const roster = rosterFor(snapshot, effectiveClassId);
 
-  const rows = useMemo(() => buildGradebook({
-    students: roster,
-    works: snapshot.assignments.filter((work) => work.classId === effectiveClassId),
-    submissions: snapshot.submissions,
-    tests: snapshot.tests.filter((test) => test.classId === effectiveClassId),
-    testScores: snapshot.testScores,
-    weights: categoryWeightsFrom(snapshot.settings),
-    scheme,
-    subjectId: subjectId || null
-  }), [roster, snapshot, effectiveClassId, subjectId, scheme]);
+  const rows = useMemo(
+    () => classGradebook(snapshot, effectiveClassId, roster, { subjectId: subjectId || null }),
+    [roster, snapshot, effectiveClassId, subjectId]
+  );
 
   const ranked = useMemo(() => [...rows]
     .filter((row) => row.percentage !== null)

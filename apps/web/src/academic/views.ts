@@ -2,6 +2,7 @@ import type { SchoolSnapshot } from '../data/schoolRepository';
 import type { Assignment, ClassroomNotification, Student, Submission } from '../domain/types';
 import { rosterFor } from '../data/selectors';
 import { effectiveDueAt, hasSubmitted, workStateFor, type WorkState } from './workStatus';
+import { dayKeyOf, localDateKey } from '../domain/dates';
 
 /**
  * Read models the screens share: calendar entries, notification groups and the acknowledgement
@@ -41,7 +42,7 @@ export function groupByDay(items: CalendarItem[]): Map<string, CalendarItem[]> {
   const map = new Map<string, CalendarItem[]>();
   for (const item of items) {
     if (!item.dueAt) continue;
-    const day = item.dueAt.slice(0, 10);
+    const day = dayKeyOf(item.dueAt);
     map.set(day, [...(map.get(day) ?? []), item]);
   }
   return map;
@@ -113,7 +114,7 @@ export function groupEntriesByDay(entries: CalendarEntry[]): Map<string, Calenda
   const map = new Map<string, CalendarEntry[]>();
   for (const entry of entries) {
     if (!entry.at) continue;
-    const day = entry.at.slice(0, 10);
+    const day = dayKeyOf(entry.at);
     map.set(day, [...(map.get(day) ?? []), entry]);
   }
   return map;
@@ -135,7 +136,7 @@ export interface NotificationEntry {
 
 /** Sorts a student's delivered notices into the sections the notification centre shows. */
 export function notificationEntries(snapshot: SchoolSnapshot, studentId: string, now = new Date()): NotificationEntry[] {
-  const today = now.toISOString().slice(0, 10);
+  const today = localDateKey(now);
   return snapshot.notifications
     .filter((item) => item.studentId === studentId && item.state !== 'scheduled')
     .sort((a, b) => (b.sentAt ?? b.createdAt).localeCompare(a.sentAt ?? a.createdAt))
@@ -151,7 +152,7 @@ export function notificationEntries(snapshot: SchoolSnapshot, studentId: string,
       if (state === 'graded' || state === 'submitted' || state === 'late') bucket = 'done';
       else if (state === 'overdue') bucket = 'overdue';
       else if (state === 'urgent' || state === 'soon') bucket = 'due-soon';
-      else if ((notification.sentAt ?? notification.createdAt).slice(0, 10) === today) bucket = 'today';
+      else if (dayKeyOf(notification.sentAt ?? notification.createdAt) === today) bucket = 'today';
 
       return { notification, work, dueAt, state, bucket };
     });

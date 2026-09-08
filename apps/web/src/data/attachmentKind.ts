@@ -15,6 +15,18 @@ export function attachmentKindFor(fileName: string, mimeType: string): Attachmen
   return 'other';
 }
 
+/** File types that are programs rather than material. A lesson never needs one, and a classroom device must never be handed one. */
+const BLOCKED_EXTENSIONS = /\.(exe|msi|bat|cmd|com|scr|pif|cpl|dll|sys|vbs|vbe|js|jse|wsf|wsh|ps1|psm1|sh|bash|zsh|apk|jar|hta|reg|lnk|iso|dmg|app)$/i;
+const BLOCKED_MIME = /^(application\/(x-msdownload|x-msdos-program|x-sh|x-shellscript|x-executable|java-archive|vnd\.android\.package-archive|x-apple-diskimage|x-iso9660-image)|text\/javascript|application\/javascript)$/i;
+
+/** Why a file may not be attached, or null when it may. Checked on every device before anything is stored. */
+export function blockedAttachmentReason(fileName: string, mimeType: string): string | null {
+  if (BLOCKED_EXTENSIONS.test(fileName.trim()) || BLOCKED_MIME.test(mimeType)) {
+    return 'ไม่รับไฟล์โปรแกรมหรือสคริปต์ (เช่น .exe .bat .js .apk) แนบได้เฉพาะเอกสาร รูปภาพ เสียง วิดีโอ และไฟล์บีบอัด';
+  }
+  return null;
+}
+
 export const attachmentIcons: Record<AttachmentKind, string> = {
   pdf: '▣', spreadsheet: '▦', csv: '▤', document: '▥', presentation: '▰', archive: '⌘', image: '◨', video: '▶', audio: '♫', other: '◆'
 };

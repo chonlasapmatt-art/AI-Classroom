@@ -68,7 +68,7 @@ export function MyChildrenPage() {
                     <span>เข้าเรียน {summary.presentRate}% · ขาด {summary.absent} วัน</span>
                     <span>
                       {privacy.shareScoresWithParents && standing
-                        ? `คะแนนรวม ${standing.total.toFixed(2)} · เกรด ${standing.grade}`
+                        ? `คะแนนรวม ${standing.total.toFixed(2)} · เกรด ${standing.grade ?? '—'}`
                         : 'โรงเรียนปิดการแชร์คะแนนกับผู้ปกครอง'}
                     </span>
                     <span className="child-card-more">ดูรายละเอียด</span>

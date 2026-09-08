@@ -17,7 +17,8 @@ const backedUpTables = [
   'academicTerms', 'classes', 'subjects', 'teachers', 'classTeachers', 'parentLinks', 'students', 'enrollments',
   'assignments', 'submissions', 'submissionVersions', 'deadlineExtensions', 'activities', 'activityScores',
   'tests', 'testScores', 'attendance', 'notifications', 'notificationPreferences', 'announcements',
-  'rubrics', 'rubricScores', 'academicAudit', 'timetable', 'achievements', 'settings', 'attachments', 'syncQueue', 'syncState'
+  'rubrics', 'rubricScores', 'academicAudit', 'timetable', 'achievements', 'scoreEvents', 'importRuns',
+  'settings', 'attachments', 'syncQueue', 'syncState'
 ] as const;
 
 export type BackupTable = typeof backedUpTables[number];
@@ -87,7 +88,10 @@ export async function createEncryptedBackup(schoolId: string, deviceId: string, 
           const { blob, ...metadata } = row;
           return { ...metadata, blobBase64: await encodeBackupBlob(blob) };
         }))
-        : rows;
+        // A parent's one-time invitation code is a credential. It is minted by the server and shown
+        // once to the person who will hand it over; a backup file is not that person.
+        : name === 'parentLinks' ? rows.map((row) => ({ ...row, invitationCode: null }))
+          : rows;
     }
     return collected;
   });

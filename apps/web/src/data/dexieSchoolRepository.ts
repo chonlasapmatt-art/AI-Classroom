@@ -1,7 +1,7 @@
 import { liveQuery } from 'dexie';
 import { db, type AttachmentRecord } from '../db/database';
-import { attachmentKindFor } from './attachmentKind';
-import { announceLocalMutation, commitLocalMutation, softDeleteLocal } from '../db/localMutation';
+import { attachmentKindFor, blockedAttachmentReason } from './attachmentKind';
+import { announceLocalMutation, commitLocalMutation, commitLocalMutations, softDeleteLocal, type LocalMutationEntry } from '../db/localMutation';
 import { isCloudConfigured, requireSupabase, supabase } from '../services/supabase';
 import type {
   AcademicAuditAction, AcademicAuditEntry, AcademicTerm, Activity, ActivityScore, Announcement, Assignment, Attachment,
@@ -11,11 +11,13 @@ import type {
 } from '../domain/types';
 import { auditEntry, planCancellation, planPublish, planScoring, planSubmission, planWorkUpdate } from './academicOps';
 import { normalizeGoogleDriveUrl } from '../domain/driveLinks';
+import { localDateKey } from '../domain/dates';
 import { defaultReminderOffsets, dueReminders } from '../academic/reminderEngine';
 import { gradeSchemeFrom, resolveGrade } from '../academic/gradeScheme';
 import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
+import { isActiveClassTeacher } from './selectors';
 import { scopeSchoolSnapshot, type VisibilityScope } from './visibility';
 import {
   DEVELOPMENT_SEED_SETTING_KEY, emptySnapshot, MAX_ATTACHMENT_BYTES, MAX_PROFILE_PHOTO_BYTES, attendanceRecordId, newId, nowIso,
@@ -69,7 +71,8 @@ function cycle(list: readonly string[], index: number): string { return list[ind
  * commitLocalMutation (queued for the trusted server mutation boundary) for every entity the sync
  * protocol accepts. Structural records (classes, subjects, teachers, parent links) are owned by the
  * server and are changed through security-definer RPCs, then mirrored into the local projection.
- * In-app notifications are a local delivery surface; the server keeps its own notification outbox.
+ * In-app notifications, rubrics, rubric marks, submission history, personal deadlines, delivery
+ * preferences and the academic audit trail travel the same queue as everything else.
  */
 export class DexieSchoolRepository implements SchoolRepository {
   readonly kind = 'dexie' as const;
@@ -124,9 +127,9 @@ export class DexieSchoolRepository implements SchoolRepository {
       attendance: alive(attendance), parentLinks: alive(parentLinks),
       attachments: alive(attachments).map((row) => stripBlob(row)),
       notifications: alive(notifications),
-      rubrics: alive(rubrics), rubricScores: alive(rubricScores), submissionVersions,
+      rubrics: alive(rubrics), rubricScores: alive(rubricScores), submissionVersions: alive(submissionVersions),
       deadlineExtensions: alive(deadlineExtensions), announcements: alive(announcements),
-      notificationPreferences, academicAudit,
+      notificationPreferences: alive(notificationPreferences), academicAudit: alive(academicAudit),
       timetable: alive(timetable), achievements: alive(achievements), scoreEvents: alive(scoreEvents),
       settings: alive(settings), pendingSync, blockedSync
     };
@@ -376,17 +379,39 @@ export class DexieSchoolRepository implements SchoolRepository {
     await db.classTeachers.delete(classTeacherId);
   }
 
+  /**
+   * The same rule the mutation boundary applies: an admin places a student in any room, a teacher
+   * only in a room they hold. Checked here so the refusal is immediate and in words, instead of a
+   * blocked row on the operations screen after the roster already showed the move.
+   */
+  private async assertMayPlaceIn(classId: string): Promise<void> {
+    if (this.visibility.role === 'admin') return;
+    if (this.visibility.role !== 'teacher') throw new Error('เฉพาะครูหรือผู้ดูแลเท่านั้นที่จัดนักเรียนเข้าห้องได้');
+    const own = new Set((await db.teachers.where({ schoolId: this.schoolId, profileId: this.visibility.profileId }).toArray())
+      .filter((teacher) => !teacher.deletedAt && teacher.status === 'active').map((teacher) => teacher.id));
+    const links = await db.classTeachers.where({ classId }).toArray();
+    if (!links.some((link) => own.has(link.teacherId) && isActiveClassTeacher(link))) {
+      throw new Error('ครูจัดนักเรียนได้เฉพาะห้องที่ตนเองรับผิดชอบ · ให้ผู้ดูแลเป็นผู้ย้ายเข้าห้องอื่น');
+    }
+  }
+
   async enrollStudent(studentId: string, classId: string, academicTermId: string): Promise<void> {
+    await this.assertMayPlaceIn(classId);
+    // An enrollment belongs to the term its room is in. The caller's term is only a fallback for a
+    // room this device has not mirrored yet; the server refuses a mismatch either way.
+    const classroom = await db.classes.get(classId);
+    const termId = classroom?.academicTermId ?? academicTermId;
     const existing = await db.enrollments.where({ studentId, classId }).first();
     const record: Enrollment = {
       ...(existing ?? base(this.schoolId)),
-      studentId, classId, academicTermId, status: 'active',
-      enrolledAt: existing?.enrolledAt ?? nowIso(), leftAt: null, updatedAt: nowIso()
+      studentId, classId, academicTermId: termId, status: 'active',
+      enrolledAt: existing?.enrolledAt ?? nowIso(), leftAt: null, deletedAt: null, updatedAt: nowIso()
     };
     await commitLocalMutation('enrollment', record);
   }
 
   async transferStudent(studentId: string, toClassId: string, academicTermId: string): Promise<void> {
+    await this.assertMayPlaceIn(toClassId);
     const current = await db.enrollments.where({ studentId, status: 'active' }).first();
     if (current && current.classId !== toClassId) {
       await commitLocalMutation('enrollment', { ...current, status: 'transferred', leftAt: nowIso(), updatedAt: nowIso() });
@@ -396,28 +421,42 @@ export class DexieSchoolRepository implements SchoolRepository {
 
   async promoteStudents(input: PromotionInput): Promise<PromotionResult> {
     if (input.fromTermId === input.toTermId) throw new Error('ปีการศึกษาต้นทางและปลายทางต้องต่างกัน');
+    if (this.visibility.role !== 'admin') throw new Error('การเลื่อนชั้นเป็นงานของผู้ดูแลโรงเรียน');
     const targetClasses = await db.classes.where({ schoolId: this.schoolId, academicTermId: input.toTermId }).toArray();
     const targetIds = new Set(alive(targetClasses).map((row) => row.id));
     const result: PromotionResult = { promoted: 0, graduated: 0, skipped: 0 };
+    // Every move is checked before any is written, and then all of them are written together: a
+    // cohort that is half promoted when the browser closes is worse than one that is not promoted.
+    const entries: LocalMutationEntry[] = [];
+    const seen = new Set<string>();
+    const timestamp = nowIso();
     for (const move of input.moves) {
+      if (seen.has(move.studentId)) continue;
+      seen.add(move.studentId);
       if (move.toClassId && !targetIds.has(move.toClassId)) throw new Error('ห้องปลายทางไม่ได้อยู่ในปีการศึกษาที่เลือก');
       const current = await db.enrollments
         .where({ schoolId: this.schoolId, studentId: move.studentId, academicTermId: input.fromTermId })
         .filter((row) => row.status === 'active' && !row.deletedAt)
         .first();
       if (!current) { result.skipped += 1; continue; }
+      const alreadyThere = await db.enrollments
+        .where({ schoolId: this.schoolId, studentId: move.studentId, academicTermId: input.toTermId })
+        .filter((row) => row.status === 'active' && !row.deletedAt)
+        .first();
+      if (alreadyThere) { result.skipped += 1; continue; }
       // History is closed, never rewritten: the old row keeps its class and term and only records
       // how the student left it.
-      await commitLocalMutation('enrollment', {
-        ...current, status: move.toClassId ? 'promoted' : 'graduated', leftAt: nowIso(), updatedAt: nowIso()
-      });
+      const closed: Enrollment = { ...current, status: move.toClassId ? 'promoted' : 'graduated', leftAt: timestamp, updatedAt: timestamp };
+      entries.push({ entityType: 'enrollment', record: closed });
       if (!move.toClassId) { result.graduated += 1; continue; }
-      await commitLocalMutation('enrollment', {
+      const opened: Enrollment = {
         ...base(this.schoolId), studentId: move.studentId, classId: move.toClassId,
-        academicTermId: input.toTermId, status: 'active', enrolledAt: nowIso(), leftAt: null
-      } satisfies Enrollment);
+        academicTermId: input.toTermId, status: 'active', enrolledAt: timestamp, leftAt: null
+      };
+      entries.push({ entityType: 'enrollment', record: opened });
       result.promoted += 1;
     }
+    await commitLocalMutations(entries);
     return result;
   }
 
@@ -517,17 +556,36 @@ export class DexieSchoolRepository implements SchoolRepository {
     return {
       work,
       studentIds: studentIds ?? await this.rosterFor(work.classId),
-      existingSubmissions: submissions,
-      existingNotifications: notifications,
-      extensions,
-      preferences,
+      existingSubmissions: alive(submissions),
+      // A notice dropped earlier is not an existing notice: the plan may make it again, and
+      // applyNotificationPlan brings it back under its own id.
+      existingNotifications: alive(notifications),
+      extensions: alive(extensions),
+      preferences: alive(preferences),
       students
     };
   }
 
+  /**
+   * Writes a reminder plan: dropped notices become tombstones the other devices will see, new
+   * notices are queued. A notice whose dedupe key was dropped before comes back under the id it
+   * had, so the server sees one row per identity rather than a second one it must refuse.
+   */
   private async applyNotificationPlan(created: ClassroomNotification[], removedIds: string[]): Promise<void> {
-    if (removedIds.length > 0) await db.notifications.bulkDelete(removedIds);
-    if (created.length > 0) await db.notifications.bulkPut(created);
+    const timestamp = nowIso();
+    const entries: LocalMutationEntry[] = [];
+    for (const id of removedIds) {
+      const row = await db.notifications.get(id);
+      if (!row || row.deletedAt) continue;
+      entries.push({ entityType: 'classroom_notification', record: { ...row, deletedAt: timestamp, updatedAt: timestamp }, operation: 'delete' });
+    }
+    for (const row of created) {
+      const known = await db.notifications.where({ schoolId: this.schoolId, dedupeKey: row.dedupeKey }).first();
+      entries.push({ entityType: 'classroom_notification', record: known
+        ? { ...row, id: known.id, version: known.version, createdAt: known.createdAt, deletedAt: null }
+        : row });
+    }
+    await commitLocalMutations(entries);
   }
 
   private async recordAudit(action: AcademicAuditAction, fields: {
@@ -536,7 +594,7 @@ export class DexieSchoolRepository implements SchoolRepository {
   }): Promise<void> {
     const entry: AcademicAuditEntry = auditEntry(base(this.schoolId), {
       action,
-      actorProfileId: fields.actorProfileId ?? '',
+      actorProfileId: fields.actorProfileId ?? this.visibility.profileId,
       assignmentId: fields.assignmentId ?? null,
       studentId: fields.studentId ?? null,
       oldValue: fields.oldValue ?? '',
@@ -544,7 +602,8 @@ export class DexieSchoolRepository implements SchoolRepository {
       reason: fields.reason ?? '',
       occurredAt: nowIso()
     });
-    await db.academicAudit.put(entry);
+    // The server writes it into audit_log under this id, once; the local row is the offline mirror.
+    await commitLocalMutation('academic_audit', entry);
   }
 
   async publishAssignment(assignmentId: string, studentIds: string[]): Promise<void> {
@@ -552,8 +611,11 @@ export class DexieSchoolRepository implements SchoolRepository {
     if (!work) throw new Error('ไม่พบงานที่ต้องการเผยแพร่');
     const context = await this.publishContext(work, studentIds);
     const plan = planPublish(context, (id) => base(this.schoolId, id));
-    await commitLocalMutation('assignment', plan.work);
-    for (const submission of plan.submissions) await commitLocalMutation('submission', submission);
+    // The work and every student's submission row land together or not at all.
+    await commitLocalMutations([
+      { entityType: 'assignment', record: plan.work },
+      ...plan.submissions.map((submission): LocalMutationEntry => ({ entityType: 'submission', record: submission }))
+    ]);
     await this.applyNotificationPlan(plan.notifications, plan.removeNotificationIds);
     await this.recordAudit('ASSIGNMENT_PUBLISHED', { assignmentId, newValue: plan.work.title });
   }
@@ -624,12 +686,13 @@ export class DexieSchoolRepository implements SchoolRepository {
   async grantExtension(assignmentId: string, studentId: string, dueAt: string, reason: string, actorProfileId: string): Promise<void> {
     const work = await db.assignments.get(assignmentId);
     if (!work) throw new Error('ไม่พบงานที่ต้องการขยายเวลา');
+    if (Number.isNaN(Date.parse(dueAt))) throw new Error('กำหนดส่งใหม่ต้องเป็นวันและเวลาที่ถูกต้อง');
     const existing = await db.deadlineExtensions.where({ assignmentId, studentId }).first();
     const extension: DeadlineExtension = {
       ...(existing ?? base(this.schoolId)),
-      assignmentId, studentId, dueAt, reason, grantedBy: actorProfileId, updatedAt: nowIso()
+      assignmentId, studentId, dueAt, reason, grantedBy: actorProfileId, deletedAt: null, updatedAt: nowIso()
     };
-    await db.deadlineExtensions.put(extension);
+    await commitLocalMutation('deadline_extension', extension);
 
     const context = await this.publishContext(work, [studentId]);
     const update = planWorkUpdate(work, work, context, (id) => base(this.schoolId, id));
@@ -659,8 +722,10 @@ export class DexieSchoolRepository implements SchoolRepository {
       existingRubricScores
     }, (id) => base(this.schoolId, id));
 
-    await commitLocalMutation('submission', outcome.submission);
-    if (outcome.rubricScores.length > 0) await db.rubricScores.bulkPut(outcome.rubricScores);
+    await commitLocalMutations([
+      { entityType: 'submission', record: outcome.submission },
+      ...outcome.rubricScores.map((score): LocalMutationEntry => ({ entityType: 'rubric_score', record: score }))
+    ]);
     for (const entry of outcome.audit) {
       await this.recordAudit(entry.action, {
         assignmentId: input.assignmentId, studentId: input.studentId,
@@ -704,17 +769,19 @@ export class DexieSchoolRepository implements SchoolRepository {
   async saveRubric(input: RubricInput): Promise<void> {
     const id = input.id ?? newId();
     const existing = await db.rubrics.get(id);
+    if (!input.title.trim()) throw new Error('ต้องตั้งชื่อเกณฑ์การให้คะแนน');
     const record: Rubric = {
       ...(existing ?? base(this.schoolId, id)),
       title: input.title.trim(), subjectId: input.subjectId, criteria: validateRubric(input.criteria),
-      status: existing?.status ?? 'active', updatedAt: nowIso()
+      status: existing?.status ?? 'active', deletedAt: null, updatedAt: nowIso()
     };
-    await db.rubrics.put(record);
+    await commitLocalMutation('rubric', record);
   }
 
   async archiveRubric(rubricId: string): Promise<void> {
     const existing = await db.rubrics.get(rubricId);
-    if (existing) await db.rubrics.put({ ...existing, status: 'archived', updatedAt: nowIso() });
+    if (!existing) throw new Error('ไม่พบเกณฑ์การให้คะแนนนี้');
+    await commitLocalMutation('rubric', { ...existing, status: 'archived', updatedAt: nowIso() });
   }
 
   async saveAnnouncement(input: AnnouncementInput): Promise<void> {
@@ -747,27 +814,56 @@ export class DexieSchoolRepository implements SchoolRepository {
       gradeNotification: input.gradeNotification,
       quietHoursStart: input.quietHoursStart ?? null,
       quietHoursEnd: input.quietHoursEnd ?? null,
+      deletedAt: null,
       updatedAt: nowIso()
     };
-    await db.notificationPreferences.put(record);
+    await commitLocalMutation('notification_preference', record);
   }
 
   async markAllNotificationsRead(studentId: string): Promise<void> {
     const rows = await db.notifications.where({ schoolId: this.schoolId, studentId }).toArray();
     const timestamp = nowIso();
     const updated = rows
-      .filter((row) => !row.readAt && row.state !== 'scheduled')
-      .map((row) => ({ ...row, readAt: timestamp, state: 'read' as const, updatedAt: timestamp }));
-    if (updated.length > 0) await db.notifications.bulkPut(updated);
+      .filter((row) => !row.deletedAt && !row.readAt && row.state !== 'scheduled')
+      .map((row): LocalMutationEntry<ClassroomNotification> => ({
+        entityType: 'classroom_notification',
+        record: { ...row, readAt: timestamp, state: 'read', updatedAt: timestamp }
+      }));
+    await commitLocalMutations(updated);
   }
 
+  /** The students whose notification centre this device shows: the signed-in student, or a guardian's linked children. */
+  private async ownStudentIds(): Promise<Set<string>> {
+    const { role, profileId } = this.visibility;
+    if (role === 'student') {
+      const own = await db.students.where({ schoolId: this.schoolId, profileId }).toArray();
+      return new Set(own.filter((student) => !student.deletedAt && student.status === 'active').map((student) => student.id));
+    }
+    if (role === 'parent') {
+      const links = await db.parentLinks.where({ schoolId: this.schoolId }).toArray();
+      return new Set(links
+        .filter((link) => !link.deletedAt && link.status === 'linked' && (link.profileId === profileId || link.lineUserId === profileId))
+        .map((link) => link.studentId));
+    }
+    return new Set();
+  }
+
+  /**
+   * Moves reminders whose time has come into the notification centre — for the students this
+   * device belongs to. Delivering everybody's reminders from every device made the teacher's
+   * laptop "deliver" notices no student was looking at, and pushed a change for each of them.
+   */
   async deliverDueReminders(now = new Date()): Promise<number> {
-    const rows = await db.notifications.where({ schoolId: this.schoolId }).toArray();
+    const own = await this.ownStudentIds();
+    if (own.size === 0) return 0;
+    const rows = (await db.notifications.where({ schoolId: this.schoolId }).toArray())
+      .filter((row) => !row.deletedAt && own.has(row.studentId));
     const due = dueReminders(rows, now);
     if (due.length === 0) return 0;
     const timestamp = now.toISOString();
-    await db.notifications.bulkPut(due.map((row) => ({
-      ...row, state: 'delivered' as const, sentAt: timestamp, updatedAt: timestamp
+    await commitLocalMutations(due.map((row): LocalMutationEntry<ClassroomNotification> => ({
+      entityType: 'classroom_notification',
+      record: { ...row, state: 'delivered', sentAt: timestamp, updatedAt: timestamp }
     })));
     return due.length;
   }
@@ -883,12 +979,20 @@ export class DexieSchoolRepository implements SchoolRepository {
     if (driveUrl !== undefined && driveUrl !== null && !normalizedDriveUrl) {
       throw new Error('ลิงก์ส่งงานต้องเป็น Google Drive หรือ Google Docs แบบ HTTPS');
     }
-    const plan = planSubmission(work, submission, studentId, studentNote, due, (id) => base(this.schoolId, id), new Date(), normalizedDriveUrl);
-    await commitLocalMutation('submission', plan.submission);
-    await db.submissionVersions.put(plan.version);
-    const pending = await db.notifications.where({ schoolId: this.schoolId, studentId, assignmentId }).toArray();
-    const scheduled = pending.filter((row) => row.state === 'scheduled').map((row) => row.id);
-    if (scheduled.length > 0) await db.notifications.bulkDelete(scheduled);
+    const versions = alive(await db.submissionVersions.where({ assignmentId, studentId }).toArray());
+    const plan = planSubmission(work, submission, studentId, studentNote, due, (id) => base(this.schoolId, id), new Date(), normalizedDriveUrl, versions);
+    const timestamp = nowIso();
+    // A student who has handed the work in no longer needs the remaining reminders; the tombstones
+    // travel so the other devices drop them too.
+    const scheduled = (await db.notifications.where({ schoolId: this.schoolId, studentId, assignmentId }).toArray())
+      .filter((row) => !row.deletedAt && row.state === 'scheduled');
+    await commitLocalMutations([
+      { entityType: 'submission', record: plan.submission },
+      { entityType: 'submission_version', record: plan.version },
+      ...scheduled.map((row): LocalMutationEntry => ({
+        entityType: 'classroom_notification', record: { ...row, deletedAt: timestamp, updatedAt: timestamp }, operation: 'delete'
+      }))
+    ]);
   }
 
   async returnWork(assignmentId: string, studentId: string, score: number | null, teacherNote: string): Promise<void> {
@@ -978,8 +1082,13 @@ export class DexieSchoolRepository implements SchoolRepository {
 
   async addAttachment(input: AttachmentInput): Promise<void> {
     if (input.file.size > MAX_ATTACHMENT_BYTES) throw new Error('ไฟล์ใหญ่เกิน 15 MB');
+    const blocked = blockedAttachmentReason(input.file.name, input.file.type);
+    if (blocked) throw new Error(blocked);
     const id = newId();
-    const storagePath = await this.uploadToStorage(id, input);
+    // Offline, the file is kept on this device and shown as such; "แชร์ตอนนี้" uploads it later.
+    // Online, an upload that fails is an error the person sees — nothing is recorded as shared
+    // that is not.
+    const storagePath = typeof navigator !== 'undefined' && navigator.onLine === false ? null : await this.uploadToStorage(id, input);
     await db.attachments.put({
       ...base(this.schoolId, id),
       ownerType: input.ownerType, ownerId: input.ownerId, uploadedBy: input.uploadedBy,
@@ -996,8 +1105,20 @@ export class DexieSchoolRepository implements SchoolRepository {
     }
   }
 
+  async shareAttachment(attachmentId: string): Promise<void> {
+    const existing = await db.attachments.get(attachmentId);
+    if (!existing) throw new Error('ไม่พบไฟล์นี้');
+    if (existing.storagePath) return;
+    if (!existing.blob) throw new Error('เครื่องนี้ไม่มีตัวไฟล์ จึงแชร์ให้ไม่ได้');
+    const file = new File([existing.blob], existing.fileName, { type: existing.mimeType || 'application/octet-stream' });
+    const storagePath = await this.uploadToStorage(existing.id, { ownerType: existing.ownerType, ownerId: existing.ownerId, file });
+    if (!storagePath) throw new Error('ยังไม่ได้เชื่อมต่อ Supabase จึงแชร์ไฟล์ไม่ได้');
+    await db.attachments.put({ ...existing, storagePath, updatedAt: nowIso() });
+    announceLocalMutation(this.schoolId, 'server');
+  }
+
   /** Mirrors the file to shared storage so the rest of the class can download it. */
-  private async uploadToStorage(id: string, input: AttachmentInput): Promise<string | null> {
+  private async uploadToStorage(id: string, input: Pick<AttachmentInput, 'ownerType' | 'ownerId' | 'file'>): Promise<string | null> {
     if (!isCloudConfigured || !supabase) return null;
     const safeName = input.file.name.replace(/[^\w.\-ก-๙]+/gu, '_');
     const path = `${this.schoolId}/${input.ownerType}/${input.ownerId}/${id}-${safeName}`;
@@ -1066,16 +1187,26 @@ export class DexieSchoolRepository implements SchoolRepository {
       dedupeKey: input.dedupeKey ?? `${input.kind}:${input.assignmentId ?? 'none'}:${studentId}:${timestamp}`,
       state: 'delivered', scheduledAt: timestamp, sentAt: timestamp, readAt: null
     }));
-    // A dedupe key that already exists means the notice was created by another device or retry.
+    // A dedupe key that already exists means the notice was created by another device or retry. A
+    // dropped notice with the same key comes back under its own id rather than as a second row.
     const existing = await db.notifications.where({ schoolId: this.schoolId }).toArray();
-    const seen = new Set(existing.map((row) => row.dedupeKey));
-    const fresh = rows.filter((row) => !seen.has(row.dedupeKey));
-    if (fresh.length > 0) await db.notifications.bulkPut(fresh);
+    const byKey = new Map(existing.map((row) => [row.dedupeKey, row]));
+    const entries: LocalMutationEntry[] = [];
+    for (const row of rows) {
+      const known = byKey.get(row.dedupeKey);
+      if (known && !known.deletedAt) continue;
+      entries.push({ entityType: 'classroom_notification', record: known
+        ? { ...row, id: known.id, version: known.version, createdAt: known.createdAt, deletedAt: null }
+        : row });
+    }
+    await commitLocalMutations(entries);
   }
 
   async markNotificationRead(notificationId: string): Promise<void> {
     const existing = await db.notifications.get(notificationId);
-    if (existing) await db.notifications.put({ ...existing, readAt: nowIso(), updatedAt: nowIso() });
+    if (!existing || existing.deletedAt || existing.readAt) return;
+    const timestamp = nowIso();
+    await commitLocalMutation('classroom_notification', { ...existing, readAt: timestamp, state: 'read', updatedAt: timestamp });
   }
 
   async saveParentLink(input: ParentLinkInput): Promise<void> {
@@ -1217,7 +1348,7 @@ export class DexieSchoolRepository implements SchoolRepository {
       await this.publishAssignment(assignmentId, roster);
       ledger.assignments.push(assignmentId); result.assignments += 1;
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDateKey();
       await this.setAttendanceForStudents(classId, today, 'present', roster);
       result.attendance += roster.length;
 

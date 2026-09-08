@@ -156,7 +156,8 @@ describe('acknowledgement and submissions', () => {
     expect(versions[1]!.studentNote).toBe('แก้ตามที่ครูบอกแล้ว');
 
     const head = snapshot.submissions.find((item) => item.assignmentId === id && item.studentId === student.id)!;
-    expect(head.version).toBe(2);
+    // The turn-in count is the version rows; the head's own version is the sync version.
+    expect(versions[1]!.versionNumber).toBe(2);
     expect(head.status).toBe('resubmitted');
     expect(snapshot.academicAudit.some((item) => item.action === 'REVISION_REQUESTED')).toBe(true);
   });

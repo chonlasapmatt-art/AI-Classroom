@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
-import { activeClasses, activeSubjects, classIdOfStudent, rosterFor } from '../../data/selectors';
+import { activeClasses, activeSubjects, classGradebook, classIdOfStudent, rosterFor } from '../../data/selectors';
 import { subjectColor } from '../../data/subjectCatalog';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import {
-  buildGradebook, categoryLabels, categoryWeightsFrom, gradeCategories, gradeDistribution, totalWeight, weightsAreValid
+  categoryLabels, categoryWeightsFrom, gradeCategories, gradeDistribution, totalWeight, weightsAreValid
 } from '../../academic/gradebook';
 import { gradePointFor, gradeSchemeFrom } from '../../academic/gradeScheme';
 import { Badge, Card, CardHeader, DataTable, EmptyState, Field, PageHeader, ProgressBar, Stat, Toolbar } from '../../ui/components';
@@ -39,16 +39,10 @@ export function GradebookPage() {
     ? roster.filter((item) => item.id === student.id)
     : roster;
 
-  const rows = useMemo(() => buildGradebook({
-    students: visibleRoster,
-    works: snapshot.assignments.filter((work) => work.classId === selectedClassId),
-    submissions: snapshot.submissions,
-    tests: snapshot.tests.filter((test) => test.classId === selectedClassId),
-    testScores: snapshot.testScores,
-    weights,
-    scheme,
-    subjectId: subjectId || null
-  }), [visibleRoster, snapshot, selectedClassId, weights, scheme, subjectId]);
+  const rows = useMemo(
+    () => classGradebook(snapshot, selectedClassId, visibleRoster, { subjectId: subjectId || null }),
+    [visibleRoster, snapshot, selectedClassId, subjectId]
+  );
 
   const distribution = gradeDistribution(rows, scheme);
   const weightTotal = totalWeight(weights);

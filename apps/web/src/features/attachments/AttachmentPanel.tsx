@@ -14,9 +14,10 @@ interface Props {
   notify?: { classId: string; studentIds: string[]; assignmentId: string | null; title: string };
 }
 
-// Teachers may use any file format in a lesson. The server/storage layer still enforces the
-// per-file size limit and classroom permissions.
-const acceptedTypes = '*/*';
+// Teachers may use any document, image, audio, video or archive in a lesson; programs and scripts
+// are refused before anything is stored. The server/storage layer still enforces the per-file
+// size limit and classroom permissions.
+const acceptedTypes = '.pdf,.doc,.docx,.odt,.txt,.rtf,.xls,.xlsx,.ods,.csv,.tsv,.ppt,.pptx,.odp,.zip,.rar,.7z,image/*,audio/*,video/*';
 
 /** Upload, open and remove the files attached to teaching material or to turned-in work. */
 export function AttachmentPanel({ ownerType, ownerId, uploadedBy, canUpload, canDelete = canUpload, title = 'ไฟล์แนบ', notify }: Props) {
@@ -53,6 +54,18 @@ export function AttachmentPanel({ ownerType, ownerId, uploadedBy, canUpload, can
     if (inputRef.current) inputRef.current.value = '';
   }
 
+  async function share(attachmentId: string) {
+    setError(null);
+    setBusy(true);
+    try {
+      await repository.shareAttachment(attachmentId);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'แชร์ไฟล์ไม่สำเร็จ');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function open(attachmentId: string, fileName: string) {
     setError(null);
     try {
@@ -75,7 +88,7 @@ export function AttachmentPanel({ ownerType, ownerId, uploadedBy, canUpload, can
         <strong>{title}</strong>
         {canUpload && (
           <label className={`upload-button ${busy ? 'busy' : ''}`}>
-            {busy ? 'กำลังอัปโหลด...' : '+ แนบไฟล์งานทุกประเภท (สูงสุด 15 MB/ไฟล์)'}
+            {busy ? 'กำลังอัปโหลด...' : '+ แนบไฟล์ เอกสาร รูป เสียง วิดีโอ (สูงสุด 15 MB/ไฟล์)'}
             <input ref={inputRef} type="file" multiple accept={acceptedTypes} disabled={busy} onChange={(event) => void upload(event)} />
           </label>
         )}
@@ -92,9 +105,12 @@ export function AttachmentPanel({ ownerType, ownerId, uploadedBy, canUpload, can
                 <button className="link-button" onClick={() => void open(file.id, file.fileName)}>{file.fileName}</button>
                 <span>
                   {attachmentLabels[file.kind]} · {formatBytes(file.byteSize)} ·{' '}
-                  {file.storagePath ? 'แชร์กับห้องเรียนแล้ว' : 'อยู่เฉพาะเครื่องนี้'}
+                  {file.storagePath ? 'แชร์กับห้องเรียนแล้ว' : 'อยู่เฉพาะเครื่องนี้ ยังไม่ได้แชร์'}
                 </span>
               </div>
+              {!file.storagePath && canUpload && (
+                <button className="text-button" disabled={busy} onClick={() => void share(file.id)}>แชร์ตอนนี้</button>
+              )}
               {canDelete && (
                 <button
                   className="text-button danger"
