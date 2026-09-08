@@ -101,13 +101,21 @@ export function DangerousActionDialog({ action, onClose, onDone }: {
         <div className="alert success" role="status">ยืนยันตัวตนล่าสุดแล้ว · ใช้งานหน้าต่างความปลอดภัยได้อีกไม่เกิน 15 นาที</div>
       ) : (
         <>
+          {/*
+            Named down to whose password it is. On the screen that provisions a school administrator
+            this box appears directly after two fields that asked for the *new* account's password,
+            and the server sees the difference only as a rejected credential.
+          */}
           <label>
-            รหัสผ่านของคุณ
+            รหัสผ่านของบัญชีผู้ดูแลแพลตฟอร์มที่คุณใช้อยู่
             <PasswordInput
               value={password} onChange={setPassword}
-              autoComplete="current-password" placeholder="ยืนยันว่าเป็นคุณจริง" required
+              autoComplete="current-password" placeholder="รหัสผ่านที่คุณใช้เข้าคอนโซลนี้" required
             />
           </label>
+          <p className="field-hint">
+            ไม่ใช่รหัสผ่านของบัญชีที่กำลังสร้าง · ระบบถามเพื่อยืนยันว่าเป็นคุณจริงก่อนทำรายการที่ย้อนกลับยาก
+          </p>
           {needsCode && (
             <>
               <label>

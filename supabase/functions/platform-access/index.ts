@@ -180,7 +180,12 @@ Deno.serve(async (request) => {
       });
       if (signInError || !verified.session) {
         await recordAttempt(false);
-        return json({ code: GENERIC_FAILURE }, 401, headers);
+        // Named, unlike every other refusal here. The generic code exists so that a stranger cannot
+        // learn which half of a credential was wrong; this branch is past that — the caller is a
+        // signed-in operator this function has already recognised, re-proving their own password. An
+        // operator told only "could not verify" cannot tell a typo from a locked account, and on the
+        // screen that provisions an administrator they have just typed a different password twice.
+        return json({ code: 'REAUTH_PASSWORD_INVALID' }, 401, headers);
       }
       // An operator who has enrolled a second factor must have cleared it on the session they are
       // sitting in. Refusing here rather than recording `aal1` and letting the action fail later is
