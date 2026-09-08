@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { privacyPolicyFrom, scorePolicyFrom } from '../../data/selectors';
@@ -7,11 +8,52 @@ import { APP_VERSION, checkForUpdateNow, formatBuildTime, readLastCheckedAt } fr
 import { AcademicSettingsPanel } from './AcademicSettingsPanel';
 import { useTheme } from '../../app/ThemeContext';
 import { themeDensities, themeModes, themeMotions, themePresets } from '../../app/theme';
-import { Badge, Button, Card, CardHeader, Field, FieldGroup, LinkButton, PageHeader, Stat, Tabs } from '../../ui/components';
-import { Icon } from '../../ui/Icon';
+import { Badge, Button, Card, CardHeader, Field, FieldGroup, LinkButton, PageHeader, Stat } from '../../ui/components';
+import { Icon, type IconName } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 
 type Section = 'display' | 'policy' | 'academic' | 'system';
+
+/**
+ * The settings, named for what somebody came to change.
+ *
+ * A row of four tabs said only the names; which one held "the marks add up wrong" or "make the text
+ * bigger" was a guess, and a teacher who guessed wrong found a screen full of controls they are not
+ * allowed to touch. Each section now carries a sentence about what is inside and says up front
+ * whether it is theirs to change — a teacher reads "ของเครื่องนี้" on the display section and
+ * "เฉพาะผู้ดูแล" on the two school-wide ones before they open either.
+ */
+interface SectionInfo {
+  value: Section;
+  label: string;
+  blurb: string;
+  icon: IconName;
+  /** True for the sections that write school-wide settings rather than device preferences. */
+  adminOnly: boolean;
+}
+
+const sections: SectionInfo[] = [
+  {
+    value: 'display', label: 'ธีมและการแสดงผล', icon: 'settings', adminOnly: false,
+    blurb: 'โหมดสี ชุดสี ขนาดตัวอักษร และแอนิเมชัน · จำเฉพาะเครื่องนี้'
+  },
+  {
+    value: 'policy', label: 'นโยบายโรงเรียน', icon: 'scores', adminOnly: true,
+    blurb: 'สัดส่วนคะแนน การหักคะแนนงานส่งช้า และใครเห็นคะแนนได้บ้าง'
+  },
+  {
+    value: 'academic', label: 'ปีการศึกษา', icon: 'calendar', adminOnly: true,
+    blurb: 'เปิด-ปิดภาคเรียน วันเปิดเรียน และเกณฑ์การตัดเกรด'
+  },
+  {
+    value: 'system', label: 'ระบบและเวอร์ชัน', icon: 'sync', adminOnly: false,
+    blurb: 'เวอร์ชันแอป การอัปเดต สถานะการซิงก์ และโรงเรียนในบัญชีนี้'
+  }
+];
+
+function isSection(value: string | null): value is Section {
+  return sections.some((item) => item.value === value);
+}
 
 export function SettingsPage() {
   const { membership, memberships, mode } = useSession();
@@ -24,7 +66,22 @@ export function SettingsPage() {
   const isAdmin = membership.role === 'admin';
   const adminSchools = memberships.filter((item) => item.role === 'admin');
   const lastChecked = readLastCheckedAt();
-  const [section, setSection] = useState<Section>('display');
+
+  /*
+   * The chosen section lives in the address.
+   *
+   * "Open settings and press the third tab" is how a school tells somebody where a control is; a
+   * link is better, and it also means a person who reloads the page does not land back on the theme
+   * picker having lost the section they were reading.
+   */
+  const [params, setParams] = useSearchParams();
+  const section: Section = isSection(params.get('section')) ? params.get('section') as Section : 'display';
+  const setSection = (next: Section) => {
+    const updated = new URLSearchParams(params);
+    updated.set('section', next);
+    setParams(updated, { replace: true });
+  };
+  const current = sections.find((item) => item.value === section) ?? sections[0]!;
 
   /*
     The three weights are held here rather than read out of the form at submit time, because they
@@ -70,31 +127,50 @@ export function SettingsPage() {
         description="ธีมของเครื่องนี้ นโยบายคะแนนและความเป็นส่วนตัวของโรงเรียน ปีการศึกษา และสถานะระบบ"
       />
 
-      {!isAdmin && (
-        <Card className="settings-readonly-note">
-          <p>
-            <Icon name="eye" size={16} />
-            คุณกำลังดูในโหมดอ่านอย่างเดียว · ธีมด้านล่างปรับได้เฉพาะบนเครื่องนี้ ส่วนนโยบายของโรงเรียนแก้ไขได้โดยผู้ดูแลระบบเท่านั้น
-          </p>
-        </Card>
-      )}
-
       {/*
-        Six panels stacked in a column meant the thing most people came for — the theme — sat above
-        four sections most of them may never change, and an administrator looking for the academic
-        year scrolled past all of it. They are four groups now.
+        A list of places rather than a strip of words.
+        Four tabs named the sections and said nothing about them, so choosing one was a guess — and a
+        teacher who guessed wrong landed among controls they cannot use. Each entry now carries a
+        sentence about what is inside and who may change it, and the choice is in the address so a
+        school can send somebody a link to the right place instead of directions to it.
       */}
-      <Tabs
-        ariaLabel="กลุ่มการตั้งค่า"
-        value={section}
-        onChange={setSection}
-        options={[
-          { value: 'display' as const, label: 'ธีมและการแสดงผล' },
-          { value: 'policy' as const, label: 'นโยบายโรงเรียน' },
-          { value: 'academic' as const, label: 'ปีการศึกษา' },
-          { value: 'system' as const, label: 'ระบบและเวอร์ชัน' }
-        ]}
-      />
+      <div className="settings-shell">
+        <nav className="settings-rail" aria-label="กลุ่มการตั้งค่า">
+          {sections.map((item) => {
+            const locked = item.adminOnly && !isAdmin;
+            return (
+              <button
+                key={item.value}
+                type="button"
+                className="settings-rail-item"
+                aria-current={section === item.value ? 'page' : undefined}
+                onClick={() => setSection(item.value)}
+              >
+                <span className="settings-rail-icon" aria-hidden="true"><Icon name={item.icon} size={18} /></span>
+                <span className="settings-rail-copy">
+                  <strong>{item.label}</strong>
+                  <small>{item.blurb}</small>
+                </span>
+                <Badge tone={locked ? 'neutral' : 'success'}>
+                  {item.adminOnly ? (isAdmin ? 'คุณแก้ได้' : 'เฉพาะผู้ดูแล') : 'ของเครื่องนี้'}
+                </Badge>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="settings-pane">
+          {/* The permission line belongs to the section being read, not to the whole screen: on the
+              display section it was telling a teacher they could not change a thing they can. */}
+          {current.adminOnly && !isAdmin && (
+            <div className="settings-locked-note" role="status">
+              <Icon name="eye" size={16} />
+              <span>
+                <strong>อ่านได้อย่างเดียว</strong>
+                <small>{current.label} เป็นค่าของทั้งโรงเรียน ผู้ดูแลระบบเท่านั้นที่แก้ไขได้ · คุณยังดูค่าปัจจุบันได้ทั้งหมด</small>
+              </span>
+            </div>
+          )}
 
       {section === 'display' && (
         <Card className="theme-studio">
@@ -332,6 +408,8 @@ export function SettingsPage() {
           </Card>
         </>
       )}
+        </div>
+      </div>
     </>
   );
 }

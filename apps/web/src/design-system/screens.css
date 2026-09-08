@@ -3612,3 +3612,68 @@ tr.row-warning td { background: var(--warning-soft); }
 @media (prefers-reduced-motion: reduce) {
   .sidebar nav a:hover .ui-icon, .shortcut-hub-grid a:hover .ui-icon, .sidebar nav a.active .ui-icon { transform: none; }
 }
+
+/* ── Settings, as a list of places ─────────────────────────────────────────────────────────────
+   A strip of four tab words gave no clue which one held the thing somebody came to change, and the
+   panels underneath were the only way to find out. The rail states each section, what is inside it
+   and who may change it, and keeps that visible while the section is open — so a teacher reading
+   the school's grading policy can see it is the administrator's without pressing anything. */
+.settings-shell {
+  display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: var(--space-4); align-items: start;
+}
+.settings-rail {
+  display: grid; gap: var(--space-2);
+  position: sticky; top: var(--space-4);
+}
+.settings-rail-item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-3); align-items: center;
+  min-block-size: 64px; padding: var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+  background: var(--color-surface); color: inherit; text-align: start; cursor: pointer;
+  transition: border-color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+}
+.settings-rail-item:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border)); box-shadow: var(--shadow-sm); }
+.settings-rail-item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.settings-rail-item[aria-current="page"] {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+.settings-rail-icon {
+  inline-size: 38px; block-size: 38px; display: grid; place-items: center; border-radius: var(--radius-md);
+  color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+.settings-rail-copy { min-inline-size: 0; display: grid; gap: 2px; }
+.settings-rail-copy strong { color: var(--color-text-primary); font-size: var(--text-base); }
+.settings-rail-copy small { color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.45; }
+.settings-pane { display: grid; gap: var(--space-4); min-inline-size: 0; }
+
+/* The refusal is about the section being read, so it sits at the top of that section rather than
+   above the whole screen where it also spoke for the parts a teacher can change. */
+.settings-locked-note {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-info) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-info) 24%, transparent);
+}
+.settings-locked-note > .ui-icon { flex: none; margin-block-start: 2px; color: var(--color-info); }
+.settings-locked-note strong { display: block; color: var(--color-text-primary); }
+.settings-locked-note small { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+/* On a narrow screen the rail becomes the first thing on the page rather than a column beside it:
+   a row of cards to scroll through, each still carrying its sentence and its permission. */
+@media (max-width: 1024px) {
+  .settings-shell { grid-template-columns: minmax(0, 1fr); }
+  .settings-rail { position: static; grid-auto-flow: column; grid-auto-columns: minmax(240px, 1fr); overflow-x: auto; padding-block-end: var(--space-2); }
+  .settings-rail-item { grid-template-columns: auto minmax(0, 1fr); }
+  .settings-rail-item > .ui-badge { grid-column: 1 / -1; justify-self: start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-rail-item { transition: none; }
+  .settings-rail-item:hover { transform: none; }
+}
