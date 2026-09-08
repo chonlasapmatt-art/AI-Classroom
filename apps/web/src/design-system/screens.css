@@ -183,12 +183,28 @@
   --nav-soft: color-mix(in srgb, var(--accent-green-soft) 76%, var(--accent-gold-soft));
   --nav-ink: color-mix(in srgb, var(--accent-green) 76%, var(--accent-gold));
 }
+/*
+ * The two exam tiles, which were the palest things on the menu.
+ *
+ * Gold's soft tone is a cream a few shades off the page itself, so in the light theme "ข้อสอบ" and
+ * "คลังข้อสอบ" read as two blank squares while their neighbours read as colour. Both now carry a
+ * fifth of their own ink in the fill. The mix does the right thing in both themes without a second
+ * rule: in the light one the ink is a dark amber and deepens the cream, and in the dark one the
+ * token flips to a light amber and lifts the fill off the panel instead.
+ */
 :is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='question-bank'] {
-  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 80%, var(--accent-violet-soft));
+  --nav-soft: color-mix(in srgb,
+    color-mix(in srgb, var(--accent-gold-soft) 80%, var(--accent-violet-soft)) 80%,
+    var(--accent-gold) 20%);
   --nav-ink: color-mix(in srgb, var(--accent-gold) 80%, var(--accent-violet));
 }
 :is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='exams'] {
-  --nav-soft: var(--accent-gold-soft); --nav-ink: var(--accent-gold);
+  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 78%, var(--accent-gold) 22%);
+  --nav-ink: var(--accent-gold);
+}
+:is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='sit-exam'] {
+  --nav-soft: color-mix(in srgb, var(--accent-gold-soft) 78%, var(--accent-gold) 22%);
+  --nav-ink: var(--accent-gold);
 }
 :is(.sidebar nav a, .shortcut-hub-grid a, .bottom-nav a)[data-icon='assignments'] {
   --nav-soft: var(--accent-green-soft); --nav-ink: var(--accent-green);
