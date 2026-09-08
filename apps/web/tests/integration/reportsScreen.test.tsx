@@ -19,7 +19,7 @@ afterEach(() => { cleanup(); disablePreviewMode(); resetFixtureRepository(); });
 
 function renderReports() {
   enablePreviewMode();
-  return render(<MemoryRouter initialEntries={['/reports']}><App /></MemoryRouter>);
+  return render(<MemoryRouter initialEntries={['/analytics']}><App /></MemoryRouter>);
 }
 
 const bodyRows = () => document.querySelectorAll('.ui-table tbody tr');

@@ -109,22 +109,28 @@ describe('the menu each role gets', () => {
  * A student and a guardian were told the school had reports and given no way to read one about
  * themselves. These are the same four questions the staff reports answer, asked about one person.
  */
-describe('reports a student and a guardian can read', () => {
-  it('answers a student about their own attendance, work, points and badges', async () => {
+describe('the staff-room inbox behind /reports', () => {
+  it('gives a teacher the last few hours of their own rooms', async () => {
     renderApp('/reports');
-    await switchRole('preview-student');
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('การเข้าเรียน'));
-    expect(page().getByText('รายงานของฉัน')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText('รายงาน'), { target: { value: 'awards' } });
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('เหรียญรางวัล'));
+    await switchRole('preview-teacher');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('รายงานความเคลื่อนไหว'));
+    expect(page().getByText(/เห็นเฉพาะห้องและรายวิชาที่คุณรับผิดชอบ/)).toBeInTheDocument();
   });
 
-  it('lets a guardian pick which child the report is about, and says it is read-only', async () => {
+  it('lets an administrator read the same inbox, said to be without notifications', async () => {
     renderApp('/reports');
-    await switchRole('preview-parent');
-    await waitFor(() => expect(page().getByText(/รายงานของลูก/)).toBeInTheDocument());
-    expect(screen.getByLabelText('นักเรียน')).toBeInTheDocument();
+    await switchRole('preview-admin');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('รายงานความเคลื่อนไหว'));
+    expect(page().getByText(/ไม่มีการแจ้งเตือนเด้งขึ้นมา/)).toBeInTheDocument();
+  });
+
+  // The inbox names children and says what they did, so it is staff-only by address as well as by
+  // menu: a student or a guardian who types /reports is refused rather than shown an empty box.
+  it.each(['preview-student', 'preview-parent'])('refuses %s by address, not only by menu', async (membershipId) => {
+    renderApp('/reports');
+    await switchRole(membershipId);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }))
+      .toHaveTextContent('หน้านี้ไม่ได้เปิดให้บทบาทของคุณ'));
   });
 });
 

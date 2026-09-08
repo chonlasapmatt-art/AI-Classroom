@@ -64,7 +64,8 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/grade-editor', 'แก้ไขคะแนน', 'grade-edit')
     ] },
     { key: 'reports', label: 'รายงาน', items: [
-      destination('/reports', 'รายงาน', 'reports'),
+      destination('/reports', 'กล่องข้อความห้องเรียน', 'reports'),
+      destination('/analytics', 'รายงานเชิงลึก', 'reports'),
       destination('/leaderboard', 'Leaderboard', 'leaderboard'),
       destination('/achievements', 'เหรียญรางวัล', 'achievements')
     ] },
@@ -116,7 +117,8 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/parents', 'ผู้ปกครอง', 'parents')
     ] },
     { key: 'reports', label: 'รายงาน', items: [
-      destination('/reports', 'รายงาน', 'reports'),
+      destination('/reports', 'กล่องข้อความห้องเรียน', 'reports'),
+      destination('/analytics', 'รายงานเชิงลึก', 'reports'),
       destination('/leaderboard', 'Leaderboard', 'leaderboard'),
       destination('/achievements', 'เหรียญรางวัล', 'achievements')
     ] },
@@ -152,8 +154,7 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     ] },
     { key: 'scores', label: 'คะแนน', items: [
       destination('/scores', 'คะแนนและเกรด', 'scores'),
-      destination('/gradebook', 'สมุดเกรด', 'gradebook'),
-      destination('/reports', 'รายงานของฉัน', 'reports')
+      destination('/gradebook', 'สมุดเกรด', 'gradebook')
     ] },
     { key: 'timetable', label: 'ตารางเรียน', items: [
       destination('/timetable', 'ตารางสอน', 'timetable')
@@ -173,9 +174,6 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     ] },
     { key: 'attendance', label: 'การเข้าเรียน', items: [
       destination('/attendance', 'เช็กชื่อ / การเข้าเรียน', 'attendance')
-    ] },
-    { key: 'work', label: 'งานและคะแนน', items: [
-      destination('/reports', 'รายงานของลูก', 'reports')
     ] },
     { key: 'timetable', label: 'ตารางเรียน', items: [
       destination('/timetable', 'ตารางสอน', 'timetable')

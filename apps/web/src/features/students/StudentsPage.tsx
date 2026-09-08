@@ -1,11 +1,12 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses, classIdOfStudent, rosterFor } from '../../data/selectors';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { AvatarStudio } from '../avatars/AvatarStudio';
 import type { Student } from '../../domain/types';
-import { previewStudentCsv } from './csvImport';
+import { nextStudentCode, previewQuickAdd, previewQuickAddTable } from './quickAdd';
+import { acceptedImportExtensions, readImportFile } from '../../data/importParsing';
 import { requireSupabase } from '../../services/supabase';
 import { useSyncStatus } from '../../sync/SyncStatusContext';
 import { provisionManagedAccount, setManagedAccountPassword } from '../auth/adminAccount';
@@ -14,10 +15,12 @@ import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 import {
   AutoTextarea, Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, Field, FieldGroup,
-  Modal, PageHeader, SearchInput, Toolbar
+  Modal, PageHeader, SearchInput, Segmented, Toolbar
 } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
+
+type AddMode = 'one' | 'list' | 'file';
 
 export function StudentsPage() {
   const { membership, mode } = useSession();
@@ -27,7 +30,10 @@ export function StudentsPage() {
   const classes = activeClasses(snapshot);
   const [classId, setClassId] = useState('');
   const [open, setOpen] = useState(false);
-  const [csv, setCsv] = useState('');
+  const [addMode, setAddMode] = useState<AddMode>('one');
+  const [pasted, setPasted] = useState('');
+  const [readingFile, setReadingFile] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [query, setQuery] = useState('');
   const { toast } = useToast();
   const [studioStudent, setStudioStudent] = useState<Student | null>(null);
@@ -49,6 +55,15 @@ export function StudentsPage() {
     return roster.filter((student) => `${student.displayName} ${student.studentCode}`.toLowerCase().includes(needle));
   }, [roster, query]);
   const term = snapshot.terms.find((item) => item.status === 'active') ?? snapshot.terms[0];
+
+  const existingCodes = useMemo(
+    () => new Set(snapshot.students.map((item) => item.studentCode)),
+    [snapshot.students]
+  );
+  const quickPreview = useMemo(() => previewQuickAdd(pasted, existingCodes), [existingCodes, pasted]);
+  // The single-student form starts on the next free number, because typing one that is already
+  // taken is the mistake this screen used to answer with "รหัสนักเรียนนี้มีอยู่แล้ว" after the fact.
+  const suggestedCode = useMemo(() => nextStudentCode(existingCodes), [existingCodes]);
 
   /**
    * Students sign in with the name and student number already on this card, so there is nothing to
@@ -122,17 +137,56 @@ export function StudentsPage() {
     }
   }
 
-  async function importCsv() {
-    const existing = new Set(snapshot.students.map((item) => item.studentCode));
-    const preview = previewStudentCsv(csv, existing);
-    if (preview.errors.length > 0) toast(`ข้าม ${preview.errors.length} แถว: ${preview.errors[0]!.message}`);
-    for (const row of preview.rows) {
-      const id = crypto.randomUUID();
-      await repository.saveStudent({ id, studentCode: row.studentCode, displayName: row.displayName, avatarIndex: row.rowNumber * 5 });
-      if (selectedClassId && term) await repository.enrollStudent(id, selectedClassId, term.id);
+  /**
+   * Reads a file the same way the paste box reads text.
+   *
+   * A spreadsheet, a Word table, a CSV: the reader hands back columns and rows, and from there the
+   * two paths are one, so a file and a paste can never disagree about what they were going to create.
+   */
+  async function pickRosterFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setReadingFile(true);
+    try {
+      const parsed = await readImportFile(file);
+      const preview = previewQuickAddTable(parsed.table, existingCodes);
+      if (preview.rows.length === 0 && preview.problems.length === 0) {
+        toast('ไม่พบรายชื่อในไฟล์นี้', { tone: 'error' });
+        return;
+      }
+      setPasted(preview.rows.map((row) => `${row.studentCode}\t${row.displayName}`).join('\n'));
+      toast(`อ่านไฟล์ได้ ${preview.rows.length} รายชื่อ · ตรวจแล้วกดบันทึก`);
+    } catch (reason) {
+      toast(reason instanceof Error ? reason.message : 'อ่านไฟล์ไม่สำเร็จ', { tone: 'error' });
+    } finally {
+      setReadingFile(false);
     }
-    if (preview.rows.length > 0) toast(`นำเข้า ${preview.rows.length} คนแล้ว`);
-    setCsv('');
+  }
+
+  /** Writes everything the preview promised, one record at a time, and says what actually landed. */
+  async function saveQuickAdd() {
+    if (quickPreview.rows.length === 0) return;
+    setBulkSaving(true);
+    let saved = 0;
+    try {
+      for (const row of quickPreview.rows) {
+        const id = crypto.randomUUID();
+        await repository.saveStudent({
+          id, studentCode: row.studentCode, displayName: row.displayName,
+          avatarIndex: (snapshot.students.length + saved) * 7
+        });
+        if (selectedClassId && term) await repository.enrollStudent(id, selectedClassId, term.id);
+        saved += 1;
+      }
+      setPasted('');
+      toast(`เพิ่มนักเรียน ${saved} คนเข้าห้อง ${classes.find((item) => item.id === selectedClassId)?.name ?? '—'} แล้ว`);
+      setOpen(false);
+    } catch (reason) {
+      toast(reason instanceof Error ? reason.message : `บันทึกได้ ${saved} คนแล้วหยุดที่ข้อผิดพลาด`, { tone: 'error' });
+    } finally {
+      setBulkSaving(false);
+    }
   }
 
   return (
@@ -160,37 +214,114 @@ export function StudentsPage() {
         <SearchInput value={query} onChange={setQuery} placeholder="ค้นหาชื่อหรือเลขประจำตัว" />
       </Toolbar>
 
+      {/*
+        Adding children, without the wizard.
+        The full importer is for the once-a-year job — a whole school, four kinds of record, a
+        column-mapping table. Adding the six children who arrived this week went through it too, and
+        that is the trip this replaces: one dialog, three ways in (type one, paste a list, open a
+        file), the same preview under all three, and one button that writes exactly what the preview
+        showed and puts them in the room chosen at the top.
+      */}
       {open && canEdit && (
-        <Card as="section">
-          <CardHeader
-            title="เพิ่มนักเรียนใหม่"
-            description="แอดมินกำหนดชื่อและรหัสผ่านให้ นักเรียนจึงเข้าใช้งานได้ทันทีจากหน้าเข้าสู่ระบบ"
+        <Modal
+          title="เพิ่มนักเรียน"
+          description={`เข้าห้อง ${classes.find((item) => item.id === selectedClassId)?.name ?? 'ที่เลือกไว้ด้านบน'}`}
+          onClose={() => setOpen(false)}
+          wide
+        >
+          <Segmented
+            ariaLabel="วิธีเพิ่มนักเรียน"
+            value={addMode}
+            onChange={setAddMode}
+            options={[
+              { value: 'one' as const, label: 'ทีละคน' },
+              { value: 'list' as const, label: 'วางรายชื่อ' },
+              { value: 'file' as const, label: 'จากไฟล์' }
+            ]}
           />
-          <form onSubmit={(event) => void addStudent(event)}>
-            <FieldGroup>
-              <Field label="ชื่อจริง"><input name="firstName" required /></Field>
-              <Field label="นามสกุล"><input name="lastName" required /></Field>
-              <Field label="เลขประจำตัวนักเรียน" hint="นักเรียนใช้เลขนี้เข้าสู่ระบบคู่กับชื่อ">
-                <input name="code" required />
-              </Field>
-              <Field label="รหัสผ่านเริ่มต้น" hint="อย่างน้อย 8 ตัวอักษร · แอดมินเปลี่ยนภายหลังได้">
-                <input name="password" type="password" minLength={8} autoComplete="new-password" required />
-              </Field>
-            </FieldGroup>
-            <div className="ui-page-actions"><Button variant="primary" type="submit">บันทึก</Button></div>
-          </form>
 
-          <CardHeader
-            title="นำเข้าจาก CSV"
-            description="วางข้อมูลที่มีหัวตาราง student_code,display_name · แถวที่ซ้ำหรือผิดรูปแบบจะถูกข้ามและรายงานให้"
-          />
-          <Field label="ข้อมูลที่จะนำเข้า">
-            <AutoTextarea value={csv} onChange={setCsv} minRows={4} maxRows={12} />
-          </Field>
-          <div className="ui-page-actions">
-            <Button variant="secondary" onClick={() => void importCsv()} disabled={!csv.trim()}>ตรวจและนำเข้า</Button>
-          </div>
-        </Card>
+          {addMode === 'one' && (
+            <form onSubmit={(event) => void addStudent(event)}>
+              <FieldGroup>
+                <Field label="ชื่อจริง"><input name="firstName" required /></Field>
+                <Field label="นามสกุล"><input name="lastName" required /></Field>
+                <Field label="เลขประจำตัวนักเรียน" hint="นักเรียนใช้เลขนี้เข้าสู่ระบบคู่กับชื่อ">
+                  <input name="code" defaultValue={suggestedCode} required />
+                </Field>
+                <Field label="รหัสผ่านเริ่มต้น" hint="อย่างน้อย 8 ตัวอักษร · แอดมินเปลี่ยนภายหลังได้">
+                  <input name="password" type="password" minLength={8} autoComplete="new-password" required />
+                </Field>
+              </FieldGroup>
+              <div className="ui-form-actions">
+                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>ยกเลิก</Button>
+                <Button variant="primary" type="submit">บันทึกและเข้าห้อง</Button>
+              </div>
+            </form>
+          )}
+
+          {addMode !== 'one' && (
+            <>
+              {addMode === 'list' ? (
+                <Field
+                  label="วางรายชื่อ"
+                  hint="บรรทัดละหนึ่งคน · ใส่เลขประจำตัวหน้าหรือหลังชื่อก็ได้ ถ้าไม่ใส่ ระบบจะออกเลขต่อจากเลขล่าสุดให้"
+                >
+                  <AutoTextarea value={pasted} onChange={setPasted} minRows={5} maxRows={14} />
+                </Field>
+              ) : (
+                <Field
+                  label="ไฟล์รายชื่อ"
+                  hint="รองรับ Excel (.xlsx), CSV, Word (.docx) และ PDF ที่เป็นตัวอักษร · อ่านแล้วยังตรวจแก้ได้ก่อนบันทึก"
+                >
+                  <input type="file" accept={acceptedImportExtensions} onChange={(event) => void pickRosterFile(event)} />
+                </Field>
+              )}
+
+              {readingFile && <p className="ui-field-hint">กำลังอ่านไฟล์…</p>}
+
+              {quickPreview.rows.length > 0 && (
+                <ol className="quick-add-preview">
+                  {quickPreview.rows.slice(0, 30).map((row) => (
+                    <li key={`${row.lineNumber}-${row.studentCode}`}>
+                      <strong>{row.displayName}</strong>
+                      <span>
+                        เลขประจำตัว {row.studentCode}
+                        {row.generatedCode && <em> · ออกเลขให้อัตโนมัติ</em>}
+                      </span>
+                    </li>
+                  ))}
+                  {quickPreview.rows.length > 30 && (
+                    <li className="quick-add-more">และอีก {quickPreview.rows.length - 30} คน</li>
+                  )}
+                </ol>
+              )}
+
+              {quickPreview.problems.length > 0 && (
+                <ul className="quick-add-problems" role="status">
+                  {quickPreview.problems.slice(0, 5).map((problem) => (
+                    <li key={problem.lineNumber}>บรรทัด {problem.lineNumber}: {problem.message}</li>
+                  ))}
+                  {quickPreview.problems.length > 5 && <li>และอีก {quickPreview.problems.length - 5} บรรทัดที่ยังอ่านไม่ได้</li>}
+                </ul>
+              )}
+
+              <div className="ui-form-actions">
+                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>ยกเลิก</Button>
+                <Button
+                  variant="primary"
+                  loading={bulkSaving}
+                  disabled={quickPreview.rows.length === 0}
+                  onClick={() => void saveQuickAdd()}
+                >
+                  บันทึก {quickPreview.rows.length} คนเข้าห้องนี้
+                </Button>
+              </div>
+              <p className="ui-field-hint">
+                การเพิ่มแบบรายการยังไม่ตั้งรหัสผ่านให้ · เปิดการเข้าใช้งานทีหลังได้จากปุ่มในรายชื่อ
+              </p>
+            </>
+          )}
+        </Modal>
       )}
 
       <Card>

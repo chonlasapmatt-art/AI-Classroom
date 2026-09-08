@@ -3094,3 +3094,76 @@ tr.row-warning td { background: var(--warning-soft); }
 @media (prefers-reduced-motion: reduce) {
   .class-roster-grid li { transition: none; }
 }
+
+/* ── Adding children, with the result visible before it happens ────────────────────────────────
+   The preview is the promise: these names, these numbers, that room. It is a list rather than a
+   table because it is read to check, not to compare — and the generated-number note has to be
+   visible on the row it belongs to, since that is the only place it can be corrected. */
+.quick-add-preview {
+  list-style: none; margin: var(--space-3) 0 0; padding: 0;
+  display: grid; gap: var(--space-1);
+  max-block-size: 42vh; overflow-y: auto;
+}
+.quick-add-preview li {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+}
+.quick-add-preview strong { color: var(--color-text-primary); overflow-wrap: anywhere; }
+.quick-add-preview span { color: var(--color-text-muted); font-size: var(--text-xs); }
+.quick-add-preview em { color: var(--color-primary); font-style: normal; }
+.quick-add-more { justify-content: center; color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.quick-add-problems {
+  margin: var(--space-3) 0 0; padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  font-size: var(--text-sm);
+}
+.quick-add-problems li { margin-block: 2px; }
+
+/* ── The staff-room inbox ──────────────────────────────────────────────────────────────────────
+   Read like mail: a stripe that says what kind of message it is, the child's name first, and the
+   controls for clearing it where a thumb lands. Severity is a stripe and an icon, never colour on
+   its own — "ขาดเรียน" and "ส่งงานแล้ว" read differently in words before they read differently in
+   red and green. */
+.feedback-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.feedback-row {
+  --feedback-accent: var(--color-info);
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: var(--space-3); align-items: start;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  border-inline-start: 3px solid var(--feedback-accent);
+  background: var(--color-surface);
+}
+.feedback-row[data-tone="success"] { --feedback-accent: var(--color-success); }
+.feedback-row[data-tone="warning"] { --feedback-accent: var(--color-warning); }
+.feedback-row[data-tone="danger"] { --feedback-accent: var(--color-danger); }
+.feedback-select { display: flex; align-items: center; min-block-size: 24px; }
+.feedback-select input { inline-size: 20px; block-size: 20px; min-height: 0; }
+.feedback-icon {
+  inline-size: 34px; block-size: 34px; display: grid; place-items: center; border-radius: var(--radius-sm);
+  color: var(--feedback-accent); background: color-mix(in srgb, var(--feedback-accent) 12%, transparent);
+}
+.feedback-copy { min-inline-size: 0; display: grid; gap: var(--space-1); }
+.feedback-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.feedback-head strong { color: var(--color-text-primary); overflow-wrap: anywhere; }
+.feedback-copy p { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.feedback-meta { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.feedback-bulk {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2);
+  margin-block-start: var(--space-3); padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-primary-strong);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  font-size: var(--text-sm);
+}
+.feedback-bulk span { margin-inline-end: auto; }
+
+@media (max-width: 720px) {
+  .feedback-row { grid-template-columns: auto auto minmax(0, 1fr); }
+  .feedback-row > .ui-button { grid-column: 1 / -1; justify-self: end; }
+}

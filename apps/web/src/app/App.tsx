@@ -38,6 +38,7 @@ import { QuizChallengePage } from '../features/quiz/QuizChallengePage';
 import { ParentsPage } from '../features/parents/ParentsPage';
 import { ChildDetailPage } from '../features/parents/ChildDetailPage';
 import { MyChildrenPage } from '../features/parents/MyChildrenPage';
+import { FeedbackInboxPage } from '../features/reports/FeedbackInboxPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { OperationsPage } from '../features/operations/OperationsPage';
@@ -99,7 +100,8 @@ const appRoutes: AppRoute[] = [
   { path: 'parents', element: <ParentsPage /> },
   { path: 'my-children', element: <MyChildrenPage /> },
   { path: 'my-children/:studentId', element: <ChildDetailPage /> },
-  { path: 'reports', element: <ReportsPage /> },
+  { path: 'reports', element: <FeedbackInboxPage /> },
+  { path: 'analytics', element: <ReportsPage /> },
   { path: 'operations', element: <OperationsPage /> },
   { path: 'settings', element: <SettingsPage /> },
   ...(isPreviewModeAvailable ? [

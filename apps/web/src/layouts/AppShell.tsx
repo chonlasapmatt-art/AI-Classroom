@@ -4,6 +4,7 @@ import { useSession } from '../app/SessionContext';
 import { recall, recallRecord, remember, rememberRecord } from '../app/deviceMemory';
 import { useSchoolSnapshot } from '../data/RepositoryContext';
 import { unreadCount } from '../academic/views';
+import { feedbackFeed } from '../features/reports/feedbackFeed';
 import { isPreviewModeAvailable } from '../preview/previewMode';
 import { StudentQuizPanel } from '../features/quiz/StudentQuizPanel';
 import { SchoolBroadcastNotice } from '../features/notifications/SchoolBroadcastNotice';
@@ -185,6 +186,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const ownTeacher = snapshot.teachers.find((item) => item.profileId === membership.profileId);
   const ownParentLink = snapshot.parentLinks.find((item) => item.profileId === membership.profileId || item.lineUserId === membership.profileId);
   const unread = ownStudent ? unreadCount(snapshot, ownStudent.id) : 0;
+  const classroomActivity = membership.role === 'teacher'
+    ? feedbackFeed(snapshot, { role: membership.role, profileId: membership.profileId }).length
+    : 0;
   const visibleGroups = useMemo(() => {
     // The guardians' screen belongs to whoever looks after a room, so a teacher who only takes a
     // subject in it is not offered the door the route guard would refuse them anyway.
@@ -387,6 +391,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Icon name={item.icon} size={18} />
                     <span className="nav-label">{item.label}</span>
                     {item.to === '/notifications' && unread > 0 && <span className="nav-badge">{unread}</span>}
+                    {/* A teacher is told when the room has been busy; an administrator reads the
+                        same inbox without being pulled into it, so no count is shown for them. */}
+                    {item.to === '/reports' && classroomActivity > 0 && <span className="nav-badge">{classroomActivity}</span>}
                   </NavLink>
                 ))}
               </div>}
