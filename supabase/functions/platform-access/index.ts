@@ -241,7 +241,7 @@ Deno.serve(async (request) => {
         user_metadata: { display_name: displayName, requested_role: 'admin' },
         app_metadata: { access_model: 'platform_managed_name_password', member_role: 'admin', ...(schoolId ? { school_id: schoolId } : {}) }
       });
-      let profileId = created.user?.id ?? null;
+      let profileId = created?.user?.id ?? null;
       if (createError || !profileId) {
         // A retry of the same provision lands on the account the first attempt created. Adopt it
         // and set the password the operator just chose, rather than refusing forever.
@@ -259,13 +259,23 @@ Deno.serve(async (request) => {
         p_academic_year: academicYear, p_term: term
       });
       if (bindError || !bound) {
-        if (created.user) await service.auth.admin.deleteUser(created.user.id).catch(() => undefined);
+        if (created?.user) await service.auth.admin.deleteUser(created.user.id).catch(() => undefined);
         const message = String(bindError?.message ?? '');
         const code = message.includes('SCHOOL_CODE_TAKEN') ? 'SCHOOL_CODE_TAKEN'
           : message.includes('SCHOOL_NOT_FOUND') ? 'SCHOOL_NOT_FOUND'
             : message.includes('ROLE_CONFLICT') ? 'ROLE_CONFLICT'
               : message.includes('REAUTHENTICATION_REQUIRED') ? 'REAUTHENTICATION_REQUIRED'
                 : message.includes('FORBIDDEN') ? 'PLATFORM_FORBIDDEN' : 'ADMIN_ACCOUNT_FAILED';
+        // ADMIN_ACCOUNT_FAILED is the bucket every refusal this endpoint does not recognise falls
+        // into, and on its own it tells the operator nothing: a database behind this deployment, a
+        // constraint they can clear themselves and a genuine bug all read the same. The reason
+        // travels with it. Nobody but a platform operator reaches this line — the handler proved
+        // that before it created anything — and it is their own deployment they are being told
+        // about, so the detail is theirs to see.
+        if (code === 'ADMIN_ACCOUNT_FAILED') {
+          console.error('provision-school-admin refused', { message });
+          return json({ code, detail: message.slice(0, 200) }, 400, headers);
+        }
         return json({ code }, code === 'SCHOOL_CODE_TAKEN' ? 409 : code === 'SCHOOL_NOT_FOUND' ? 404 : 400, headers);
       }
       return json(bound, 201, headers);
