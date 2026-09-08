@@ -28,7 +28,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       // The app asks before reloading, so a lesson is never interrupted by an automatic swap.
-      includeAssets: ['icons/icon.svg'],
+      includeAssets: ['icons/favicon.svg', 'icons/apple-touch-icon.png', 'icons/icon.svg'],
       manifest: {
         name: 'AI Smart Classroom',
         short_name: 'Smart Class',
@@ -39,7 +39,11 @@ export default defineConfig({
         background_color: '#f5f6fb',
         theme_color: '#5b3df5',
         icons: [
-          { src: '/icons/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }
+          { src: '/icons/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          // A raster pair beside it: Android's launcher and the task switcher both prefer a PNG,
+          // and an installed app that falls back to a generic glyph there is the usual reason.
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
         ]
       },
       workbox: {

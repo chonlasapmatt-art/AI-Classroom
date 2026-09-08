@@ -11,7 +11,10 @@ h2 { font-size:1.35rem; }
 p { color:var(--ink-500); line-height:1.65; }
 code { background:#f0eef9; border-radius:6px; padding:.12em .4em; font-family:ui-monospace,monospace; font-size:.87em; }
 .eyebrow { display:block; color:var(--brand-600); font-size:.74rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; margin-bottom:.65rem; }
-.brand-mark { width:76px; height:76px; display:grid; place-items:center; color:white; font-weight:900; font-size:1.35rem; border-radius:23px; background:linear-gradient(145deg,#7658ff,#4a31dc); box-shadow:0 16px 34px #4930d152; margin-bottom:2rem; }
+/* The mark reads from the brand tokens rather than a frozen violet, so a school that picks a
+   preset sees its own colour on the logo too. It was hardcoded, which is why every preset changed
+   the whole product except the one element people look at first. */
+.brand-mark { width:76px; height:76px; display:grid; place-items:center; color:white; font-weight:900; font-size:1.35rem; border-radius:23px; background:var(--brand-gradient); box-shadow:0 16px 34px color-mix(in srgb, var(--brand-700) 32%, transparent); margin-bottom:2rem; }
 .brand-mark.small { width:42px; height:42px; border-radius:13px; font-size:.78rem; margin:0; box-shadow:none; }
 .configuration-page,.auth-page { min-height:100vh; display:grid; grid-template-columns:minmax(0,1.1fr) minmax(420px,.9fr); background:var(--surface); }
 .auth-page { position:relative; overflow:hidden; }
@@ -102,7 +105,7 @@ input:focus,select:focus,textarea:focus { border-color:var(--brand-500); }
 .account-state { max-width:650px; margin:auto; padding:2rem; gap:1rem; }.account-state .brand-mark { margin:0 auto; }.account-state .text-button { margin-top:.5rem; }
 .invite-code-form { width:min(420px,100%); margin:.5rem auto; display:grid; grid-template-columns:1fr auto; align-items:end; gap:.75rem; }.checkbox-field { flex-direction:row; align-items:center; align-self:end; min-height:50px; }.checkbox-field input { width:20px; min-height:20px; }
 .primary-button,.secondary-button { min-height:52px; border:0; border-radius:var(--radius-sm); padding:.7rem 1.25rem; font-weight:800; transition:transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), filter var(--duration-fast) var(--ease-out); }
-.primary-button { color:#fff; background:linear-gradient(135deg,var(--brand-600),var(--brand-700)); box-shadow:0 8px 20px #5b3df533; }.primary-button:hover { filter:brightness(1.05); transform:translateY(-2px); box-shadow:var(--shadow-md); }
+.primary-button { color:#fff; background:linear-gradient(135deg,var(--brand-600),var(--brand-700)); box-shadow:0 8px 20px color-mix(in srgb, var(--brand-600) 20%, transparent); }.primary-button:hover { filter:brightness(1.05); transform:translateY(-2px); box-shadow:var(--shadow-md); }
 .secondary-button { color:var(--brand-700); background:var(--brand-100); }.text-button,.icon-button { border:0; background:transparent; color:var(--brand-600); }.icon-button { font-size:1.5rem; }
 .alert { padding:.85rem 1rem; border-radius:var(--radius-sm); background:var(--brand-50); color:var(--brand-700); }.alert.error { color:var(--danger); background:var(--danger-soft); }.alert.warning { color:var(--warning); background:var(--warning-soft); }.alert.success { color:var(--success); background:var(--success-soft); }.alert.info { color:var(--info); background:var(--info-soft); }
 .setup-page { min-height:100vh; display:grid; place-items:center; background:linear-gradient(135deg,var(--brand-50),#e7faf7); }.setup-page .configuration-card { max-width:800px; }.form-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1rem; }

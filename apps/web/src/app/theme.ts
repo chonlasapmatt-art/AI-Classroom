@@ -1,5 +1,5 @@
 export type ThemeMode = 'system' | 'light' | 'dark';
-export type ThemePreset = 'violet' | 'sky' | 'mint' | 'sunny' | 'berry' | 'ocean' | 'forest' | 'graphite';
+export type ThemePreset = 'violet' | 'sky' | 'mint' | 'sunny' | 'berry' | 'ocean' | 'forest' | 'graphite' | 'paper';
 export type ThemeDensity = 'comfortable' | 'compact' | 'spacious';
 export type ThemeMotion = 'full' | 'reduced';
 
@@ -17,7 +17,10 @@ export const themePresets: { value: ThemePreset; label: string; description: str
   { value: 'berry', label: 'Berry Fun', description: 'สนุก มีสีสัน', swatch: '#db2777' },
   { value: 'ocean', label: 'Ocean Focus', description: 'นิ่งและมีสมาธิ', swatch: '#0891b2' },
   { value: 'forest', label: 'Forest Calm', description: 'ธรรมชาติ ผ่อนคลาย', swatch: '#15803d' },
-  { value: 'graphite', label: 'Graphite Pro', description: 'เรียบ เท่ มืออาชีพ', swatch: '#475569' }
+  { value: 'graphite', label: 'Graphite Pro', description: 'เรียบ เท่ มืออาชีพ', swatch: '#475569' },
+  // The only preset that warms the page as well as the brand, so its swatch shows the gradient
+  // rather than one flat hue — that is what a school is actually choosing here.
+  { value: 'paper', label: 'Paper White', description: 'ขาวอบอุ่น ไล่สีส้ม-ชมพู-ม่วง', swatch: 'linear-gradient(135deg,#f97316,#ec4899 48%,#a855f7)' }
 ];
 
 export const themeDensities: { value: ThemeDensity; label: string; description: string }[] = [
@@ -37,7 +40,7 @@ export const THEME_DENSITY_KEY = 'theme-density';
 export const THEME_MOTION_KEY = 'theme-motion';
 
 const modes = ['system', 'light', 'dark'] as const;
-const presets = ['violet', 'sky', 'mint', 'sunny', 'berry', 'ocean', 'forest', 'graphite'] as const;
+const presets = ['violet', 'sky', 'mint', 'sunny', 'berry', 'ocean', 'forest', 'graphite', 'paper'] as const;
 const densities = ['comfortable', 'compact', 'spacious'] as const;
 const motions = ['full', 'reduced'] as const;
 

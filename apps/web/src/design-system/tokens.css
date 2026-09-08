@@ -246,6 +246,34 @@
 }
 
 /*
+ * Paper White is the one preset that moves the page itself.
+ *
+ * Every other preset changes the brand ramp and leaves the cool grey canvas alone, because that is
+ * all a colour choice needs to do. This one exists for schools that want the warm, papery console
+ * look: an off-white page with plain white cards standing on it, warmed lines, and a header
+ * gradient that runs orange through pink into violet instead of a single flat hue.
+ *
+ * The surfaces are deliberately warm rather than pure white. A pure-white page behind pure-white
+ * cards leaves the cards with no edge at all, so the canvas carries a little warmth and the cards
+ * stay #ffffff — which is what makes them read as paper lying on a desk.
+ *
+ * Every pair here was measured rather than eyeballed: the brand ink clears 4.5:1 on its own soft
+ * tiles (5.35 and 4.90), white clears it on both fills (5.87 light, 4.69 dark), and the muted ink
+ * clears it on all three warm surfaces. Dark mode still overrides the surfaces below, so a school
+ * on this preset that switches to dark gets the ordinary dark theme with a rose brand.
+ */
+:root[data-preset="paper"] {
+  --brand-50:#fff1f4; --brand-100:#ffe4ea; --brand-200:#fecdd8; --brand-400:#fb7192;
+  --brand-500:#e11d48; --brand-600:#c2185b; --brand-700:#9d114b; --brand-800:#7d0e3c;
+  /* The three-colour header gradient, which is the whole signature of this look. */
+  --brand-gradient:linear-gradient(135deg,#f97316,#ec4899 48%,#a855f7);
+  --canvas:#fdf7f4; --surface:#ffffff; --surface-muted:#fffaf8; --surface-sunken:#f8efeb;
+  --line:#f3e6e1; --line-strong:#e6d3cd;
+  --surface-hover:#fdf5f2; --surface-glass:#fffaf8d9; --topbar-surface:#fffaf8d9;
+  --nav-surface:#3b1230; --inverse-surface:#3b1230; --overlay:#2c0d24bb;
+}
+
+/*
  * Dark mode.
  *
  * Only surfaces, ink, lines and the soft status backgrounds move. Brand and status hues keep their
