@@ -64,7 +64,18 @@ describe('the welcome page', () => {
   it('does not expose private operations from the public home', async () => {
     renderFrom('/welcome');
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Smart Classroom'));
-    expect(screen.queryByText(/Platform Console|พรีวิว|ผู้ดูแลโรงเรียน|Super Admin/i)).not.toBeInTheDocument();
+    // The platform console and Preview stay off the public signpost. A school's own administrator
+    // is a different case: they are one of the school's people and their sign-in screen is reachable
+    // by address anyway, so Home names the way in rather than making them remember a URL.
+    expect(screen.queryByText(/Platform Console|พรีวิว|Super Admin/i)).not.toBeInTheDocument();
+  });
+
+  it('offers the administrator their own way in, quieter than the three role doors', async () => {
+    renderFrom('/welcome');
+    const entry = await screen.findByRole('link', { name: /เข้าสู่ระบบด้วยผู้ดูแล/ });
+    expect(entry).toHaveAttribute('href', '/admin-access');
+    // It sits outside the door grid, so it cannot be mistaken for a fourth role.
+    expect(entry.closest('.welcome-door-grid')).toBeNull();
   });
 
   it('lets somebody change the Home theme and remembers the choice', async () => {

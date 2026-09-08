@@ -219,6 +219,20 @@ export function LoginPage() {
             เข้าสู่ระบบ
           </Button>
           <p className="fine-print">หากเข้าระบบไม่ได้ ให้ติดต่อแอดมินเพื่อกำหนดรหัสผ่านใหม่</p>
+          {/* An administrator who landed on the ordinary card has no way across without this. The
+              control room links back here already; this is the other half of that pair. */}
+          <Link
+            className="side-door"
+            to="/admin-access"
+            onClick={(event: MouseEvent<HTMLAnchorElement>) => transitionTo(event, '/admin-access')}
+          >
+            <span className="side-door-icon" aria-hidden="true"><Icon name="settings" size={16} /></span>
+            <span className="side-door-copy">
+              <strong>เข้าสู่ระบบด้วยผู้ดูแล</strong>
+              <span>ศูนย์ควบคุมของผู้ดูแลโรงเรียน</span>
+            </span>
+            <Icon name="chevron-right" size={16} />
+          </Link>
           {/*
             The way out, and the only control on this card that is not the sign-in button.
             It reads as a step rather than a link — an arrow pointing back the way somebody came,

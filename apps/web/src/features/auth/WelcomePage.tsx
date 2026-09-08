@@ -275,6 +275,26 @@ export function WelcomePage() {
               </Link>
             ))}
           </div>
+          {/*
+            The control room is not a fourth door.
+            The three tiles above are the school's population, and a room that manages all of them
+            does not belong in the same row at the same weight — every student would read it as one
+            more thing to try. It sits under them as a quiet pill: unmistakably a control, tall
+            enough to hit on a phone, and visibly the exception rather than one of the choices.
+          */}
+          <Link
+            className="side-door"
+            data-reveal
+            to="/admin-access"
+            onClick={(event: MouseEvent<HTMLAnchorElement>) => transitionTo(event, '/admin-access')}
+          >
+            <span className="side-door-icon" aria-hidden="true"><Icon name="settings" size={16} /></span>
+            <span className="side-door-copy">
+              <strong>เข้าสู่ระบบด้วยผู้ดูแล</strong>
+              <span>ศูนย์ควบคุมของผู้ดูแลโรงเรียน</span>
+            </span>
+            <Icon name="chevron-right" size={16} />
+          </Link>
           <p className="welcome-fine">
             ทุกบัญชีสร้างและกำหนดรหัสผ่านโดยแอดมินของโรงเรียน · ระบบนี้ไม่มีการสมัครสมาชิกด้วยตัวเอง
           </p>
