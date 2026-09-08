@@ -1,11 +1,12 @@
-import { useState, type CSSProperties, type FormEvent } from 'react';
+import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses } from '../../data/selectors';
+import { teacherLinksForProfile } from '../../data/teacherResponsibilities';
 import { standardSubjects, subjectColor, subjectColors, subjectIconKeys, subjectIconLabels } from '../../data/subjectCatalog';
 import { SubjectIcon } from './SubjectIcon';
 import type { Subject } from '../../domain/types';
-import { Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, PageHeader } from '../../ui/components';
+import { Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, LinkButton, PageHeader } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 
@@ -19,7 +20,27 @@ export function SubjectsPage() {
 
   const canEdit = membership.role === 'admin' && repository.canManageStructure;
   const classes = activeClasses(snapshot);
-  const subjects = [...snapshot.subjects].sort((a, b) => a.sortOrder - b.sortOrder);
+
+  /*
+   * Who sees which subjects.
+   *
+   * A teacher sees the ones they teach: the catalogue of a school's whole curriculum is an
+   * administrator's list, and a teacher scrolling past twenty subjects to find their two is a
+   * teacher who stops using the screen. Everybody else sees the school's subjects, because the
+   * lessons published inside them are for the school — a student watches them, a guardian reads
+   * what their child is being taught, and neither of those is narrowed by who teaches it.
+   */
+  const teachingSubjectIds = useMemo(
+    () => (membership.role === 'teacher'
+      ? new Set(teacherLinksForProfile(snapshot, membership.profileId)
+        .map((link) => link.subjectId)
+        .filter((id): id is string => id !== null))
+      : null),
+    [membership.profileId, membership.role, snapshot]
+  );
+  const subjects = [...snapshot.subjects]
+    .filter((item) => !teachingSubjectIds || teachingSubjectIds.has(item.id))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
   const missingStandard = standardSubjects.filter((seed) => !subjects.some((subject) => subject.code === seed.code));
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -49,6 +70,11 @@ export function SubjectsPage() {
       await repository.saveSubject({ ...seed, sortOrder: subjects.length + index });
     }
     toast(`เพิ่ม ${missingStandard.length} กลุ่มสาระมาตรฐานแล้ว`, { tone: 'success' });
+  }
+
+  /** Lessons published under the subject itself, as opposed to work set inside a class. */
+  function materialCountFor(subjectId: string): number {
+    return snapshot.attachments.filter((item) => item.ownerType === 'subject' && item.ownerId === subjectId).length;
   }
 
   function countFor(subjectId: string): number {
@@ -153,11 +179,19 @@ export function SubjectsPage() {
                     <span>{subject.code}{subject.nameEn ? ` · ${subject.nameEn}` : ''}</span>
                   </div>
                 </div>
-                <p>{countFor(subject.id)} งาน/กิจกรรม/การสอบในระบบ</p>
+                <p>
+                  {countFor(subject.id)} งาน/กิจกรรม/การสอบในระบบ
+                  {materialCountFor(subject.id) > 0 && ` · ${materialCountFor(subject.id)} บทเรียน`}
+                </p>
                 <div className="record-actions">
                   <Badge tone={subject.status === 'active' ? 'success' : 'warning'}>
                     {subject.status === 'active' ? 'เปิดสอน' : 'เก็บถาวร'}
                   </Badge>
+                  {/* The subject's own page: its staff, its lessons, and the questions asked
+                      about it. Everything else on this card is the catalogue entry. */}
+                  <LinkButton to={`/subjects/${subject.id}`} size="sm" variant="secondary">
+                    เปิดบทเรียน
+                  </LinkButton>
                   {canEdit && (
                     <>
                       <Button variant="ghost" size="sm" onClick={() => { setEditing(subject); setOpenForm(true); }}>แก้ไข</Button>

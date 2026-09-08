@@ -20,6 +20,7 @@ import { StudentsPage } from '../features/students/StudentsPage';
 import { StudentDetailPage } from '../features/students/StudentDetailPage';
 import { ClassesPage } from '../features/classes/ClassesPage';
 import { SubjectsPage } from '../features/subjects/SubjectsPage';
+import { SubjectDetailPage } from '../features/subjects/SubjectDetailPage';
 import { SubjectGradebookPage } from '../features/grades/SubjectGradebookPage';
 import { GradeEditorPage } from '../features/grades/GradeEditorPage';
 import { ImportPage } from '../features/imports/ImportPage';
@@ -77,6 +78,7 @@ const appRoutes: AppRoute[] = [
   { path: 'students/:studentId', element: <StudentDetailPage /> },
   { path: 'classes', element: <ClassesPage /> },
   { path: 'subjects', element: <SubjectsPage /> },
+  { path: 'subjects/:subjectId', element: <SubjectDetailPage /> },
   { path: 'gradebook', element: <SubjectGradebookPage /> },
   { path: 'grade-editor', element: <GradeEditorPage /> },
   { path: 'calendar', element: <CalendarPage /> },

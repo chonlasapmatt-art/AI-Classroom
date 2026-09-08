@@ -3206,3 +3206,50 @@ tr.row-warning td { background: var(--warning-soft); }
   .period-register-marks { grid-column: 1 / -1; justify-content: space-between; }
   .period-mark { flex: 1; }
 }
+
+/* ── A subject's own page ──────────────────────────────────────────────────────────────────────
+   The hero carries the subject's colour the same way its card does, so arriving from the catalogue
+   feels like opening the card rather than landing somewhere else. Everything under it is a list of
+   things to open: lessons, then the questions asked about them. */
+.subject-hero { display: grid; gap: var(--space-3); }
+.subject-hero-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; }
+.subject-hero-head strong { display: block; font-size: var(--text-lg); color: var(--color-text-primary); }
+.subject-hero-head span { color: var(--color-text-secondary); font-size: var(--text-sm); }
+.subject-staff-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.subject-staff-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); color: var(--color-text-secondary); font-size: var(--text-sm); }
+
+/* The upload control is a label wrapping a hidden input, so it needs the button's own look. */
+.subject-upload { display: inline-flex; cursor: pointer; }
+.subject-upload input:disabled + span { opacity: .6; cursor: progress; }
+
+.subject-material-list, .subject-request-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.subject-material-list li {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: var(--space-3); align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+}
+.subject-material-icon {
+  inline-size: 34px; block-size: 34px; display: grid; place-items: center; border-radius: var(--radius-sm);
+  color: var(--color-primary); background: var(--color-primary-soft);
+}
+.subject-material-copy { min-inline-size: 0; display: grid; gap: 2px; }
+.subject-material-copy strong { color: var(--color-text-primary); overflow-wrap: anywhere; }
+.subject-material-copy small { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.subject-request-list li {
+  --request-accent: var(--color-warning);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: start;
+  padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  border-inline-start: 3px solid var(--request-accent);
+}
+.subject-request-list li[data-status="handled"] { --request-accent: var(--color-success); }
+.subject-request-copy { min-inline-size: 0; display: grid; gap: var(--space-1); }
+.subject-request-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.subject-request-copy p { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); white-space: pre-wrap; overflow-wrap: anywhere; }
+.subject-request-meta { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+@media (max-width: 640px) {
+  .subject-material-list li { grid-template-columns: auto minmax(0, 1fr); }
+  .subject-material-list li > .ui-button { grid-column: span 1; }
+  .subject-hero-head { grid-template-columns: auto minmax(0, 1fr); }
+}

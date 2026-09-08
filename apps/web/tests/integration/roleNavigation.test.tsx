@@ -79,7 +79,9 @@ describe('the menu each role gets', () => {
     await waitFor(() => expect(sectionNames()).toContain('งานของฉัน'));
     const sections = sectionNames();
     expect(sections.length).toBeLessThanOrEqual(8);
-    expect(sections).toContain('เพื่อนร่วมชั้น');
+    expect(sections).toContain('ห้องเรียนของฉัน');
+    // Lessons live under the subject now, so a student's menu has a way into them.
+    expect(mainMenu().getByRole('link', { name: /รายวิชาและบทเรียน/ })).toBeInTheDocument();
     expect(sections).not.toContain('เช็กชื่อ');
     expect(mainMenu().queryByRole('link', { name: /แก้ไขคะแนน/ })).not.toBeInTheDocument();
   });
