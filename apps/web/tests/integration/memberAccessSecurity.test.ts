@@ -215,6 +215,26 @@ describe('the screens a teacher and a parent see', () => {
     expect(magicLinkTemplate).not.toContain('{{ .Token }}');
   });
 
+  it('asks an account with no school for nothing it cannot produce', () => {
+    // The eight-digit invitation code is real on the server and no screen ever issued one, so the
+    // field could only hold somebody at a door with a key that does not exist.
+    expect(accountPages).not.toContain('รหัสคำเชิญ');
+    expect(accountPages).not.toContain('member-invitation');
+    expect(accountPages).not.toContain('invite-code-form');
+    // What replaces it is the entrance that actually binds an account, named per role.
+    expect(accountPages).toContain('/login?as=teacher');
+    expect(accountPages).toContain('/login?as=student');
+    expect(accountPages).toContain('รหัสครู');
+    expect(accountPages).toContain('เลขประจำตัวนักเรียน');
+  });
+
+  it('sends somebody out of the session before sending them to sign in again', () => {
+    // The sign-in screen bounces a live session back into the app, and the app bounces an account
+    // with no school back to this page, so the old link was a loop out of the screen and into it.
+    expect(accountPages).toMatch(/await auth\.signOut\(\);\s*window\.location\.assign/);
+    expect(accountPages).not.toMatch(/<Link[^>]*to="\/login"/);
+  });
+
   it('states one wrong-credentials message on screen', () => {
     expect(memberClient).toContain("MEMBER_ACCESS_GENERIC_MESSAGE = 'ชื่อหรือรหัสผ่านไม่ถูกต้อง'");
   });

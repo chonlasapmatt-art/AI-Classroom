@@ -100,7 +100,15 @@ input:focus,select:focus,textarea:focus { border-color:var(--brand-500); }
 .school-suggestions { list-style:none; margin:0; padding:.3rem; border:1px solid var(--line); border-radius:var(--radius-md); display:grid; gap:.15rem; max-height:220px; overflow-y:auto; }
 .school-suggestions button { width:100%; text-align:left; min-height:46px; padding:0 .6rem; }.role-choice legend { padding:0 .4rem; color:var(--ink-500); font-size:.82rem; }.role-choice label { min-height:48px; display:flex; align-items:center; justify-content:center; gap:.5rem; border:1px solid var(--line); border-radius:var(--radius-sm); cursor:pointer; }.role-choice input { width:auto; }
 .account-state { max-width:650px; margin:auto; padding:2rem; gap:1rem; }.account-state .brand-mark { margin:0 auto; }.account-state .text-button { margin-top:.5rem; }
-.invite-code-form { width:min(420px,100%); margin:.5rem auto; display:grid; grid-template-columns:1fr auto; align-items:end; gap:.75rem; }.checkbox-field { flex-direction:row; align-items:center; align-self:end; min-height:50px; }.checkbox-field input { width:20px; min-height:20px; }
+/* What to do, in the order to do it. Numbered because the steps only work in that order: the school
+   records the person first, and the door binds the account second. */
+.join-steps { width:min(460px,100%); margin:.5rem auto 0; padding-left:1.35rem; display:grid; gap:.6rem; text-align:left; color:var(--color-text-secondary); font-size:var(--text-sm); line-height:var(--leading-normal); }
+.join-steps li::marker { color:var(--color-primary); font-weight:var(--weight-strong); }
+.join-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:.75rem; margin-top:.5rem; }
+.account-identity { display:flex; flex-direction:column; gap:.15rem; margin:0; padding:.75rem 1rem; border:1px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-surface); }
+.account-identity strong { color:var(--color-text-primary); }
+.account-identity span { color:var(--color-text-muted); font-size:var(--text-xs); }
+.checkbox-field { flex-direction:row; align-items:center; align-self:end; min-height:50px; }.checkbox-field input { width:20px; min-height:20px; }
 .primary-button,.secondary-button { min-height:52px; border:0; border-radius:var(--radius-sm); padding:.7rem 1.25rem; font-weight:800; transition:transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), filter var(--duration-fast) var(--ease-out); }
 .primary-button { color:#fff; background:linear-gradient(135deg,var(--brand-600),var(--brand-700)); box-shadow:0 8px 20px #5b3df533; }.primary-button:hover { filter:brightness(1.05); transform:translateY(-2px); box-shadow:var(--shadow-md); }
 .secondary-button { color:var(--brand-700); background:var(--brand-100); }.text-button,.icon-button { border:0; background:transparent; color:var(--brand-600); }.icon-button { font-size:1.5rem; }
