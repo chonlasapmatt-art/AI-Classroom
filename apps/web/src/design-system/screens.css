@@ -530,8 +530,12 @@
 .notification-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
 /* ---------- Avatar picker / profile ---------- */
-.avatar-picker { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: var(--space-5); }
-.avatar-picker-preview { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-5); border-radius: var(--radius-lg); background: linear-gradient(160deg, var(--brand-50), var(--brand-100)); text-align: center; }
+/* A grid track defaults to the width of its widest child, so the sideways-scrolling category strip
+   would otherwise widen the whole dialog past the phone rather than scroll inside it. */
+.avatar-picker { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: var(--space-5); min-width: 0; }
+.avatar-picker-body { min-width: 0; }
+.avatar-picker-filters { min-width: 0; }
+.avatar-picker-preview { align-self: start; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-5); border-radius: var(--radius-lg); background: linear-gradient(160deg, var(--brand-50), var(--brand-100)); text-align: center; }
 
 /*
  * The stage the chosen drawing stands on.
@@ -706,7 +710,35 @@
   .sidebar-overlay { position: fixed; inset: 0; z-index: 25; background: rgba(0,0,0,.3); backdrop-filter: blur(2px); animation: ui-fade var(--duration-normal) var(--ease-out); }
   .app-content { grid-column: 1; }
   .menu-button { display: block; min-width: 48px; min-height: 48px; }
+  /*
+   * On a phone the preview was the whole screen.
+   *
+   * Stacked, it stood 148px of drawing on top of a name, a badge and four pose buttons — around
+   * seven hundred pixels before the first avatar, so the gallery this screen exists for started
+   * below the fold. Side by side it is a header: the drawing shrinks, the poses sit beside it, and
+   * the first row of avatars is on screen when the picker opens.
+   */
   .avatar-picker { grid-template-columns: 1fr; }
+  .avatar-picker-preview { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3); text-align: left; }
+  .avatar-picker-preview > strong { flex: 1 1 auto; min-width: 0; }
+  .avatar-stage { width: 104px; height: 104px; }
+  .avatar-stage-figure svg { width: 92px; height: 92px; }
+  .avatar-pose-picker { flex: 1 1 100%; margin-top: 0; }
+  .avatar-pose-options { justify-content: flex-start; }
+  /*
+   * Everything above the gallery is chrome, and on a phone the chrome was the screen.
+   *
+   * Seven categories wrapped to two rows, the search field carried a line of hint under it, and the
+   * drawing was still 92px — together they pushed the first avatar off the bottom of a modal that
+   * cannot grow. The strip scrolls sideways on one line, the hint goes (the placeholder says the
+   * same thing), and the drawing gives back a few more pixels. The gallery starts on screen.
+   */
+  .avatar-picker-filters .ui-segmented { flex-wrap: nowrap; overflow-x: auto; min-width: 0; max-width: 100%; }
+  .avatar-picker-filters .ui-field-hint { display: none; }
+  .avatar-stage { width: 88px; height: 88px; }
+  .avatar-stage-figure svg { width: 76px; height: 76px; }
+  .avatar-pose { min-height: 32px; padding: 0 var(--space-2); }
+  .avatar-picker-preview { gap: var(--space-2); padding: var(--space-2) var(--space-3); }
   .avatar-part-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .page-content { padding: var(--space-4); }
   /* A floor for a finger, not a ceiling. Written as a bare `.ui-button` this beat `.ui-size-lg` —
