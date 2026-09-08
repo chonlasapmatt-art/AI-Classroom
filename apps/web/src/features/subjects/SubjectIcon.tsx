@@ -103,6 +103,79 @@ function paths(key: SubjectIconKey) {
           <path d="M13.2 6.6 10.8 17.4" />
         </>
       );
+    case 'atom': // nucleus in two orbits
+      return (
+        <>
+          <circle cx="12" cy="12" r="1.6" />
+          <ellipse cx="12" cy="12" rx="7" ry="3" />
+          <ellipse cx="12" cy="12" rx="7" ry="3" transform="rotate(60 12 12)" />
+        </>
+      );
+    case 'leaf': // leaf on its stem
+      return (
+        <>
+          <path d="M6 18.6c0-6 4-12 12.4-12.6.6 7.4-3.6 12-8.4 12a4 4 0 0 1-4-4z" />
+          <path d="M6.6 19c2.6-3.6 5.6-6.2 9.4-8" />
+        </>
+      );
+    case 'map': // folded map
+      return (
+        <>
+          <path d="M5 7.6 9.6 6v11.4L5 19z" />
+          <path d="M9.6 6 14.4 7.6v11.4L9.6 17.4z" />
+          <path d="M14.4 7.6 19 6v11.4L14.4 19z" />
+        </>
+      );
+    case 'history': // hourglass
+      return (
+        <>
+          <path d="M7.4 5.4h9.2" />
+          <path d="M7.4 18.6h9.2" />
+          <path d="M8.6 5.4c0 3.2 3.4 4.4 3.4 6.6s-3.4 3.4-3.4 6.6" />
+          <path d="M15.4 5.4c0 3.2-3.4 4.4-3.4 6.6s3.4 3.4 3.4 6.6" />
+        </>
+      );
+    case 'health': // heart with a pulse line through it
+      return (
+        <>
+          <path d="M12 18.6 6.7 13.4a3.4 3.4 0 0 1 5.3-4.2 3.4 3.4 0 0 1 5.3 4.2z" />
+          <path d="M6.4 12.6h2.4l1.2-2 1.6 3.4 1.4-2.2h2.6" />
+        </>
+      );
+    case 'computer': // monitor on a stand
+      return (
+        <>
+          <rect x="4.6" y="5.6" width="14.8" height="9.6" rx="2" />
+          <path d="M9.6 19h4.8" />
+          <path d="M12 15.2V19" />
+        </>
+      );
+    case 'drama': // two masks
+      return (
+        <>
+          <path d="M4.8 7.4h7.4v4.2a3.7 3.7 0 0 1-7.4 0z" />
+          <path d="M11.8 7.4h7.4v4.2a3.7 3.7 0 0 1-7.4 0" />
+          <path d="M6.6 9.4h.01M10.4 9.4h.01M13.6 9.4h.01M17.4 9.4h.01" />
+          <path d="M7 16.4c1.4 1.6 3.6 2.2 5.4 1.4" />
+        </>
+      );
+    case 'compass': // compass rose with a needle
+      return (
+        <>
+          <circle cx="12" cy="12" r="7" />
+          <path d="M14.8 9.2 13.2 13.2 9.2 14.8 10.8 10.8z" />
+        </>
+      );
+    case 'lotus': // lotus in bloom
+      return (
+        <>
+          <path d="M12 6.4c1.8 1.8 2.6 3.6 2.6 5.6S13.8 15.8 12 17.6c-1.8-1.8-2.6-3.6-2.6-5.6s.8-3.8 2.6-5.6z" />
+          <path d="M9.4 12c-1.6-1-3.2-1.4-4.8-1.2.2 3.4 2.6 6 6 6.6" />
+          <path d="M14.6 12c1.6-1 3.2-1.4 4.8-1.2-.2 3.4-2.6 6-6 6.6" />
+        </>
+      );
+    case 'star': // five-pointed star
+      return <path d="M12 5.4l2 4.3 4.6.6-3.4 3.2.9 4.7-4.1-2.3-4.1 2.3.9-4.7L5.4 10.3l4.6-.6z" />;
     case 'default':
     default: // rounded tile
       return <rect x="5.6" y="5.6" width="12.8" height="12.8" rx="3.4" />;

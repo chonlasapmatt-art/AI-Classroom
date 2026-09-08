@@ -3,7 +3,10 @@ import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses } from '../../data/selectors';
 import { teacherLinksForProfile } from '../../data/teacherResponsibilities';
-import { standardSubjects, subjectColor, subjectColors, subjectIconKeys, subjectIconLabels } from '../../data/subjectCatalog';
+import {
+  isSubjectIconKey, standardSubjects, subjectColor, subjectColors, subjectIconKeys, subjectIconLabels,
+  type SubjectIconKey
+} from '../../data/subjectCatalog';
 import { SubjectIcon } from './SubjectIcon';
 import type { Subject } from '../../domain/types';
 import { Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, LinkButton, PageHeader } from '../../ui/components';
@@ -17,6 +20,20 @@ export function SubjectsPage() {
   const [editing, setEditing] = useState<Subject | null>(null);
   const [openForm, setOpenForm] = useState(false);
   const { toast } = useToast();
+
+  // The two choices a person makes by looking rather than by reading. They are held here rather
+  // than in the form's own fields because the preview above them has to change as they are made.
+  const [colorIndex, setColorIndex] = useState(0);
+  const [iconKey, setIconKey] = useState<SubjectIconKey>('default');
+  const picked = subjectColor(colorIndex);
+
+  /** Opening the form on a subject starts from what that subject already wears. */
+  function edit(subject: Subject | null) {
+    setEditing(subject);
+    setColorIndex(subject?.colorIndex ?? 0);
+    setIconKey(isSubjectIconKey(subject?.iconKey ?? '') ? subject!.iconKey as SubjectIconKey : 'default');
+    setOpenForm(true);
+  }
 
   const canEdit = membership.role === 'admin' && repository.canManageStructure;
   const classes = activeClasses(snapshot);
@@ -92,7 +109,7 @@ export function SubjectsPage() {
         action={canEdit && (
           <Button
             variant="primary" icon={<Icon name="plus" size={16} />}
-            onClick={() => { setEditing(null); setOpenForm((value) => !value); }}
+            onClick={() => (openForm && !editing ? setOpenForm(false) : edit(null))}
           >
             เพิ่มรายวิชา
           </Button>
@@ -134,17 +151,77 @@ export function SubjectsPage() {
               <Field label="ชื่อภาษาอังกฤษ" hint="ไม่บังคับ">
                 <input name="nameEn" defaultValue={editing?.nameEn ?? ''} />
               </Field>
-              <Field label="สี" hint="ใช้แยกวิชาบนปฏิทินและตารางสอน">
-                <select name="colorIndex" defaultValue={editing?.colorIndex ?? 0}>
-                  {subjectColors.map((_color, index) => <option key={index} value={index}>สีที่ {index + 1}</option>)}
-                </select>
-              </Field>
-              <Field label="ไอคอน">
-                <select name="iconKey" defaultValue={editing?.iconKey ?? 'default'}>
-                  {subjectIconKeys.map((key) => <option key={key} value={key}>{subjectIconLabels[key]}</option>)}
-                </select>
-              </Field>
             </FieldGroup>
+
+            {/*
+              A colour and an icon are things you look at, so they are chosen by looking.
+              Both used to be dropdowns — one of them listing "สีที่ 1" through "สีที่ 8", which
+              names nothing a person can picture — and the only way to find out what a choice looked
+              like was to save it and go back to the list. The swatches and the drawings are the
+              control now, with the chosen pair previewed at the size the subject card draws it.
+            */}
+            <input type="hidden" name="colorIndex" value={colorIndex} />
+            <input type="hidden" name="iconKey" value={iconKey} />
+
+            <div className="subject-designer">
+              <div className="subject-designer-preview" aria-hidden="true">
+                <span
+                  className="subject-medallion"
+                  style={{ '--subject-color': picked.solid, '--subject-soft': picked.soft } as CSSProperties}
+                >
+                  <SubjectIcon iconKey={iconKey} size={26} />
+                </span>
+                <span className="subject-designer-preview-copy">
+                  <strong>{subjectIconLabels[isSubjectIconKey(iconKey) ? iconKey : 'default']}</strong>
+                  <small>{picked.name}</small>
+                </span>
+              </div>
+
+              <div className="subject-designer-field">
+                <span className="ui-field-label" id="subject-colour-legend">สีประจำวิชา</span>
+                <p className="ui-field-hint">ใช้แยกวิชาบนปฏิทิน ตารางสอน และสมุดคะแนน</p>
+                <div className="subject-swatches" role="radiogroup" aria-labelledby="subject-colour-legend">
+                  {subjectColors.map((color, index) => (
+                    <button
+                      key={color.solid}
+                      type="button"
+                      role="radio"
+                      aria-checked={colorIndex === index}
+                      aria-label={color.name}
+                      title={color.name}
+                      className="subject-swatch"
+                      style={{ '--subject-color': color.solid, '--subject-soft': color.soft } as CSSProperties}
+                      onClick={() => setColorIndex(index)}
+                    >
+                      {colorIndex === index && <Icon name="check" size={14} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="subject-designer-field">
+                <span className="ui-field-label" id="subject-icon-legend">ไอคอน</span>
+                <p className="ui-field-hint">เลือกภาพที่ตรงกับวิชามากที่สุด · ใช้ทุกที่ที่อ้างถึงวิชานี้</p>
+                <div className="subject-icon-choice" role="radiogroup" aria-labelledby="subject-icon-legend">
+                  {subjectIconKeys.map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      role="radio"
+                      aria-checked={iconKey === key}
+                      aria-label={subjectIconLabels[key]}
+                      title={subjectIconLabels[key]}
+                      className="subject-icon-option"
+                      style={{ '--subject-color': picked.solid, '--subject-soft': picked.soft } as CSSProperties}
+                      onClick={() => setIconKey(key)}
+                    >
+                      <SubjectIcon iconKey={key} size={20} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="ui-page-actions">
               <Button variant="primary" type="submit">บันทึก</Button>
               {editing && <Button variant="ghost" type="button" onClick={() => setEditing(null)}>ยกเลิก</Button>}
@@ -162,7 +239,7 @@ export function SubjectsPage() {
               ? 'เพิ่มรายวิชาเอง หรือกด "เพิ่มทั้งหมด" เพื่อสร้างกลุ่มสาระมาตรฐานให้ครบในครั้งเดียว'
               : 'เมื่อแอดมินเพิ่มรายวิชาแล้ว รายการจะแสดงที่นี่'}
             {...(canEdit ? {
-              action: <Button variant="primary" onClick={() => { setEditing(null); setOpenForm(true); }}>เพิ่มรายวิชา</Button>
+              action: <Button variant="primary" onClick={() => edit(null)}>เพิ่มรายวิชา</Button>
             } : {})}
           />
         </Card>
@@ -172,8 +249,15 @@ export function SubjectsPage() {
             const color = subjectColor(subject.colorIndex);
             return (
               <article key={subject.id} className="subject-card" style={{ borderColor: color.solid }}>
-                <div className="subject-card-head subject-tint" style={{ '--subject-color': color.solid } as CSSProperties}>
-                  <span className="subject-card-icon"><SubjectIcon iconKey={subject.iconKey} size={22} /></span>
+                <div
+                  className="subject-card-head subject-tint"
+                  style={{ '--subject-color': color.solid, '--subject-soft': color.soft } as CSSProperties}
+                >
+                  {/* The medallion: the subject's colour as a ring and a wash behind its drawing,
+                      rather than a flat white square with a line icon dropped into it. */}
+                  <span className="subject-medallion">
+                    <SubjectIcon iconKey={subject.iconKey} size={24} title={subject.name} />
+                  </span>
                   <div>
                     <strong>{subject.name}</strong>
                     <span>{subject.code}{subject.nameEn ? ` · ${subject.nameEn}` : ''}</span>
@@ -194,7 +278,7 @@ export function SubjectsPage() {
                   </LinkButton>
                   {canEdit && (
                     <>
-                      <Button variant="ghost" size="sm" onClick={() => { setEditing(subject); setOpenForm(true); }}>แก้ไข</Button>
+                      <Button variant="ghost" size="sm" onClick={() => edit(subject)}>แก้ไข</Button>
                       {subject.status === 'active' && (
                         <Button variant="ghost" size="sm" onClick={() => void repository.archiveSubject(subject.id)}>เก็บถาวร</Button>
                       )}
