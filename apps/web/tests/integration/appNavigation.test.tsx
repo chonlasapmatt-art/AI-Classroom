@@ -203,6 +203,32 @@ describe('application shell and routes', () => {
     expect(screen.getByLabelText('ห้องเรียน')).toHaveValue('fixture-class-2');
   });
 
+  it('lays the week out a day per line, with the periods and their times across the top', async () => {
+    renderApp('/timetable');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ตารางสอน'));
+    const headers = screen.getAllByRole('columnheader').map((cell) => cell.textContent ?? '');
+    expect(headers[0]).toContain('วัน');
+    expect(headers[1]).toContain('คาบ 1');
+    expect(headers[1]).toContain('08:30');
+    // The day is the row now, so it is a row header and not one of the columns.
+    expect(screen.getByRole('rowheader', { name: 'จันทร์' })).toBeInTheDocument();
+    expect(headers.some((text) => text.includes('จันทร์'))).toBe(false);
+  });
+
+  it('offers a way to move a period that does not need a drag', async () => {
+    renderApp('/timetable');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ตารางสอน'));
+    const filled = screen.getAllByRole('button', { name: /คาบ \d/ })
+      .find((button) => !/ว่าง/.test(button.getAttribute('aria-label') ?? ''));
+    expect(filled).toBeTruthy();
+    fireEvent.click(filled!);
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'ย้ายคาบนี้' }));
+    // The table now answers as a set of destinations, and says so where a screen reader will read it.
+    expect(await screen.findByText(/เลือกช่องปลายทางในตาราง/)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^ย้าย .* มาที่ .* ซึ่งว่างอยู่$/ }).length).toBeGreaterThan(0);
+  });
+
   it('renders the gradebook with category columns', async () => {
     renderApp('/gradebook');
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('สมุดเกรด'));

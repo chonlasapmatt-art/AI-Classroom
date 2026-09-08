@@ -25,7 +25,7 @@ import {
   type NotificationInput, type AnnouncementInput, type NotificationPreferenceInput, type ParentAccountInput, type ParentLinkInput,
   type PromotionInput, type PromotionResult, type RubricInput, type SchoolRepository, type SchoolSnapshot,
   type ScoreEventInput, type ScoreInput, type ScoreSubmissionInput, type StudentInput, type SubjectInput, type SubmissionInput,
-  type TeacherInput, type TestInput, type TimetableInput
+  type TeacherInput, type TestInput, type TimetableInput, type TimetableMoveInput
 } from './schoolRepository';
 
 /** Shared bucket every classroom file lives in. */
@@ -442,6 +442,47 @@ export class DexieSchoolRepository implements SchoolRepository {
       status: 'active', updatedAt: nowIso()
     };
     await commitLocalMutation('timetable_entry', record);
+  }
+
+  async moveTimetableEntry(input: TimetableMoveInput): Promise<void> {
+    if (input.dayOfWeek < 1 || input.dayOfWeek > 7) throw new Error('วันในสัปดาห์ต้องอยู่ระหว่าง 1 ถึง 7');
+    if (input.period < 1) throw new Error('คาบเรียนต้องเริ่มที่ 1');
+    const entry = await db.timetable.get(input.entryId);
+    if (!entry || entry.deletedAt || entry.status !== 'active') throw new Error('ไม่พบคาบเรียนที่จะย้าย');
+    if (entry.dayOfWeek === input.dayOfWeek && entry.period === input.period) return;
+
+    const week = alive(await db.timetable.where({ schoolId: this.schoolId, academicTermId: entry.academicTermId }).toArray())
+      .filter((row) => row.status === 'active');
+    const occupant = week.find((row) => row.classId === entry.classId
+      && row.dayOfWeek === input.dayOfWeek && row.period === input.period && row.id !== entry.id) ?? null;
+
+    // The room the period lands in is free by definition — either empty, or emptied by the swap.
+    // The teacher is not: they may be standing in another room at that hour, and so may the person
+    // being swapped back.
+    const teacherBusy = (teacherId: string | null, day: number, period: number, exclude: string[]) => Boolean(teacherId)
+      && week.some((row) => row.teacherId === teacherId && row.dayOfWeek === day
+        && row.period === period && !exclude.includes(row.id));
+    const both = [entry.id, ...(occupant ? [occupant.id] : [])];
+    if (teacherBusy(entry.teacherId, input.dayOfWeek, input.period, both)) {
+      throw new Error('ครูคนนี้ถูกจัดสอนคาบนี้ในห้องอื่นแล้ว');
+    }
+    if (occupant && teacherBusy(occupant.teacherId, entry.dayOfWeek, entry.period, both)) {
+      throw new Error('ครูของคาบปลายทางติดสอนห้องอื่นในช่องที่จะสลับไป');
+    }
+
+    const clockOf = (row: TimetableEntry, own: { startTime: string; endTime: string }, next: { startTime: string; endTime: string }) =>
+      row.startTime === own.startTime && row.endTime === own.endTime ? next : { startTime: row.startTime, endTime: row.endTime };
+
+    await commitLocalMutation('timetable_entry', {
+      ...entry, dayOfWeek: input.dayOfWeek, period: input.period,
+      ...clockOf(entry, input.originClock, input.destinationClock), updatedAt: nowIso()
+    });
+    if (occupant) {
+      await commitLocalMutation('timetable_entry', {
+        ...occupant, dayOfWeek: entry.dayOfWeek, period: entry.period,
+        ...clockOf(occupant, input.destinationClock, input.originClock), updatedAt: nowIso()
+      });
+    }
   }
 
   async removeTimetableEntry(entryId: string): Promise<void> {

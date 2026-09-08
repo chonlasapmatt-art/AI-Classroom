@@ -91,6 +91,25 @@ export interface TimetableInput {
   dayOfWeek: number; period: number; startTime: string; endTime: string; room?: string;
 }
 
+/**
+ * Moving a period already on the timetable to another slot, and swapping with whatever is there.
+ *
+ * A move cannot be two saves. The class-slot rule refuses a second entry in one slot, so writing the
+ * moved period into an occupied one fails, and writing the occupant out first leaves the week
+ * briefly wrong — visibly, on every other device. One call decides both rows together.
+ *
+ * The clocks come from the screen because the period-to-time table is the timetable's own, not the
+ * database's. They decide one thing: an entry still carrying its old period's default time adopts
+ * the new period's default, and an entry whose time somebody set by hand keeps it.
+ */
+export interface TimetableMoveInput {
+  entryId: string;
+  dayOfWeek: number;
+  period: number;
+  destinationClock: { startTime: string; endTime: string };
+  originClock: { startTime: string; endTime: string };
+}
+
 export interface AchievementInput {
   studentId: string; achievementKey: AchievementKey; note?: string; awardedBy: string | null;
   /** Stable identity; generated from student + badge when omitted so re-awarding is a no-op. */
@@ -317,6 +336,8 @@ export interface SchoolRepository {
   promoteStudents(input: PromotionInput): Promise<PromotionResult>;
 
   saveTimetableEntry(input: TimetableInput): Promise<void>;
+  /** Move a period to another day or period, swapping with the entry already there. */
+  moveTimetableEntry(input: TimetableMoveInput): Promise<void>;
   removeTimetableEntry(entryId: string): Promise<void>;
 
   awardAchievement(input: AchievementInput): Promise<void>;

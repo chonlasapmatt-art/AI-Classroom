@@ -103,6 +103,62 @@ describe('academic year lifecycle (local-first path)', () => {
     })).rejects.toThrow('ครูคนนี้ถูกจัดสอนคาบนี้ในห้องอื่นแล้ว');
   });
 
+  const clock = { one: { startTime: '08:30', endTime: '09:20' }, two: { startTime: '09:30', endTime: '10:20' }, three: { startTime: '10:30', endTime: '11:20' } };
+
+  it('carries a period to an empty slot and gives it that slot’s clock', async () => {
+    await repository.saveTimetableEntry({
+      id: 'slot-move', classId: 'class-old', subjectId: null, teacherId: null, academicTermId: fromTerm,
+      dayOfWeek: 1, period: 1, ...clock.one
+    });
+    await repository.moveTimetableEntry({
+      entryId: 'slot-move', dayOfWeek: 2, period: 3, destinationClock: clock.three, originClock: clock.one
+    });
+    const moved = await db.timetable.get('slot-move');
+    expect(moved).toMatchObject({ dayOfWeek: 2, period: 3, startTime: '10:30', endTime: '11:20' });
+  });
+
+  it('trades places with the period already in the slot, because a full week has nowhere empty', async () => {
+    await repository.saveTimetableEntry({
+      id: 'slot-first', classId: 'class-old', subjectId: null, teacherId: null, academicTermId: fromTerm,
+      dayOfWeek: 1, period: 1, ...clock.one
+    });
+    await repository.saveTimetableEntry({
+      id: 'slot-second', classId: 'class-old', subjectId: null, teacherId: null, academicTermId: fromTerm,
+      dayOfWeek: 1, period: 2, ...clock.two
+    });
+    await repository.moveTimetableEntry({
+      entryId: 'slot-first', dayOfWeek: 1, period: 2, destinationClock: clock.two, originClock: clock.one
+    });
+    expect(await db.timetable.get('slot-first')).toMatchObject({ dayOfWeek: 1, period: 2, startTime: '09:30' });
+    expect(await db.timetable.get('slot-second')).toMatchObject({ dayOfWeek: 1, period: 1, startTime: '08:30' });
+  });
+
+  it('keeps a time somebody set by hand instead of overwriting it with the slot default', async () => {
+    await repository.saveTimetableEntry({
+      id: 'slot-custom', classId: 'class-old', subjectId: null, teacherId: null, academicTermId: fromTerm,
+      dayOfWeek: 1, period: 1, startTime: '08:00', endTime: '08:50'
+    });
+    await repository.moveTimetableEntry({
+      entryId: 'slot-custom', dayOfWeek: 1, period: 3, destinationClock: clock.three, originClock: clock.one
+    });
+    expect(await db.timetable.get('slot-custom')).toMatchObject({ period: 3, startTime: '08:00', endTime: '08:50' });
+  });
+
+  it('refuses a move that would put one teacher in two rooms at once', async () => {
+    await repository.saveTimetableEntry({
+      id: 'slot-here', classId: 'class-old', subjectId: null, teacherId: 'teacher-1', academicTermId: fromTerm,
+      dayOfWeek: 1, period: 1, ...clock.one
+    });
+    await repository.saveTimetableEntry({
+      id: 'slot-elsewhere', classId: 'class-new', subjectId: null, teacherId: 'teacher-1', academicTermId: fromTerm,
+      dayOfWeek: 3, period: 2, ...clock.two
+    });
+    await expect(repository.moveTimetableEntry({
+      entryId: 'slot-here', dayOfWeek: 3, period: 2, destinationClock: clock.two, originClock: clock.one
+    })).rejects.toThrow('ครูคนนี้ถูกจัดสอนคาบนี้ในห้องอื่นแล้ว');
+    expect(await db.timetable.get('slot-here')).toMatchObject({ dayOfWeek: 1, period: 1 });
+  });
+
   it('queues a timetable removal as a tombstone rather than dropping the row', async () => {
     await repository.saveTimetableEntry({
       id: 'slot-1', classId: 'class-old', subjectId: null, teacherId: null, academicTermId: fromTerm,

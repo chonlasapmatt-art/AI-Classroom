@@ -22,7 +22,7 @@ import {
   type AnnouncementInput, type NotificationPreferenceInput, type ParentAccountInput, type ParentLinkInput, type PromotionInput,
   type PromotionResult, type RubricInput, type SchoolRepository, type SchoolSnapshot, type ScoreEventInput, type ScoreInput,
   type ScoreSubmissionInput, type StudentInput, type SubjectInput, type SubmissionInput, type TeacherInput,
-  type TestInput, type TimetableInput
+  type TestInput, type TimetableInput, type TimetableMoveInput
 } from './schoolRepository';
 
 /**
@@ -1031,6 +1031,45 @@ export class FixtureSchoolRepository implements SchoolRepository {
       status: 'active', updatedAt: nowIso()
     };
     this.data.timetable = this.upsert(this.data.timetable, next);
+    this.emit();
+  }
+
+  async moveTimetableEntry(input: TimetableMoveInput): Promise<void> {
+    if (input.dayOfWeek < 1 || input.dayOfWeek > 7) throw new Error('วันในสัปดาห์ต้องอยู่ระหว่าง 1 ถึง 7');
+    if (input.period < 1) throw new Error('คาบเรียนต้องเริ่มที่ 1');
+    const entry = this.data.timetable.find((row) => row.id === input.entryId && !row.deletedAt && row.status === 'active');
+    if (!entry) throw new Error('ไม่พบคาบเรียนที่จะย้าย');
+    if (entry.dayOfWeek === input.dayOfWeek && entry.period === input.period) return;
+
+    const week = this.data.timetable.filter((row) => !row.deletedAt && row.status === 'active'
+      && row.academicTermId === entry.academicTermId);
+    const occupant = week.find((row) => row.classId === entry.classId
+      && row.dayOfWeek === input.dayOfWeek && row.period === input.period && row.id !== entry.id) ?? null;
+
+    const both = [entry.id, ...(occupant ? [occupant.id] : [])];
+    const teacherBusy = (teacherId: string | null, day: number, period: number) => Boolean(teacherId)
+      && week.some((row) => row.teacherId === teacherId && row.dayOfWeek === day
+        && row.period === period && !both.includes(row.id));
+    if (teacherBusy(entry.teacherId, input.dayOfWeek, input.period)) {
+      throw new Error('ครูคนนี้ถูกจัดสอนคาบนี้ในห้องอื่นแล้ว');
+    }
+    if (occupant && teacherBusy(occupant.teacherId, entry.dayOfWeek, entry.period)) {
+      throw new Error('ครูของคาบปลายทางติดสอนห้องอื่นในช่องที่จะสลับไป');
+    }
+
+    const clockOf = (row: TimetableEntry, own: { startTime: string; endTime: string }, next: { startTime: string; endTime: string }) =>
+      row.startTime === own.startTime && row.endTime === own.endTime ? next : { startTime: row.startTime, endTime: row.endTime };
+
+    this.data.timetable = this.upsert(this.data.timetable, {
+      ...entry, dayOfWeek: input.dayOfWeek, period: input.period,
+      ...clockOf(entry, input.originClock, input.destinationClock), updatedAt: nowIso()
+    });
+    if (occupant) {
+      this.data.timetable = this.upsert(this.data.timetable, {
+        ...occupant, dayOfWeek: entry.dayOfWeek, period: entry.period,
+        ...clockOf(occupant, input.destinationClock, input.originClock), updatedAt: nowIso()
+      });
+    }
     this.emit();
   }
 

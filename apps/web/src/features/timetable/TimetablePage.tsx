@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
@@ -28,6 +28,21 @@ export function TimetablePage() {
   const snapshot = useSchoolSnapshot();
   const { toast } = useToast();
   const [draft, setDraft] = useState<SlotDraft | null>(null);
+  /*
+   * The period currently being carried to another slot.
+   *
+   * Dragging is one way to pick it up and it is not the only one: a drag needs a pointer that can
+   * hold, which rules out touch on this table and rules out a keyboard entirely. Pressing "ย้ายคาบนี้"
+   * arms the same move, every slot then answers as a destination, and Escape puts it down.
+   */
+  const [moving, setMoving] = useState<TimetableEntry | null>(null);
+
+  useEffect(() => {
+    if (!moving) return;
+    const cancel = (event: KeyboardEvent) => { if (event.key === 'Escape') setMoving(null); };
+    window.addEventListener('keydown', cancel);
+    return () => window.removeEventListener('keydown', cancel);
+  }, [moving]);
 
   const activeTerm = snapshot.terms.find((term) => term.status === 'active') ?? snapshot.terms[0] ?? null;
 
@@ -93,6 +108,42 @@ export function TimetablePage() {
     } catch (reason) {
       toast(reason instanceof Error ? reason.message : 'บันทึกคาบเรียนไม่สำเร็จ', { tone: 'error' });
     }
+  }
+
+  const clockFor = (period: number, fallback: { startTime: string; endTime: string }) => periodClock[period] ?? fallback;
+  const subjectName = (entry: TimetableEntry) => snapshot.subjects.find((row) => row.id === entry.subjectId)?.name ?? null;
+
+  /**
+   * Puts a period down in another slot, trading places with whatever was already there.
+   *
+   * Re-typing a lesson into the slot next door and deleting the old one is the same week either
+   * way, and it is four screens of work per move. This is one gesture, and the swap is the point:
+   * a full timetable has no empty slot to move into, so "move" without "swap" would refuse most of
+   * the moves anybody actually wants to make.
+   */
+  async function moveEntry(entry: TimetableEntry, dayOfWeek: number, period: number) {
+    const own = { startTime: entry.startTime, endTime: entry.endTime };
+    const displaced = slots.get(`${dayOfWeek}-${period}`) ?? null;
+    try {
+      await repository.moveTimetableEntry({
+        entryId: entry.id, dayOfWeek, period,
+        destinationClock: clockFor(period, own),
+        originClock: clockFor(entry.period, own)
+      });
+      const where = `${dayNames[dayOfWeek - 1]} คาบ ${period}`;
+      toast(displaced && displaced.id !== entry.id ? `สลับคาบกับ ${where} แล้ว` : `ย้ายไป ${where} แล้ว`);
+    } catch (reason) {
+      toast(reason instanceof Error ? reason.message : 'ย้ายคาบเรียนไม่สำเร็จ', { tone: 'error' });
+    } finally {
+      setMoving(null);
+    }
+  }
+
+  function drop(event: DragEvent<HTMLTableCellElement>, dayOfWeek: number, period: number) {
+    event.preventDefault();
+    const carried = event.dataTransfer.getData('text/timetable-entry');
+    const entry = plannedSlots.find((row) => row.id === carried) ?? moving;
+    if (entry) void moveEntry(entry, dayOfWeek, period);
   }
 
   async function remove(entry: TimetableEntry) {
@@ -174,7 +225,9 @@ export function TimetablePage() {
         <Card className="timetable-panel">
           <CardHeader
             title="ตารางประจำสัปดาห์"
-            description={canEdit ? 'กดช่องว่างเพื่อเพิ่มคาบ หรือกดคาบเดิมเพื่อแก้ไข' : 'แสดงเฉพาะตารางของห้องที่คุณสังกัด'}
+            description={canEdit
+              ? 'อ่านทีละวันจากซ้ายไปขวา · กดช่องว่างเพื่อเพิ่มคาบ กดคาบเดิมเพื่อแก้ไข หรือลากคาบไปวางในช่องอื่นเพื่อย้ายและสลับ'
+              : 'อ่านทีละวันจากซ้ายไปขวา · แสดงเฉพาะตารางของห้องที่คุณสังกัด'}
             action={(
               <div className="timetable-legend" aria-label="คำอธิบายสี">
                 <span><i className="legend-dot filled" aria-hidden="true" />มีเรียน</span>
@@ -182,32 +235,50 @@ export function TimetablePage() {
               </div>
             )}
           />
+          {moving && (
+            <div className="timetable-moving" role="status">
+              <span className="timetable-moving-copy">
+                <strong>กำลังย้าย {subjectName(moving) ?? 'คาบเรียน'}</strong>
+                <span>จาก {dayNames[moving.dayOfWeek - 1]} คาบ {moving.period} · เลือกช่องปลายทางในตาราง หรือกด Esc เพื่อยกเลิก</span>
+              </span>
+              <Button variant="ghost" type="button" onClick={() => setMoving(null)}>ยกเลิกการย้าย</Button>
+            </div>
+          )}
+          {/*
+            A day per row, a period per column.
+            The week used to run downwards: to read Monday somebody read down the first column, and
+            to compare Monday with Tuesday they read two columns in parallel. A day is the unit
+            everybody actually asks for — "what do I have on Wednesday" — so a day is now a line,
+            read left to right the way the day is lived.
+          */}
           <div className="scroll-x timetable-scroll">
             <table className="timetable-grid">
             <thead>
               <tr>
-                <th scope="col">คาบ</th>
-                {teachingDays.map((day) => <th key={day} scope="col">{dayNames[day - 1]}</th>)}
+                <th scope="col" className="timetable-corner">วัน</th>
+                {periods.map((period) => (
+                  <th key={period} scope="col">
+                    คาบ {period}
+                    <span>{periodClock[period]?.startTime}–{periodClock[period]?.endTime}</span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {periods.map((period) => (
-                <tr key={period}>
-                  <th scope="row">
-                    {period}
-                    <span>{periodClock[period]?.startTime}</span>
-                  </th>
-                  {teachingDays.map((day) => {
+              {teachingDays.map((day) => (
+                <tr key={day}>
+                  <th scope="row" className="timetable-day">{dayNames[day - 1]}</th>
+                  {periods.map((period) => {
                     const entry = slots.get(`${day}-${period}`) ?? null;
                     const subject = entry ? snapshot.subjects.find((row) => row.id === entry.subjectId) : undefined;
                     const teacher = entry ? snapshot.teachers.find((row) => row.id === entry.teacherId) : undefined;
+                    const carrying = Boolean(moving) && moving?.id !== entry?.id;
                     const content = entry ? (
                       <>
                         {/* The dot is the visual; the word inside it is for a reader who cannot see
                             a dot. It was being clipped rather than hidden, so it was real text
                             painted at the size of a full stop in whatever colour it inherited. */}
                         <div className="slot-topline">
-                          <span className="slot-period-label">คาบ {period}</span>
                           <span className="slot-status"><span>มีเรียน</span></span>
                         </div>
                         <strong>{subject?.name ?? 'ไม่ระบุวิชา'}</strong>
@@ -224,10 +295,36 @@ export function TimetablePage() {
                         {canEdit && <small>เพิ่มคาบเรียน</small>}
                       </>
                     );
+                    const place = `${dayNames[day - 1]} คาบ ${period}`;
+                    const label = carrying
+                      ? (entry ? `สลับ ${subjectName(moving!) ?? 'คาบที่ย้าย'} กับ ${subject?.name ?? 'คาบนี้'} ที่ ${place}` : `ย้าย ${subjectName(moving!) ?? 'คาบที่ย้าย'} มาที่ ${place} ซึ่งว่างอยู่`)
+                      : `${place}${entry ? ` ${subject?.name ?? 'มีเรียน'}` : ' ว่าง เพิ่มคาบเรียน'}`;
                     return (
-                      <td key={day} className={entry ? 'slot filled' : 'slot'} data-day={dayNames[day - 1]} data-period={period}>
+                      <td
+                        key={period}
+                        className={`${entry ? 'slot filled' : 'slot'}${moving?.id === entry?.id && entry ? ' slot-lifted' : ''}${carrying ? ' slot-target' : ''}`}
+                        data-day={dayNames[day - 1]}
+                        data-period={period}
+                        onDragOver={canEdit ? (event) => event.preventDefault() : undefined}
+                        onDrop={canEdit ? (event) => drop(event, day, period) : undefined}
+                      >
                         {canEdit ? (
-                          <button type="button" className="slot-button" aria-label={`${dayNames[day - 1]} คาบ ${period}${entry ? ` ${subject?.name ?? 'มีเรียน'}` : ' ว่าง เพิ่มคาบเรียน'}`} onClick={() => setDraft({ dayOfWeek: day, period, entry })}>
+                          <button
+                            type="button"
+                            className="slot-button"
+                            aria-label={label}
+                            draggable={Boolean(entry)}
+                            onDragStart={entry ? (event) => {
+                              event.dataTransfer.setData('text/timetable-entry', entry.id);
+                              event.dataTransfer.effectAllowed = 'move';
+                              setMoving(entry);
+                            } : undefined}
+                            onDragEnd={() => setMoving(null)}
+                            onClick={() => {
+                              if (moving && moving.id !== entry?.id) void moveEntry(moving, day, period);
+                              else setDraft({ dayOfWeek: day, period, entry });
+                            }}
+                          >
                             {content}
                           </button>
                         ) : content}
@@ -276,7 +373,17 @@ export function TimetablePage() {
             <div className="ui-page-actions">
               <Button variant="ghost" type="button" onClick={() => setDraft(null)}>ยกเลิก</Button>
               {draft.entry && (
-                <Button variant="danger" type="button" onClick={() => void remove(draft.entry!)}>ลบคาบนี้</Button>
+                <>
+                  {/* WCAG 2.2 asks that anything a drag can do, a single tap can do too. This is that
+                      tap: it arms the move and the table takes the next press as the destination. */}
+                  <Button
+                    variant="secondary" type="button" icon={<Icon name="promotion" size={16} />}
+                    onClick={() => { setMoving(draft.entry); setDraft(null); }}
+                  >
+                    ย้ายคาบนี้
+                  </Button>
+                  <Button variant="danger" type="button" onClick={() => void remove(draft.entry!)}>ลบคาบนี้</Button>
+                </>
               )}
               <Button variant="primary" type="submit">บันทึก</Button>
             </div>
