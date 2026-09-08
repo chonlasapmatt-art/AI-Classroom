@@ -286,14 +286,12 @@ export function WelcomePage() {
             className="side-door"
             data-reveal
             to="/admin-access"
+            aria-label="เข้าสู่ระบบด้วยผู้ดูแล · ศูนย์ควบคุมของผู้ดูแลโรงเรียน"
             onClick={(event: MouseEvent<HTMLAnchorElement>) => transitionTo(event, '/admin-access')}
           >
-            <span className="side-door-icon" aria-hidden="true"><Icon name="settings" size={16} /></span>
-            <span className="side-door-copy">
-              <strong>เข้าสู่ระบบด้วยผู้ดูแล</strong>
-              <span>ศูนย์ควบคุมของผู้ดูแลโรงเรียน</span>
-            </span>
-            <Icon name="chevron-right" size={16} />
+            <Icon name="settings" size={14} />
+            เข้าสู่ระบบด้วยผู้ดูแล
+            <Icon name="chevron-right" size={14} />
           </Link>
           <p className="welcome-fine">
             ทุกบัญชีสร้างและกำหนดรหัสผ่านโดยแอดมินของโรงเรียน · ระบบนี้ไม่มีการสมัครสมาชิกด้วยตัวเอง
