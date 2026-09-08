@@ -87,7 +87,7 @@ export function ShortcutHub({ role }: { role: Role }) {
                 <h3>{group.label}</h3>
                 <div className="shortcut-hub-grid">
                   {group.items.map((item) => (
-                    <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+                    <NavLink key={item.to} to={item.to} end={item.to === '/'} data-icon={item.icon}>
                       <Icon name={item.icon} size={18} />
                       <span>{item.label}</span>
                     </NavLink>

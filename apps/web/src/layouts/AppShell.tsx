@@ -296,6 +296,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   : menuMatches.map((item) => (
                     <NavLink
                       key={item.to} to={item.to} end={item.to === '/'} title={item.label}
+                      data-icon={item.icon}
                       onClick={() => { setOpen(false); setMenuQuery(''); }}
                     >
                       <Icon name={item.icon} size={18} />
@@ -320,6 +321,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {group.items.map((item) => (
                   <NavLink
                     key={item.to} to={item.to} end={item.to === '/'} title={item.label}
+                    data-icon={item.icon}
                     onClick={() => setOpen(false)}
                   >
                     <Icon name={item.icon} size={18} />
@@ -333,7 +335,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {isPreviewModeAvailable && session.mode === 'preview' && (
             <section className="sidebar-section">
               <div className="sidebar-section-items">
-                <NavLink to="/avatar-gallery" onClick={() => setOpen(false)} title="Avatar Gallery">
+                <NavLink to="/avatar-gallery" data-icon="avatar-gallery" onClick={() => setOpen(false)} title="Avatar Gallery">
                   <Icon name="avatar-gallery" size={18} /><span className="nav-label">Avatar Gallery</span>
                 </NavLink>
               </div>

@@ -5,10 +5,21 @@
 
 /* ---------- Shell ---------- */
 .app-frame { min-height: 100vh; display: grid; grid-template-columns: 268px 1fr; background: var(--canvas); }
+/*
+ * Two planes, not one sheet.
+ *
+ * The menu and the page it opens were both plain white with a hairline between them, so the shell
+ * read as a single piece of paper with a line ruled down it — the menu had no edge of its own and
+ * the cards on the right had nothing to sit on. The menu takes the quieter surface and a wash of
+ * the school's own colour at the top, which is where its brand mark is; the page keeps the white.
+ */
 .sidebar {
   position: fixed; inset: 0 auto 0 0; width: 268px; z-index: 30;
   display: flex; flex-direction: column; padding: var(--space-4) var(--space-3);
-  background: var(--surface); border-right: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--brand-500) 6%, transparent), transparent 220px),
+    var(--surface-muted);
+  border-right: 1px solid var(--line);
 }
 .sidebar-brand { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-2) var(--space-5); }
 .sidebar-brand strong { display: block; font-size: var(--text-base); }
@@ -20,13 +31,65 @@
   color: var(--ink-500); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none;
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
 }
-.sidebar nav a .ui-icon { color: var(--ink-400); transition: color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring); }
+/*
+ * Colour by what the destination is about, not by decoration.
+ *
+ * Thirty grey glyphs in one column read as one texture: finding "เช็กชื่อ" meant reading the words
+ * every time, because nothing else in the row told them apart. A tinted tile gives each family of
+ * screens a colour that stays the same wherever it appears, so the eye can go back to a place it has
+ * been before without re-reading the list. The pairs are the accent tokens, which are measured for
+ * contrast in both light and dark and follow whichever theme the school picked.
+ */
+/* The phone's shortcut sheet is the same menu, so it carries the same colours. */
+.shortcut-hub-grid a .ui-icon,
+.sidebar nav a .ui-icon {
+  box-sizing: content-box; padding: 6px; border-radius: 10px;
+  color: var(--nav-ink, var(--ink-400)); background: var(--nav-soft, var(--surface-sunken));
+  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring);
+}
+.shortcut-hub-grid a[data-icon='dashboard'], .shortcut-hub-grid a[data-icon='announcements'],
+.shortcut-hub-grid a[data-icon='calendar'], .shortcut-hub-grid a[data-icon='timetable'],
+.shortcut-hub-grid a[data-icon='bell'] { --nav-soft: var(--brand-50); --nav-ink: var(--brand-600); }
+.shortcut-hub-grid a[data-icon='students'], .shortcut-hub-grid a[data-icon='children'],
+.shortcut-hub-grid a[data-icon='parents'], .shortcut-hub-grid a[data-icon='import'],
+.shortcut-hub-grid a[data-icon='promotion'] { --nav-soft: var(--accent-cyan-soft); --nav-ink: var(--accent-cyan); }
+.shortcut-hub-grid a[data-icon='teachers'], .shortcut-hub-grid a[data-icon='classes'],
+.shortcut-hub-grid a[data-icon='subjects'], .shortcut-hub-grid a[data-icon='avatar-gallery'],
+.shortcut-hub-grid a[data-icon='profile'] { --nav-soft: var(--accent-violet-soft); --nav-ink: var(--accent-violet); }
+.shortcut-hub-grid a[data-icon='attendance'], .shortcut-hub-grid a[data-icon='assignments'],
+.shortcut-hub-grid a[data-icon='star'], .shortcut-hub-grid a[data-icon='quiz'] { --nav-soft: var(--accent-green-soft); --nav-ink: var(--accent-green); }
+.shortcut-hub-grid a[data-icon='scores'], .shortcut-hub-grid a[data-icon='gradebook'],
+.shortcut-hub-grid a[data-icon='grade-edit'], .shortcut-hub-grid a[data-icon='leaderboard'],
+.shortcut-hub-grid a[data-icon='achievements'], .shortcut-hub-grid a[data-icon='exams'],
+.shortcut-hub-grid a[data-icon='question-bank'] { --nav-soft: var(--accent-gold-soft); --nav-ink: var(--accent-gold); }
+.shortcut-hub-grid a[data-icon='reports'], .shortcut-hub-grid a[data-icon='operations'],
+.shortcut-hub-grid a[data-icon='settings'] { --nav-soft: var(--accent-mint-soft); --nav-ink: var(--accent-mint); }
+.sidebar nav a[data-icon='dashboard'], .sidebar nav a[data-icon='announcements'],
+.sidebar nav a[data-icon='calendar'], .sidebar nav a[data-icon='timetable'],
+.sidebar nav a[data-icon='bell'] { --nav-soft: var(--brand-50); --nav-ink: var(--brand-600); }
+.sidebar nav a[data-icon='students'], .sidebar nav a[data-icon='children'],
+.sidebar nav a[data-icon='parents'], .sidebar nav a[data-icon='import'],
+.sidebar nav a[data-icon='promotion'] { --nav-soft: var(--accent-cyan-soft); --nav-ink: var(--accent-cyan); }
+.sidebar nav a[data-icon='teachers'], .sidebar nav a[data-icon='classes'],
+.sidebar nav a[data-icon='subjects'], .sidebar nav a[data-icon='avatar-gallery'],
+.sidebar nav a[data-icon='profile'] { --nav-soft: var(--accent-violet-soft); --nav-ink: var(--accent-violet); }
+.sidebar nav a[data-icon='attendance'], .sidebar nav a[data-icon='assignments'],
+.sidebar nav a[data-icon='star'], .sidebar nav a[data-icon='quiz'] { --nav-soft: var(--accent-green-soft); --nav-ink: var(--accent-green); }
+.sidebar nav a[data-icon='scores'], .sidebar nav a[data-icon='gradebook'],
+.sidebar nav a[data-icon='grade-edit'], .sidebar nav a[data-icon='leaderboard'],
+.sidebar nav a[data-icon='achievements'], .sidebar nav a[data-icon='exams'],
+.sidebar nav a[data-icon='question-bank'] { --nav-soft: var(--accent-gold-soft); --nav-ink: var(--accent-gold); }
+.sidebar nav a[data-icon='reports'], .sidebar nav a[data-icon='operations'],
+.sidebar nav a[data-icon='settings'] { --nav-soft: var(--accent-mint-soft); --nav-ink: var(--accent-mint); }
 .sidebar nav a:hover { background: var(--surface-sunken); color: var(--ink-900); transform: translateX(2px); }
-.sidebar nav a:hover .ui-icon { color: var(--ink-700); transform: scale(1.12); }
+.sidebar nav a:hover .ui-icon { transform: scale(1.08); }
 .sidebar nav a:active { transform: scale(0.98); }
 .sidebar nav a:active .ui-icon { transform: scale(0.92); }
 .sidebar nav a.active { background: var(--brand-50); color: var(--brand-700); font-weight: var(--weight-strong); box-shadow: inset 3px 0 0 var(--brand-500); }
-.sidebar nav a.active .ui-icon { color: var(--brand-600); }
+/* The tile keeps its own colour when the row is current: the row is already saying "you are here"
+   with a bar, a fill and a weight, and taking the colour away would remove the one mark that says
+   which place this is. It gains a ring instead. */
+.sidebar nav a.active .ui-icon { box-shadow: 0 0 0 2px color-mix(in srgb, var(--nav-ink, var(--brand-500)) 28%, transparent); }
 .sidebar-user {
   margin-top: auto; display: grid; grid-template-columns: 40px 1fr 36px; align-items: center; gap: var(--space-3);
   padding: var(--space-3); border-top: 1px solid var(--line);
