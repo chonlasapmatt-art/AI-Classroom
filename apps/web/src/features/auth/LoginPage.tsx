@@ -227,9 +227,9 @@ export function LoginPage() {
             aria-label="เข้าสู่ระบบด้วยผู้ดูแล · ศูนย์ควบคุมของผู้ดูแลโรงเรียน"
             onClick={(event: MouseEvent<HTMLAnchorElement>) => transitionTo(event, '/admin-access')}
           >
-            <Icon name="settings" size={14} />
+            <Icon name="settings" size={16} />
             เข้าสู่ระบบด้วยผู้ดูแล
-            <Icon name="chevron-right" size={14} />
+            <Icon name="chevron-right" size={16} />
           </Link>
           {/*
             The way out, and the only control on this card that is not the sign-in button.

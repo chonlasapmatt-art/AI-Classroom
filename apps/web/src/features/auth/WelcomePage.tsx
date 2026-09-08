@@ -289,9 +289,9 @@ export function WelcomePage() {
             aria-label="เข้าสู่ระบบด้วยผู้ดูแล · ศูนย์ควบคุมของผู้ดูแลโรงเรียน"
             onClick={(event: MouseEvent<HTMLAnchorElement>) => transitionTo(event, '/admin-access')}
           >
-            <Icon name="settings" size={14} />
+            <Icon name="settings" size={16} />
             เข้าสู่ระบบด้วยผู้ดูแล
-            <Icon name="chevron-right" size={14} />
+            <Icon name="chevron-right" size={16} />
           </Link>
           <p className="welcome-fine">
             ทุกบัญชีสร้างและกำหนดรหัสผ่านโดยแอดมินของโรงเรียน · ระบบนี้ไม่มีการสมัครสมาชิกด้วยตัวเอง
