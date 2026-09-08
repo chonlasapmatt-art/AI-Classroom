@@ -87,6 +87,28 @@ export async function registerAndSync(schoolId: string, deviceId: string, device
 }
 
 /**
+ * Which locally held rows the server no longer has.
+ *
+ * The mirror below only ever wrote rows, so a structural row that was removed on the server stayed
+ * on every other device for good. Removing a teacher from a room deletes the assignment outright,
+ * and the second administrator went on seeing that teacher listed against the room for as long as
+ * that browser lived — two people administering one school, looking at different schools.
+ *
+ * A row written locally while the read was in flight is kept. Structural writes go to the server
+ * first and only then to this projection, so such a row does exist server-side; it simply landed
+ * after the snapshot was taken, and deleting it would undo a change somebody just made. Rows the
+ * server mirrored carry its own timestamp format, which sorts below any ISO stamp of the same
+ * moment, so they stay eligible.
+ */
+export function staleStructuralIds(
+  local: { id: string; updatedAt?: string | null }[], seen: Set<string>, startedAt: string
+): string[] {
+  return local
+    .filter((row) => !seen.has(row.id) && String(row.updatedAt ?? '') < startedAt)
+    .map((row) => row.id);
+}
+
+/**
  * School structure — terms, classes, subjects, teachers, class assignments and parent links — is
  * owned by the server and changed through security-definer functions, so it never enters the
  * mutation journal that `pullChanges` reads. Without this pass a second device would sign in to an
@@ -99,17 +121,30 @@ export async function pullStructure(schoolId: string): Promise<number> {
 
   const mirror = async (
     cloudTable: string, localTable: string, columns = '*',
-    shape: (row: Record<string, unknown>) => Record<string, unknown> = (row) => row
+    shape: (row: Record<string, unknown>) => Record<string, unknown> = (row) => row,
+    // Journal-backed tables opt out: a row of theirs can be a local write still waiting in the queue,
+    // and the server not knowing it yet means "not delivered", never "deleted".
+    reconcileDeletions = true
   ) => {
+    const startedAt = new Date().toISOString();
     const { data, error } = await client.from(cloudTable).select(columns).eq('school_id', schoolId);
     if (error) throw error;
     const rows = (data ?? []) as unknown as Record<string, unknown>[];
     const table = db.table<Record<string, unknown>, string>(localTable);
+    const seen = new Set<string>();
     for (const row of rows) {
       const incoming = shape(fromCloud(row));
+      seen.add(String(incoming.id));
       const current = await table.get(String(incoming.id));
       await table.put({ ...mergeLocal(current, incoming), deletedAt: incoming.deletedAt ?? null });
       applied += 1;
+    }
+    if (!reconcileDeletions) return;
+    const held = await table.where('schoolId').equals(schoolId).toArray() as { id: string; updatedAt?: string | null }[];
+    const gone = staleStructuralIds(held, seen, startedAt);
+    if (gone.length > 0) {
+      await table.bulkDelete(gone);
+      applied += gone.length;
     }
   };
 
@@ -124,7 +159,9 @@ export async function pullStructure(schoolId: string): Promise<number> {
     const { roleInClass, ...rest } = row;
     return { ...rest, role: roleInClass === 'assistant' ? 'assistant' : 'primary' };
   });
-  await mirror('announcements', 'announcements');
+  // An announcement is written locally and pushed through the journal, so the server not returning
+  // one can mean it is still in this device's queue.
+  await mirror('announcements', 'announcements', '*', (row) => row, false);
   applied += await pullParentLinks(schoolId);
   return applied;
 }
@@ -145,12 +182,15 @@ const parentLinkStatus: Record<string, 'invited' | 'linked' | 'revoked'> = {
  */
 async function pullParentLinks(schoolId: string): Promise<number> {
   const client = requireSupabase();
+  const startedAt = new Date().toISOString();
   const { data, error } = await client.from('parent_student_links')
     .select('id, student_id, relationship, status, linked_at, revoked_at, version, created_at, updated_at, deleted_at, parents(profile_id, avatar_id, display_name, phone, line_user_id)')
     .eq('school_id', schoolId);
   if (error) throw error;
   let applied = 0;
+  const seen = new Set<string>();
   for (const row of (data ?? []) as unknown as ParentLinkRow[]) {
+    seen.add(row.id);
     const current = await db.parentLinks.get(row.id);
     await db.parentLinks.put({
       id: row.id, schoolId, version: row.version ?? 1,
@@ -168,6 +208,14 @@ async function pullParentLinks(schoolId: string): Promise<number> {
       consentGrantedAt: row.linked_at ?? current?.consentGrantedAt ?? null
     });
     applied += 1;
+  }
+  // A guardian link that was erased is gone outright rather than marked, so the same reconciliation
+  // the structural mirror does applies here.
+  const held = await db.parentLinks.where('schoolId').equals(schoolId).toArray();
+  const gone = staleStructuralIds(held, seen, startedAt);
+  if (gone.length > 0) {
+    await db.parentLinks.bulkDelete(gone);
+    applied += gone.length;
   }
   return applied;
 }
