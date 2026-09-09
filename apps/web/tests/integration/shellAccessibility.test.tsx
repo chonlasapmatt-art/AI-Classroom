@@ -221,3 +221,44 @@ describe('controls without a visible label', () => {
     }
   });
 });
+
+/*
+ * Leaving.
+ *
+ * The control was a 36px unlabelled glyph at the foot of the sidebar — below the 44px floor for a
+ * finger, and on a phone at the bottom of a drawer that the bottom bar means nobody opens. It is now
+ * two reachable controls for one action, and both are named, because "the icon at the end" is not a
+ * name a screen reader can read out.
+ */
+describe('signing out', () => {
+  it('offers the action from the bar as well as from the menu, both named', async () => {
+    renderApp();
+    await enterPreview();
+
+    // Preview leaves a demonstration rather than an account, and says so.
+    const exits = screen.getAllByRole('button', { name: 'ออกจากโหมดตัวอย่าง' });
+    expect(exits.length).toBe(2);
+    expect(document.querySelector('.topbar-signout')).not.toBeNull();
+    expect(document.querySelector('.sidebar-signout')).not.toBeNull();
+  });
+
+  it('carries its own words in the menu, not only an icon', async () => {
+    renderApp();
+    await enterPreview();
+    expect(document.querySelector('.sidebar-signout-label')?.textContent).toBe('ออกจากโหมดตัวอย่าง');
+  });
+
+  it('asks before it goes, and staying puts nothing at risk', async () => {
+    renderApp();
+    await enterPreview();
+
+    fireEvent.click(document.querySelector('.topbar-signout')!);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('ออกจากโหมดตัวอย่าง?')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'อยู่ต่อ' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // Still inside the shell: cancelling is not a slower way of leaving.
+    expect(screen.getByRole('navigation', { name: 'เมนูหลัก' })).toBeInTheDocument();
+  });
+});

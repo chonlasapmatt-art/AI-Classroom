@@ -12,7 +12,7 @@ import { ClassAnnouncementNotice } from '../features/notifications/ClassAnnounce
 import { TeacherCodeFirstRun } from '../features/teachers/TeacherCodeFirstRun';
 import { ProfileAvatar } from '../features/avatars/ProfileAvatar';
 import { useSyncStatus } from '../sync/SyncStatusContext';
-import { PageLoading } from '../ui/components';
+import { ConfirmDialog, PageLoading } from '../ui/components';
 import { Icon } from '../ui/Icon';
 import { destination, isAdvisorOnlyRoute, navigationByRole, type NavGroup, type NavItem } from './navigation';
 import { teacherIsAdvisorAnywhere } from '../data/teacherResponsibilities';
@@ -180,6 +180,16 @@ export function AppShell({ children }: { children: ReactNode }) {
    * and a half-width drawer would be the worst of both.
    */
   const [collapsed, setCollapsed] = useState(() => recall(sidebarWidthKey) === 'true');
+  /*
+   * Leaving, asked once.
+   *
+   * The control was a 36px grey glyph at the foot of a drawer that a phone does not otherwise open,
+   * so signing out on a shared tablet meant opening the menu, scrolling past every destination, and
+   * hitting an unlabelled icon. It is now a full-width labelled button there and a proper control in
+   * the bar, which makes it reachable — and worth a confirmation, because a target that is easy to
+   * hit on purpose is also easy to hit by accident, and the cost is somebody's place in a lesson.
+   */
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const { membership } = session;
   // Two memberships of the same school are two roles; two schools are two servers. The switcher says
   // whichever of those it actually is, because "ผู้ดูแลระบบ · ครูสมชาย" twice over names neither.
@@ -188,6 +198,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const ownTeacher = snapshot.teachers.find((item) => item.profileId === membership.profileId);
   const ownParentLink = snapshot.parentLinks.find((item) => item.profileId === membership.profileId || item.lineUserId === membership.profileId);
   const unread = ownStudent ? unreadCount(snapshot, ownStudent.id) : 0;
+  // Preview leaves a demonstration, not an account, and saying so is what keeps the two apart.
+  const previewing = session.mode === 'preview';
+  const signOutLabel = previewing ? 'ออกจากโหมดตัวอย่าง' : 'ออกจากระบบ';
   const classroomActivity = membership.role === 'teacher'
     ? feedbackFeed(snapshot, { role: membership.role, profileId: membership.profileId }).length
     : 0;
@@ -412,9 +425,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </nav>
         <div className="sidebar-user">
-          <ProfileAvatar displayName={membership.displayName} avatarId={visibleAvatarId} avatarPhotoId={ownAvatarPhotoId} size={40} />
-          <div><strong>{membership.displayName}</strong><span>{roleLabels[membership.role]}</span></div>
-          <button onClick={() => void session.signOut()} aria-label={session.mode === 'preview' ? 'ออกจากโหมดตัวอย่าง' : 'ออกจากระบบ'}><Icon name="logout" size={18} /></button>
+          <div className="sidebar-user-identity">
+            <ProfileAvatar displayName={membership.displayName} avatarId={visibleAvatarId} avatarPhotoId={ownAvatarPhotoId} size={40} />
+            <div><strong>{membership.displayName}</strong><span>{roleLabels[membership.role]}</span></div>
+          </div>
+          {/* Icon and words, not a glyph on its own: an icon-only control at the foot of a menu is
+              the one people ask where to find. In the rail the words are dropped by CSS and the
+              title takes over, which is the only width where there is no room for them. */}
+          <button
+            type="button"
+            className="sidebar-signout"
+            onClick={() => setConfirmingSignOut(true)}
+            // The same words as the label beside it, so the name holds when the rail hides the text
+            // rather than depending on `title` alone.
+            aria-label={signOutLabel}
+            title={signOutLabel}
+          >
+            <Icon name="logout" size={18} />
+            <span className="sidebar-signout-label">{signOutLabel}</span>
+          </button>
         </div>
       </aside>
 
@@ -484,6 +513,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                 avatarPhotoId={ownAvatarPhotoId} size={34}
               />
             </NavLink>
+            {/* The same action, on the bar, because on a phone the menu is a drawer nobody opens:
+                the bottom bar is the navigation there, and leaving was the one thing that still
+                required the drawer. Last in the row and hard-separated from the avatar beside it,
+                so a destructive control never sits inside the run of ordinary ones. */}
+            <button
+              type="button"
+              className="topbar-signout"
+              onClick={() => setConfirmingSignOut(true)}
+              aria-label={signOutLabel}
+              title={signOutLabel}
+            >
+              <Icon name="logout" size={18} />
+            </button>
           </div>
         </header>
         {/* An operator working inside a school through the ordinary screens must never be mistaken
@@ -532,6 +574,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SchoolBroadcastNotice schoolId={membership.schoolId} />
         {/* Behind it, and only for the room it belongs to: a teacher's announcement. */}
         <ClassAnnouncementNotice />
+        {confirmingSignOut && (
+          <ConfirmDialog
+            title={previewing ? 'ออกจากโหมดตัวอย่าง?' : 'ออกจากระบบ?'}
+            description={previewing
+              ? 'ข้อมูลตัวอย่างในแท็บนี้จะถูกล้างทิ้ง'
+              : 'งานที่ยังไม่ถูกส่งขึ้นเซิร์ฟเวอร์จะยังอยู่บนเครื่องนี้ · เข้าสู่ระบบใหม่ได้ตลอด'}
+            confirmLabel={signOutLabel}
+            cancelLabel="อยู่ต่อ"
+            onCancel={() => setConfirmingSignOut(false)}
+            onConfirm={() => { setConfirmingSignOut(false); void session.signOut(); }}
+          />
+        )}
       </div>
     </div>
   );

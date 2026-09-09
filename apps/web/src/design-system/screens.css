@@ -266,19 +266,45 @@
     0 5px 12px color-mix(in srgb, var(--nav-ink, var(--brand-500)) 18%, transparent),
     inset 0 1px 0 color-mix(in srgb, #fff 68%, transparent);
 }
+/*
+ * Who you are, then the way out — two rows, not one.
+ *
+ * They were a single row with a 36px icon-only button in the third column, and the hover highlight
+ * belonged to the row rather than to the button, so the one thing on the row that could be pressed
+ * was the one thing that never said so. Splitting them lets the identity be text and the exit be a
+ * button of its own, at a size a thumb can find.
+ */
 .sidebar-user {
-  margin-top: auto; display: grid; grid-template-columns: 40px 1fr 36px; align-items: center; gap: var(--space-3);
+  margin-top: auto; display: grid; gap: var(--space-2);
   padding: var(--space-3); border-top: 1px solid var(--line);
   border-radius: 0;
-  transition: background var(--duration-fast) var(--ease-out);
 }
-.sidebar-user:hover { background: var(--surface-sunken); }
-.sidebar-user .ui-icon { color: var(--ink-400); transition: color var(--duration-fast) var(--ease-out); }
-.sidebar-user button:hover .ui-icon { color: var(--danger); }
+.sidebar-user-identity {
+  display: grid; grid-template-columns: 40px 1fr; align-items: center; gap: var(--space-3); min-width: 0;
+}
 .user-avatar { width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--radius-sm); background: var(--brand-100); color: var(--brand-700); font-weight: var(--weight-heavy); }
-.sidebar-user strong { display: block; font-size: var(--text-sm); }
-.sidebar-user div span { display: block; color: var(--ink-400); font-size: var(--text-xs); }
-.sidebar-user button { border: 0; background: transparent; color: var(--ink-400); font-size: 1.1rem; }
+.sidebar-user strong { display: block; font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-user-identity div span { display: block; color: var(--ink-400); font-size: var(--text-xs); }
+
+.sidebar-signout {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+  width: 100%; min-height: 48px; padding: 0 var(--space-3);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-sunken); color: var(--ink-600);
+  font-size: var(--text-sm); font-weight: var(--weight-strong); cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-spring);
+}
+/* Red on the way in, not at rest. Leaving is not an error, and a permanently red row at the foot of
+   every screen reads as one; the danger colour arrives when the pointer does, which is the moment
+   it means something. */
+.sidebar-signout:hover { background: var(--danger-soft); border-color: var(--danger-line); color: var(--danger); }
+.sidebar-signout:active { transform: scale(0.98); }
+.sidebar-signout:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.sidebar-signout .ui-icon { flex: none; }
 
 .app-content { grid-column: 2; min-width: 0; }
 .topbar {
@@ -324,6 +350,24 @@
 }
 .topbar-avatar:hover { transform: scale(1.06); }
 .topbar-avatar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/*
+ * The way out, on the bar.
+ *
+ * 44px square, which is the floor for a finger, and separated from the avatar by a rule rather than
+ * by spacing alone: the two controls beside each other are "look at my profile" and "leave", and the
+ * distance between those two meanings should be visible before the tap, not after it.
+ */
+.topbar-signout {
+  width: 44px; height: 44px; flex: none; display: grid; place-items: center;
+  margin-left: var(--space-1); padding-left: var(--space-3);
+  border: 0; border-left: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: transparent; color: var(--ink-500); cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring);
+}
+.topbar-signout:hover { background: var(--danger-soft); color: var(--danger); }
+.topbar-signout:active { transform: scale(0.92); }
+.topbar-signout:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ---------- Bottom navigation (phone and small tablet only) ---------- */
 .bottom-nav { display: none; }
@@ -1083,6 +1127,10 @@
   .role-switch-text { display: none; }
   .topbar .role-switch-label select { max-width: 148px; }
   .topbar { padding-inline: var(--space-3); gap: var(--space-2); }
+  /* The target stays 44px on a phone — that is the whole point of it being here — but the rule and
+     the padding that separate it from the avatar on a wide bar are what a 360px row cannot afford,
+     and the gap alone does that job once the role chip beside it is gone. */
+  .topbar-signout { margin-left: 0; padding-left: 0; border-left: 0; }
   /*
    * A basis of zero rather than of content.
    *
@@ -2311,12 +2359,17 @@ tr.row-warning td { background: var(--warning-soft); }
   .app-frame.rail .sidebar-collapse { margin: 0; }
   .app-frame.rail .sidebar-search,
   .app-frame.rail .sidebar-section-toggle,
-  .app-frame.rail .sidebar-user > div,
+  .app-frame.rail .sidebar-user-identity > div,
+  .app-frame.rail .sidebar-signout-label,
   .app-frame.rail .nav-badge { display: none; }
   .app-frame.rail .sidebar nav a { justify-content: center; padding-inline: 0; }
   .app-frame.rail .sidebar nav a:hover { transform: none; }
   .app-frame.rail .sidebar-section + .sidebar-section { border-top: 1px solid var(--line); padding-top: var(--space-2); }
-  .app-frame.rail .sidebar-user { grid-template-columns: 1fr; justify-items: center; gap: var(--space-2); }
+  .app-frame.rail .sidebar-user { justify-items: center; gap: var(--space-2); }
+  .app-frame.rail .sidebar-user-identity { grid-template-columns: 1fr; justify-items: center; }
+  /* The words go, the target does not: still 48px square, and the title attribute carries the name
+     the label was carrying a moment ago. */
+  .app-frame.rail .sidebar-signout { width: 48px; min-width: 48px; padding: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
