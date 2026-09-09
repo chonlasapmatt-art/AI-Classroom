@@ -2924,6 +2924,37 @@ tr.row-warning td { background: var(--warning-soft); }
  * could not shrink it measured 328px inside a 320px phone — the one place left in the product that
  * still scrolled sideways. It wraps now, and the badge inside it wraps with it.
  */
+/* ── Choosing which subjects a teacher takes ───────────────────────────────────────────────────
+   A select could only ever say one subject, and the staff list has always been able to hold
+   several: a teacher's responsibilities are one row per class and subject. So the choice is a set
+   of chips, each a 44px target, each saying whether it is on with a tick as well as with colour.
+
+   A subject that already has an owner in the chosen room is marked rather than disabled: the
+   administrator can still tick it, and the save reports it as skipped, because a disabled control
+   with no explanation is the thing people file bugs about. */
+.subject-choice-field { display: grid; gap: var(--space-1); margin-block: var(--space-3); }
+.subject-choice-field .ui-field-hint { margin: 0 0 var(--space-1); }
+.subject-choice { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.subject-choice-chip {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: 44px; padding: 0 var(--space-3);
+  border: 1px solid var(--line); border-radius: var(--radius-pill);
+  background: var(--surface); color: var(--ink-700); font: inherit; cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring);
+}
+.subject-choice-chip:hover { background: var(--surface-hover); border-color: var(--line-strong); }
+.subject-choice-chip:active { transform: scale(.97); }
+.subject-choice-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.subject-choice-chip.is-chosen {
+  background: var(--brand-600); border-color: var(--brand-600); color: #fff;
+  font-weight: var(--weight-strong);
+}
+.subject-choice-chip.is-chosen:hover { background: var(--brand-700); border-color: var(--brand-700); }
+/* Already spoken for. A dotted edge rather than a grey-out, because it is a warning about what the
+   save will do and not a refusal to accept the press. */
+.subject-choice-chip.is-held:not(.is-chosen) { border-style: dashed; color: var(--ink-500); }
+.subject-choice-chip .subject-icon { flex: none; }
 .teacher-assignment { display: inline-flex; align-items: center; gap: var(--space-1); flex-wrap: wrap; max-width: 100%; min-width: 0; }
 .teacher-assignment .ui-badge { white-space: normal; text-align: left; }
 

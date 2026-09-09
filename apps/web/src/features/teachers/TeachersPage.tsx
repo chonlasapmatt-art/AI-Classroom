@@ -14,6 +14,7 @@ import {
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 import { RosterFileButton } from '../imports/RosterFileButton';
+import { SubjectIcon } from '../subjects/SubjectIcon';
 
 const verificationLabels: Record<TeacherVerificationStatus, string> = {
   teacher_requested: 'ขอสิทธิ์ครู', verification_pending: 'รอตรวจสอบ',
@@ -38,11 +39,31 @@ export function TeachersPage() {
   const { toast } = useToast();
   const [passwordTeacher, setPasswordTeacher] = useState<typeof snapshot.teachers[number] | null>(null);
   const [verifying, setVerifying] = useState<{ id: string; name: string } | null>(null);
-  const [assignment, setAssignment] = useState<{ teacherId: string; classId: string; responsibility: TeacherResponsibility; subjectId: string }>({
-    teacherId: '', classId: '', responsibility: 'CLASS_ADVISOR', subjectId: ''
+  /*
+   * One teacher, one room, as many subjects as they teach in it.
+   *
+   * The staff list has always been able to hold this -- a teacher's responsibilities are one row per
+   * class and subject, and the server refuses only a second advisor or a second owner of the same
+   * subject. The form could not express it: one subject select, one save, and no sight of what was
+   * already there, so giving somebody three subjects meant three passes and remembering which had
+   * gone through. It is a set now, and one press writes all of them.
+   */
+  const [assignment, setAssignment] = useState<{ teacherId: string; classId: string; responsibility: TeacherResponsibility; subjectIds: string[] }>({
+    teacherId: '', classId: '', responsibility: 'CLASS_ADVISOR', subjectIds: []
   });
+  const [assigning, setAssigning] = useState(false);
 
   const canEdit = membership.role === 'admin' && repository.canManageStructure;
+
+  const needsSubject = responsibilityOptions.find((option) => option.value === assignment.responsibility)?.needsSubject ?? false;
+  const activeSubjects = snapshot.subjects.filter((subject) => subject.status === 'active');
+  // What the chosen teacher already holds in the chosen room, and which of that room’s subjects are
+  // already spoken for by anybody -- the second is why a tick can be refused.
+  const currentLinks = snapshot.classTeachers.filter((linkRow) =>
+    linkRow.teacherId === assignment.teacherId && linkRow.classId === assignment.classId && linkRow.deletedAt === null);
+  const heldSubjectIds = new Set(snapshot.classTeachers
+    .filter((linkRow) => linkRow.classId === assignment.classId && linkRow.deletedAt === null && linkRow.role === 'primary' && linkRow.subjectId)
+    .map((linkRow) => linkRow.subjectId as string));
 
   async function createTeacher(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -108,16 +129,45 @@ export function TeachersPage() {
     }
   }
 
+  /**
+   * Writes one responsibility per chosen subject, and says what happened to each.
+   *
+   * One subject being refused -- the room already has an owner for it -- is not a reason to drop the
+   * other two, so each is attempted on its own and the failures are counted rather than thrown. A
+   * silent partial success is the thing this is here to prevent: an administrator who ticks three
+   * boxes has to be told that two of them landed.
+   */
   async function assign() {
-    if (!assignment.teacherId || !assignment.classId) return;
-    try {
-      const subjectRequired = assignment.responsibility === 'SUBJECT_OWNER' || assignment.responsibility === 'SUBJECT_CO_TEACHER';
-      if (subjectRequired && !assignment.subjectId) throw new Error('กรุณาเลือกวิชาสำหรับหน้าที่นี้');
-      const role = assignment.responsibility === 'ASSISTANT_ADVISOR' || assignment.responsibility === 'SUBJECT_CO_TEACHER' ? 'assistant' : 'primary';
-      await repository.assignTeacher(assignment.classId, assignment.teacherId, role, subjectRequired ? assignment.subjectId : null);
-      toast(`กำหนด${responsibilityLabels[assignment.responsibility]}แล้ว`);
-    } catch (reason) {
-      toast(reason instanceof Error ? reason.message : 'กำหนดครูไม่สำเร็จ', { tone: 'error' });
+    if (!assignment.teacherId || !assignment.classId || assigning) return;
+    const subjectRequired = assignment.responsibility === 'SUBJECT_OWNER' || assignment.responsibility === 'SUBJECT_CO_TEACHER';
+    if (subjectRequired && assignment.subjectIds.length === 0) {
+      toast('กรุณาเลือกอย่างน้อยหนึ่งวิชาสำหรับหน้าที่นี้', { tone: 'error' });
+      return;
+    }
+    const role = assignment.responsibility === 'ASSISTANT_ADVISOR' || assignment.responsibility === 'SUBJECT_CO_TEACHER' ? 'assistant' : 'primary';
+    const targets: Array<string | null> = subjectRequired ? assignment.subjectIds : [null];
+    setAssigning(true);
+    const done: string[] = [];
+    const failed: string[] = [];
+    for (const subjectId of targets) {
+      const label = subjectId
+        ? snapshot.subjects.find((item) => item.id === subjectId)?.name ?? 'วิชา'
+        : responsibilityLabels[assignment.responsibility];
+      try {
+        await repository.assignTeacher(assignment.classId, assignment.teacherId, role, subjectId);
+        done.push(label);
+      } catch {
+        failed.push(label);
+      }
+    }
+    setAssigning(false);
+    if (done.length > 0) setAssignment((current) => ({ ...current, subjectIds: [] }));
+    if (failed.length === 0) {
+      toast(`กำหนด${responsibilityLabels[assignment.responsibility]}แล้ว: ${done.join(', ')}`);
+    } else if (done.length === 0) {
+      toast(`กำหนดไม่สำเร็จ: ${failed.join(', ')} · วิชาที่มีครูเจ้าของอยู่แล้วต้องยกเลิกคนเดิมก่อน`, { tone: 'error' });
+    } else {
+      toast(`กำหนดแล้ว ${done.join(', ')} · ข้าม ${failed.join(', ')} เพราะมีผู้รับผิดชอบอยู่แล้ว`, { tone: 'error' });
     }
   }
 
@@ -283,29 +333,84 @@ export function TeachersPage() {
             <Field label="หน้าที่">
               <select value={assignment.responsibility} onChange={(event) => setAssignment({
                 ...assignment, responsibility: event.target.value as TeacherResponsibility,
-                subjectId: (event.target.value === 'SUBJECT_OWNER' || event.target.value === 'SUBJECT_CO_TEACHER') ? assignment.subjectId : ''
+                subjectIds: (event.target.value === 'SUBJECT_OWNER' || event.target.value === 'SUBJECT_CO_TEACHER') ? assignment.subjectIds : []
               })}>
                 {responsibilityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </Field>
-            <Field
-              label="วิชาที่รับผิดชอบ"
-              hint={responsibilityOptions.find((option) => option.value === assignment.responsibility)?.needsSubject
-                ? 'หน้าที่นี้ผูกกับวิชาหนึ่งวิชา'
-                : 'หน้าที่นี้ครอบคลุมทั้งห้อง จึงไม่ต้องเลือกวิชา'}
-            >
-              <select
-                value={assignment.subjectId}
-                disabled={!responsibilityOptions.find((option) => option.value === assignment.responsibility)?.needsSubject}
-                onChange={(event) => setAssignment({ ...assignment, subjectId: event.target.value })}
-              >
-                <option value="">{responsibilityOptions.find((option) => option.value === assignment.responsibility)?.needsSubject ? 'เลือกวิชา' : 'ไม่ใช้วิชา'}</option>
-                {snapshot.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-              </select>
-            </Field>
           </FieldGroup>
+
+          {/* Checkboxes rather than a select, because the answer is "these three" as often as it is
+              "this one", and a select can only ever say one. Each chip is a 44px target and says
+              whether it is on with a tick as well as with its colour. */}
+          {needsSubject && (
+            <div className="subject-choice-field">
+              <span className="ui-field-label" id="teacher-subject-legend">วิชาที่รับผิดชอบ</span>
+              <p className="ui-field-hint">
+                เลือกได้หลายวิชา · ครูเจ้าของวิชามีได้หนึ่งคนต่อหนึ่งวิชาในห้องหนึ่ง วิชาที่มีเจ้าของแล้วจะถูกข้าม
+              </p>
+              <div className="subject-choice" role="group" aria-labelledby="teacher-subject-legend">
+                {activeSubjects.map((subject) => {
+                  const chosen = assignment.subjectIds.includes(subject.id);
+                  const held = heldSubjectIds.has(subject.id);
+                  return (
+                    <button
+                      key={subject.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={chosen}
+                      title={held ? subject.name + " · มีครูเจ้าของอยู่แล้ว" : subject.name}
+                      className={`subject-choice-chip${chosen ? " is-chosen" : ""}${held ? " is-held" : ""}`}
+                      onClick={() => setAssignment((current) => ({
+                        ...current,
+                        subjectIds: current.subjectIds.includes(subject.id)
+                          ? current.subjectIds.filter((id) => id !== subject.id)
+                          : [...current.subjectIds, subject.id]
+                      }))}
+                    >
+                      <SubjectIcon iconKey={subject.iconKey} size={17} />
+                      <span>{subject.name}</span>
+                      {chosen && <Icon name="check" size={14} />}
+                    </button>
+                  );
+                })}
+              </div>
+              {activeSubjects.length === 0 && (
+                <p className="ui-field-hint">ยังไม่มีรายวิชาในโรงเรียนนี้ · เพิ่มที่เมนู “รายวิชา” ก่อน</p>
+              )}
+            </div>
+          )}
+
+          {/* What this teacher already holds in the chosen room, so an administrator adds to a list
+              they can see rather than to one they have to remember. */}
+          {assignment.teacherId && assignment.classId && (
+            <div className="subject-choice-field">
+              <span className="ui-field-label">หน้าที่ปัจจุบันในห้องนี้</span>
+              {currentLinks.length === 0 ? (
+                <p className="ui-field-hint">ยังไม่ได้รับหน้าที่ใดในห้องนี้</p>
+              ) : (
+                <div className="record-actions">
+                  {currentLinks.map((linkRow) => (
+                    <span key={linkRow.id} className="teacher-assignment">
+                      <Badge tone="neutral">
+                        {linkRow.subjectId
+                          ? (snapshot.subjects.find((item) => item.id === linkRow.subjectId)?.name ?? "วิชาที่ถูกลบ") + " · "
+                          : ""}{responsibilityLabels[responsibilityOf(linkRow)]}
+                      </Badge>
+                      <Button variant="ghost" size="sm" onClick={() => void repository.unassignTeacher(linkRow.id)}>ยกเลิก</Button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="ui-page-actions">
-            <Button variant="secondary" onClick={() => void assign()}>บันทึกการมอบหมาย</Button>
+            <Button variant="secondary" loading={assigning} onClick={() => void assign()}>
+              {needsSubject && assignment.subjectIds.length > 1
+                ? `บันทึก ${assignment.subjectIds.length} วิชา`
+                : "บันทึกการมอบหมาย"}
+            </Button>
           </div>
         </Card>
       )}
