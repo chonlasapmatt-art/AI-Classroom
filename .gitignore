@@ -35,3 +35,4 @@ apps/web/ios/
 *.keystore
 *.jks
 keystore.properties
+.husky/_/

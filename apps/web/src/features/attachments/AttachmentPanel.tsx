@@ -57,22 +57,6 @@ export function AttachmentPanel({ ownerType, ownerId, uploadedBy, canUpload, can
     if (inputRef.current) inputRef.current.value = '';
   }
 
-  async function open(attachmentId: string, fileName: string) {
-    setError(null);
-    try {
-      const blob = await repository.openAttachment(attachmentId);
-      if (!blob) { setError('ไฟล์นี้ยังไม่ถูกแชร์ออนไลน์ จึงเปิดได้เฉพาะเครื่องที่อัปโหลด'); return; }
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'เปิดไฟล์ไม่สำเร็จ');
-    }
-  }
-
   return (
     <div className="attachment-panel">
       <div className="attachment-head">

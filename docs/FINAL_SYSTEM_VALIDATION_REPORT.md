@@ -1,5 +1,46 @@
 # Final System Validation Report
 
+## Pass of 2026-09-09
+
+**Branch:** `main`
+**Validated by:** the four local gates, run on this tree. Everything in this pass is deployed:
+migrations `202609090005`–`202609090010` are applied to the linked project and the built bundle was
+checked on the production URL after each release.
+
+| | |
+| --- | --- |
+| Migrations | 85 (last: `202609090010`) |
+| Edge Functions | 17 |
+| Test files | 103 |
+| Automated tests | 958, all passing |
+
+Gates: `typecheck` PASS · `lint` PASS (`--max-warnings 0`) · `test` PASS (958) · `build` PASS.
+
+**The numbers in the 2026-09-03 pass below were stale when this pass began** — it reported 68
+migrations and 639 tests against an actual 85 and 958, and `AGENTS.md` reported 73 migrations and 815
+tests. This is the third pass in a row to open by correcting the previous pass's counts, which is
+what `scripts/check-docs-counts.mjs` now exists to stop: the counts are checked in CI against the
+tree rather than remembered, so a stale number fails the build instead of misleading the next reader.
+
+### What this pass changed
+
+Ten releases, each deployed and verified against the production bundle before the next began.
+
+- **Server-side writes announce themselves.** Only `apply_sync_mutation` was writing to the sync
+  journal, so an account binding, a class invitation or a transfer changed rows that no device ever
+  learned about — an administrator could create a student, place them in a class, and the child would
+  sign in to an empty app. Every path journals now, and a backfill healed the 8 students and 5
+  enrolments already stranded.
+- **Two permission holes closed.** Work could be created in any room in the school by any teacher in
+  it, and a mark could be written by anybody on a room's staff list rather than by the teacher of
+  that subject. Both now match the rule the screens have always shown.
+- **The timetable stopped being a wide table dragged past a pinned column**, which is what put a
+  whole lesson card underneath the day it belonged to at almost every scroll position.
+- **Medals became points.** Attendance and จิตพิสัย earn a balance a child spends on outfits; the
+  price and the balance are read on the server, never sent by the device.
+- **Twenty-two tenant tables got the `school_id` index they were missing**, and the operational logs
+  got a nightly retention job — the two things that separate three pilot schools from two hundred.
+
 ## Pass of 2026-09-03
 
 **Branch:** `continuation/claude-completion`

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { bonusTotalFor } from '../../data/selectors';
 import type { Student } from '../../domain/types';
-import { Badge, Card, EmptyState, LinkButton } from '../../ui/components';
+import { Badge, Card } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { levelFromPoints } from './avatarLevels';
 import { avatarOutfits, outfitById } from './avatarOutfits';

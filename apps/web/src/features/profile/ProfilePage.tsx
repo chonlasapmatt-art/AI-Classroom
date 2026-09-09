@@ -6,7 +6,6 @@ import { Badge, Button, Card, CardHeader, Field, FieldGroup, PageHeader } from '
 import { AvatarPicker } from '../avatars/AvatarPicker';
 import { AvatarWidget } from '../avatars/AvatarWidget';
 import { pointsBalanceFor, unlockedOutfitsFor } from '../rewards/studentPoints';
-import { isRouteAllowed } from '../../layouts/navigation';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { useToast } from '../../ui/toastContext';
 
