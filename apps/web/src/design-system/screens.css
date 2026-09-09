@@ -1401,11 +1401,22 @@
 }
 .slot.filled { background: linear-gradient(145deg, var(--brand-50), color-mix(in srgb, var(--surface) 78%, var(--brand-50))); border-color: color-mix(in srgb, var(--brand-500) 18%, var(--line)); }
 .slot.filled::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; border-radius: var(--radius-md) 0 0 var(--radius-md); background: var(--brand-500); }
-.slot-button, .slot > span, .slot > strong {
+/* The box a lesson is drawn in. It belongs to the pressable button when there is one and to the
+   plain wrapper when there is not -- never to the individual lines, which is what turned a reader's
+   lesson into three stacked cards. */
+.slot-button, .slot-static {
   display: flex; flex-direction: column; gap: 4px; width: 100%; min-height: 92px;
   padding: var(--space-3); border: 0; background: none; border-radius: var(--radius-md);
   font: inherit; color: inherit; text-align: left; cursor: pointer;
 }
+.slot-static { cursor: default; }
+/* A free period for somebody who cannot fill it: the fact, centred, and nothing that looks like a
+   control. Without the plus the cell has no content to size it, so it keeps the row's height. */
+.slot-empty-quiet {
+  display: grid !important; place-items: center; min-height: 92px !important;
+  padding: var(--space-3) !important; color: var(--ink-400);
+}
+.slot:not(.filled):has(.slot-empty-quiet) { border-style: solid; border-color: var(--line); background: var(--surface-sunken); }
 .slot-button:hover { background: color-mix(in srgb, var(--brand-100) 70%, transparent); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 .slot-button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .slot-topline { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 2px; }
@@ -1502,7 +1513,7 @@
 .timetable-dayrow-body { min-width: 0; }
 /* The row carries the slot's own skin, so a lesson looks the same in a list as it does in the grid. */
 .timetable-dayrow.filled .timetable-dayrow-when { background: var(--brand-100); color: var(--brand-700); }
-.timetable-dayrow .slot-button, .timetable-dayrow > .timetable-dayrow-body > span, .timetable-dayrow > .timetable-dayrow-body > strong { min-height: 72px; }
+.timetable-dayrow .slot-button, .timetable-dayrow .slot-static { min-height: 72px; }
 .timetable-dayrow-body { position: relative; overflow: hidden; background: var(--surface-sunken); border: 1px solid transparent; border-radius: var(--radius-md); }
 .timetable-dayrow.filled .timetable-dayrow-body { background: linear-gradient(145deg, var(--brand-50), color-mix(in srgb, var(--surface) 78%, var(--brand-50))); border-color: color-mix(in srgb, var(--brand-500) 18%, var(--line)); }
 .timetable-dayrow.filled .timetable-dayrow-body::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; border-radius: var(--radius-md) 0 0 var(--radius-md); background: var(--brand-500); }

@@ -183,7 +183,8 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/scores', 'คะแนนและเกรด', 'scores')
     ] },
     { key: 'timetable', label: 'ตารางเรียน', items: [
-      destination('/timetable', 'ตารางสอน', 'timetable')
+      // A student reads a class timetable. Only the people who teach from one call it ตารางสอน.
+      destination('/timetable', 'ตารางเรียน', 'timetable')
     ] },
     /*
      * A subject is where the lessons are now, so it is on every menu: a student opens it to
@@ -208,7 +209,7 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/attendance', 'การเข้าเรียนของลูก', 'attendance')
     ] },
     { key: 'timetable', label: 'ตารางเรียน', items: [
-      destination('/timetable', 'ตารางสอน', 'timetable'),
+      destination('/timetable', 'ตารางเรียนของลูก', 'timetable'),
       destination('/subjects', 'รายวิชาและบทเรียน', 'subjects')
     ] },
     // No `/parents` entry here. For a guardian that screen only redirects to `/my-children`, so it

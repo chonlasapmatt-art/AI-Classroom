@@ -204,17 +204,24 @@ export function TimetablePage() {
   /** What is written inside one slot, in either shape. */
   function slotContent(entry: TimetableEntry | null, showClock: boolean): ReactNode {
     if (!entry) {
+      /*
+       * A plus is a promise, so only the person who can keep it is shown one.
+       *
+       * The empty cell offered a big dashed "+" to everybody, including a student, who cannot put a
+       * lesson anywhere — an affordance for an action that does not exist for them, repeated across
+       * every free period of the week until the empty half of the timetable shouted louder than the
+       * lessons in it. A reader gets the fact and nothing else.
+       */
+      if (!canEdit) return <span className="slot-empty slot-empty-quiet">ว่าง</span>;
       return (
         <>
           {/*
             One label, not two.
             The cell used to say "ว่าง" and then "เพิ่มคาบเรียน" underneath it in 10px grey — the
-            same fact twice, the second time below the size at which body text is legible. Somebody
-            who can put a lesson here is told what pressing does; somebody who cannot is told what
-            the cell is. Neither needs both.
+            same fact twice, the second time below the size at which body text is legible.
           */}
           <span className="slot-empty-icon" aria-hidden="true"><Icon name="plus" size={18} /></span>
-          <span className="slot-empty">{canEdit ? 'เพิ่มคาบเรียน' : 'ว่าง'}</span>
+          <span className="slot-empty">เพิ่มคาบเรียน</span>
         </>
       );
     }
@@ -251,7 +258,16 @@ export function TimetablePage() {
   function slotControl(entry: TimetableEntry | null, day: number, period: number, showClock: boolean) {
     const carrying = Boolean(moving) && moving?.id !== entry?.id;
     const content = slotContent(entry, showClock);
-    if (!canEdit) return content;
+    /*
+     * A reader gets the same card, not three of them.
+     *
+     * The editable slot is a button, and the button is what carries the card's box -- its height,
+     * its padding, its column layout. Somebody who cannot edit was handed the same lines with no
+     * button around them, so the rule that sizes the box applied to each line separately: a lesson
+     * with a subject, a teacher and a room came out as three stacked 92px blocks, and a student's
+     * timetable was three times the height of the same teacher's with the same lessons in it.
+     */
+    if (!canEdit) return <span className="slot-static">{content}</span>;
     return (
       <button
         type="button"
