@@ -1416,7 +1416,7 @@
 .slot small { color: var(--ink-400); font-size: 10px; text-align: center; }
 .slot:not(.filled):hover { background: var(--surface-hover); border-color: var(--line-strong); }
 .slot-empty-icon {
-  align-items: center; justify-content: center;
+  display: grid; place-items: center;
   width: 28px !important; min-height: 28px !important; padding: 0 !important; margin: 0 auto 2px;
   border: 1px dashed var(--line-strong); border-radius: 50%; color: var(--ink-400); font-size: 1rem !important;
 }
@@ -2274,7 +2274,10 @@ tr.row-warning td { background: var(--warning-soft); }
    "what needs me today". */
 .shortcut-hub { border: 1px solid var(--line); border-radius: var(--radius-card);
   background: var(--surface); overflow: hidden; }
-.shortcut-hub > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2);
+/* Centred, not on the baseline. The heading, the hint and the chevron have three different line
+   heights, so aligning them by baseline put the chevron 3px above the middle of a 56px row -- the
+   one element in it with no text to sit on. The words still read as one line either way. */
+.shortcut-hub > summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2);
   min-height: 56px; padding: var(--space-4); cursor: pointer; list-style: none; }
 .shortcut-hub > summary::-webkit-details-marker { display: none; }
 /* A real icon from the product's own set, not the '⌄' and '⌃' characters this used to print. Those
@@ -3547,7 +3550,7 @@ tr.row-warning td { background: var(--warning-soft); }
   background: color-mix(in srgb, var(--brand-50) 45%, var(--surface-sunken));
 }
 .slot-empty-icon {
-  align-items: center; justify-content: center;
+  display: grid; place-items: center;
   width: 34px !important; min-height: 34px !important; padding: 0 !important;
   margin: 0 auto 4px; border: 0; border-radius: 50%;
   color: var(--brand-700);
@@ -3623,9 +3626,13 @@ tr.row-warning td { background: var(--warning-soft); }
    wash from its soft tint and a ring in its ink — so a subject is recognisable by its badge before
    anybody reads the name. `--subject-color` and `--subject-soft` come from the element above it, so
    the same markup works on a card, in the picker and in a preview. */
-.subject-medallion {
+.subject-medallion,
+/* Doubled on purpose: a generic `… span { display: block }` in the older stylesheet outranks a
+   single class, and when it wins the drawing loses its centring and sits against the top edge.
+   Measured at -11px before this, dead centre after. */
+.subject-medallion.subject-medallion {
   inline-size: 46px; block-size: 46px; flex: none;
-  display: grid; place-items: center;
+  display: inline-grid; place-items: center;
   border-radius: 16px;
   color: var(--subject-color, var(--color-primary));
   background:
