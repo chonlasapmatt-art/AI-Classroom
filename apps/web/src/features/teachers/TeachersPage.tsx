@@ -13,6 +13,7 @@ import {
 } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
+import { RosterFileButton } from '../imports/RosterFileButton';
 
 const verificationLabels: Record<TeacherVerificationStatus, string> = {
   teacher_requested: 'ขอสิทธิ์ครู', verification_pending: 'รอตรวจสอบ',
@@ -134,6 +135,31 @@ export function TeachersPage() {
             <CardHeader
               title="เพิ่มครู"
               description="ครูเข้าสู่ระบบด้วยชื่อและรหัสครู · รหัสผ่านที่ตั้งไว้ใช้กับบัญชีของครูคนนั้นโดยตรง"
+              action={(
+                /*
+                  A whole staff list at once, next to the form for one.
+                  This used to live on a screen of its own, which meant leaving the teachers page to
+                  add teachers. A file added here creates the records; the accounts are opened per
+                  person afterwards, as they already were, because a password is not something a
+                  spreadsheet should be carrying.
+                */
+                <RosterFileButton
+                  target="teacher"
+                  onSave={async (rows) => {
+                    let saved = 0;
+                    for (const row of rows) {
+                      await repository.saveTeacher({
+                        teacherCode: (row.teacherCode ?? '').trim(),
+                        displayName: (row.displayName ?? '').trim(),
+                        email: (row.email ?? '').trim(),
+                        subject: (row.subject ?? '').trim()
+                      });
+                      saved += 1;
+                    }
+                    return { saved, skipped: 0 };
+                  }}
+                />
+              )}
             />
             <FieldGroup>
               <Field label="รหัสครู" hint="ใช้เป็นรหัสประจำตัวครู ไม่ใช่รหัสผ่าน">

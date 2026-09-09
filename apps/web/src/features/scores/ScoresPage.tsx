@@ -5,7 +5,8 @@ import { activeClasses, activeSubjects, classIdOfStudent, rosterFor, scorePolicy
 import { subjectColor } from '../../data/subjectCatalog';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { SchoolSnapshot } from '../../data/schoolRepository';
-import type { Subject } from '../../domain/types';
+import type { Student, Subject } from '../../domain/types';
+import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { canManageAcademicItem, teacherClassIds, teacherClassScope } from '../../data/teacherResponsibilities';
 import {
   Badge, Button, Card, CardHeader, ConfirmDialog, DataTable, Drawer, EmptyState, Field, FieldGroup,
@@ -23,6 +24,30 @@ const detailKindLabels: Record<'assignment' | 'homework' | 'project' | 'activity
 /** Marks are read far more often than they are typed, so the scale is spelled out beside the number. */
 function GradeBadge({ grade }: { grade: string }) {
   return <Badge tone={grade === 'F' ? 'danger' : grade.startsWith('4') || grade.startsWith('3') ? 'success' : 'info'}>เกรด {grade}</Badge>;
+}
+
+/**
+ * A student, as a row reads them.
+ *
+ * Three tables on this screen listed forty children as forty lines of text, and finding one of them
+ * meant reading every name. The avatar each child picked for themselves is the thing their teacher
+ * recognises first, so it leads the cell — and it is the same drawing that appears on their profile,
+ * the register and the class list, which is what makes it recognition rather than decoration.
+ */
+function StudentCell({ student, strong = false }: { student: Student; strong?: boolean }) {
+  return (
+    <span className="score-person">
+      <ProfileAvatar
+        displayName={student.displayName}
+        avatarId={student.avatarId}
+        avatarPhotoId={student.avatarPhotoId}
+        avatarIndex={student.avatarIndex}
+        avatarConfig={student.avatarConfig}
+        size={32}
+      />
+      {strong ? <strong>{student.displayName}</strong> : <span>{student.displayName}</span>}
+    </span>
+  );
 }
 
 const thaiDate = (value: string | null) => value ? new Date(value).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '—';
@@ -441,7 +466,7 @@ export function ScoresPage({ embedded = false }: { embedded?: boolean } = {}) {
               {visibleStanding.map((entry) => (
                 <tr key={entry.student.id}>
                   <td className="score-rank">{entry.rank}</td>
-                  <td><strong>{entry.student.displayName}</strong></td>
+                  <td><StudentCell student={entry.student} strong /></td>
                   <td>
                     <div className="score-total">
                       <span>{entry.total.toFixed(policy.decimals)}</span>
@@ -526,7 +551,7 @@ export function ScoresPage({ embedded = false }: { embedded?: boolean } = {}) {
                         const score = rows.find((item) => item.studentId === student.id);
                         return (
                           <tr key={student.id}>
-                            <td>{student.displayName}</td>
+                            <td><StudentCell student={student} /></td>
                             <td>
                               <ScoreCell
                                 cellKey={`${activity.id}:${student.id}`}
@@ -634,7 +659,7 @@ export function ScoresPage({ embedded = false }: { embedded?: boolean } = {}) {
                         const score = rows.find((item) => item.studentId === student.id);
                         return (
                           <tr key={student.id}>
-                            <td>{student.displayName}</td>
+                            <td><StudentCell student={student} /></td>
                             <td>
                               <ScoreCell
                                 cellKey={`${test.id}:${student.id}`}

@@ -16,7 +16,7 @@ const adminDoors: AdminDoor[] = [
   { to: '/operations', label: 'Sync และ Backup', description: 'สถานะการซิงค์ สำรองข้อมูล และกู้คืน', icon: 'operations' },
   { to: '/teachers', label: 'บุคลากร', description: 'เพิ่ม แก้ไข และกำหนดสิทธิ์ครูในโรงเรียน', icon: 'teachers' },
   { to: '/announcements', label: 'ประกาศรวม', description: 'ประกาศที่ทั้งโรงเรียนเห็นพร้อมกัน', icon: 'announcements' },
-  { to: '/import', label: 'นำเข้ารายชื่อ', description: 'นำเข้านักเรียนและผู้ปกครองจากไฟล์', icon: 'import' },
+  { to: '/students', label: 'นักเรียน', description: 'เพิ่มทีละคน วางรายชื่อ หรือเพิ่มจากไฟล์', icon: 'students' },
   { to: '/promotion', label: 'ปีการศึกษา', description: 'เลื่อนชั้นและปิดปีการศึกษา', icon: 'promotion' },
   { to: '/settings', label: 'ตั้งค่าโรงเรียน', description: 'เกรด การเข้าเรียน และค่าตั้งต้นของระบบ', icon: 'settings' }
 ];

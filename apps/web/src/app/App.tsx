@@ -23,7 +23,6 @@ import { SubjectsPage } from '../features/subjects/SubjectsPage';
 import { SubjectDetailPage } from '../features/subjects/SubjectDetailPage';
 import { SubjectGradebookPage } from '../features/grades/SubjectGradebookPage';
 import { GradeEditorPage } from '../features/grades/GradeEditorPage';
-import { ImportPage } from '../features/imports/ImportPage';
 import { CalendarPage } from '../features/calendar/CalendarPage';
 import { NotificationCenterPage } from '../features/notifications/NotificationCenterPage';
 import { AnnouncementsPage } from '../features/notifications/AnnouncementsPage';
@@ -88,7 +87,6 @@ const appRoutes: AppRoute[] = [
   { path: 'notifications', element: <NotificationCenterPage /> },
   { path: 'announcements', element: <AnnouncementsPage /> },
   { path: 'profile', element: <ProfilePage /> },
-  { path: 'import', element: <ImportPage /> },
   { path: 'teachers', element: <TeachersPage /> },
   { path: 'attendance', element: <AttendancePage /> },
   { path: 'classroom', element: <ClassroomLivePage /> },

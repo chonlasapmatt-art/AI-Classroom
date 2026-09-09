@@ -14,7 +14,9 @@ describe('managed roster identity flows', () => {
   const teacherEmailFixMigration = read('supabase/migrations/202609010042_teacher_email_optional_fix.sql');
   const parentRegistrationMigration = read('supabase/migrations/202609010043_parent_registration_overload_fix.sql');
   const subjectMigration = read('supabase/migrations/202609010037_teacher_subject_assignments.sql');
-  const importPage = read('apps/web/src/features/imports/ImportPage.tsx');
+  const rosterButton = read('apps/web/src/features/imports/RosterFileButton.tsx');
+  const rosterReader = read('apps/web/src/features/imports/rosterFile.ts');
+
   const parentPage = read('apps/web/src/features/parents/ChildLinkPanel.tsx');
   const parentClient = read('apps/web/src/features/auth/memberAccess.ts');
   const parentFunction = read('supabase/functions/member-access/index.ts');
@@ -44,9 +46,13 @@ describe('managed roster identity flows', () => {
     expect(teacherPage).not.toContain('type="checkbox"');
     expect(subjectMigration).toContain('subject_id');
     expect(subjectMigration).toContain('TEACHER_SUBJECT_CLASS_ASSIGNED');
-    expect(importPage).toContain('readImportFile(file)');
-    expect(importPage).toContain('acceptedImportExtensions');
-    expect(importPage).toContain('buildStaffRows');
+    // Reading a roster from a file is no longer a screen of its own: it is a button beside the form
+    // that adds one person, on the teachers and guardians pages, over one shared reader.
+    expect(rosterButton).toContain('readImportFile(file)');
+    expect(rosterButton).toContain('acceptedImportExtensions');
+    expect(rosterButton).toContain('buildRosterRows');
+    expect(rosterReader).toContain('teacherCode');
+    expect(teacherPage).toContain('RosterFileButton');
   });
 
   it('keeps parent child search inside the selected school and links immediately', () => {

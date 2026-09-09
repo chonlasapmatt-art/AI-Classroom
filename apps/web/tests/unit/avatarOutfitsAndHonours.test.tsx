@@ -135,7 +135,7 @@ describe('the administrator door on the home screen', () => {
     expect(screen.getByText('ศูนย์ผู้ดูแลระบบ')).toBeTruthy();
     const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('.admin-entry-door'));
     expect(links.map((link) => link.getAttribute('href'))).toEqual(
-      ['/operations', '/teachers', '/announcements', '/import', '/promotion', '/settings']
+      ['/operations', '/teachers', '/announcements', '/students', '/promotion', '/settings']
     );
   });
 

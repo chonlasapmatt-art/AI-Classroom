@@ -45,7 +45,6 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/students', 'นักเรียน', 'students'),
       destination('/teachers', 'ครู', 'teachers'),
       destination('/parents', 'ผู้ปกครอง', 'parents'),
-      destination('/import', 'นำเข้ารายชื่อ', 'import'),
       destination('/promotion', 'ปีการศึกษา', 'promotion')
     ] },
     { key: 'structure', label: 'ห้องเรียนและรายวิชา', items: [
@@ -60,7 +59,9 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/quiz', 'Quiz Challenge', 'quiz'),
       destination('/assignments', 'งานและกิจกรรม', 'assignments'),
       destination('/scores', 'คะแนนและเกรด', 'scores'),
-      destination('/gradebook', 'สมุดเกรด', 'gradebook'),
+      // The administrator keeps the teacher's merged screen — one entry over both views — rather
+      // than the old separate "สมุดเกรด", which named a second place for the same rows.
+      destination('/gradebook', 'สมุดเกรดรายวิชา', 'gradebook'),
       destination('/grade-editor', 'แก้ไขคะแนน', 'grade-edit')
     ] },
     { key: 'reports', label: 'รายงาน', items: [
@@ -101,9 +102,8 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
      * "คะแนนและเกรด" and "สมุดเกรด" were one screen split in two, and a teacher had to know which
      * of them held the number they were after. They are now one entry over both views.
      *
-     * "นำเข้ารายชื่อ" is gone from a teacher's menu on purpose: adding children to a room now
-     * happens on the student screen, where a teacher already is, and the bulk import of a whole
-     * school's roster stays an administrator's tool.
+     * Importing a roster is not a screen any more: adding people from a file is a button beside
+     * the form that adds one, on the students, teachers and guardians screens.
      */
     { key: 'work', label: 'งานและคะแนน', items: [
       destination('/assignments', 'งานและกิจกรรม', 'assignments'),
@@ -157,9 +157,15 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     { key: 'activities', label: 'กิจกรรม', items: [
       destination('/leaderboard', 'Leaderboard', 'leaderboard')
     ] },
+    /*
+     * One place for marks, not two.
+     *
+     * "สมุดเกรด" and "คะแนนและเกรด" answered the same question about the same rows for a student —
+     * what they have scored — and a child choosing between them was choosing between two words for
+     * one thing. What is left is the screen written for them.
+     */
     { key: 'scores', label: 'คะแนน', items: [
-      destination('/scores', 'คะแนนและเกรด', 'scores'),
-      destination('/gradebook', 'สมุดเกรด', 'gradebook')
+      destination('/scores', 'คะแนนและเกรด', 'scores')
     ] },
     { key: 'timetable', label: 'ตารางเรียน', items: [
       destination('/timetable', 'ตารางสอน', 'timetable')

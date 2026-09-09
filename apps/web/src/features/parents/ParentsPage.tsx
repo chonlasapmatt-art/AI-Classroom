@@ -15,6 +15,7 @@ import {
 } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
+import { RosterFileButton } from '../imports/RosterFileButton';
 
 type PasswordTarget = {
   profileId: string | null;
@@ -300,6 +301,35 @@ export function ParentsPage() {
           <CardHeader
             title="เพิ่มผู้ปกครอง"
             description="กำหนดชื่อและรหัสผ่านให้เข้าใช้งานได้ทันที · ไม่ต้องใช้อีเมลและไม่ต้องให้ผู้ปกครองสมัครเอง"
+            action={(
+              /*
+                A class's guardians in one go, beside the form for one.
+                A file names each child by student code, which is what a school's own list holds; a
+                row whose code is not in this school is refused by name in the preview rather than
+                linked to nobody. These rows create the link only — an account with a password is
+                still opened per person below.
+              */
+              <RosterFileButton
+                target="parent"
+                knownStudentCodes={new Set(snapshot.students.map((item) => item.studentCode))}
+                onSave={async (rows) => {
+                  let saved = 0;
+                  let skipped = 0;
+                  for (const row of rows) {
+                    const student = snapshot.students.find((item) => item.studentCode === (row.studentCode ?? '').trim());
+                    if (!student) { skipped += 1; continue; }
+                    await repository.saveParentLink({
+                      studentId: student.id,
+                      parentName: (row.parentName ?? '').trim(),
+                      relationship: (row.relationship ?? 'ผู้ปกครอง').trim(),
+                      contact: (row.contact ?? '').trim()
+                    });
+                    saved += 1;
+                  }
+                  return { saved, skipped };
+                }}
+              />
+            )}
           />
           <form onSubmit={(event) => void addParentAccount(event)}>
             <FieldGroup columns={2}>

@@ -3677,3 +3677,35 @@ tr.row-warning td { background: var(--warning-soft); }
   .settings-rail-item { transition: none; }
   .settings-rail-item:hover { transform: none; }
 }
+
+/* ── Adding people from a file, where the people are ───────────────────────────────────────────
+   The control is a label wrapping a hidden input, so it needs the button's own look; the preview
+   below it states every row it read and, for the ones it will not write, why — while the file can
+   still be corrected. */
+.roster-file-button { display: inline-flex; cursor: pointer; }
+.roster-file-button.is-disabled { opacity: .6; cursor: not-allowed; }
+.roster-file-button input:disabled + span { opacity: .7; cursor: progress; }
+
+.roster-file-preview {
+  list-style: none; margin: var(--space-3) 0 0; padding: 0;
+  display: grid; gap: var(--space-2); max-block-size: 46vh; overflow-y: auto;
+}
+.roster-file-preview li {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+}
+.roster-file-preview li[data-blocked="true"] {
+  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+}
+.roster-file-copy { min-inline-size: 0; display: grid; gap: 2px; }
+.roster-file-copy strong { color: var(--color-text-primary); overflow-wrap: anywhere; }
+.roster-file-copy small { color: var(--color-text-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.roster-file-more { justify-content: center; color: var(--color-text-muted); font-size: var(--text-xs); }
+
+/* ── A student in a score table ────────────────────────────────────────────────────────────────
+   The avatar leads the cell and the name follows it, so a teacher scanning forty rows for one child
+   is matching a picture rather than reading every line. */
+.score-person { display: inline-flex; align-items: center; gap: var(--space-2); min-inline-size: 0; }
+.score-person > span, .score-person > strong { min-inline-size: 0; overflow-wrap: anywhere; }
