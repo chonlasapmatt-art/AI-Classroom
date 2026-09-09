@@ -142,7 +142,7 @@ describe('what each kind of teacher may reach', () => {
       auditOf('p-outsider', 'ครูที่ยังไม่ได้รับห้อง')
     ];
     for (const audit of rows) {
-      // eslint-disable-next-line no-console -- this test exists to report, not only to assert
+      // This test exists to report, not only to assert.
       console.log(
         `\n${audit.who}\n  หน้าที่   : ${audit.responsibilities}\n  เข้าห้อง  : ${audit.rooms}` +
         `\n  อ่านคะแนน : ${audit.reads}\n  แก้คะแนน  : ${audit.writes}\n  ผู้ปกครอง : ${audit.guardians}`
