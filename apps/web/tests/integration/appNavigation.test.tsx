@@ -1,9 +1,14 @@
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../../src/app/App';
 import { resetFixtureRepository } from '../../src/data/fixtureSchoolRepository';
 import { disablePreviewMode, enablePreviewMode } from '../../src/preview/previewMode';
+import { setViewportWidth } from '../setup';
+
+const repositoryRoot = resolve(process.cwd(), '../..');
 
 afterEach(() => { cleanup(); disablePreviewMode(); resetFixtureRepository(); });
 
@@ -237,19 +242,36 @@ describe('application shell and routes', () => {
     expect(screen.getByLabelText('ห้องเรียน')).toHaveValue('fixture-class-2');
   });
 
-  it('lays the week out a day per line, with the periods and their times across the top', async () => {
+  /*
+   * A day per column, a period per row -- the orientation that fits.
+   *
+   * The other way round made the table 1180px wide in a content column under 900px, so it was
+   * scrolled sideways with the day names pinned over the scroll, and a lesson could sit entirely
+   * underneath the day it belonged to. Five columns fit; eight do not.
+   */
+  it('lays the week out a day per column, with the periods and their times down the side', async () => {
+    // The week grid is the shape a wide screen gets; a narrow one reads the same week a day at a time.
+    setViewportWidth(1440);
     renderApp('/timetable');
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ตารางสอน'));
     const headers = screen.getAllByRole('columnheader').map((cell) => cell.textContent ?? '');
-    expect(headers[0]).toContain('วัน');
-    expect(headers[1]).toContain('คาบ 1');
-    expect(headers[1]).toContain('08:30');
-    // The day is the row now, so it is a row header and not one of the columns.
-    expect(screen.getByRole('rowheader', { name: 'จันทร์' })).toBeInTheDocument();
-    expect(headers.some((text) => text.includes('จันทร์'))).toBe(false);
+    expect(headers[0]).toContain('คาบ');
+    expect(headers.some((text) => text.includes('จันทร์'))).toBe(true);
+    expect(headers.some((text) => text.includes('ศุกร์'))).toBe(true);
+    // The period is the row now, and it carries its clock.
+    expect(screen.getByRole('rowheader', { name: /คาบ 1/ }).textContent).toContain('08:30');
+  });
+
+  it('needs nothing pinned, because nothing scrolls sideways', () => {
+    const css = readFileSync(join(repositoryRoot, 'apps/web/src/design-system/screens.css'), 'utf8');
+    // The apparatus that existed only to cover a horizontal scroll is gone with the scroll itself.
+    expect(css).not.toContain('.timetable-scroll');
+    expect(css).not.toContain('scroll-snap-type: x mandatory');
+    expect(css).toContain('.timetable-week');
   });
 
   it('offers a way to move a period that does not need a drag', async () => {
+    setViewportWidth(1440);
     renderApp('/timetable');
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ตารางสอน'));
     const filled = screen.getAllByRole('button', { name: /คาบ \d/ })
