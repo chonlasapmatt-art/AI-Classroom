@@ -1,7 +1,15 @@
 import type { AvatarAnimation, AvatarConfig } from '../../domain/types';
-import { resolveAvatar, type AvatarAccessory, type AvatarAnimal, type AvatarProp, type AvatarTheme, type HairStyle } from './avatarThemes';
+import { avatarThemes, resolveAvatar, type AvatarAccessory, type AvatarAnimal, type AvatarProp, type AvatarTheme, type HairStyle } from './avatarThemes';
 import type { AvatarOutfit } from './avatarOutfits';
+import type { AvatarConfigV2 } from './avatarSchema';
+import { EnhancedPixelAvatar } from './EnhancedPixelAvatar';
 import styles from './ThemedAvatar.module.css';
+
+/** The same wrapping lookup the rest of the avatar code uses: an old index must never throw. */
+function pick<T>(items: readonly T[], index: number): T {
+  const size = items.length;
+  return items[((Math.trunc(index) % size) + size) % size]!;
+}
 
 interface Props {
   avatarIndex: number;
@@ -317,6 +325,29 @@ function Prop({ prop, primary, accent }: { prop: AvatarProp; primary: string; ac
  * cheaply, and the stylesheet honours prefers-reduced-motion.
  */
 export function ThemedAvatar({ avatarIndex, config, animation = 'idle', size = 96, label }: Props) {
+  /*
+   * Two renderers, and the choice between them is one field.
+   *
+   * A config carrying `layers` was built in the new customiser and is a stack of traits; everything
+   * else is one of the avatars this school already has, and goes down the path below unchanged —
+   * the same components, the same rectangles, the same markup, pinned by
+   * `avatarLegacyRender.test.tsx` over all 160 catalogue ids. Migrating a config describes it
+   * without repainting it, so a migrated config that nobody has edited still lands here: `tints`
+   * alone never switches renderer, only `layers` does.
+   */
+  const layered = config as AvatarConfigV2 | null | undefined;
+  if (layered?.layers && Object.keys(layered.layers).length > 0) {
+    return (
+      <EnhancedPixelAvatar
+        config={layered}
+        animation={animation}
+        size={size}
+        label={label}
+        backdrop={pick(avatarThemes, layered.archetype).soft}
+      />
+    );
+  }
+
   const identity = resolveAvatar(avatarIndex, config);
   const { theme, palette, skinTone, hair, accessory, badge, outfit } = identity;
   const shirt = palette.primary;

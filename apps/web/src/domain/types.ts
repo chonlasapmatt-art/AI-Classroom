@@ -125,6 +125,16 @@ export interface AvatarConfig {
 }
 export type AvatarAnimation = 'idle' | 'blink' | 'wave' | 'study' | 'celebrate' | 'thinking';
 
+/*
+ * The version-2 avatar vocabulary, re-exported so a record type and the thing that draws it are
+ * described in the same place. The definitions live beside the drawings, in
+ * features/avatars/avatarSchema.ts, because that is where somebody adding a trait is already
+ * working.
+ */
+export type {
+  AvatarConfigV2, AvatarElement, AvatarRace, AvatarTints, LayerType, TraitOption
+} from '../features/avatars/avatarSchema';
+
 export interface SyncQueueItem {
   queueId: string;
   schoolId: string;
