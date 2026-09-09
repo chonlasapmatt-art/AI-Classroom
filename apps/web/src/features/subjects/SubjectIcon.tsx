@@ -20,13 +20,19 @@ function paths(key: SubjectIconKey) {
           <path d="M13.8 10.6 16.4 13.2" />
         </>
       );
-    case 'math': // plus over an equals sign
+    /*
+     * The four operations in a square, which is what a Thai primary maths book has on its cover.
+     * The previous drawing was a plus, a minus and two long rules stacked — at 20px that read as a
+     * paragraph of lines rather than as arithmetic.
+     */
+    case 'math':
       return (
         <>
-          <path d="M6.4 9.2h5.4M9.1 6.5v5.4" />
-          <path d="M14.6 9.2h3.2" />
-          <path d="M6.4 15.4h11.2" />
-          <path d="M6.4 18.4h11.2" />
+          <path d="M5.4 9.6h5.2M8 7v5.2" />
+          <path d="M13.6 7.4l4.8 4.8M18.4 7.4l-4.8 4.8" />
+          <path d="M6 17.2h12" />
+          <circle cx="12" cy="14.6" r="1" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="19.4" r="1" fill="currentColor" stroke="none" />
         </>
       );
     case 'science': // flask
@@ -46,13 +52,20 @@ function paths(key: SubjectIconKey) {
           <path d="M18.4 18.4a4 4 0 0 0-2.2-3.4" />
         </>
       );
-    case 'sport': // ball with seams
+    /*
+     * A person running, not a ball.
+     * The ball was a circle with two curved seams and a meridian — at icon size, the same drawing as
+     * the globe two places along in the picker, which is the one thing a set of icons must not do.
+     * A figure in motion is unmistakably พลศึกษา and shares nothing with any other icon here.
+     */
+    case 'sport':
       return (
         <>
-          <circle cx="12" cy="12" r="7" />
-          <path d="M12 5v14" />
-          <path d="M6.2 8.6c3.8 1.7 7.8 1.7 11.6 0" />
-          <path d="M6.2 15.4c3.8-1.7 7.8-1.7 11.6 0" />
+          <circle cx="14.6" cy="6.6" r="1.7" />
+          <path d="M8.2 19.4l2.6-4 3-1.6-1.2-3.4" />
+          <path d="M12.6 10.4 9 12l-.8 2.6" />
+          <path d="m12.6 10.4 3.2 1.2 1.4 3.4" />
+          <path d="m15.8 11.6 1.8 6.4" />
         </>
       );
     case 'art': // palette
@@ -64,12 +77,17 @@ function paths(key: SubjectIconKey) {
           <circle cx="15" cy="10.4" r="1" />
         </>
       );
-    case 'work': // spanner and screwdriver
+    /*
+     * A toolbox rather than a spanner crossed with a screwdriver: two thin diagonal tools at 20px
+     * were three unrelated strokes, and การงานอาชีพ is the whole box of them anyway.
+     */
+    case 'work':
       return (
         <>
-          <path d="M13.8 8.4a3 3 0 0 0 3.8 3.8L19 13.6l-5.4 5.4-1.6-1.6" />
-          <path d="M7.4 5.6 10.4 8.6 8.2 10.8 5.2 7.8z" />
-          <path d="M6 19l4.6-4.6" />
+          <rect x="4.8" y="9.6" width="14.4" height="9.4" rx="2" />
+          <path d="M9.4 9.6V7.8a1.6 1.6 0 0 1 1.6-1.6h2a1.6 1.6 0 0 1 1.6 1.6v1.8" />
+          <path d="M4.8 13.4h14.4" />
+          <path d="M10.6 12.2h2.8v2.4h-2.8z" />
         </>
       );
     case 'globe': // globe with meridians
@@ -103,12 +121,17 @@ function paths(key: SubjectIconKey) {
           <path d="M13.2 6.6 10.8 17.4" />
         </>
       );
-    case 'atom': // nucleus in two orbits
+    /*
+     * Two orbits, not three, and tilted apart far enough to stay two.
+     * Three overlapping ellipses at 20px filled the middle of the box with crossings and read as a
+     * smudge; the nucleus is drawn solid so the centre is a dot rather than another outline.
+     */
+    case 'atom':
       return (
         <>
-          <circle cx="12" cy="12" r="1.6" />
-          <ellipse cx="12" cy="12" rx="7" ry="3" />
-          <ellipse cx="12" cy="12" rx="7" ry="3" transform="rotate(60 12 12)" />
+          <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+          <ellipse cx="12" cy="12" rx="7" ry="2.9" transform="rotate(-28 12 12)" />
+          <ellipse cx="12" cy="12" rx="7" ry="2.9" transform="rotate(28 12 12)" />
         </>
       );
     case 'leaf': // leaf on its stem
@@ -135,11 +158,15 @@ function paths(key: SubjectIconKey) {
           <path d="M15.4 5.4c0 3.2-3.4 4.4-3.4 6.6s3.4 3.4 3.4 6.6" />
         </>
       );
-    case 'health': // heart with a pulse line through it
+    /*
+     * A heart with a cross in it. The pulse line ran edge to edge behind the heart and crossed its
+     * outline twice, which at this size is a heart with a scribble over it.
+     */
+    case 'health':
       return (
         <>
-          <path d="M12 18.6 6.7 13.4a3.4 3.4 0 0 1 5.3-4.2 3.4 3.4 0 0 1 5.3 4.2z" />
-          <path d="M6.4 12.6h2.4l1.2-2 1.6 3.4 1.4-2.2h2.6" />
+          <path d="M12 19 6.4 13.4a3.6 3.6 0 0 1 5.6-4.5 3.6 3.6 0 0 1 5.6 4.5z" />
+          <path d="M12 11.2v4.4M9.8 13.4h4.4" />
         </>
       );
     case 'computer': // monitor on a stand
@@ -150,13 +177,17 @@ function paths(key: SubjectIconKey) {
           <path d="M12 15.2V19" />
         </>
       );
-    case 'drama': // two masks
+    /*
+     * One mask, drawn large. Two overlapping masks with four eye dots came out as a pair of goggles;
+     * a single smiling mask with its ribbons is unmistakable and has room for its own features.
+     */
+    case 'drama':
       return (
         <>
-          <path d="M4.8 7.4h7.4v4.2a3.7 3.7 0 0 1-7.4 0z" />
-          <path d="M11.8 7.4h7.4v4.2a3.7 3.7 0 0 1-7.4 0" />
-          <path d="M6.6 9.4h.01M10.4 9.4h.01M13.6 9.4h.01M17.4 9.4h.01" />
-          <path d="M7 16.4c1.4 1.6 3.6 2.2 5.4 1.4" />
+          <path d="M6.4 6.6h11.2v5.6a5.6 5.6 0 0 1-11.2 0z" />
+          <path d="M9.4 9.6h.02M14.6 9.6h.02" />
+          <path d="M9.8 13.6c1.4 1.2 3 1.2 4.4 0" />
+          <path d="M6.4 7.8 3.6 6.2M17.6 7.8l2.8-1.6" />
         </>
       );
     case 'compass': // compass rose with a needle
@@ -176,9 +207,18 @@ function paths(key: SubjectIconKey) {
       );
     case 'star': // five-pointed star
       return <path d="M12 5.4l2 4.3 4.6.6-3.4 3.2.9 4.7-4.1-2.3-4.1 2.3.9-4.7L5.4 10.3l4.6-.6z" />;
+    /*
+     * The fallback is a label with its hole punched, not a blank rounded square: a subject with no
+     * icon chosen still looks like a named thing rather than like a drawing that failed to load.
+     */
     case 'default':
-    default: // rounded tile
-      return <rect x="5.6" y="5.6" width="12.8" height="12.8" rx="3.4" />;
+    default:
+      return (
+        <>
+          <path d="M5.4 11.2V6.6a1.2 1.2 0 0 1 1.2-1.2h4.6l7.4 7.4a1.6 1.6 0 0 1 0 2.3l-4.3 4.3a1.6 1.6 0 0 1-2.3 0z" />
+          <circle cx="9.2" cy="9.2" r="1.3" />
+        </>
+      );
   }
 }
 
