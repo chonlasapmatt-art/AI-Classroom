@@ -100,4 +100,38 @@ describe('the subject icon set', () => {
     const fallback = render(<SubjectIcon iconKey="default" size={24} />).container.innerHTML;
     expect(unknown).toBe(fallback);
   });
+
+  it('draws a different picture for every key', () => {
+    /*
+     * A registry with two keys drawing the same thing is a registry with a key missing, and the
+     * `default:` label the switch used to end with hid exactly that: a key added to the list with no
+     * case of its own silently rendered the fallback and looked like a subject nobody had styled.
+     * The label is gone and the function is annotated, so the compiler catches an absent case; this
+     * catches the other half — a case that was copied and never changed.
+     */
+    const seen = new Map<string, string>();
+    for (const key of subjectIconKeys) {
+      const markup = render(<SubjectIcon iconKey={key} size={24} />).container.innerHTML;
+      const twin = seen.get(markup);
+      expect(twin, `${key} draws the same picture as ${twin}`).toBeUndefined();
+      seen.set(markup, key);
+      cleanup();
+    }
+  });
+
+  it('reads the subject name when nothing is stored, and never over a stored choice', () => {
+    // Six of nine subjects in the live school were saved as `default` by a form with no picker, so
+    // the name is the last chance to draw the right thing. It is only ever the last chance: ทั่วไป
+    // chosen deliberately is a decision, and a decision outranks a guess.
+    const guessed = render(<SubjectIcon subject="วิทยาศาสตร์" size={24} />).container.innerHTML;
+    cleanup();
+    const flask = render(<SubjectIcon iconKey="science" size={24} />).container.innerHTML;
+    expect(guessed).toBe(flask);
+    cleanup();
+
+    const stored = render(<SubjectIcon iconKey="default" subject="วิทยาศาสตร์" size={24} />).container.innerHTML;
+    cleanup();
+    const fallback = render(<SubjectIcon iconKey="default" size={24} />).container.innerHTML;
+    expect(stored).toBe(fallback);
+  });
 });

@@ -25,7 +25,9 @@
  * — the mask's ribbons ran to x=3.6, the note's tail to y=19.6. `subjectIconBox.test.tsx` measures
  * every icon's geometry and fails if anything leaves the box or the centre drifts.
  */
-import { isSubjectIconKey, type SubjectIconKey } from '../../data/subjectCatalog';
+import type { ReactElement } from 'react';
+import type { SubjectIconKey } from '../../data/subjectCatalog';
+import { subjectIconKeyFor } from '../../data/subjectIconMatch';
 
 /*
  * The two tones the drawings are built from, each overridable by whatever frame holds the icon.
@@ -44,7 +46,16 @@ const cut = 'var(--subject-icon-cut, var(--color-surface, #fff))';
 const warm = '#f7c948';
 const cool = '#31d6c4';
 
-function paths(key: SubjectIconKey) {
+/*
+ * Annotated `ReactElement` rather than left to inference, and with no `default:` label.
+ *
+ * That pair is what makes the set a registry rather than a switch with a hole in it: add a key to
+ * `SubjectIconKey` and forget the drawing, and control reaches the end of this function returning
+ * `undefined`, which the annotation refuses — the build fails naming the file. With a `default:`
+ * catching everything, the same mistake compiled and shipped a subject silently wearing the
+ * fallback, which is precisely the failure the whole set exists to avoid.
+ */
+function paths(key: SubjectIconKey): ReactElement {
   switch (key) {
     case 'language': // a pencil over the line it is writing
       return (
@@ -205,6 +216,29 @@ function paths(key: SubjectIconKey) {
           <rect x="8" y="17.7" width="8" height="1.8" rx=".9" fill="currentColor" />
         </>
       );
+    /*
+     * A robot's head, for หุ่นยนต์ / ปัญญาประดิษฐ์ / วิทยาการคำนวณ.
+     *
+     * The nearest drawing in the set is the monitor, so the two are separated on silhouette rather
+     * than on detail: the monitor is a wide screen standing on a foot, this is a narrower head with
+     * an aerial above it and ears either side. At 13px the aerial is the whole difference, which is
+     * why it is the one shape carrying an accent.
+     */
+    case 'robot':
+      return (
+        <>
+          <circle cx="12" cy="5.8" r="1.3" fill={warm} />
+          <rect x="11.2" y="6.6" width="1.6" height="2" fill="currentColor" />
+          <rect x="4" y="11.3" width="1.5" height="3.2" rx=".75" fill={soft} />
+          <rect x="18.5" y="11.3" width="1.5" height="3.2" rx=".75" fill={soft} />
+          <rect x="4.6" y="8" width="14.8" height="9.6" rx="3" fill="currentColor" />
+          <rect x="6.8" y="10.1" width="10.4" height="5.4" rx="1.8" fill={cut} />
+          <circle cx="9.6" cy="12.8" r="1.35" fill="currentColor" />
+          <circle cx="14.4" cy="12.8" r="1.35" fill="currentColor" />
+          <rect x="10" y="16" width="4" height="1" rx=".5" fill={cut} />
+          <rect x="8.6" y="17.6" width="6.8" height="1.9" rx=".95" fill={soft} />
+        </>
+      );
     case 'drama': // one mask, drawn large, with its ribbon
       return (
         <>
@@ -241,25 +275,47 @@ function paths(key: SubjectIconKey) {
         </>
       );
     /*
-     * The fallback is a label with its hole punched, not a blank rounded square: a subject with no
-     * icon chosen still looks like a named thing rather than like a drawing that failed to load.
+     * The fallback: four tiles, not a price label.
+     *
+     * It used to be a luggage tag with its hole punched, and a tag means one thing — a price — which
+     * is the wrong thing to say about a school subject. Six of nine subjects in the live school were
+     * wearing it, so the drawing that says "we do not know what this is yet" is on screen more than
+     * most of the real ones and has to be neutral rather than merely different.
+     *
+     * Four tiles in a checkerboard say "a category" without claiming which. It survives 13px, where
+     * a tag's punched hole closes up, and its silhouette is shared with nothing else in the set —
+     * the maths and code keys are one large rounded square, this is four small ones.
      */
     case 'default':
-    default:
       return (
         <>
-          <path d="M4.4 11.2V6.4a2 2 0 0 1 2-2h4.8l8 8a1.9 1.9 0 0 1 0 2.7l-4.1 4.1a1.9 1.9 0 0 1-2.7 0z" fill={soft} />
-          <circle cx="8.5" cy="8.5" r="1.85" fill="currentColor" />
+          <rect x="4.5" y="4.5" width="6.6" height="6.6" rx="2.1" fill="currentColor" />
+          <rect x="12.9" y="4.5" width="6.6" height="6.6" rx="2.1" fill={soft} />
+          <rect x="4.5" y="12.9" width="6.6" height="6.6" rx="2.1" fill={soft} />
+          <rect x="12.9" y="12.9" width="6.6" height="6.6" rx="2.1" fill="currentColor" />
+          <circle cx="7.8" cy="7.8" r="1.5" fill={warm} />
+          <circle cx="16.2" cy="16.2" r="1.5" fill={cut} />
         </>
       );
   }
 }
 
-export function SubjectIcon({ iconKey, size = 18, title }: { iconKey: string; size?: number; title?: string }) {
-  const key: SubjectIconKey = isSubjectIconKey(iconKey) ? iconKey : 'default';
+export interface SubjectIconProps {
+  /** The stored key. Wins whenever it names a drawing: it is somebody's deliberate choice. */
+  iconKey?: string;
+  /** A subject's name, read only when no stored key names a drawing. */
+  subject?: string;
+  size?: number;
+  /** Named for a reader, rather than hidden from one. Only pass it where no name is on screen. */
+  title?: string;
+  className?: string;
+}
+
+export function SubjectIcon({ iconKey, subject, size = 18, title, className }: SubjectIconProps) {
+  const key = subjectIconKeyFor(iconKey, subject);
   return (
     <svg
-      className="subject-icon"
+      className={className ? `subject-icon ${className}` : 'subject-icon'}
       width={size}
       height={size}
       viewBox="0 0 24 24"

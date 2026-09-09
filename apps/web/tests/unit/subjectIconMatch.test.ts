@@ -43,6 +43,61 @@ describe('choosing a subject icon from its name', () => {
     expect(subjectIconForName('วิทยาศาสตร์')).toBe('science');
   });
 
+  it('recognises the electives a Thai school actually offers', () => {
+    const expected: Array<[string, string]> = [
+      ['วิทยาการคำนวณ', 'code'],
+      ['หุ่นยนต์เบื้องต้น', 'robot'],
+      ['ปัญญาประดิษฐ์และหุ่นยนต์', 'robot'],
+      ['ลูกเสือ-เนตรนารี', 'star'],
+      ['ยุวกาชาด', 'star'],
+      ['ห้องสมุดและการค้นคว้า', 'book'],
+      ['ภาษาจีน', 'globe'],
+      ['ภาษาเกาหลี', 'globe'],
+      ['เศรษฐศาสตร์', 'social'],
+      ['อาเซียนศึกษา', 'social'],
+      ['บัญชีเบื้องต้น', 'work'],
+      ['คอมพิวเตอร์ธุรกิจ', 'computer'],
+      ['ดาราศาสตร์', 'science'],
+      ['ว่ายน้ำ', 'sport'],
+      ['เพศศึกษา', 'health'],
+      ['ดุริยางค์', 'music'],
+      ['นาฏศิลป์ไทย', 'drama'],
+      ['ถ่ายภาพ', 'art']
+    ];
+    for (const [name, icon] of expected) expect(subjectIconForName(name), name).toBe(icon);
+  });
+
+  it('reads what a subject is before the country it belongs to', () => {
+    // A Thai school names its own version of a subject by suffixing ไทย, and the rule for ภาษาไทย
+    // matches on ไทย alone — so every one of these was a pencil until the arts were read first.
+    expect(subjectIconForName('ดนตรีไทย')).toBe('music');
+    expect(subjectIconForName('นาฏศิลป์ไทย')).toBe('drama');
+    expect(subjectIconForName('จิตรกรรมไทย')).toBe('art');
+    expect(subjectIconForName('มวยไทย')).toBe('sport');
+    // And the language itself is still the language.
+    expect(subjectIconForName('ภาษาไทย')).toBe('language');
+    expect(subjectIconForName('วรรณคดีไทย')).toBe('language');
+  });
+
+  it('does not read the two letters of AI out of an English subject name', () => {
+    // "Thai" contains "ai". A bare two-letter rule would have drawn a robot on every English-named
+    // Thai class in the school, which is how a matcher like this normally goes wrong.
+    expect(subjectIconForName('Thai Language')).toBe('language');
+    expect(subjectIconForName('Thai Studies')).toBe('language');
+    expect(subjectIconForName('AI and Robotics')).toBe('robot');
+    // The generic word belongs to the foreign-language area only when it is qualified: "Thai
+    // Language" is the English name the seed itself carries for ภาษาไทย, and a bare `language`
+    // rule handed it to the globe.
+    expect(subjectIconForName('Foreign Languages')).toBe('globe');
+  });
+
+  it('gives computing science the code icon and robotics the robot', () => {
+    // Both are technology, and the rule for เทคโนโลยี used to swallow both.
+    expect(subjectIconForName('วิทยาการคำนวณ')).toBe('code');
+    expect(subjectIconForName('เทคโนโลยี')).toBe('code');
+    expect(subjectIconForName('หุ่นยนต์')).toBe('robot');
+  });
+
   it('reads a name however somebody typed it', () => {
     expect(subjectIconForName('  คณิตศาสตร์  ')).toBe('math');
     expect(subjectIconForName('Graphic Design')).toBe('art');
@@ -75,6 +130,13 @@ describe('choosing a subject icon from its name', () => {
     // matcher is wrong — these are the eight names it will meet most often.
     for (const seed of standardSubjects) {
       expect(subjectIconForName(seed.name), seed.name).toBe(seed.iconKey);
+    }
+  });
+
+  it('agrees with the catalogue in English too', () => {
+    // The seeds carry an English name as well, and a school that teaches in English types that one.
+    for (const seed of standardSubjects) {
+      expect(subjectIconForName(seed.nameEn), seed.nameEn).toBe(seed.iconKey);
     }
   });
 });

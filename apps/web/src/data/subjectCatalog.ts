@@ -65,12 +65,12 @@ export const subjectColors = [
 export type SubjectIconKey =
   | 'language' | 'math' | 'science' | 'social' | 'sport' | 'art' | 'work' | 'globe'
   | 'book' | 'music' | 'code' | 'atom' | 'leaf' | 'map' | 'history' | 'health'
-  | 'computer' | 'drama' | 'compass' | 'lotus' | 'star' | 'default';
+  | 'computer' | 'drama' | 'compass' | 'lotus' | 'star' | 'robot' | 'default';
 
 export const subjectIconKeys: SubjectIconKey[] = [
   'language', 'math', 'science', 'atom', 'social', 'history', 'map', 'globe',
   'sport', 'health', 'art', 'music', 'drama', 'work', 'leaf', 'computer',
-  'code', 'book', 'compass', 'lotus', 'star', 'default'
+  'code', 'robot', 'book', 'compass', 'lotus', 'star', 'default'
 ];
 
 export const subjectIconLabels: Record<SubjectIconKey, string> = {
@@ -78,8 +78,8 @@ export const subjectIconLabels: Record<SubjectIconKey, string> = {
   social: 'สังคมศึกษา', history: 'ประวัติศาสตร์', map: 'ภูมิศาสตร์', globe: 'ภาษาต่างประเทศ',
   sport: 'พลศึกษา', health: 'สุขศึกษา', art: 'ศิลปะ', music: 'ดนตรี', drama: 'นาฏศิลป์',
   work: 'การงานอาชีพ', leaf: 'เกษตร / ชีววิทยา', computer: 'คอมพิวเตอร์', code: 'เทคโนโลยี',
-  book: 'หนังสือ / ห้องสมุด', compass: 'แนะแนว', lotus: 'พระพุทธศาสนา', star: 'ชุมนุม / กิจกรรม',
-  default: 'ทั่วไป'
+  robot: 'หุ่นยนต์ / ปัญญาประดิษฐ์', book: 'หนังสือ / ห้องสมุด', compass: 'แนะแนว',
+  lotus: 'พระพุทธศาสนา', star: 'ชุมนุม / กิจกรรม', default: 'ทั่วไป'
 };
 
 /**

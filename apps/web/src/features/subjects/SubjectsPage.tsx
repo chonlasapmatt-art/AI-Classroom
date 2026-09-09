@@ -28,11 +28,28 @@ export function SubjectsPage() {
   const [iconKey, setIconKey] = useState<SubjectIconKey>('default');
   const picked = subjectColor(colorIndex);
 
+  /*
+   * The icon follows the name until somebody says otherwise.
+   *
+   * Nobody scrolls a grid of twenty-three drawings to choose the flask for วิทยาศาสตร์ — they type
+   * the name and press save, which is how six of the nine subjects in the live school ended up
+   * wearing the fallback. So the name picks, visibly, in the preview above the field, and the grid
+   * stays exactly where it was for the subject the guess gets wrong. Touching the grid ends the
+   * following: a deliberate choice is never overwritten by more typing.
+   */
+  const [name, setName] = useState('');
+  const [iconTouched, setIconTouched] = useState(false);
+  const shownIcon: SubjectIconKey = iconTouched ? iconKey : subjectIconForName(name);
+
   /** Opening the form on a subject starts from what that subject already wears. */
   function edit(subject: Subject | null) {
     setEditing(subject);
     setColorIndex(subject?.colorIndex ?? 0);
     setIconKey(isSubjectIconKey(subject?.iconKey ?? '') ? subject!.iconKey as SubjectIconKey : 'default');
+    setName(subject?.name ?? '');
+    // An existing subject already carries a decision, even when that decision was ทั่วไป. Only a new
+    // one is still open to being guessed at.
+    setIconTouched(subject !== null);
     setOpenForm(true);
   }
 
@@ -147,7 +164,12 @@ export function SubjectsPage() {
                 <input name="code" defaultValue={editing?.code ?? ''} required />
               </Field>
               <Field label="ชื่อวิชา">
-                <input name="name" defaultValue={editing?.name ?? ''} required />
+                <input
+                  name="name"
+                  defaultValue={editing?.name ?? ''}
+                  onChange={(event) => setName(event.target.value)}
+                  required
+                />
               </Field>
               <Field label="ชื่อภาษาอังกฤษ" hint="ไม่บังคับ">
                 <input name="nameEn" defaultValue={editing?.nameEn ?? ''} />
@@ -162,7 +184,7 @@ export function SubjectsPage() {
               control now, with the chosen pair previewed at the size the subject card draws it.
             */}
             <input type="hidden" name="colorIndex" value={colorIndex} />
-            <input type="hidden" name="iconKey" value={iconKey} />
+            <input type="hidden" name="iconKey" value={shownIcon} />
 
             <div className="subject-designer">
               <div className="subject-designer-preview" aria-hidden="true">
@@ -170,11 +192,11 @@ export function SubjectsPage() {
                   className="subject-medallion"
                   style={{ '--subject-color': picked.solid, '--subject-soft': picked.soft } as CSSProperties}
                 >
-                  <SubjectIcon iconKey={iconKey} size={26} />
+                  <SubjectIcon iconKey={shownIcon} size={26} />
                 </span>
                 <span className="subject-designer-preview-copy">
-                  <strong>{subjectIconLabels[isSubjectIconKey(iconKey) ? iconKey : 'default']}</strong>
-                  <small>{picked.name}</small>
+                  <strong>{subjectIconLabels[shownIcon]}</strong>
+                  <small>{iconTouched ? picked.name : `${picked.name} · เลือกจากชื่อวิชา`}</small>
                 </span>
               </div>
 
@@ -202,19 +224,23 @@ export function SubjectsPage() {
 
               <div className="subject-designer-field">
                 <span className="ui-field-label" id="subject-icon-legend">ไอคอน</span>
-                <p className="ui-field-hint">เลือกภาพที่ตรงกับวิชามากที่สุด · ใช้ทุกที่ที่อ้างถึงวิชานี้</p>
+                <p className="ui-field-hint">
+                  {iconTouched
+                    ? 'เลือกภาพที่ตรงกับวิชามากที่สุด · ใช้ทุกที่ที่อ้างถึงวิชานี้'
+                    : 'ระบบเลือกให้จากชื่อวิชาแล้ว · กดเปลี่ยนได้ถ้าไม่ตรง'}
+                </p>
                 <div className="subject-icon-choice" role="radiogroup" aria-labelledby="subject-icon-legend">
                   {subjectIconKeys.map((key) => (
                     <button
                       key={key}
                       type="button"
                       role="radio"
-                      aria-checked={iconKey === key}
+                      aria-checked={shownIcon === key}
                       aria-label={subjectIconLabels[key]}
                       title={subjectIconLabels[key]}
                       className="subject-icon-option"
                       style={{ '--subject-color': picked.solid, '--subject-soft': picked.soft } as CSSProperties}
-                      onClick={() => setIconKey(key)}
+                      onClick={() => { setIconKey(key); setIconTouched(true); }}
                     >
                       <SubjectIcon iconKey={key} size={20} />
                     </button>

@@ -3661,11 +3661,11 @@ tr.row-warning td { background: var(--warning-soft); }
   --subject-icon-soft: rgba(255, 255, 255, .58);
   --subject-icon-cut: color-mix(in srgb, var(--subject-color, var(--color-primary)) 55%, #000000);
 
-  --glass-tint: color-mix(in srgb, var(--subject-color, var(--color-primary)) 88%, #ffffff);
+  --glass-tint: color-mix(in srgb, var(--subject-color, var(--color-primary)) 95%, #ffffff);
   --glass-shift: color-mix(in oklch, var(--subject-color, var(--color-primary)) 70%, var(--brand-400));
 
   position: relative; isolation: isolate;
-  inline-size: 46px; block-size: 46px; flex: none;
+  inline-size: 48px; block-size: 48px; flex: none;
   display: inline-grid; place-items: center;
   /* A squircle rather than a rounded square: the corner is continuous, which is what stops a 46px
      tile reading as a button. */
@@ -3686,30 +3686,63 @@ tr.row-warning td { background: var(--warning-soft); }
     transform var(--duration-fast) var(--ease-spring),
     box-shadow var(--duration-normal) var(--ease-out);
 }
-/* The frost itself: a blurred pane over the gradient, which is what separates glass from paint. */
+/* The frost itself: a blurred pane over the gradient, which is what separates glass from paint.
+   The radial is the light source — one soft highlight off the top-left corner, the same corner for
+   every subject, so a row of tiles reads as objects lit by one lamp rather than as flat swatches
+   that each glow on their own terms. */
 .subject-medallion::before {
   content: ''; position: absolute; inset: 0; z-index: -1;
   border-radius: inherit;
   backdrop-filter: blur(6px) saturate(1.25);
-  background: linear-gradient(160deg, rgba(255,255,255,.28), rgba(255,255,255,.04) 58%, transparent);
+  background:
+    radial-gradient(110% 110% at 22% 16%, rgba(255,255,255,.32), transparent 54%),
+    linear-gradient(160deg, rgba(255,255,255,.12), rgba(255,255,255,.02) 62%, transparent);
 }
 @supports not (backdrop-filter: blur(1px)) {
-  .subject-medallion::before { background: linear-gradient(160deg, rgba(255,255,255,.34), transparent 62%); }
+  .subject-medallion::before {
+    background:
+      radial-gradient(110% 110% at 22% 16%, rgba(255,255,255,.36), transparent 56%),
+      linear-gradient(160deg, rgba(255,255,255,.16), transparent 64%);
+  }
+}
+/*
+   The rim, in the subject's own colour rather than in white.
+   A 1px ring painted as a gradient needs the two-mask trick — fill the padding box, punch out the
+   content box, keep the difference — and the whole rule is behind @supports because the fallback for
+   a browser without it is not a missing ring but a solid gradient covering the drawing. The white
+   inset ring in the box-shadow above is what those browsers keep.
+*/
+@supports ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+  .subject-medallion::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    border-radius: inherit; padding: 1px;
+    background: linear-gradient(150deg,
+      color-mix(in srgb, #ffffff 72%, var(--subject-color, var(--color-primary))),
+      color-mix(in srgb, var(--subject-color, var(--color-primary)) 55%, transparent) 62%,
+      color-mix(in srgb, #ffffff 30%, transparent));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
 }
 /* The drawing sits on the glass, so it is white with its own soft halo rather than the subject
    colour it used to be — the colour moved to the tile behind it. */
 .subject-medallion .subject-icon {
   filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--subject-color, #000) 45%, transparent));
 }
-.subject-card:hover .subject-medallion {
-  transform: translateY(-1px) scale(1.03);
+.subject-card:hover .subject-medallion,
+.subject-medallion:hover {
+  transform: translateY(-1px) scale(1.05);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, .3),
     inset 0 1px 0 rgba(255, 255, 255, .45),
     0 8px 22px -6px color-mix(in srgb, var(--subject-color, #666) 72%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
-  .subject-medallion, .subject-card:hover .subject-medallion { transition: none; transform: none; }
+  .subject-medallion,
+  .subject-card:hover .subject-medallion,
+  .subject-medallion:hover { transition: none; transform: none; }
 }
 
 /* The card borrows the subject's colour on hover: a ring and a glow in the same hue the badge is
