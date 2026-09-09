@@ -5,6 +5,7 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { Badge, Button, Card, CardHeader, Field, FieldGroup, PageHeader } from '../../ui/components';
 import { AvatarPicker } from '../avatars/AvatarPicker';
 import { AvatarWidget } from '../avatars/AvatarWidget';
+import { pointsBalanceFor, unlockedOutfitsFor } from '../rewards/studentPoints';
 import { isRouteAllowed } from '../../layouts/navigation';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { useToast } from '../../ui/toastContext';
@@ -109,7 +110,7 @@ export function ProfilePage() {
       {/* The person's own card: what they are wearing, what they have been given, how far their
           points have taken them. It only appears for an account that has a student record, because
           medals and points belong to a student rather than to a role. */}
-      {student && <AvatarWidget student={student} showHonourLink={isRouteAllowed(membership.role, '/achievements')} />}
+      {student && <AvatarWidget student={student} showHonourLink={false} />}
 
       <div className="profile-grid">
         <Card className="profile-card">
@@ -197,7 +198,12 @@ export function ProfilePage() {
         <AvatarPicker
           displayName={membership.displayName}
           currentAvatarId={avatarId}
-          {...(student ? { currentOutfit: student.avatarConfig?.outfit ?? null } : {})}
+          {...(student ? {
+            currentOutfit: student.avatarConfig?.outfit ?? null,
+            points: pointsBalanceFor(snapshot, student.id).balance,
+            unlocked: unlockedOutfitsFor(snapshot, student.id),
+            onRedeem: (outfitId: string) => repository.redeemOutfit(membership.profileId, outfitId)
+          } : {})}
           onSave={saveAvatar}
           onClose={() => setPickerOpen(false)}
         />

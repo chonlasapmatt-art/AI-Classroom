@@ -112,6 +112,16 @@ export interface AvatarConfig {
    * outfits existed has none, and an avatar with none wears the school uniform it always wore.
    */
   outfit?: string;
+  /**
+   * The outfits this child has exchanged points for, and the points that went on them.
+   *
+   * Earning is computed -- attendance marks and the score ledger both already say what a child has
+   * earned -- but spending cannot be recomputed from anything, so it is the one part written down.
+   * It lives here because this is the one row a student is allowed to write for themselves, through
+   * a definer function that checks the price rather than trusting the number it is sent.
+   */
+  unlockedOutfits?: string[];
+  spentPoints?: number;
 }
 export type AvatarAnimation = 'idle' | 'blink' | 'wave' | 'study' | 'celebrate' | 'thinking';
 

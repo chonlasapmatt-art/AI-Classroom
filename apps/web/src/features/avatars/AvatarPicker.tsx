@@ -5,7 +5,7 @@ import { Icon } from '../../ui/Icon';
 import {
   AVATAR_CATALOG_SIZE, avatarCategoryLabels, searchAvatars, type AvatarCategory
 } from './avatarCatalog';
-import { avatarOutfits, defaultOutfit } from './avatarOutfits';
+import { avatarOutfits, canWearOutfit, defaultOutfit, outfitPrice } from './avatarOutfits';
 import { avatarPalettes, hairStyles, skinTones } from './avatarThemes';
 import { ProfileAvatar } from './ProfileAvatar';
 import { ThemedAvatar } from './ThemedAvatar';
@@ -20,6 +20,11 @@ interface Props {
    * a teacher or a guardian picking their avatar sees the picker exactly as it was.
    */
   currentOutfit?: string | null;
+  /** What the child has to spend. Absent when nobody is shopping — a teacher dressing a pupil. */
+  points?: number;
+  /** The priced outfits they have already bought. */
+  unlocked?: ReadonlySet<string>;
+  onRedeem?(outfitId: string): Promise<void>;
   onSave(avatarId: string, outfit: string | null): Promise<void> | void;
   onClose(): void;
 }
@@ -45,10 +50,21 @@ const poses: Array<{ value: AvatarAnimation; label: string }> = [
 ];
 
 /** Self-service avatar picker: preview a pose, search, filter, choose, save. */
-export function AvatarPicker({ displayName, currentAvatarId, currentOutfit, onSave, onClose }: Props) {
+export function AvatarPicker({ displayName, currentAvatarId, currentOutfit, points, unlocked, onRedeem, onSave, onClose }: Props) {
   const [selected, setSelected] = useState<string | null>(currentAvatarId);
   const wardrobe = currentOutfit !== undefined;
   const [outfit, setOutfit] = useState<string>(currentOutfit ?? defaultOutfit.id);
+  /*
+   * Shopping is a different thing from dressing, and only one of them belongs to the child.
+   *
+   * A teacher composing a pupil's avatar is not spending that child's points, so the prices are
+   * shown only when somebody is standing here with a balance of their own. Without one the wardrobe
+   * behaves exactly as it did.
+   */
+  const shopping = typeof points === "number";
+  const owned = unlocked ?? new Set<string>();
+  const [buying, setBuying] = useState<string | null>(null);
+  const [shopError, setShopError] = useState<string | null>(null);
   const [pose, setPose] = useState<AvatarAnimation>('wave');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<AvatarCategory | 'all'>('all');
@@ -154,20 +170,45 @@ export function AvatarPicker({ displayName, currentAvatarId, currentOutfit, onSa
           {wardrobe && (
             <div className="avatar-pose-picker">
               <span className="ui-field-label" id="avatar-outfit-label">ชุดเสื้อผ้า</span>
-              <div className="avatar-pose-options" role="group" aria-labelledby="avatar-outfit-label">
-                {avatarOutfits.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={`avatar-pose ${outfit === option.id ? 'selected' : ''}`}
-                    aria-pressed={outfit === option.id}
-                    title={option.description}
-                    onClick={() => setOutfit(option.id)}
-                  >
-                    {option.name}
-                  </button>
-                ))}
+              {shopping && (
+                <p className="ui-field-hint wardrobe-balance">
+                  แต้มสะสมของคุณ <strong>{points}</strong> แต้ม · ได้จากการมาเรียนและคะแนนจิตพิสัยที่คุณครูให้
+                </p>
+              )}
+              <div className="avatar-pose-options wardrobe" role="group" aria-labelledby="avatar-outfit-label">
+                {avatarOutfits.map((option) => {
+                  const price = outfitPrice(option.id);
+                  const wearable = canWearOutfit(option.id, owned);
+                  // A locked outfit is still a button, and pressing it buys rather than wears: a
+                  // disabled tile with a number on it tells a child what they cannot have and gives
+                  // them nothing to do about it.
+                  const affordable = shopping && (points ?? 0) >= price;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`avatar-pose ${outfit === option.id ? "selected" : ""}${wearable ? "" : " locked"}`}
+                      aria-pressed={outfit === option.id}
+                      title={wearable ? option.description : `${option.description} · ใช้ ${price} แต้มเพื่อปลดล็อก`}
+                      disabled={buying !== null || (!wearable && (!shopping || !affordable))}
+                      onClick={() => {
+                        if (wearable) { setOutfit(option.id); return; }
+                        if (!onRedeem) return;
+                        setShopError(null);
+                        setBuying(option.id);
+                        void onRedeem(option.id)
+                          .then(() => setOutfit(option.id))
+                          .catch((reason: unknown) => setShopError(reason instanceof Error ? reason.message : "แลกไม่สำเร็จ"))
+                          .finally(() => setBuying(null));
+                      }}
+                    >
+                      {option.name}
+                      {!wearable && <span className="wardrobe-price">{buying === option.id ? "กำลังแลก…" : `${price} แต้ม`}</span>}
+                    </button>
+                  );
+                })}
               </div>
+              {shopError && <p className="ui-field-message" role="alert">{shopError}</p>}
             </div>
           )}
 

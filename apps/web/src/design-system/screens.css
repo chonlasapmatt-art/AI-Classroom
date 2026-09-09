@@ -839,6 +839,23 @@
 
 .avatar-pose-picker { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: var(--space-2); }
 .avatar-pose-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+/* ── The wardrobe, once it has prices in it ────────────────────────────────────────────────────
+   A locked outfit is still a button and pressing it buys: a greyed-out tile with a number on it
+   tells a child what they cannot have and gives them nothing to do about it. The price sits under
+   the name rather than replacing it, so the tile still says what the thing is. */
+.wardrobe-balance { margin: 0 0 var(--space-2); }
+.wardrobe-balance strong { color: var(--brand-700); font-size: var(--text-md); }
+.avatar-pose.locked {
+  flex-direction: column; gap: 2px; min-height: 46px;
+  border-style: dashed; color: var(--ink-500);
+}
+.avatar-pose.locked:not(:disabled):hover { border-style: solid; border-color: var(--brand-500); color: var(--brand-700); }
+.avatar-pose.locked:disabled { opacity: .55; cursor: not-allowed; }
+.wardrobe-price {
+  display: block; font-size: 10px; font-weight: var(--weight-heavy);
+  color: var(--brand-600); letter-spacing: .02em;
+}
+.avatar-pose.locked:disabled .wardrobe-price { color: var(--ink-400); }
 .avatar-pose {
   min-height: 34px; padding: 0 var(--space-3); border: 1px solid transparent; border-radius: var(--radius-pill);
   color: var(--ink-600); background: color-mix(in srgb, var(--surface) 75%, transparent);

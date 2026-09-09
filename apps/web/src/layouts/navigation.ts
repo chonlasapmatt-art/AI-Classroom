@@ -83,8 +83,7 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/reports', 'กล่องข้อความห้องเรียน', 'reports'),
       destination('/attendance', 'ประวัติการเข้าเรียน', 'attendance'),
       destination('/analytics', 'รายงานเชิงลึก', 'reports'),
-      destination('/leaderboard', 'Leaderboard', 'leaderboard'),
-      destination('/achievements', 'เหรียญรางวัล', 'achievements')
+      destination('/leaderboard', 'Leaderboard', 'leaderboard')
     ] },
     { key: 'operations', label: 'Sync และ Backup', items: [
       destination('/operations', 'Sync & Backup', 'operations')
@@ -141,8 +140,7 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     { key: 'reports', label: 'รายงาน', items: [
       destination('/reports', 'กล่องข้อความห้องเรียน', 'reports'),
       destination('/analytics', 'รายงานเชิงลึก', 'reports'),
-      destination('/leaderboard', 'Leaderboard', 'leaderboard'),
-      destination('/achievements', 'เหรียญรางวัล', 'achievements')
+      destination('/leaderboard', 'Leaderboard', 'leaderboard')
     ] },
     { key: 'operations', label: 'Sync', items: [
       destination('/operations', 'สถานะ Sync', 'operations')

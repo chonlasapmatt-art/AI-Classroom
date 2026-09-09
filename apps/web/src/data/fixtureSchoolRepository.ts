@@ -12,7 +12,8 @@ import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
 import { achievementNoticesFor } from '../academic/achievementNotices';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
-import { isValidOutfitId } from '../features/avatars/avatarOutfits';
+import { isValidOutfitId, outfitPrice } from '../features/avatars/avatarOutfits';
+import { pointsBalanceFor } from '../features/rewards/studentPoints';
 import { configFromIndex } from '../features/avatars/avatarThemes';
 import { attachmentKindFor } from './attachmentKind';
 import { buildFixtureData, FIXTURE_SCHOOL_ID, type FixtureData } from './fixtures/schoolFixture';
@@ -716,6 +717,29 @@ export class FixtureSchoolRepository implements SchoolRepository {
       const record = this.data.parentLinks.find((item) => item.id === owner.id)!;
       this.data.parentLinks = this.upsert(this.data.parentLinks, { ...record, ...patch, updatedAt: timestamp });
     }
+    this.emit();
+  }
+
+  async redeemOutfit(actorProfileId: string, outfitId: string): Promise<void> {
+    const student = this.data.students.find((item) => item.profileId === actorProfileId);
+    if (!student) throw new Error('ไม่พบบัญชีนักเรียนของคุณ');
+    const price = outfitPrice(outfitId);
+    const config = student.avatarConfig;
+    const unlocked = new Set(config?.unlockedOutfits ?? []);
+    if (price === 0 || unlocked.has(outfitId)) return;
+    const balance = pointsBalanceFor(this.snapshot(), student.id);
+    if (balance.balance < price) throw new Error(`แต้มไม่พอ · ต้องใช้ ${price} แต้ม มีอยู่ ${balance.balance} แต้ม`);
+    unlocked.add(outfitId);
+    this.data.students = this.data.students.map((item) => (item.id === student.id
+      ? {
+        ...item,
+        avatarConfig: {
+          ...(config ?? { archetype: 0, palette: 0, skinTone: 0, hair: 0, accessory: 0, badge: 0 }),
+          unlockedOutfits: [...unlocked],
+          spentPoints: (config?.spentPoints ?? 0) + price
+        }
+      }
+      : item));
     this.emit();
   }
 

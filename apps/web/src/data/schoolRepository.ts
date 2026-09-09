@@ -290,6 +290,15 @@ export interface SchoolRepository {
    * configuration a teacher may have set, so nothing else about the drawing is lost.
    */
   saveOwnOutfit(actorProfileId: string, outfitId: string): Promise<void>;
+  /**
+   * Exchanges points for an outfit, for the acting student and nobody else.
+   *
+   * The price and the balance are both read on the server: a device may ask to buy and that is all
+   * it may do, because the record it would otherwise be trusted to write is the child's own. Buying
+   * something already owned is not an error and does not charge twice, so a second press or a
+   * retried request is safe.
+   */
+  redeemOutfit(actorProfileId: string, outfitId: string): Promise<void>;
   /** Uploads a photo of your own and uses it as your profile picture. */
   saveOwnAvatarPhoto(actorProfileId: string, role: 'teacher' | 'student' | 'parent', file: File): Promise<void>;
   /** Goes back to the drawn avatar and deletes the stored photo. */

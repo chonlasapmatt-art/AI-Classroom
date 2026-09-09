@@ -17,7 +17,7 @@ import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
 import { achievementNoticesFor } from '../academic/achievementNotices';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
-import { isValidOutfitId } from '../features/avatars/avatarOutfits';
+import { isValidOutfitId, outfitPrice } from '../features/avatars/avatarOutfits';
 import { configFromIndex } from '../features/avatars/avatarThemes';
 import { scopeSchoolSnapshot, type VisibilityScope } from './visibility';
 import {
@@ -921,6 +921,28 @@ export class DexieSchoolRepository implements SchoolRepository {
     const parentLink = await db.parentLinks.where({ schoolId: this.schoolId, profileId: actorProfileId }).first()
       ?? await db.parentLinks.where({ schoolId: this.schoolId, lineUserId: actorProfileId }).first();
     if (parentLink) await db.parentLinks.put({ ...parentLink, avatarId, updatedAt: timestamp });
+  }
+
+  async redeemOutfit(actorProfileId: string, outfitId: string): Promise<void> {
+    if (!isValidOutfitId(outfitId)) throw new Error('ไม่รู้จักชุดนี้');
+    await this.rpc('redeem_outfit', { p_school_id: this.schoolId, p_outfit: outfitId });
+    // The server is the authority on what was spent; this is the local copy catching up so the
+    // wardrobe unlocks without waiting for a pull.
+    const student = await db.students.where({ schoolId: this.schoolId, profileId: actorProfileId }).first();
+    if (!student) return;
+    const config = student.avatarConfig ?? null;
+    const unlocked = new Set(config?.unlockedOutfits ?? []);
+    if (unlocked.has(outfitId)) return;
+    unlocked.add(outfitId);
+    await db.students.put({
+      ...student,
+      avatarConfig: {
+        ...(config ?? { archetype: 0, palette: 0, skinTone: 0, hair: 0, accessory: 0, badge: 0 }),
+        unlockedOutfits: [...unlocked],
+        spentPoints: (config?.spentPoints ?? 0) + outfitPrice(outfitId)
+      },
+      updatedAt: nowIso()
+    });
   }
 
   async saveOwnOutfit(actorProfileId: string, outfitId: string): Promise<void> {
