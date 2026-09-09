@@ -84,7 +84,30 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/platform/],
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         globIgnores: ['platform/**', 'assets/platform-*.js'],
-        cleanupOutdatedCaches: true
+        cleanupOutdatedCaches: true,
+        /*
+         * The new worker takes over by itself, and this is a correction rather than a preference.
+         *
+         * Without it a freshly installed worker sits in `waiting` until the running page sends it
+         * SKIP_WAITING — which the app only does when somebody presses "อัปเดตตอนนี้". That made one
+         * button the single door to every future version, so any fault behind it stranded the device
+         * for good: an outbox that never drained refused the press, and a waiting worker that had
+         * since been collected made the press do nothing at all. Both were real, both were fixed —
+         * and neither fix could reach the devices that were already stuck, because reaching them
+         * meant shipping them new JavaScript through the door that was broken.
+         *
+         * The usual escape, "close every tab and reopen", does not work for the installed app: the
+         * waiting worker only activates once no client of the origin is left, and a classroom tablet
+         * with the app permanently open never gets there.
+         *
+         * So the swap no longer needs asking. `skipWaiting` activates the new worker as soon as it
+         * has installed; `clientsClaim` puts it in charge of pages that are already open. Nothing
+         * reloads — the running page keeps its own JavaScript until the person reloads or navigates,
+         * so no lesson is interrupted — but from that moment the next ordinary refresh serves the
+         * new build, and the update prompt becomes a convenience rather than the only way through.
+         */
+        skipWaiting: true,
+        clientsClaim: true
       }
     })
   ],

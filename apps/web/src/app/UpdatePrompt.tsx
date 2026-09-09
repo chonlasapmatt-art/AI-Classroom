@@ -23,6 +23,27 @@ export function UpdatePrompt() {
   const [incomingVersion, setIncomingVersion] = useState<string | null>(null);
   const [incomingNotes, setIncomingNotes] = useState<ReleaseNote[]>([]);
 
+  /*
+   * A new worker can now take charge without being asked, so the banner has to notice that too.
+   *
+   * `skipWaiting` and `clientsClaim` mean the installed worker activates and claims this page on its
+   * own; the page keeps running the JavaScript it already has, which is what stops a lesson being
+   * interrupted, but it is now one refresh away from a different build and the person should be told
+   * rather than left to find out.
+   *
+   * The guard matters: `controllerchange` also fires the first time a worker ever takes control of a
+   * page, on a fresh install where there is nothing to update. Only a handover *from* an existing
+   * controller is news.
+   */
+  const [handedOver, setHandedOver] = useState(false);
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    const onChange = () => { if (hadController) setHandedOver(true); };
+    navigator.serviceWorker.addEventListener('controllerchange', onChange);
+    return () => navigator.serviceWorker.removeEventListener('controllerchange', onChange);
+  }, []);
+
   const {
     offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],
@@ -89,8 +110,11 @@ export function UpdatePrompt() {
    * the kind unknown, and the prompt words itself generally rather than not appearing — knowing
    * less about an update is never a reason to hide it.
    */
+  /** A newer build is on this device, whether it announced itself or simply took over. */
+  const updateReady = needRefresh || handedOver;
+
   useEffect(() => {
-    if (!needRefresh) return;
+    if (!updateReady) return;
     setDismissed(false);
     setPreparationError(null);
     let active = true;
@@ -103,7 +127,7 @@ export function UpdatePrompt() {
       setIncomingNotes(notesBetween(APP_VERSION, release.version, release.notes));
     });
     return () => { active = false; };
-  }, [needRefresh]);
+  }, [updateReady]);
 
   const kind = updateKindFor(APP_VERSION, incomingVersion);
   const highlights = changesIn(incomingNotes);
@@ -155,10 +179,10 @@ export function UpdatePrompt() {
     }
   };
 
-  if (!needRefresh && !offlineReady) return null;
+  if (!updateReady && !offlineReady) return null;
   if (dismissed && !offlineReady) return null;
 
-  if (needRefresh) {
+  if (updateReady) {
     const copy = updateCopy[kind];
     return (
       <div className="update-banner" data-kind={kind} role="status">
@@ -197,7 +221,7 @@ export function UpdatePrompt() {
           <Button
             variant="ghost"
             disabled={preparing}
-            onClick={() => { setNeedRefresh(false); setDismissed(true); }}
+            onClick={() => { setNeedRefresh(false); setHandedOver(false); setDismissed(true); }}
           >
             ภายหลัง
           </Button>
