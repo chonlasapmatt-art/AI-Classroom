@@ -4,7 +4,7 @@ import { UpdateMark } from './UpdateMark';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db } from '../db/database';
 import {
-  APP_VERSION, fetchIncomingRelease, prepareForUpdate, readLastCheckedAt, shouldCheckNow,
+  APP_VERSION, fetchIncomingRelease, prepareForUpdate, readLastCheckedAt, shouldRequestUpdate,
   UPDATE_CHECK_INTERVAL_MS, updateCopy, updateKindFor, writeLastCheckedAt
 } from './appUpdate';
 import { changesIn, notesBetween } from './releaseNotes';
@@ -40,10 +40,29 @@ export function UpdatePrompt() {
        * of a thirty-minute window and served the same old build again. Opening the page is the one
        * moment somebody is explicitly asking for the current version, so it never gets throttled.
        */
+      /*
+       * Two things this has to survive, both of which it did not.
+       *
+       *   * **A worker that is still installing.** `update()` on a registration whose worker has not
+       *     finished installing throws `InvalidStateError`, and the very first thing this did on
+       *     every fresh load was call it — so the one check a person explicitly asked for by opening
+       *     the page was the one guaranteed to fail. Waiting for the install to settle costs
+       *     nothing: a worker that just installed is by definition the current build.
+       *   * **A rejection nobody caught.** `void promise.then(...)` with no `catch` turns a failed
+       *     check into an unhandled rejection in the console and leaves `writeLastCheckedAt` unrun,
+       *     so the throttle never advances and the next check fires immediately. A check that fails
+       *     is a check that failed; it is not an error worth showing anybody, and it must not stop
+       *     the schedule.
+       */
       const check = (force = false) => {
-        if (!navigator.onLine) return;
-        if (!force && !shouldCheckNow(readLastCheckedAt())) return;
-        void registration.update().then(() => writeLastCheckedAt());
+        const allowed = shouldRequestUpdate({
+          online: navigator.onLine,
+          installing: Boolean(registration.installing),
+          force,
+          lastCheckedAt: readLastCheckedAt()
+        });
+        if (!allowed) return;
+        void registration.update().then(() => writeLastCheckedAt()).catch(() => { /* try again later */ });
       };
 
       check(true);
@@ -90,21 +109,48 @@ export function UpdatePrompt() {
   const highlights = changesIn(incomingNotes);
   const shown = highlights.slice(0, 4);
 
+  /**
+   * Flush what can be flushed, then update — rather than refusing to.
+   *
+   * This used to stop dead whenever anything was left in the outbox, on the stated grounds of
+   * preventing data loss. There is no data loss to prevent: `syncQueue` is a Dexie table in
+   * IndexedDB, so it survives a reload by construction — that is the entire point of a durable
+   * queue, and the app already relies on it every time a tab is closed mid-lesson. What the refusal
+   * actually did was make the update unreachable for exactly the devices that most need it: one row
+   * stuck pending — a spotty connection, a mutation the server keeps rejecting, a tablet that has
+   * been offline since Friday — and "อัปเดตตอนนี้" printed a red line and did nothing, for ever.
+   *
+   * So the outbox is reported, not obeyed. Syncing first is still worth doing, because sending the
+   * work now is better than sending it after a reload; failing to is not a reason to strand somebody
+   * on an old build.
+   */
   const applyUpdateSafely = async () => {
     if (preparing) return;
     setPreparing(true);
     setPreparationError(null);
     try {
-      const result = await prepareForUpdate();
+      // A preparation that throws is a preparation that did not happen, which is a thing to mention
+      // rather than a thing to stop for.
+      const result = await prepareForUpdate().catch(() => null);
       const queued = await db.syncQueue.where('status').anyOf('pending', 'processing').count().catch(() => 0);
-      if (!result.ready || queued > 0) {
-        setPreparationError(!result.ready ? result.message : `มีข้อมูลรอซิงก์ ${queued} รายการ ระบบยังไม่รีโหลดเพื่อป้องกันข้อมูลหาย`);
-        return;
+      if (queued > 0) {
+        setPreparationError(`มีข้อมูลรอซิงก์ ${queued} รายการ · ระบบเก็บไว้ในเครื่องและจะส่งให้เองหลังอัปเดต`);
+      } else if (result && !result.ready) {
+        setPreparationError(result.message);
       }
       await updateServiceWorker(true);
+
+      /*
+       * And if the reload does not happen, do it here.
+       *
+       * `updateServiceWorker(true)` tells the waiting worker to take over and reloads when it does.
+       * A worker that was collected, or a browser that never fires `controllerchange`, leaves the
+       * page sitting on the old build with the button spent — the failure this whole function exists
+       * to avoid. Two and a half seconds is longer than the handover ever takes.
+       */
+      window.setTimeout(() => window.location.reload(), 2500);
     } catch (reason) {
-      setPreparationError(reason instanceof Error ? reason.message : 'เตรียมข้อมูลก่อนอัปเดตไม่สำเร็จ กรุณาลองใหม่');
-    } finally {
+      setPreparationError(reason instanceof Error ? reason.message : 'อัปเดตไม่สำเร็จ กรุณาลองใหม่');
       setPreparing(false);
     }
   };

@@ -50,6 +50,30 @@ export function shouldCheckNow(lastCheckedAt: string | null, now = new Date(), i
   return now.getTime() - last >= intervalMs;
 }
 
+/**
+ * Whether asking the server for a newer worker right now is worth doing — and legal.
+ *
+ * Pulled out of the component because both of its rules were learnt the hard way and neither is
+ * obvious from the call site:
+ *
+ *   * **installing** — `registration.update()` on a worker that has not finished installing throws
+ *     `InvalidStateError`. The first thing the app did on every fresh load was call it, so the one
+ *     check somebody explicitly asked for by opening the page was the one guaranteed to fail. A
+ *     worker that just installed is the current build anyway; there is nothing to ask about.
+ *   * **force** — the thirty-minute throttle is right for a tab left open all day and wrong for a
+ *     load: opening the page is somebody asking for the current version, and answering "you asked
+ *     eleven minutes ago" is answering the wrong question.
+ */
+export function shouldRequestUpdate(
+  { online, installing, force, lastCheckedAt, now }:
+  { online: boolean; installing: boolean; force: boolean; lastCheckedAt: string | null; now?: Date }
+): boolean {
+  if (!online) return false;
+  if (installing) return false;
+  if (force) return true;
+  return shouldCheckNow(lastCheckedAt, now ?? new Date());
+}
+
 export function readLastCheckedAt(): string | null {
   try { return window.localStorage.getItem(LAST_CHECK_KEY); } catch { return null; }
 }
@@ -86,6 +110,10 @@ export async function checkForUpdateNow(): Promise<boolean> {
   if (!('serviceWorker' in navigator)) return false;
   const registration = await navigator.serviceWorker.getRegistration();
   if (!registration) return false;
+  // A worker that is still installing is already the newest build, and asking it to update throws
+  // `InvalidStateError` — which reached the settings screen as "ตรวจหาอัปเดตไม่สำเร็จ" on exactly
+  // the load where the app had just fetched everything it needed.
+  if (registration.installing) return true;
   await registration.update();
   writeLastCheckedAt();
   return true;
