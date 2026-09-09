@@ -30,6 +30,16 @@ export function StudentsPage() {
   const classes = activeClasses(snapshot);
   const [classId, setClassId] = useState('');
   const [open, setOpen] = useState(false);
+  /*
+   * Where the new names land, chosen in the dialog rather than inherited from the filter above it.
+   *
+   * The room was taken from whatever the roster filter happened to be showing, which meant the one
+   * question that decides where a child ends up was answered by a control the administrator was
+   * using to look at something else. `''` is a real answer here — "not in a room yet" — because a
+   * child who has enrolled but not been placed is an ordinary Monday, and the class can be given
+   * later from this screen or from ห้องเรียน.
+   */
+  const [destination, setDestination] = useState('');
   const [addMode, setAddMode] = useState<AddMode>('one');
   const [pasted, setPasted] = useState('');
   const [readingFile, setReadingFile] = useState(false);
@@ -44,9 +54,25 @@ export function StudentsPage() {
   const selectedClassId = classId || classes[0]?.id || '';
   const canEdit = membership.role === 'admin';
   const isStudentView = membership.role === 'student';
-  const roster = useMemo(
-    () => (selectedClassId ? rosterFor(snapshot, selectedClassId) : snapshot.students),
-    [snapshot, selectedClassId]
+  /*
+   * Two views the room filter could not express: everybody, and nobody's room yet.
+   *
+   * Adding a child before placing them is now a supported order of events, so the screen has to be
+   * able to show the children that leaves — otherwise a name is saved and then disappears from the
+   * only list that could put it in a class.
+   */
+  const placedStudentIds = useMemo(
+    () => new Set(snapshot.enrollments.filter((item) => item.status === 'active').map((item) => item.studentId)),
+    [snapshot.enrollments]
+  );
+  const roster = useMemo(() => {
+    if (selectedClassId === 'all') return snapshot.students;
+    if (selectedClassId === 'unplaced') return snapshot.students.filter((student) => !placedStudentIds.has(student.id));
+    return selectedClassId ? rosterFor(snapshot, selectedClassId) : snapshot.students;
+  }, [placedStudentIds, snapshot, selectedClassId]);
+  const unplacedCount = useMemo(
+    () => snapshot.students.filter((student) => !placedStudentIds.has(student.id)).length,
+    [placedStudentIds, snapshot.students]
   );
   // Forty names is more than a screen holds, and finding one of them was a scroll.
   const students = useMemo(() => {
@@ -120,7 +146,7 @@ export function StudentsPage() {
     try {
       const id = crypto.randomUUID();
       await repository.saveStudent({ id, studentCode, displayName, avatarIndex: snapshot.students.length * 7 });
-      if (selectedClassId && term) await repository.enrollStudent(id, selectedClassId, term.id);
+      if (destination && term) await repository.enrollStudent(id, destination, term.id);
       if (mode === 'cloud') {
         // The roster row is written locally and queued, and the account is bound to it by id on the
         // server. Provisioning before that queue drains asks the server about a student it has not
@@ -131,7 +157,8 @@ export function StudentsPage() {
       }
       form.reset();
       setOpen(false);
-      toast(`เพิ่ม ${displayName} แล้ว`);
+      const room = classes.find((item) => item.id === destination)?.name;
+      toast(room ? `เพิ่ม ${displayName} เข้าห้อง ${room} แล้ว` : `เพิ่ม ${displayName} แล้ว · ยังไม่ได้เข้าห้อง`);
     } catch (reason) {
       toast(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ', { tone: 'error' });
     }
@@ -176,11 +203,12 @@ export function StudentsPage() {
           id, studentCode: row.studentCode, displayName: row.displayName,
           avatarIndex: (snapshot.students.length + saved) * 7
         });
-        if (selectedClassId && term) await repository.enrollStudent(id, selectedClassId, term.id);
+        if (destination && term) await repository.enrollStudent(id, destination, term.id);
         saved += 1;
       }
       setPasted('');
-      toast(`เพิ่มนักเรียน ${saved} คนเข้าห้อง ${classes.find((item) => item.id === selectedClassId)?.name ?? '—'} แล้ว`);
+      const room = classes.find((item) => item.id === destination)?.name;
+      toast(room ? `เพิ่มนักเรียน ${saved} คนเข้าห้อง ${room} แล้ว` : `เพิ่มนักเรียน ${saved} คนแล้ว · ยังไม่ได้เข้าห้อง`);
       setOpen(false);
     } catch (reason) {
       toast(reason instanceof Error ? reason.message : `บันทึกได้ ${saved} คนแล้วหยุดที่ข้อผิดพลาด`, { tone: 'error' });
@@ -198,7 +226,16 @@ export function StudentsPage() {
           ? `${roster.length} คนในห้องเรียนของคุณ`
           : `${roster.length} คนในขอบเขตที่คุณเข้าถึงได้`}
         action={canEdit && (
-          <Button variant="primary" icon={<Icon name="plus" size={16} />} onClick={() => setOpen((value) => !value)}>
+          <Button
+            variant="primary"
+            icon={<Icon name="plus" size={16} />}
+            onClick={() => {
+              // The dialog opens on the room being looked at, which is the usual intent, and the
+              // administrator can still say "not yet" without leaving the dialog.
+              setDestination(classes.some((item) => item.id === selectedClassId) ? selectedClassId : '');
+              setOpen((value) => !value);
+            }}
+          >
             เพิ่มนักเรียน
           </Button>
         )}
@@ -209,6 +246,8 @@ export function StudentsPage() {
           ห้องเรียน
           <select value={selectedClassId} onChange={(event) => setClassId(event.target.value)}>
             {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            {canEdit && <option value="all">ทุกห้อง</option>}
+            {canEdit && <option value="unplaced">ยังไม่เข้าห้อง{unplacedCount > 0 ? ` (${unplacedCount})` : ''}</option>}
           </select>
         </label>
         <SearchInput value={query} onChange={setQuery} placeholder="ค้นหาชื่อหรือเลขประจำตัว" />
@@ -225,10 +264,17 @@ export function StudentsPage() {
       {open && canEdit && (
         <Modal
           title="เพิ่มนักเรียน"
-          description={`เข้าห้อง ${classes.find((item) => item.id === selectedClassId)?.name ?? 'ที่เลือกไว้ด้านบน'}`}
+          description="บันทึกรายชื่อก่อน แล้วเลือกห้องได้ทันทีหรือค่อยจัดห้องทีหลัง"
           onClose={() => setOpen(false)}
           wide
         >
+          <Field label="เข้าห้องเรียน" hint="เลือก “ยังไม่เข้าห้อง” ถ้าจะจัดห้องทีหลัง · หาได้จากตัวกรองห้องด้านบน">
+            <select value={destination} onChange={(event) => setDestination(event.target.value)}>
+              <option value="">ยังไม่เข้าห้อง</option>
+              {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </Field>
+
           <Segmented
             ariaLabel="วิธีเพิ่มนักเรียน"
             value={addMode}
@@ -254,7 +300,7 @@ export function StudentsPage() {
               </FieldGroup>
               <div className="ui-form-actions">
                 <Button type="button" variant="ghost" onClick={() => setOpen(false)}>ยกเลิก</Button>
-                <Button variant="primary" type="submit">บันทึกและเข้าห้อง</Button>
+                <Button variant="primary" type="submit">{destination ? 'บันทึกและเข้าห้อง' : 'บันทึกรายชื่อ'}</Button>
               </div>
             </form>
           )}
@@ -313,7 +359,7 @@ export function StudentsPage() {
                   disabled={quickPreview.rows.length === 0}
                   onClick={() => void saveQuickAdd()}
                 >
-                  บันทึก {quickPreview.rows.length} คนเข้าห้องนี้
+                  บันทึก {quickPreview.rows.length} คน{destination ? ' เข้าห้องนี้' : ''}
                 </Button>
               </div>
               <p className="ui-field-hint">

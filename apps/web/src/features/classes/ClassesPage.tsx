@@ -78,6 +78,16 @@ export function ClassesPage() {
   const canEdit = isAdmin && repository.canManageStructure && Boolean(term);
   const classes = [...snapshot.classes].sort((a, b) => a.name.localeCompare(b.name, 'th'));
   const activeClassrooms = classes.filter((item) => item.status === 'active');
+  /*
+   * Putting a child into a room is not the same permission as opening one.
+   *
+   * Opening, renaming and closing a room is school structure and stays with the administrator. But
+   * the person who knows a child has moved into 4/1 on Monday morning is the teacher of 4/1, and
+   * they were being sent to find an administrator for a two-field form. The server already decides
+   * this the right way — `invite_student_to_class` accepts an admin or a teacher who holds the room
+   * — so the screen stops being stricter than the rule it is showing.
+   */
+  const canInvite = Boolean(term) && activeClassrooms.length > 0 && (isAdmin || membership.role === 'teacher');
 
   const visibleClasses = classes.filter((classroom) => {
     if (statusFilter !== 'all' && (statusFilter === 'active') !== (classroom.status === 'active')) return false;
@@ -203,7 +213,7 @@ export function ClassesPage() {
     event.preventDefault();
     const classId = rosterClassId || activeClassrooms[0]?.id || '';
     if (!classId || searchQuery.trim().length < 2) {
-      toast('เลือกห้องและพิมพ์ชื่อนักเรียนอย่างน้อย 2 ตัวอักษร');
+      toast('เลือกห้องและพิมพ์ชื่อหรือเลขประจำตัวนักเรียนอย่างน้อย 2 ตัวอักษร');
       return;
     }
     setSearching(true);
@@ -227,8 +237,13 @@ export function ClassesPage() {
           currentClassName: row.current_class_name ? String(row.current_class_name) : null
         })));
       } else {
+        // The same two ways in as the server: the name as written, or the number off the slip with
+        // its spaces and dashes ignored.
+        const needle = searchQuery.trim().toLocaleLowerCase('th');
+        const codeNeedle = searchQuery.replace(/[\s-]/g, '').toUpperCase();
         setSearchResults(snapshot.students
-          .filter((student) => student.displayName.toLocaleLowerCase('th').includes(searchQuery.trim().toLocaleLowerCase('th')))
+          .filter((student) => student.displayName.toLocaleLowerCase('th').includes(needle)
+            || (codeNeedle.length > 0 && student.studentCode.replace(/[\s-]/g, '').toUpperCase().includes(codeNeedle)))
           .slice(0, 20)
           .map((student) => {
             const enrollment = snapshot.enrollments.find((item) => item.studentId === student.id && item.status === 'active');
@@ -445,11 +460,13 @@ export function ClassesPage() {
         )}
       </Card>
 
-      {canEdit && activeClassrooms.length > 0 && (
+      {canInvite && (
         <Card>
           <CardHeader
             title="เพิ่มนักเรียนเข้าห้อง"
-            description="ค้นหาเฉพาะนักเรียนในโรงเรียนเดียวกัน สิทธิ์และความจุห้องตรวจที่เซิร์ฟเวอร์"
+            description={isAdmin
+              ? 'พิมพ์ชื่อหรือเลขประจำตัวนักเรียน แล้วกดเพิ่มเข้าห้อง · ค้นหาได้เฉพาะนักเรียนในโรงเรียนเดียวกัน'
+              : 'พิมพ์ชื่อหรือเลขประจำตัวนักเรียน แล้วกดเพิ่มเข้าห้องที่คุณดูแล · ความจุห้องตรวจที่เซิร์ฟเวอร์'}
           />
           <form onSubmit={(event) => void searchStudents(event)}>
             <FieldGroup columns={2}>
@@ -459,8 +476,8 @@ export function ClassesPage() {
                   {activeClassrooms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </Field>
-              <Field label="ชื่อนักเรียน" hint="พิมพ์อย่างน้อย 2 ตัวอักษร">
-                <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} minLength={2} placeholder="เช่น สมชาย" required />
+              <Field label="ชื่อ หรือ เลขประจำตัว" hint="พิมพ์อย่างน้อย 2 ตัวอักษร · เลขประจำตัวตรงจะขึ้นก่อน">
+                <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} minLength={2} placeholder="เช่น สมชาย หรือ 00123" required />
               </Field>
             </FieldGroup>
             <div className="ui-form-actions">
@@ -495,7 +512,7 @@ export function ClassesPage() {
             <EmptyState
               icon={<Icon name="search" size={28} />}
               title="ยังไม่พบรายชื่อ"
-              description="ลองตรวจการสะกด หรือพิมพ์เพียงบางส่วนของชื่อ"
+              description="ลองตรวจการสะกด พิมพ์เพียงบางส่วนของชื่อ หรือใช้เลขประจำตัวนักเรียนแทน"
             />
           )}
         </Card>
