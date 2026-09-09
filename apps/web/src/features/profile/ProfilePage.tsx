@@ -110,7 +110,7 @@ export function ProfilePage() {
       {/* The person's own card: what they are wearing, what they have been given, how far their
           points have taken them. It only appears for an account that has a student record, because
           medals and points belong to a student rather than to a role. */}
-      {student && <AvatarWidget student={student} showHonourLink={false} />}
+      {student && <AvatarWidget student={student} />}
 
       <div className="profile-grid">
         <Card className="profile-card">

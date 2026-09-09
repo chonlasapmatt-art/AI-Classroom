@@ -4,45 +4,32 @@ import { bonusTotalFor } from '../../data/selectors';
 import type { Student } from '../../domain/types';
 import { Badge, Card, EmptyState, LinkButton } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
-import { honourTally, honoursFor, honourTierLabels, type HonourItem } from '../achievements/honours';
 import { levelFromPoints } from './avatarLevels';
-import { outfitById } from './avatarOutfits';
+import { avatarOutfits, outfitById } from './avatarOutfits';
+import { pointsBalanceFor, unlockedOutfitsFor } from '../rewards/studentPoints';
 import { ProfileAvatar } from './ProfileAvatar';
 
-function HonourChip({ honour }: { honour: HonourItem }) {
-  const when = new Date(honour.awardedAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
-  return (
-    <li className="honour-chip" data-tier={honour.tier}>
-      <span className="honour-chip-medal" aria-hidden="true"><Icon name={honour.icon} size={16} /></span>
-      <span className="honour-chip-copy">
-        <strong>{honour.name}</strong>
-        <small>{honourTierLabels[honour.tier]} · ได้รับ {when}</small>
-      </span>
-    </li>
-  );
-}
-
 /**
- * One student, as they are: their avatar, what it is wearing, what they have been given and how far
- * their points have taken them.
+ * One student, as they are: their avatar, what it is wearing, and what they have to spend.
  *
  * Everything on it is read from records the school already keeps — the avatar from the student row,
- * the medals from the awards table, the points from the score events — so nothing here is a second
- * copy of anything, and a school that has awarded nothing yet gets a widget that says so rather than
- * an empty box.
+ * the points from the register and the score ledger — so nothing here is a second copy of anything,
+ * and a child who has just started gets a widget that says nought rather than an empty box.
  */
-export function AvatarWidget({ student, showHonourLink = true, limit = 4 }: {
+export function AvatarWidget({ student }: {
   student: Pick<Student, 'id' | 'displayName' | 'studentCode' | 'avatarId' | 'avatarIndex' | 'avatarConfig' | 'avatarPhotoId'>;
-  /** The medals list is a screen of its own; a teacher on the roster does not always want the link. */
-  showHonourLink?: boolean;
-  limit?: number;
 }) {
   const snapshot = useSchoolSnapshot();
-  const honours = useMemo(() => honoursFor(snapshot, student.id), [snapshot, student.id]);
   const points = bonusTotalFor(snapshot, student.id);
-  const tally = honourTally(honours);
   const outfit = outfitById(student.avatarConfig?.outfit);
   const progress = levelFromPoints(points);
+  const balance = useMemo(() => pointsBalanceFor(snapshot, student.id), [snapshot, student.id]);
+  const wardrobe = useMemo(() => {
+    const owned = unlockedOutfitsFor(snapshot, student.id);
+    const priced = avatarOutfits.filter((item) => (item.price ?? 0) > 0);
+    const bought = priced.filter((item) => owned.has(item.id)).length;
+    return { priced: priced.length, owned: bought, locked: priced.length - bought };
+  }, [snapshot, student.id]);
 
   return (
     <Card className="avatar-widget">
@@ -83,42 +70,29 @@ export function AvatarWidget({ student, showHonourLink = true, limit = 4 }: {
         <small>อีก {progress.needed - progress.into} คะแนนถึงระดับ {progress.level + 1}</small>
       </div>
 
-      <div className="avatar-widget-honours">
-        <div className="avatar-widget-honours-head">
-          <strong>เหรียญเกียรติยศ {honours.length} เหรียญ</strong>
-          {honours.length > 0 && (
-            <span className="honour-tally">
-              {(['gold', 'silver', 'bronze'] as const)
-                .filter((tier) => tally[tier] > 0)
-                .map((tier) => (
-                  <span key={tier} className="honour-tally-item" data-tier={tier}>
-                    {honourTierLabels[tier]} {tally[tier]}
-                  </span>
-                ))}
-            </span>
-          )}
+      {/*
+        * What a child has, where it came from, and what it is for.
+        *
+        * This was a shelf of medals -- something done *to* a child, with nothing to do about it.
+        * Points are the other way round: they accumulate by turning up, they are added to by a
+        * teacher who notices something, and they buy clothes the child chooses. So the panel says
+        * the balance, breaks it into its two sources so the number is explainable, and names what
+        * is currently being worn.
+        */}
+      <div className="avatar-widget-points" role="group" aria-label="แต้มสะสม">
+        <div className="avatar-widget-points-head">
+          <strong>{balance.balance} แต้มที่ใช้ได้</strong>
+          {balance.spent > 0 && <span>ใช้ไปแล้ว {balance.spent} แต้ม</span>}
         </div>
-        {honours.length === 0 ? (
-          <EmptyState
-            icon={<Icon name="achievements" size={24} />}
-            title="ยังไม่มีเหรียญ"
-            description="เหรียญจะปรากฏที่นี่เมื่อครูมอบให้จากหน้าเหรียญรางวัลหรือกิจกรรมหน้าชั้น"
-          />
-        ) : (
-          <>
-            <ul className="honour-chip-list">
-              {honours.slice(0, limit).map((honour) => <HonourChip key={honour.id} honour={honour} />)}
-            </ul>
-            {honours.length > limit && (
-              <small className="avatar-widget-more">และอีก {honours.length - limit} เหรียญ</small>
-            )}
-          </>
-        )}
-        {showHonourLink && (
-          <LinkButton to={`/achievements?student=${student.id}`} variant="secondary" size="sm">
-            ดูเหรียญทั้งหมดของคนนี้
-          </LinkButton>
-        )}
+        <ul className="avatar-widget-points-source">
+          <li><span>จากการมาเรียน</span><strong>{balance.fromAttendance}</strong></li>
+          <li><span>จากคะแนนจิตพิสัย</span><strong>{balance.fromTeachers}</strong></li>
+        </ul>
+        <small>
+          {wardrobe.locked > 0
+            ? `ปลดล็อกชุดแล้ว ${wardrobe.owned} จาก ${wardrobe.priced} ชุดพิเศษ · เก็บแต้มเพิ่มเพื่อปลดล็อกที่เหลือ`
+            : "ปลดล็อกชุดพิเศษครบทุกชุดแล้ว"}
+        </small>
       </div>
     </Card>
   );

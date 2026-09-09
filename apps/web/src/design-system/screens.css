@@ -986,6 +986,22 @@
 .avatar-widget-bar { height: 8px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--brand-200) 55%, var(--surface)); overflow: hidden; }
 .avatar-widget-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--brand-gradient); transition: width var(--duration-slow) var(--ease-out); }
 
+/* The purse that replaced the medal shelf: a balance, the two things it is made of, and what it
+   is for. The sources are listed because a number a child cannot explain is a number they do not
+   trust — "why have I got 22?" has an answer on the card. */
+.avatar-widget-points {
+  display: grid; gap: var(--space-2); margin-top: var(--space-3);
+  padding: var(--space-3); border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+.avatar-widget-points-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.avatar-widget-points-head strong { color: var(--brand-700); font-size: var(--text-md); }
+.avatar-widget-points-head span { color: var(--ink-500); font-size: var(--text-xs); }
+.avatar-widget-points-source { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.avatar-widget-points-source li { display: flex; justify-content: space-between; gap: var(--space-2); }
+.avatar-widget-points-source span { color: var(--ink-500); font-size: var(--text-xs); }
+.avatar-widget-points-source strong { color: var(--ink-800); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.avatar-widget-points small { color: var(--ink-400); font-size: var(--text-xs); }
 .avatar-widget-honours { display: grid; gap: var(--space-3); }
 .avatar-widget-honours-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
 .avatar-widget-honours-head strong { font-size: var(--text-sm); color: var(--ink-800); }
