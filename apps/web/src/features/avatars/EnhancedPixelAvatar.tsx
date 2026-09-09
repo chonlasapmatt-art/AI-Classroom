@@ -1,9 +1,10 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { AvatarAnimation } from '../../domain/types';
 import {
   defaultTints, tintVariables,
   type AvatarConfigV2, type AvatarTints
 } from './avatarSchema';
+import { onBlink } from './avatarBlink';
 import { resolveLayers, traitById } from './avatarTraits';
 import styles from './ThemedAvatar.module.css';
 
@@ -44,6 +45,19 @@ export function EnhancedPixelAvatar({
   const style = tintVariables(tints) as CSSProperties;
 
   /*
+   * The blink comes from the shared schedule rather than from a keyframe on this element, so a
+   * leaderboard of forty avatars costs one timer instead of forty. `idle` is the only pose that
+   * blinks: an avatar mid-cast has something else to be doing, and an avatar the customiser is
+   * showing as `blink` is being demonstrated rather than living.
+   */
+  const [closed, setClosed] = useState(false);
+  const blinks = animation === 'idle';
+  useEffect(() => {
+    if (!blinks) { setClosed(false); return; }
+    return onBlink(setClosed);
+  }, [blinks]);
+
+  /*
    * A 32-unit grid is the same drawing with more room around it, not a second set of sprites.
    * The traits are authored on 24 and the viewBox is widened symmetrically, so a trait drawn once
    * is correct at both sizes and nothing has to be maintained twice.
@@ -53,7 +67,12 @@ export function EnhancedPixelAvatar({
 
   return (
     <svg
-      className={`${styles.avatar} ${styles[animation] ?? styles.idle}`}
+      className={[
+        styles.avatar,
+        styles[animation] ?? styles.idle,
+        closed ? styles.blinking : '',
+        config.race ? styles[config.race] ?? '' : ''
+      ].filter(Boolean).join(' ')}
       width={size}
       height={size}
       viewBox={viewBox}

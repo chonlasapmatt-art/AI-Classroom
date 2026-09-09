@@ -17,7 +17,12 @@ describe('avatar catalogue', () => {
   });
 
   it('covers the animation states the classroom screens use', () => {
-    expect(avatarAnimations).toEqual(['idle', 'blink', 'wave', 'study', 'celebrate']);
+    // The five the classroom screens have always offered come first and in this order, because a
+    // saved preference names one of them by string and a picker reads the list top to bottom. The
+    // action poses the customiser adds go after them; asserting only the head of the list keeps the
+    // promise that matters without freezing the list against ever growing again.
+    expect(avatarAnimations.slice(0, 5)).toEqual(['idle', 'blink', 'wave', 'study', 'celebrate']);
+    expect(new Set(avatarAnimations).size).toBe(avatarAnimations.length);
   });
 
   it('resolves a stable identity for the same avatar index', () => {

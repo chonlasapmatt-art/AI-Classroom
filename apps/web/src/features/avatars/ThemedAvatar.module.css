@@ -38,3 +38,104 @@
   .avatar *, .avatar { animation: none !important; }
   .sparkle { opacity: 1; }
 }
+
+/* ── Action poses ──
+   Every one of these steps. An 8-bit figure that eases between frames stops reading as pixels and
+   starts reading as a blurry drawing, so `steps(n)` is not a stylistic choice here: it is the only
+   timing function that keeps the sprite on the grid it was drawn on. Whole units only — the grid is
+   24 wide, so 1 unit is a pixel and half a unit is the finest anything is allowed to move. */
+.walk .figure { animation: stepWalk 0.64s steps(4) infinite; }
+.run .figure { animation: stepRun 0.4s steps(4) infinite; }
+.jump .figure { animation: stepJump 0.72s steps(3) infinite; }
+.attack .figure { animation: stepAttack 0.36s steps(2) infinite; }
+.cheer .figure { animation: stepCheer 0.6s steps(2) infinite; }
+.cheer .sparkle { animation: sparkle 0.6s steps(2) infinite; }
+.cast .figure { animation: stepCast 0.9s steps(3) infinite; }
+.cast .sparkle { animation: sparkle 0.9s steps(3) infinite; }
+
+/* The arm the legacy figure swings keeps working under the new poses. */
+.walk .arm { animation: stepArmSwing 0.64s steps(4) infinite; }
+.run .arm { animation: stepArmSwing 0.4s steps(4) infinite; }
+.cast .arm { animation: stepArmRaise 0.9s steps(3) infinite; }
+.attack .arm { animation: stepArmStrike 0.36s steps(2) infinite; }
+.cheer .arm { animation: cheer 0.6s steps(2) infinite; }
+
+@keyframes stepWalk {
+  0% { transform: translateY(0); }
+  25% { transform: translateY(-1px); }
+  50% { transform: translateY(0); }
+  75% { transform: translateY(0.5px); }
+  100% { transform: translateY(0); }
+}
+@keyframes stepRun {
+  0% { transform: translateY(0) rotate(-4deg); }
+  25% { transform: translateY(-1.5px) rotate(-4deg); }
+  50% { transform: translateY(0) rotate(-4deg); }
+  75% { transform: translateY(-0.5px) rotate(-4deg); }
+  100% { transform: translateY(0) rotate(-4deg); }
+}
+/* squash, stretch, land — the three frames a jump needs and no more */
+@keyframes stepJump {
+  0% { transform: translateY(0) scaleY(0.92); }
+  33% { transform: translateY(-2.5px) scaleY(1.06); }
+  66% { transform: translateY(-1px) scaleY(1); }
+  100% { transform: translateY(0) scaleY(0.92); }
+}
+@keyframes stepAttack {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(1.5px); }
+  100% { transform: translateX(0); }
+}
+@keyframes stepCheer {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
+  100% { transform: translateY(0); }
+}
+@keyframes stepCast {
+  0% { transform: translateY(0); }
+  33% { transform: translateY(-1px); }
+  66% { transform: translateY(-0.5px); }
+  100% { transform: translateY(0); }
+}
+@keyframes stepArmSwing {
+  0% { transform: rotate(12deg); }
+  25% { transform: rotate(-6deg); }
+  50% { transform: rotate(-12deg); }
+  75% { transform: rotate(6deg); }
+  100% { transform: rotate(12deg); }
+}
+@keyframes stepArmRaise {
+  0% { transform: rotate(-20deg); }
+  33% { transform: rotate(-58deg); }
+  66% { transform: rotate(-46deg); }
+  100% { transform: rotate(-20deg); }
+}
+@keyframes stepArmStrike {
+  0% { transform: rotate(-8deg); }
+  50% { transform: rotate(-52deg); }
+  100% { transform: rotate(-8deg); }
+}
+
+/* ── Blinking ──
+   The eyes are closed by a class rather than by a keyframe, because the schedule is shared: one
+   timer for the whole page hands out blinks at three-to-five-second intervals, so a leaderboard of
+   forty avatars costs one interval rather than forty. A blink is two frames — closed, open — and
+   scaling to 0.1 rather than 0 keeps the lid on the grid. */
+.blinking .eyes,
+.blinking g[data-layer='face_features'] { transform: scaleY(0.1); transform-origin: 12px 11px; }
+
+/* A ghost is the one body that should never hold perfectly still. Opacity in steps, so it flickers
+   like a sprite rather than fading like a photograph. */
+.spirit g[data-layer='body_base'] { animation: spiritFlicker 2.4s steps(3) infinite; }
+@keyframes spiritFlicker {
+  0% { opacity: 1; }
+  33% { opacity: 0.78; }
+  66% { opacity: 0.92; }
+  100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The pose still reads; it simply stops moving. A held frame is information, a loop is decoration. */
+  .blinking .eyes,
+  .blinking g[data-layer='face_features'] { transform: none; }
+}

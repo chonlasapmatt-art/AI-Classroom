@@ -123,7 +123,17 @@ export interface AvatarConfig {
   unlockedOutfits?: string[];
   spentPoints?: number;
 }
-export type AvatarAnimation = 'idle' | 'blink' | 'wave' | 'study' | 'celebrate' | 'thinking';
+/*
+ * The poses an avatar can hold.
+ *
+ * The first six are the ones the app has always used and are not reordered or renamed: a saved
+ * preference names one of them by string. The rest are the action poses the customiser's preview
+ * bar offers, and every one of them animates in whole pixels — an 8-bit figure that eases between
+ * frames stops reading as pixels and starts reading as a blurry drawing.
+ */
+export type AvatarAnimation =
+  | 'idle' | 'blink' | 'wave' | 'study' | 'celebrate' | 'thinking'
+  | 'walk' | 'run' | 'cast' | 'attack' | 'jump' | 'cheer';
 
 /*
  * The version-2 avatar vocabulary, re-exported so a record type and the thing that draws it are

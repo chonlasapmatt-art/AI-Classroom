@@ -139,8 +139,11 @@ export function themeById(id: AvatarThemeId): AvatarTheme {
   return avatarThemes.find((theme) => theme.id === id) ?? avatarThemes[0]!;
 }
 
-export const avatarAnimations: AvatarAnimation[] = ['idle', 'blink', 'wave', 'study', 'celebrate'];
+export const avatarAnimations: AvatarAnimation[] = [
+  'idle', 'blink', 'wave', 'study', 'celebrate', 'walk', 'run', 'cast', 'attack', 'jump', 'cheer'
+];
 
 export const animationLabels: Record<AvatarAnimation, string> = {
-  idle: 'ยืนปกติ', blink: 'กะพริบตา', wave: 'โบกมือ', study: 'ตั้งใจเรียน', celebrate: 'ดีใจ', thinking: 'กำลังคิด'
+  idle: 'ยืนปกติ', blink: 'กะพริบตา', wave: 'โบกมือ', study: 'ตั้งใจเรียน', celebrate: 'ดีใจ', thinking: 'กำลังคิด',
+  walk: 'เดิน', run: 'วิ่ง', cast: 'ร่ายเวทย์', attack: 'โจมตี', jump: 'กระโดด', cheer: 'เชียร์'
 };
