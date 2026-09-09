@@ -60,7 +60,7 @@ export default defineConfig({
     react(),
     versionManifest(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       // The app asks before reloading, so a lesson is never interrupted by an automatic swap.
       includeAssets: ['icons/icon.svg'],
       manifest: {

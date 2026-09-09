@@ -7,6 +7,7 @@ import { WhatsNewNotice } from './app/WhatsNewNotice';
 import { BootSplash } from './app/BootSplash';
 import { ThemeProvider } from './app/ThemeContext';
 import { applyStoredTheme } from './app/theme';
+import { reloadOnWorkerHandover } from './app/swHandover';
 import './design-system/tokens.css';
 import './design-system/components.css';
 import './design-system/global.css';
@@ -14,6 +15,9 @@ import './design-system/screens.css';
 
 // Before the first render, so nobody sees a light frame on the way to a dark one.
 applyStoredTheme();
+
+// And before anything can ask for a file the build that just took over no longer has.
+reloadOnWorkerHandover();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
