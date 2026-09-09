@@ -5,7 +5,7 @@ import { activeClasses, activeSubjects, classIdOfStudent, rosterFor, subjectById
 import { subjectColor } from '../../data/subjectCatalog';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import { calendarItemsFor, rosterRowsFor, studentTrackingFor } from '../../academic/views';
-import { timeRemainingLabel, workStateLabels, workStateTone } from '../../academic/workStatus';
+import { studentWorkStateLabels, timeRemainingLabel, workStateLabels, workStateTone } from '../../academic/workStatus';
 import { Badge, Button, Card, CardHeader, EmptyState, Field, LinkButton, Modal, PageHeader, ProgressBar, Segmented, Stat, Toolbar } from '../../ui/components';
 import type { Assignment } from '../../domain/types';
 import { normalizeGoogleDriveUrl } from '../../domain/driveLinks';
@@ -212,7 +212,7 @@ export function AssignmentsPage() {
           <EmptyState
             icon={<Icon name="achievements" size={28} />}
             title={filter === 'all' ? 'ยังไม่มีงานในห้องนี้' : 'ไม่มีงานในหมวดนี้'}
-            description={isTeacher ? 'สร้างงานแรกแล้วเผยแพร่ให้นักเรียนทั้งห้อง' : 'ทุกงานเรียบร้อยแล้ว'}
+            description={isTeacher ? 'สร้างงานแรกแล้วเผยแพร่ให้นักเรียนทั้งห้อง' : 'ยังไม่มีงานที่ต้องส่งตอนนี้ · เมื่อครูเผยแพร่งาน จะขึ้นที่นี่ทันที'}
             {...(canCreateWork ? { action: <Button variant="primary" onClick={() => setFormOpen(true)}>+ สร้างงาน</Button> } : {})}
           />
         </Card>
@@ -238,7 +238,8 @@ export function AssignmentsPage() {
                     )}
                     <h3>{work.title}</h3>
                     <div className="work-card-meta">
-                      <Badge tone={workStateTone[state]}>{workStateLabels[state]}</Badge>
+                      {/* A child is told they have the work; a teacher is told nobody has started it. */}
+                      <Badge tone={workStateTone[state]}>{(isTeacher ? workStateLabels : studentWorkStateLabels)[state]}</Badge>
                       <span>{work.workType === 'project' ? 'โครงงาน' : work.workType === 'homework' ? 'การบ้าน' : work.workType === 'activity' ? 'กิจกรรม' : 'งานที่มอบหมาย'}</span>
                       <span>ผู้สอน {teacherLabel}</span>
                       <span>เต็ม {work.maxScore} คะแนน</span>

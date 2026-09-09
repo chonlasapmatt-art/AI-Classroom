@@ -8,6 +8,7 @@ import { feedbackFeed } from '../features/reports/feedbackFeed';
 import { isPreviewModeAvailable } from '../preview/previewMode';
 import { StudentQuizPanel } from '../features/quiz/StudentQuizPanel';
 import { SchoolBroadcastNotice } from '../features/notifications/SchoolBroadcastNotice';
+import { ClassAnnouncementNotice } from '../features/notifications/ClassAnnouncementNotice';
 import { TeacherCodeFirstRun } from '../features/teachers/TeacherCodeFirstRun';
 import { ProfileAvatar } from '../features/avatars/ProfileAvatar';
 import { useSyncStatus } from '../sync/SyncStatusContext';
@@ -529,6 +530,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Mounted in the shell, with no role or class condition, because the one notice meant for
             everybody must not depend on which screen somebody happens to be standing on. */}
         <SchoolBroadcastNotice schoolId={membership.schoolId} />
+        {/* Behind it, and only for the room it belongs to: a teacher's announcement. */}
+        <ClassAnnouncementNotice />
       </div>
     </div>
   );

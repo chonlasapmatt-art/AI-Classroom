@@ -49,6 +49,27 @@ export function workStateFor({ work, submission, dueAt, now = new Date() }: Work
   return 'upcoming';
 }
 
+/**
+ * The same states, in the words the student they belong to would use.
+ *
+ * A teacher tracking a class reads "ยังไม่เริ่ม" as a fact about the work — nobody has started it.
+ * The child it was set for reads the same word as "nothing has happened yet", when in fact the work
+ * has arrived and is theirs to do. What they need to be told first is that they have it.
+ */
+export const studentWorkStateLabels: Record<WorkState, string> = {
+  draft: 'ฉบับร่าง',
+  cancelled: 'ยกเลิกแล้ว',
+  upcoming: 'ได้รับงานแล้ว',
+  soon: 'ใกล้ถึงกำหนด',
+  urgent: 'ใกล้ถึงกำหนดมาก',
+  overdue: 'เลยกำหนด',
+  submitted: 'ส่งแล้ว',
+  late: 'ส่งช้า',
+  revision_requested: 'ขอแก้ไข',
+  graded: 'ตรวจแล้ว',
+  closed: 'ปิดรับแล้ว'
+};
+
 export const workStateLabels: Record<WorkState, string> = {
   draft: 'ฉบับร่าง',
   cancelled: 'ยกเลิกแล้ว',

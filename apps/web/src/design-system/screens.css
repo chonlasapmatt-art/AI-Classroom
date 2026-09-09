@@ -3709,3 +3709,69 @@ tr.row-warning td { background: var(--warning-soft); }
    is matching a picture rather than reading every line. */
 .score-person { display: inline-flex; align-items: center; gap: var(--space-2); min-inline-size: 0; }
 .score-person > span, .score-person > strong { min-inline-size: 0; overflow-wrap: anywhere; }
+
+/* ── A teacher's announcement, in the middle of the screen ─────────────────────────────────────
+   Same idea as the school-wide notice and deliberately a rank below it. The administrator's card
+   carries a severity band, a countdown and takes itself down after ten seconds, because it is about
+   the next few minutes. This one is a room's news: one calm brand accent, no severity to choose, no
+   countdown — it waits until the child closes it, because "bring your recorder tomorrow" should not
+   be snatched away mid-sentence. It never appears while a school-wide notice is up. */
+.class-notice-scrim {
+  position: fixed; inset: 0; z-index: 88;
+  display: grid; place-items: center; padding: var(--space-4);
+  background: color-mix(in srgb, var(--ink-900) 42%, transparent);
+  backdrop-filter: blur(4px);
+  animation: class-notice-in var(--motion-fast) var(--motion-ease) both;
+}
+.class-notice {
+  position: relative; overflow: hidden;
+  inline-size: min(520px, 100%); max-block-size: min(80vh, 640px); overflow-y: auto;
+  display: grid; gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  animation: class-notice-rise .38s var(--motion-ease-emphasized) both;
+}
+/* A soft top edge rather than the school notice's severity band: this one is never an alarm. */
+.class-notice::before {
+  content: ""; position: absolute; inset-inline: 0; inset-block-start: 0; block-size: 4px;
+  background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--accent-cyan) 70%, transparent));
+}
+.class-notice-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-3); align-items: start; }
+.class-notice-heading { min-inline-size: 0; display: grid; gap: var(--space-1); }
+.class-notice-heading h2 {
+  margin: 0; font-size: var(--text-lg); line-height: var(--leading-tight);
+  color: var(--color-text-primary); overflow-wrap: anywhere;
+}
+.class-notice-kicker {
+  color: var(--color-primary-strong); font-size: var(--text-xs); font-weight: var(--weight-heavy);
+  letter-spacing: .06em; overflow-wrap: anywhere;
+}
+.class-notice-mark {
+  inline-size: 44px; block-size: 44px; flex: none;
+  display: grid; place-items: center; border-radius: var(--radius-md);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+.class-notice-body {
+  margin: 0; color: var(--color-text-secondary); font-size: var(--text-base);
+  line-height: var(--leading-normal); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.class-notice-actions {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding-block-start: var(--space-3); border-block-start: 1px solid var(--color-border);
+}
+.class-notice-meta { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+@keyframes class-notice-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes class-notice-rise {
+  from { opacity: 0; transform: translateY(14px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .class-notice-scrim, .class-notice { animation: none; }
+}

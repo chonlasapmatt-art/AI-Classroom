@@ -97,7 +97,20 @@ export function scopeSchoolSnapshot(snapshot: SchoolSnapshot, scope: VisibilityS
     rubricScores: snapshot.rubricScores.filter((score) => allowedAssignmentIds.has(score.assignmentId) && ownStudentIds.has(score.studentId)),
     submissionVersions: snapshot.submissionVersions.filter((version) => allowedAssignmentIds.has(version.assignmentId) && ownStudentIds.has(version.studentId)),
     deadlineExtensions: snapshot.deadlineExtensions.filter((extension) => allowedAssignmentIds.has(extension.assignmentId) && ownStudentIds.has(extension.studentId)),
-    announcements: snapshot.announcements.filter((announcement) => allowedClassIds.has(announcement.classId)),
+    /*
+     * A room the reader is in — and, when the teacher addressed named children, one of those
+     * children.
+     *
+     * A teacher keeps every announcement of their own rooms, because they wrote them and have to be
+     * able to see what they sent. For a student or a guardian the named list is the audience: an
+     * announcement for three children was reaching the whole class, which is how a message about
+     * three families' business becomes everybody's.
+     */
+    announcements: snapshot.announcements.filter((announcement) => {
+      if (!allowedClassIds.has(announcement.classId)) return false;
+      if (scope.role === 'teacher' || announcement.studentIds.length === 0) return true;
+      return announcement.studentIds.some((studentId) => ownStudentIds.has(studentId));
+    }),
     notificationPreferences: snapshot.notificationPreferences.filter((preference) => ownProfile(preference.profileId)),
     academicAudit: [],
     timetable: snapshot.timetable.filter((entry) => allowedClassIds.has(entry.classId)),

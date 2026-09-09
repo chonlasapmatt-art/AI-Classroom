@@ -143,7 +143,7 @@ export function DashboardPage() {
           <Card>
             <CardHeader title="สิ่งที่ต้องทำต่อไป" action={<LinkButton to="/assignments" size="sm" variant="ghost">ดูทั้งหมด</LinkButton>} />
             {todo.length === 0 && overdue.length === 0 ? (
-              <EmptyState icon={<Icon name="achievements" size={28} />} title="ไม่มีงานค้าง" description="ทุกงานเรียบร้อยแล้ว" />
+              <EmptyState icon={<Icon name="achievements" size={28} />} title="ไม่มีงานค้าง" description="ส่งครบทุกชิ้นที่ครูเผยแพร่แล้ว" />
             ) : (
               <ul className="timeline">
                 {[...overdue, ...todo].slice(0, 6).map((item) => {

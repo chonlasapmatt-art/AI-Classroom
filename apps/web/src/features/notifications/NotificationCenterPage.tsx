@@ -5,7 +5,7 @@ import { subjectById } from '../../data/selectors';
 import { subjectColor } from '../../data/subjectCatalog';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import { notificationBucketLabels, notificationEntries, type NotificationBucket } from '../../academic/views';
-import { timeRemainingLabel, workStateLabels, workStateTone } from '../../academic/workStatus';
+import { studentWorkStateLabels, timeRemainingLabel, workStateTone } from '../../academic/workStatus';
 import { Badge, Button, Card, EmptyState, LinkButton, PageHeader } from '../../ui/components';
 import { useToast } from '../../ui/toastContext';
 import { Icon } from '../../ui/Icon';
@@ -102,7 +102,7 @@ export function NotificationCenterPage() {
                         <div>
                           <div className="notification-title">
                             <strong>{entry.notification.title}</strong>
-                            {entry.state && <Badge tone={workStateTone[entry.state]}>{workStateLabels[entry.state]}</Badge>}
+                            {entry.state && <Badge tone={workStateTone[entry.state]}>{studentWorkStateLabels[entry.state]}</Badge>}
                           </div>
                           <p>{entry.notification.body}</p>
                           <span className="notification-meta">
