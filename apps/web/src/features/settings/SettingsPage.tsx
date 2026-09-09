@@ -5,6 +5,7 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { privacyPolicyFrom, scorePolicyFrom } from '../../data/selectors';
 import { isCloudConfigured } from '../../services/supabase';
 import { APP_VERSION, checkForUpdateNow, formatBuildTime, readLastCheckedAt } from '../../app/appUpdate';
+import { UpdateMark } from '../../app/UpdateMark';
 import { AcademicSettingsPanel } from './AcademicSettingsPanel';
 import { useTheme } from '../../app/ThemeContext';
 import { themeDensities, themeModes, themeMotions, themePresets } from '../../app/theme';
@@ -360,12 +361,23 @@ export function SettingsPage() {
               tone={snapshot.pendingSync === 0 ? 'success' : 'info'}
               icon={<Icon name="upload" size={18} />}
             />
-            <Stat label="เวอร์ชันแอป" value={APP_VERSION} hint={`สร้างเมื่อ ${formatBuildTime()}`} tone="brand" icon={<Icon name="settings" size={18} />} />
+            {/* The version is not a setting, and the gear said it was. */}
+            <Stat label="เวอร์ชันแอป" value={APP_VERSION} hint={`สร้างเมื่อ ${formatBuildTime()}`} tone="brand" icon={<Icon name="refresh" size={18} />} />
           </div>
 
-          <Card>
+          <Card className="settings-version-card">
             <CardHeader
-              title="เวอร์ชันและการอัปเดต"
+              /* The same emblem the prompt uses, so "the update thing" is one picture in this app
+                 and not two: somebody who has pressed the banner recognises this card as the place
+                 it came from, and somebody who reads this card first recognises the banner later.
+                 It rides inside the heading rather than above the header, because the header band
+                 pulls itself out to the card's edges and anything placed before it lands underneath. */
+              title={(
+                <span className="settings-version-heading">
+                  <span className="settings-version-mark" aria-hidden="true"><UpdateMark kind="feature" size={26} /></span>
+                  เวอร์ชันและการอัปเดต
+                </span>
+              )}
               description="แอปจะไม่รีโหลดเอง เมื่อพบเวอร์ชันใหม่จะขึ้นแถบให้กด “อัปเดตตอนนี้” · งานที่ยังไม่ซิงก์ยังอยู่ในเครื่องหลังอัปเดต"
               action={(
                 <Button

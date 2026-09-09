@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/components';
-import { Icon } from '../ui/Icon';
+import { UpdateMark } from './UpdateMark';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db } from '../db/database';
 import {
@@ -105,7 +105,7 @@ export function UpdatePrompt() {
     return (
       <div className="update-banner" data-kind={kind} role="status">
         <span className="update-mark" aria-hidden="true">
-          <Icon name={kind === 'patch' ? 'check' : 'sync'} size={22} />
+          <UpdateMark kind={kind} size={40} />
         </span>
         <div className="update-copy">
           <span className="update-eyebrow">{copy.eyebrow}</span>
