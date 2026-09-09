@@ -4,9 +4,11 @@ import { UpdateMark } from './UpdateMark';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db } from '../db/database';
 import {
-  APP_VERSION, fetchIncomingVersion, prepareForUpdate, readLastCheckedAt, shouldCheckNow,
+  APP_VERSION, fetchIncomingRelease, prepareForUpdate, readLastCheckedAt, shouldCheckNow,
   UPDATE_CHECK_INTERVAL_MS, updateCopy, updateKindFor, writeLastCheckedAt
 } from './appUpdate';
+import { changesIn, notesBetween } from './releaseNotes';
+import type { ReleaseNote } from './releaseNotes';
 
 /**
  * Shows the "a new version is ready" banner and applies it on the user's word.
@@ -19,6 +21,7 @@ export function UpdatePrompt() {
   const [preparing, setPreparing] = useState(false);
   const [preparationError, setPreparationError] = useState<string | null>(null);
   const [incomingVersion, setIncomingVersion] = useState<string | null>(null);
+  const [incomingNotes, setIncomingNotes] = useState<ReleaseNote[]>([]);
 
   const {
     offlineReady: [offlineReady, setOfflineReady],
@@ -72,11 +75,20 @@ export function UpdatePrompt() {
     setDismissed(false);
     setPreparationError(null);
     let active = true;
-    void fetchIncomingVersion().then((version) => { if (active) setIncomingVersion(version); });
+    void fetchIncomingRelease().then((release) => {
+      if (!active || !release) return;
+      setIncomingVersion(release.version);
+      // Only what this device has not already got. A tab three versions behind is offered all three,
+      // and a tab that is current is offered nothing rather than a list it has been running for a
+      // fortnight.
+      setIncomingNotes(notesBetween(APP_VERSION, release.version, release.notes));
+    });
     return () => { active = false; };
   }, [needRefresh]);
 
   const kind = updateKindFor(APP_VERSION, incomingVersion);
+  const highlights = changesIn(incomingNotes);
+  const shown = highlights.slice(0, 4);
 
   const applyUpdateSafely = async () => {
     if (preparing) return;
@@ -114,6 +126,25 @@ export function UpdatePrompt() {
             {incomingVersion ? `${APP_VERSION} → ${incomingVersion}` : `เวอร์ชันที่ใช้อยู่ ${APP_VERSION}`}
           </span>
           <span>{copy.body}</span>
+          {/*
+            What the waiting build actually changed.
+            "มีเวอร์ชันใหม่" asks a teacher to interrupt a lesson for an unnamed benefit. Four lines
+            is the most that can sit in a banner without becoming a page, so the rest is counted
+            rather than dropped — and the whole list is on the screen that follows the reload.
+          */}
+          {shown.length > 0 && (
+            <ul className="update-changes">
+              {shown.map((change) => (
+                <li key={change.text} data-kind={change.kind}>
+                  <span className="update-change-tag">{change.kind === 'fix' ? 'แก้ไข' : 'ของใหม่'}</span>
+                  <span>{change.text}</span>
+                </li>
+              ))}
+              {highlights.length > shown.length && (
+                <li className="update-changes-more">และอีก {highlights.length - shown.length} รายการ</li>
+              )}
+            </ul>
+          )}
           {preparationError && <span className="update-error" role="alert">{preparationError}</span>}
         </div>
         <div className="update-actions">

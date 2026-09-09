@@ -5,6 +5,7 @@ import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { privacyPolicyFrom, scorePolicyFrom } from '../../data/selectors';
 import { isCloudConfigured } from '../../services/supabase';
 import { APP_VERSION, checkForUpdateNow, formatBuildTime, readLastCheckedAt } from '../../app/appUpdate';
+import { releaseNotes } from '../../app/releaseNotes';
 import { UpdateMark } from '../../app/UpdateMark';
 import { AcademicSettingsPanel } from './AcademicSettingsPanel';
 import { useTheme } from '../../app/ThemeContext';
@@ -399,6 +400,34 @@ export function SettingsPage() {
                 <strong>{lastChecked ? new Date(lastChecked).toLocaleString('th-TH') : 'ยังไม่เคยตรวจ'}</strong>
               </li>
             </ul>
+
+            {/*
+              The same notes the notice showed after the reload, kept somewhere they can be read
+              again. The notice is ten seconds long on purpose, and a person who was mid-lesson when
+              it appeared should not have lost the only account of what changed. This section is on
+              a screen every role can open — the settings rail marks this one adminOnly: false.
+            */}
+            {releaseNotes.length > 0 && (
+              <div className="settings-release-notes">
+                <h3>มีอะไรใหม่</h3>
+                {releaseNotes.slice(0, 4).map((note) => (
+                  <article key={note.version} className="settings-release">
+                    <header>
+                      <strong>{note.headline}</strong>
+                      <span>เวอร์ชัน {note.version}{note.date ? ` · ${note.date}` : ''}</span>
+                    </header>
+                    <ul className="release-change-list">
+                      {note.changes.map((change) => (
+                        <li key={change.text} data-kind={change.kind}>
+                          <span className="release-change-tag">{change.kind === 'fix' ? 'แก้ไข' : 'ของใหม่'}</span>
+                          <span>{change.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </article>
+                ))}
+              </div>
+            )}
           </Card>
 
           <Card>

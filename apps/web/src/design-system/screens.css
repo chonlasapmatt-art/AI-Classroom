@@ -3924,6 +3924,114 @@ tr.row-warning td { background: var(--warning-soft); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
+/* What the waiting version changed, listed in the banner that offers it.
+   Four lines at most: the banner sits over a lesson and a fifth line turns a prompt into a page.
+   The tag is the same word in both places this list appears, and it is a word rather than only a
+   colour, because "new" and "repaired" is the distinction somebody is actually deciding on. */
+.update-changes {
+  margin: var(--space-2) 0 0; padding: 0; list-style: none;
+  display: grid; gap: 5px;
+}
+.update-changes li {
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.45;
+}
+.update-change-tag,
+.release-change-tag,
+.whats-new-tag {
+  flex: none; align-self: flex-start;
+  min-inline-size: 3.6rem; padding: 1px var(--space-2);
+  border-radius: 999px; text-align: center;
+  font-size: var(--text-xs); font-weight: var(--weight-heavy); letter-spacing: .02em;
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+.update-changes li[data-kind="fix"] .update-change-tag,
+.release-change-list li[data-kind="fix"] .release-change-tag,
+.whats-new-list li[data-kind="fix"] .whats-new-tag {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+}
+.update-changes-more { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+/* ── After the reload ──
+   The banner can only promise; this reports. It is centred because it is the one thing on screen
+   worth reading at that moment, and it is not a modal: the layer passes clicks through, so a
+   register can still be taken while it is up. Ten seconds, and a close button for the nine of them
+   somebody does not want. */
+.whats-new-layer {
+  position: fixed; inset: 0; z-index: 80;
+  display: grid; place-items: center;
+  padding: var(--space-4);
+  pointer-events: none;
+}
+.whats-new {
+  pointer-events: auto;
+  inline-size: min(560px, 100%);
+  max-block-size: min(74vh, 680px); overflow: auto;
+  display: grid; gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  animation: whats-new-in .38s var(--motion-ease-emphasized) both;
+}
+.whats-new-head { display: flex; align-items: flex-start; gap: var(--space-3); }
+.whats-new-head > div { display: grid; gap: 2px; min-inline-size: 0; }
+.whats-new-eyebrow {
+  color: var(--color-primary); font-size: var(--text-xs);
+  font-weight: var(--weight-heavy); letter-spacing: .08em;
+}
+.whats-new-head strong { font-size: var(--text-md); color: var(--color-text-primary); }
+.whats-new-close {
+  margin-inline-start: auto; flex: none;
+  min-block-size: 44px; min-inline-size: 44px; padding: 0 var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface-muted, transparent);
+  color: var(--color-text-secondary); font: inherit; cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.whats-new-close:hover { background: color-mix(in srgb, var(--color-primary) 10%, transparent); color: var(--color-text-primary); }
+.whats-new-list, .release-change-list {
+  margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2);
+}
+.whats-new-list li, .release-change-list li {
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.5;
+}
+.whats-new-foot { display: grid; gap: var(--space-2); }
+.whats-new-foot > span:first-child { color: var(--color-text-muted); font-size: var(--text-xs); }
+/* The clock, drawn rather than only counted: the number says how long is left and this says it
+   again for somebody who is reading the list and not the sentence under it. */
+.whats-new-meter {
+  block-size: 3px; border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  position: relative; overflow: hidden;
+}
+.whats-new-meter::after {
+  content: ''; position: absolute; inset-block: 0; inset-inline-start: 0;
+  inline-size: var(--whats-new-left, 100%);
+  background: var(--color-primary);
+  transition: inline-size 1s linear;
+}
+@keyframes whats-new-in {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whats-new { animation: none; }
+  .whats-new-meter::after { transition: none; }
+}
+
+/* The same notes, kept where they can be read after the notice has gone. */
+.settings-release-notes { display: grid; gap: var(--space-4); margin-block-start: var(--space-4); }
+.settings-release-notes h3 { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); letter-spacing: .04em; }
+.settings-release { display: grid; gap: var(--space-2); }
+.settings-release header { display: grid; gap: 2px; }
+.settings-release header strong { font-size: var(--text-md); color: var(--color-text-primary); }
+.settings-release header span { font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+
 /* On a phone the card stacks and the actions become full-width targets, and it sits above the
    bottom navigation rather than on top of it. */
 @media (max-width: 720px) {

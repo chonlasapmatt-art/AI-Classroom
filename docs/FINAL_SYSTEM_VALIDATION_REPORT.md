@@ -11,10 +11,10 @@ checked on the production URL after each release.
 | --- | --- |
 | Migrations | 85 (last: `202609090010`) |
 | Edge Functions | 17 |
-| Test files | 104 |
-| Automated tests | 966, all passing |
+| Test files | 106 |
+| Automated tests | 991, all passing |
 
-Gates: `typecheck` PASS · `lint` PASS (`--max-warnings 0`) · `test` PASS (966) · `build` PASS.
+Gates: `typecheck` PASS · `lint` PASS (`--max-warnings 0`) · `test` PASS (991) · `build` PASS.
 
 **The numbers in the 2026-09-03 pass below were stale when this pass began** — it reported 68
 migrations and 639 tests against an actual 85 and 958, and `AGENTS.md` reported 73 migrations and 815

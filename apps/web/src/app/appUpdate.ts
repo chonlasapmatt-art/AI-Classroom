@@ -5,6 +5,8 @@
  * mid-lesson: the running app keeps working, notices the new version, and asks before reloading.
  * The helpers here are pure so the timing rules can be tested without a browser.
  */
+import type { ReleaseChange, ReleaseNote } from './releaseNotes';
+
 export const APP_VERSION: string = __APP_VERSION__;
 export const BUILD_TIME: string = __BUILD_TIME__;
 
@@ -54,6 +56,23 @@ export function readLastCheckedAt(): string | null {
 
 export function writeLastCheckedAt(value = new Date().toISOString()): void {
   try { window.localStorage.setItem(LAST_CHECK_KEY, value); } catch { /* best effort only */ }
+}
+
+/*
+ * The version this device was last told about.
+ *
+ * Kept beside the other update bookkeeping rather than in the component that reads it, because it
+ * is the same kind of fact as "when did this tab last check" — one line of device state, written
+ * best-effort, and worth nothing if a private window refuses to store it.
+ */
+const SEEN_VERSION_KEY = 'smart-classroom-seen-version';
+
+export function readSeenVersion(): string | null {
+  try { return window.localStorage.getItem(SEEN_VERSION_KEY); } catch { return null; }
+}
+
+export function writeSeenVersion(version = APP_VERSION): void {
+  try { window.localStorage.setItem(SEEN_VERSION_KEY, version); } catch { /* best effort only */ }
 }
 
 export function formatBuildTime(isoDate = BUILD_TIME): string {
@@ -147,13 +166,48 @@ export const updateCopy: Record<UpdateKind, UpdateCopy> = {
  * failure is answered with null rather than a throw: not knowing which kind of update is waiting is
  * a reason to word the prompt more generally, never a reason to withhold it.
  */
-export async function fetchIncomingVersion(): Promise<string | null> {
+export interface IncomingRelease {
+  version: string;
+  /** What the waiting build says it changed. Empty when it is older than release notes. */
+  notes: ReleaseNote[];
+}
+
+export async function fetchIncomingRelease(): Promise<IncomingRelease | null> {
   try {
     const response = await fetch(`/version.json?at=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) return null;
-    const body = await response.json() as { version?: unknown };
-    return typeof body.version === 'string' ? body.version : null;
+    const body = await response.json() as { version?: unknown; notes?: unknown };
+    if (typeof body.version !== 'string') return null;
+    return { version: body.version, notes: readNotes(body.notes) };
   } catch {
     return null;
   }
+}
+
+/**
+ * The notes out of a file this tab did not build.
+ *
+ * Anything unrecognisable is dropped rather than rendered: a build old enough to predate release
+ * notes has no `notes` key at all, and the banner has to keep working for it — it simply says less.
+ */
+function readNotes(value: unknown): ReleaseNote[] {
+  if (!Array.isArray(value)) return [];
+  const notes: ReleaseNote[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const note = entry as Partial<ReleaseNote>;
+    if (typeof note.version !== 'string' || !Array.isArray(note.changes)) continue;
+    const changes = note.changes.filter((change): change is ReleaseChange =>
+      typeof change === 'object' && change !== null
+      && typeof (change as ReleaseChange).text === 'string'
+      && ((change as ReleaseChange).kind === 'feature' || (change as ReleaseChange).kind === 'fix'));
+    if (changes.length === 0) continue;
+    notes.push({
+      version: note.version,
+      date: typeof note.date === 'string' ? note.date : '',
+      headline: typeof note.headline === 'string' ? note.headline : '',
+      changes
+    });
+  }
+  return notes;
 }

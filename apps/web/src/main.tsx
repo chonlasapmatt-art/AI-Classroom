@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './app/App';
 import { UpdatePrompt } from './app/UpdatePrompt';
+import { WhatsNewNotice } from './app/WhatsNewNotice';
 import { BootSplash } from './app/BootSplash';
 import { ThemeProvider } from './app/ThemeContext';
 import { applyStoredTheme } from './app/theme';
@@ -17,7 +18,7 @@ applyStoredTheme();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      <BootSplash><BrowserRouter><App /><UpdatePrompt /></BrowserRouter></BootSplash>
+      <BootSplash><BrowserRouter><App /><UpdatePrompt /><WhatsNewNotice /></BrowserRouter></BootSplash>
     </ThemeProvider>
   </StrictMode>
 );

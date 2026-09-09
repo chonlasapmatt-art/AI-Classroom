@@ -26,14 +26,26 @@ const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url));
  * answer: fetched when the prompt appears, compared with the running version, and turned into the
  * difference between "a fix" and "a new version". It is written at build time and carries nothing
  * a school owns.
+ *
+ * The release notes travel with it for the same reason. The banner offering the update is drawn by
+ * the build that is being replaced, so it can only say what the new one contains if the new one
+ * ships the answer — and this file is already fetched at exactly that moment.
  */
+const releaseNotes = JSON.parse(
+  readFileSync(new URL('./src/app/releaseNotes.json', import.meta.url), 'utf8')
+) as { notes: unknown[] };
+
 const versionManifest = (): PluginOption => ({
   name: 'app-version-manifest',
   generateBundle(this: { emitFile(file: { type: 'asset'; fileName: string; source: string }): void }) {
     this.emitFile({
       type: 'asset',
       fileName: 'version.json',
-      source: JSON.stringify({ version, buildTime: new Date().toISOString() })
+      source: JSON.stringify({
+        version,
+        buildTime: new Date().toISOString(),
+        notes: releaseNotes.notes
+      })
     });
   }
 });
