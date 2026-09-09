@@ -3637,23 +3637,122 @@ tr.row-warning td { background: var(--warning-soft); }
    wash from its soft tint and a ring in its ink — so a subject is recognisable by its badge before
    anybody reads the name. `--subject-color` and `--subject-soft` come from the element above it, so
    the same markup works on a card, in the picker and in a preview. */
+/* ── The medallion, as frosted glass ───────────────────────────────────────────────────────────
+   A squircle of frosted glass with the subject's own colour lit behind it: a vivid gradient from the
+   colour to a hue-rotated neighbour, a hairline of white along the top edge where light would catch,
+   and a soft outer glow in the same colour.
+
+   The gradient is *derived* rather than listed. Seven hand-picked neon pairs would mean seven
+   subjects styled and the eighth — the one a school invents next Tuesday — left plain, and they
+   would be wrong twice over: the administrator already chooses each subject's colour from a
+   contrast-checked palette, and this app is not dark-only. Mixing from `--subject-color` gives every
+   subject its own vivid pair, keeps the colour the school actually chose, and lets the same rule
+   light up on a dark card and sit calmly on a white one.
+
+   Doubled selector on purpose: a generic `… span { display: block }` in the older stylesheet
+   outranks a single class, and when it wins the drawing loses its centring and sits against the top
+   edge. Measured at -11px before this, dead centre after. */
 .subject-medallion,
-/* Doubled on purpose: a generic `… span { display: block }` in the older stylesheet outranks a
-   single class, and when it wins the drawing loses its centring and sits against the top edge.
-   Measured at -11px before this, dead centre after. */
 .subject-medallion.subject-medallion {
+  /* White ink on a saturated tile, so the drawing's own two tones invert with it: the lighter half
+     becomes translucent white rather than a mix with the page, and a knocked-out shape becomes the
+     tile darkened rather than the page. Without this the maths tile lost its plus and the globe
+     came out a plain white circle -- every soft shape and every cut-out melted into the ink. */
+  --subject-icon-soft: rgba(255, 255, 255, .58);
+  --subject-icon-cut: color-mix(in srgb, var(--subject-color, var(--color-primary)) 55%, #000000);
+
+  --glass-tint: color-mix(in srgb, var(--subject-color, var(--color-primary)) 88%, #ffffff);
+  --glass-shift: color-mix(in oklch, var(--subject-color, var(--color-primary)) 70%, var(--brand-400));
+
+  position: relative; isolation: isolate;
   inline-size: 46px; block-size: 46px; flex: none;
   display: inline-grid; place-items: center;
-  border-radius: 16px;
-  color: var(--subject-color, var(--color-primary));
+  /* A squircle rather than a rounded square: the corner is continuous, which is what stops a 46px
+     tile reading as a button. */
+  border-radius: 34%;
+  color: #fff;
   background:
-    linear-gradient(150deg,
-      color-mix(in srgb, var(--subject-soft, #fff) 92%, #fff),
-      color-mix(in srgb, var(--subject-color, #666) 12%, transparent));
+    linear-gradient(148deg,
+      color-mix(in srgb, var(--glass-tint) 92%, transparent),
+      color-mix(in srgb, var(--glass-shift) 88%, transparent));
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--subject-color, #666) 26%, transparent),
-    0 2px 6px color-mix(in srgb, var(--subject-color, #666) 14%, transparent);
+    /* the frosted rim */
+    inset 0 0 0 1px rgba(255, 255, 255, .22),
+    /* light catching the top edge */
+    inset 0 1px 0 rgba(255, 255, 255, .38),
+    /* and the colour glowing out of it */
+    0 4px 14px -4px color-mix(in srgb, var(--subject-color, #666) 55%, transparent);
+  transition:
+    transform var(--duration-fast) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-out);
 }
+/* The frost itself: a blurred pane over the gradient, which is what separates glass from paint. */
+.subject-medallion::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  border-radius: inherit;
+  backdrop-filter: blur(6px) saturate(1.25);
+  background: linear-gradient(160deg, rgba(255,255,255,.28), rgba(255,255,255,.04) 58%, transparent);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .subject-medallion::before { background: linear-gradient(160deg, rgba(255,255,255,.34), transparent 62%); }
+}
+/* The drawing sits on the glass, so it is white with its own soft halo rather than the subject
+   colour it used to be — the colour moved to the tile behind it. */
+.subject-medallion .subject-icon {
+  filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--subject-color, #000) 45%, transparent));
+}
+.subject-card:hover .subject-medallion {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, .3),
+    inset 0 1px 0 rgba(255, 255, 255, .45),
+    0 8px 22px -6px color-mix(in srgb, var(--subject-color, #666) 72%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .subject-medallion, .subject-card:hover .subject-medallion { transition: none; transform: none; }
+}
+
+/* The card borrows the subject's colour on hover: a ring and a glow in the same hue the badge is
+   lit with, so hovering a row of subjects reads as moving between colours rather than between
+   identical boxes. The border is already the subject colour, so only its intensity changes. */
+.subject-card {
+  transition:
+    box-shadow var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out),
+    border-color var(--duration-normal) var(--ease-out);
+}
+.subject-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--subject-card-color, var(--color-primary)) 45%, transparent),
+    0 14px 30px -18px color-mix(in srgb, var(--subject-card-color, var(--color-primary)) 70%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .subject-card, .subject-card:hover { transition: none; transform: none; }
+}
+
+/* The subject's name carries a whisper of its own colour rather than a glow. A neon text-shadow
+   on a 16px heading reduces its contrast against the card, and the name is the one thing on this
+   card that has to stay readable — so the colour arrives as a tint on the ink, which keeps the
+   ratio, instead of as a halo around it, which spends it. */
+.subject-card-head strong, .subject-card-title {
+  color: color-mix(in srgb, var(--subject-color, var(--color-text-primary)) 32%, var(--color-text-primary));
+}
+
+/* The two actions under a subject fade in from nothing to the faintest tint of its colour, so they
+   read as belonging to this card rather than as two grey buttons parked on it. */
+.subject-card .record-actions .ui-button-secondary,
+.subject-card .record-actions .ui-button-ghost {
+  background-image: linear-gradient(180deg, transparent, color-mix(in srgb, var(--subject-card-color, var(--color-primary)) 12%, transparent));
+  border-color: color-mix(in srgb, var(--subject-card-color, var(--color-primary)) 22%, var(--color-border));
+  transition: background-image var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+.subject-card .record-actions .ui-button-secondary:hover,
+.subject-card .record-actions .ui-button-ghost:hover {
+  background-image: linear-gradient(180deg, transparent, color-mix(in srgb, var(--subject-card-color, var(--color-primary)) 24%, transparent));
+  border-color: color-mix(in srgb, var(--subject-card-color, var(--color-primary)) 42%, transparent);
+}
+
 /* The palette's soft tints are light by design — a subject's badge stays a bright medallion on a
    dark card, which is what makes it findable there, and its ink is the same dark colour that was
    contrast-checked against that tint in the first place. */

@@ -7,6 +7,7 @@ import {
   isSubjectIconKey, standardSubjects, subjectColor, subjectColors, subjectIconKeys, subjectIconLabels,
   type SubjectIconKey
 } from '../../data/subjectCatalog';
+import { subjectIconForName } from '../../data/subjectIconMatch';
 import { SubjectIcon } from './SubjectIcon';
 import type { Subject } from '../../domain/types';
 import { Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, LinkButton, PageHeader } from '../../ui/components';
@@ -71,7 +72,7 @@ export function SubjectsPage() {
         name: String(data.get('name') ?? '').trim(),
         nameEn: String(data.get('nameEn') ?? '').trim(),
         colorIndex: Number(data.get('colorIndex') ?? 0),
-        iconKey: String(data.get('iconKey') ?? 'default')
+        iconKey: String(data.get('iconKey') ?? '') || subjectIconForName(String(data.get('name') ?? ''))
       });
       form.reset();
       setEditing(null);
@@ -248,7 +249,13 @@ export function SubjectsPage() {
           {subjects.map((subject) => {
             const color = subjectColor(subject.colorIndex);
             return (
-              <article key={subject.id} className="subject-card" style={{ borderColor: color.solid }}>
+              /* The card carries the subject's colour as a variable, not only as a border: the hover
+                 ring, the glow and the two buttons underneath all read it from here. */
+              <article
+                key={subject.id}
+                className="subject-card"
+                style={{ borderColor: color.solid, '--subject-card-color': color.solid } as CSSProperties}
+              >
                 <div
                   className="subject-card-head subject-tint"
                   style={{ '--subject-color': color.solid, '--subject-soft': color.soft } as CSSProperties}

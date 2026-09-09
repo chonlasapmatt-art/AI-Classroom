@@ -14,6 +14,7 @@ import {
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 import { RosterFileButton } from '../imports/RosterFileButton';
+import { subjectIconForName } from '../../data/subjectIconMatch';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 
 const verificationLabels: Record<TeacherVerificationStatus, string> = {
@@ -83,7 +84,10 @@ export function TeachersPage() {
             code: `CUSTOM-${crypto.randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase()}`,
             name: subject,
             colorIndex: snapshot.subjects.length % 6,
-            iconKey: 'default',
+            // This form has no icon picker, and every subject a school actually adds comes through
+            // it — which is how six of nine subjects ended up drawn as the same grey label. The name
+            // chooses a starting icon; the subject screen can still change it.
+            iconKey: subjectIconForName(subject),
             sortOrder: snapshot.subjects.length
           });
         }

@@ -1,0 +1,80 @@
+import { describe, expect, it } from 'vitest';
+import { subjectIconKeys } from '../../src/data/subjectCatalog';
+import { matchableIcons, subjectIconForName } from '../../src/data/subjectIconMatch';
+import { standardSubjects } from '../../src/data/subjectCatalog';
+
+/*
+ * The reason six of nine subjects in the live school were drawn as the same grey label.
+ *
+ * It was never the drawings. A subject created by typing its name into the teacher form was saved
+ * with `iconKey: 'default'`, because that form has no icon picker — and that form is how a school
+ * actually adds the subjects it teaches. Twenty-two distinct drawings are worth nothing if the thing
+ * that creates subjects never chooses between them.
+ */
+describe('choosing a subject icon from its name', () => {
+  it('recognises the Thai core curriculum by name', () => {
+    const expected: Array<[string, string]> = [
+      ['ภาษาไทย', 'language'],
+      ['คณิตศาสตร์', 'math'],
+      ['วิทยาศาสตร์', 'science'],
+      ['วิทยาศาสตร์และเทคโนโลยี', 'science'],
+      ['สังคมศึกษา ศาสนา และวัฒนธรรม', 'social'],
+      ['ศิลปะ', 'art'],
+      ['การงานอาชีพ', 'work'],
+      ['ภาษาต่างประเทศ', 'globe']
+    ];
+    for (const [name, icon] of expected) expect(subjectIconForName(name), name).toBe(icon);
+  });
+
+  it('gives the compound PE subject the sport icon, not the heart', () => {
+    // "สุขศึกษาและพลศึกษา" is one subject in the core curriculum and contains the whole of สุขศึกษา,
+    // so the order of the rules is what decides it. Mostly sport, drawn as sport.
+    expect(subjectIconForName('สุขศึกษาและพลศึกษา')).toBe('sport');
+    expect(subjectIconForName('พละและพลศึกษา')).toBe('sport');
+    // On its own it is still health.
+    expect(subjectIconForName('สุขศึกษา')).toBe('health');
+  });
+
+  it('recognises the subjects this school actually invented', () => {
+    // Every one of these was sitting on the fallback label in production.
+    expect(subjectIconForName('ออกแบบกราฟิก')).toBe('art');
+    expect(subjectIconForName('คอมพิวเตอร์')).toBe('computer');
+    expect(subjectIconForName('การงานอาชีพ')).toBe('work');
+    expect(subjectIconForName('วิทยาศาสตร์')).toBe('science');
+  });
+
+  it('reads a name however somebody typed it', () => {
+    expect(subjectIconForName('  คณิตศาสตร์  ')).toBe('math');
+    expect(subjectIconForName('Graphic Design')).toBe('art');
+    expect(subjectIconForName('graphicdesign')).toBe('art');
+    expect(subjectIconForName('COMPUTER')).toBe('computer');
+  });
+
+  it('separates the sciences that have their own drawing', () => {
+    expect(subjectIconForName('ฟิสิกส์')).toBe('atom');
+    expect(subjectIconForName('เคมี')).toBe('atom');
+    expect(subjectIconForName('ชีววิทยา')).toBe('leaf');
+    // The general subject keeps the flask.
+    expect(subjectIconForName('วิทยาศาสตร์')).toBe('science');
+  });
+
+  it('falls back to the label rather than guessing wrongly', () => {
+    // A guess is only useful while it is right. A name nothing recognises gets the honest answer,
+    // and the picker on the subject screen is still there.
+    expect(subjectIconForName('tyfyuiy')).toBe('default');
+    expect(subjectIconForName('')).toBe('default');
+    expect(subjectIconForName('   ')).toBe('default');
+  });
+
+  it('only ever names an icon the renderer knows', () => {
+    for (const icon of matchableIcons) expect(subjectIconKeys, icon).toContain(icon);
+  });
+
+  it('agrees with the seeded catalogue about every standard subject', () => {
+    // The seeds carry a hand-chosen icon. Where the matcher disagrees with a hand-chosen one, the
+    // matcher is wrong — these are the eight names it will meet most often.
+    for (const seed of standardSubjects) {
+      expect(subjectIconForName(seed.name), seed.name).toBe(seed.iconKey);
+    }
+  });
+});

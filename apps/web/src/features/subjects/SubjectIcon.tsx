@@ -27,10 +27,19 @@
  */
 import { isSubjectIconKey, type SubjectIconKey } from '../../data/subjectCatalog';
 
-/** The lighter half of the subject's own colour, mixed with the page rather than with white. */
-const soft = 'color-mix(in srgb, currentColor 32%, var(--color-surface, #fff))';
-/** A knocked-out highlight: the tile showing through the drawing. */
-const cut = 'var(--color-surface, #fff)';
+/*
+ * The two tones the drawings are built from, each overridable by whatever frame holds the icon.
+ *
+ * On a card the icon is drawn in the subject's colour on the page, so the lighter tone is that
+ * colour mixed with the page and the knocked-out parts are the page itself. Inside the glass
+ * medallion the whole relationship inverts — white ink on a saturated tile — and those two defaults
+ * would turn every soft shape and every cut-out into the same near-white blob: the plus inside the
+ * maths tile disappeared, and the globe became a plain white circle. So the frame gets to say.
+ */
+/** The lighter half of the drawing. Defaults to the subject's colour mixed with the page. */
+const soft = 'var(--subject-icon-soft, color-mix(in srgb, currentColor 32%, var(--color-surface, #fff)))';
+/** A knocked-out highlight: whatever is behind the drawing, showing through it. */
+const cut = 'var(--subject-icon-cut, var(--color-surface, #fff))';
 /** The two accents the product's mark already uses, so the icons belong to the same family. */
 const warm = '#f7c948';
 const cool = '#31d6c4';
