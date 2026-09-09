@@ -11,8 +11,11 @@ describe('subject icons', () => {
       expect(svg.getAttribute('viewBox')).toBe('0 0 24 24');
       expect(svg.getAttribute('width')).toBe('20');
       expect(svg.getAttribute('height')).toBe('20');
-      expect(svg.getAttribute('stroke')).toBe('currentColor');
-      expect(svg.querySelectorAll('path, circle, rect').length).toBeGreaterThan(0);
+      // The set is filled now rather than stroked -- a 1.6 hairline dissolved at the 13px the
+      // calendar chip draws it at -- so the colour arrives per shape, and the root carries none.
+      expect(svg.getAttribute('fill')).toBe('none');
+      expect(svg.getAttribute('stroke')).toBeNull();
+      expect(svg.querySelectorAll('path, circle, rect, ellipse').length).toBeGreaterThan(0);
       unmount();
     }
   });
