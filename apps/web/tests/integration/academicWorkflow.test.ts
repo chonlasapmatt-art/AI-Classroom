@@ -274,7 +274,8 @@ describe('avatars, announcements and preferences', () => {
   it('refuses to touch somebody else and rejects an unknown avatar', async () => {
     await expect(repository.saveOwnAvatar('someone-else', 'student', 'avatar_001'))
       .rejects.toThrow('แก้ไข avatar ได้เฉพาะบัญชีของตัวเองเท่านั้น');
-    await expect(repository.saveOwnAvatar('preview-student', 'student', 'avatar_999'))
+    // The catalogue reaches a thousand now, so an id has to be past the end of it to be unknown.
+    await expect(repository.saveOwnAvatar('preview-student', 'student', 'avatar_9999'))
       .rejects.toThrow('ไม่พบ avatar ที่เลือก');
   });
 

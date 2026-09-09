@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ThemedAvatar } from '../../src/features/avatars/ThemedAvatar';
-import { avatarCatalog } from '../../src/features/avatars/avatarCatalog';
+import { avatarCatalog, LEGACY_CATALOG_SIZE } from '../../src/features/avatars/avatarCatalog';
 import type { AvatarConfig } from '../../src/domain/types';
 import pinnedFixture from '../fixtures/legacyAvatarMarkup.json';
 
@@ -58,18 +58,27 @@ function markupFor(config: AvatarConfig, index: number): string {
   return svg;
 }
 
+/*
+ * Only the original hundred and sixty are pinned.
+ *
+ * The catalogue grew past them into generated layered configs, which are a different renderer and a
+ * different promise: those may be improved, and this fixture is about the ones children are already
+ * wearing.
+ */
+const legacyCatalog = avatarCatalog.slice(0, LEGACY_CATALOG_SIZE);
+
 const hash = (value: string) => createHash('sha256').update(value).digest('hex').slice(0, 16);
 
 /** One per theme, so a broken drawing names itself rather than only failing a checksum. */
 const detailed = new Set(
-  [...new Set(avatarCatalog.map((avatar) => avatar.config.archetype))]
-    .map((archetype) => avatarCatalog.find((avatar) => avatar.config.archetype === archetype)!.id)
+  [...new Set(legacyCatalog.map((avatar) => avatar.config.archetype))]
+    .map((archetype) => legacyCatalog.find((avatar) => avatar.config.archetype === archetype)!.id)
 );
 
 function currentFixture(): Fixture {
   const hashes: Record<string, string> = {};
   const markup: Record<string, string> = {};
-  for (const avatar of avatarCatalog) {
+  for (const avatar of legacyCatalog) {
     const svg = markupFor(avatar.config, avatar.index);
     hashes[avatar.id] = hash(svg);
     if (detailed.has(avatar.id)) markup[avatar.id] = svg;
@@ -103,8 +112,8 @@ describe('avatars that already exist', () => {
   });
 
   it('still resolves all 160 catalogue ids', () => {
-    expect(avatarCatalog.length).toBe(160);
-    expect(avatarCatalog[0]!.id).toBe('avatar_001');
-    expect(avatarCatalog[159]!.id).toBe('avatar_160');
+    expect(legacyCatalog.length).toBe(160);
+    expect(legacyCatalog[0]!.id).toBe('avatar_001');
+    expect(legacyCatalog[159]!.id).toBe('avatar_160');
   });
 });

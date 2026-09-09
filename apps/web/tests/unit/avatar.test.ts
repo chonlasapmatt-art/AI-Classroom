@@ -1,19 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
-  AVATAR_CATALOG_SIZE, avatarById, avatarCatalog, configForAvatarId, initialsFor, isValidAvatarId, searchAvatars
+  AVATAR_CATALOG_SIZE, avatarById, avatarCatalog, catalogSignature, configForAvatarId, initialsFor,
+  isValidAvatarId, LEGACY_CATALOG_SIZE, searchAvatars
 } from '../../src/features/avatars/avatarCatalog';
 import { resolveAvatar } from '../../src/features/avatars/avatarThemes';
 
 describe('avatar catalogue', () => {
-  it('offers exactly 160 selectable avatars with stable ids', () => {
+  it('keeps the original ids at the front and appends the rest', () => {
     expect(avatarCatalog).toHaveLength(AVATAR_CATALOG_SIZE);
     expect(avatarCatalog[0]!.id).toBe('avatar_001');
     expect(avatarCatalog[159]!.id).toBe('avatar_160');
+    expect(avatarCatalog[LEGACY_CATALOG_SIZE]!.id).toBe('avatar_161');
+    expect(avatarCatalog[AVATAR_CATALOG_SIZE - 1]!.index).toBe(AVATAR_CATALOG_SIZE - 1);
     expect(new Set(avatarCatalog.map((avatar) => avatar.id)).size).toBe(AVATAR_CATALOG_SIZE);
   });
 
   it('makes every catalogue entry visually distinct', () => {
-    const signatures = avatarCatalog.map((avatar) => Object.values(avatar.config).join('-'));
+    const signatures = avatarCatalog.map(catalogSignature);
     expect(new Set(signatures).size).toBe(AVATAR_CATALOG_SIZE);
   });
 

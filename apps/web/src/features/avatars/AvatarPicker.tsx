@@ -42,6 +42,9 @@ const categories: Array<{ value: AvatarCategory | 'all'; label: string }> = [
  * an avatar ever saw the thing they were choosing do anything. Trying a pose is the point of the
  * panel now, and it costs nothing: the animations are CSS on drawings that are already on screen.
  */
+/** How many tiles are mounted at once. Two screenfuls on a phone, one on a laptop. */
+const PAGE_SIZE = 120;
+
 const poses: Array<{ value: AvatarAnimation; label: string }> = [
   { value: 'wave', label: 'ทักทาย' },
   { value: 'study', label: 'ตั้งใจเรียน' },
@@ -81,6 +84,18 @@ export function AvatarPicker({ displayName, currentAvatarId, currentOutfit, poin
     && (clothesFilter === 'all' || avatar.config.palette === Number(clothesFilter))
   ), [clothesFilter, hairFilter, query, category, skinFilter]);
 
+  /*
+   * A page at a time, because the catalogue is now a thousand.
+   *
+   * Every tile is a live SVG figure with an idle animation, and a thousand of them mounted at once
+   * is a phone that stops responding while it lays out avatars nobody has scrolled to. The list
+   * still *is* a thousand — search, filters and the arrow keys all work across the whole of it — but
+   * only a screenful or two is mounted, and the focused tile is always among them so the keyboard
+   * never lands on something that is not there.
+   */
+  const [visible, setVisible] = useState(PAGE_SIZE);
+  useEffect(() => setVisible(PAGE_SIZE), [query, category, hairFilter, skinFilter, clothesFilter]);
+
   const chosen = results.find((avatar) => avatar.id === selected)
     ?? searchAvatars('', 'all').find((avatar) => avatar.id === selected)
     ?? null;
@@ -88,6 +103,8 @@ export function AvatarPicker({ displayName, currentAvatarId, currentOutfit, poin
   // Filtering can leave the chosen avatar off screen. Keeping the roving focus on something that
   // exists is what stops the arrow keys landing on nothing.
   const focusIndex = Math.max(0, results.findIndex((avatar) => avatar.id === selected));
+
+  const shown = results.slice(0, Math.max(visible, focusIndex + 1));
 
   useEffect(() => {
     if (!selected) return;
@@ -111,10 +128,19 @@ export function AvatarPicker({ displayName, currentAvatarId, currentOutfit, poin
     const step = moves[event.key];
     if (step === undefined && event.key !== 'Home' && event.key !== 'End') return;
     event.preventDefault();
+    /*
+     * The arrows move through what is on screen, and End is the end of it.
+     *
+     * With a thousand results only a page is mounted, so jumping to result 999 would put the
+     * selection on a tile that does not exist and take the focus with it. "ดูเพิ่ม" is how the rest
+     * arrives; until then the last mounted tile is the last tile there is, which is what a person
+     * pressing End is looking at.
+     */
+    const last = shown.length - 1;
     const next = event.key === 'Home' ? 0
-      : event.key === 'End' ? results.length - 1
-        : Math.min(results.length - 1, Math.max(0, focusIndex + step!));
-    const target = results[next];
+      : event.key === 'End' ? last
+        : Math.min(last, Math.max(0, focusIndex + step!));
+    const target = shown[next];
     if (!target) return;
     setSelected(target.id);
     grid.current?.querySelectorAll<HTMLElement>('[role="option"]')[next]?.focus();
@@ -273,7 +299,9 @@ export function AvatarPicker({ displayName, currentAvatarId, currentOutfit, poin
             </details>
           </div>
 
-          <p className="ui-field-hint" role="status">พบ {results.length} แบบ</p>
+          <p className="ui-field-hint" role="status">
+            พบ {results.length} แบบ{shown.length < results.length ? ` · แสดง ${shown.length}` : ''}
+          </p>
 
           <div
             className="avatar-grid"
@@ -282,7 +310,7 @@ export function AvatarPicker({ displayName, currentAvatarId, currentOutfit, poin
             ref={grid}
             onKeyDown={navigate}
           >
-            {results.map((avatar, index) => (
+            {shown.map((avatar, index) => (
               <button
                 key={avatar.id}
                 role="option"
@@ -308,6 +336,14 @@ export function AvatarPicker({ displayName, currentAvatarId, currentOutfit, poin
               </button>
             ))}
           </div>
+
+          {shown.length < results.length && (
+            <div className="ui-page-actions">
+              <Button variant="secondary" type="button" onClick={() => setVisible((count) => count + PAGE_SIZE)}>
+                ดูเพิ่มอีก {Math.min(PAGE_SIZE, results.length - shown.length)} แบบ
+              </Button>
+            </div>
+          )}
 
           {results.length === 0 && (
             <p className="ui-field-hint">ไม่พบ avatar ที่ตรงกับที่ค้นหา · ลองล้างตัวกรองละเอียดหรือพิมพ์คำสั้นลง</p>

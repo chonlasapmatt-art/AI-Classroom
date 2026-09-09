@@ -135,7 +135,7 @@ describe('application shell and routes', () => {
     expect(within(dialog).getByRole('button', { name: 'ทักทาย' })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('walks the avatar gallery with the arrow keys instead of a hundred and sixty tab stops', async () => {
+  it('walks the avatar gallery with the arrow keys instead of a tab stop per avatar', async () => {
     renderApp();
     await switchRole('preview-student');
     fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
