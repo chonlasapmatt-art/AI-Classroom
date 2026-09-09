@@ -113,11 +113,12 @@ describe('application shell and routes', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'เปลี่ยน Avatar' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('เลือก Avatar')).toBeInTheDocument();
-    expect(within(dialog).getAllByRole('option', { name: /อวตาร/ }).length).toBeGreaterThan(50);
+    expect(within(dialog).getByText('เลือก Avatar ขั้นสูง')).toBeInTheDocument();
+    expect(within(dialog).getAllByRole('option').length).toBeGreaterThan(50);
 
-    fireEvent.change(within(dialog).getByPlaceholderText(/avatar_012/), { target: { value: 'avatar_007' } });
-    await waitFor(() => expect(within(dialog).getAllByRole('option', { name: /อวตาร/ })).toHaveLength(1));
+    // The search waits for the typing to stop, so the assertion waits with it.
+    fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'avatar_007' } });
+    await waitFor(() => expect(within(dialog).getAllByRole('option')).toHaveLength(1));
   });
 
   it('lets somebody try a pose before they commit to an avatar', async () => {
@@ -128,11 +129,11 @@ describe('application shell and routes', () => {
     const dialog = await screen.findByRole('dialog');
 
     // The drawings already knew how to wave; the picker never let anybody see it.
-    const celebrate = within(dialog).getByRole('button', { name: 'ดีใจ' });
-    expect(within(dialog).getByRole('button', { name: 'ทักทาย' })).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(celebrate);
-    expect(celebrate).toHaveAttribute('aria-pressed', 'true');
-    expect(within(dialog).getByRole('button', { name: 'ทักทาย' })).toHaveAttribute('aria-pressed', 'false');
+    const cast = within(dialog).getByRole('button', { name: 'ร่ายเวทย์' });
+    expect(within(dialog).getByRole('button', { name: 'ยืน' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(cast);
+    expect(cast).toHaveAttribute('aria-pressed', 'true');
+    expect(within(dialog).getByRole('button', { name: 'ยืน' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('walks the avatar gallery with the arrow keys instead of a tab stop per avatar', async () => {

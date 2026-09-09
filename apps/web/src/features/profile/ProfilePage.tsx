@@ -3,7 +3,8 @@ import { useSession } from '../../app/SessionContext';
 import { recall, remember } from '../../app/deviceMemory';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { Badge, Button, Card, CardHeader, Field, FieldGroup, PageHeader } from '../../ui/components';
-import { AvatarPicker } from '../avatars/AvatarPicker';
+import { AvatarDesigner } from '../avatars/AvatarDesigner';
+import type { AvatarConfigV2 } from '../avatars/avatarSchema';
 import { AvatarWidget } from '../avatars/AvatarWidget';
 import { pointsBalanceFor, unlockedOutfitsFor } from '../rewards/studentPoints';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
@@ -194,14 +195,19 @@ export function ProfilePage() {
       </div>
 
       {pickerOpen && (
-        <AvatarPicker
+        <AvatarDesigner
           displayName={membership.displayName}
           currentAvatarId={avatarId}
+          currentConfig={(student?.avatarConfig ?? null) as AvatarConfigV2 | null}
           {...(student ? {
             currentOutfit: student.avatarConfig?.outfit ?? null,
             points: pointsBalanceFor(snapshot, student.id).balance,
             unlocked: unlockedOutfitsFor(snapshot, student.id),
-            onRedeem: (outfitId: string) => repository.redeemOutfit(membership.profileId, outfitId)
+            onRedeem: (outfitId: string) => repository.redeemOutfit(membership.profileId, outfitId),
+            /* Only a student has a record of their own that can hold a build. A teacher or a
+               guardian choosing their own avatar stores an id and nothing else, so the drawers stay
+               read-only for them and say so rather than losing the edit. */
+            onSaveConfig: (config: AvatarConfigV2) => repository.saveOwnAvatarConfig(membership.profileId, config)
           } : {})}
           onSave={saveAvatar}
           onClose={() => setPickerOpen(false)}

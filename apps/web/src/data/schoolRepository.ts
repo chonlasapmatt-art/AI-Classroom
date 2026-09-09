@@ -5,6 +5,7 @@ import type {
   RubricCriterion, RubricScore, ScoreCategory, ScoreEvent, Setting, Student, StudentAchievement, Subject, Submission, SubmissionStatus,
   SubmissionVersion, Teacher, TestRecord, TestScore, TimetableEntry, WorkType
 } from '../domain/types';
+import type { AvatarConfigV2 } from '../features/avatars/avatarSchema';
 
 /** What a screen reports after an import run; the repository stamps the identity and the clock. */
 export interface ImportRunInput {
@@ -290,6 +291,15 @@ export interface SchoolRepository {
    * configuration a teacher may have set, so nothing else about the drawing is lost.
    */
   saveOwnOutfit(actorProfileId: string, outfitId: string): Promise<void>;
+  /**
+   * A student saves a customiser build of their own: a combination of traits no catalogue id names.
+   *
+   * Separate from `saveOwnAvatar` because the two store different things — an id, or the layers and
+   * colours themselves — and only one of them can be checked against a catalogue. The server prices
+   * the traits and refuses any that have not been earned; the app cannot be the authority on that,
+   * because the request comes from the child's own browser.
+   */
+  saveOwnAvatarConfig(actorProfileId: string, config: AvatarConfigV2): Promise<void>;
   /**
    * Exchanges points for an outfit, for the acting student and nobody else.
    *

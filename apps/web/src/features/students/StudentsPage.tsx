@@ -3,7 +3,9 @@ import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses, classIdOfStudent, rosterFor } from '../../data/selectors';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
-import { AvatarStudio } from '../avatars/AvatarStudio';
+import { AvatarDesigner } from '../avatars/AvatarDesigner';
+import { configForAvatarId } from '../avatars/avatarCatalog';
+import type { AvatarConfigV2 } from '../avatars/avatarSchema';
 import type { Student } from '../../domain/types';
 import { nextStudentCode, previewQuickAdd, previewQuickAddTable } from './quickAdd';
 import { acceptedImportExtensions, readImportFile } from '../../data/importParsing';
@@ -524,12 +526,26 @@ export function StudentsPage() {
       )}
 
       {studioStudent && (
-        <AvatarStudio
-          avatarIndex={studioStudent.avatarIndex}
-          config={studioStudent.avatarConfig}
-          studentName={studioStudent.displayName}
+        <AvatarDesigner
+          displayName={studioStudent.displayName}
+          currentAvatarId={studioStudent.avatarId ?? null}
+          currentConfig={(studioStudent.avatarConfig ?? null) as AvatarConfigV2 | null}
           onClose={() => setStudioStudent(null)}
-          onSave={(config) => {
+          /*
+           * A teacher dressing a pupil is not spending that child's points, so no prices are shown
+           * and every drawer is open. Both saves go through the roster write a teacher already has,
+           * rather than the RPC a student uses on their own record.
+           */
+          onSave={(chosenId) => {
+            // A teacher writes the look rather than the id: `saveStudentAvatar` is the only avatar
+            // write on the roster side, and the catalogue entry is exactly a config.
+            const config = configForAvatarId(chosenId);
+            if (!config) { toast('ไม่พบ avatar ที่เลือก', { tone: 'error' }); return; }
+            void repository.saveStudentAvatar(studioStudent.id, config)
+              .then(() => { setStudioStudent(null); toast('บันทึกอวตารแล้ว'); })
+              .catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกอวตารไม่สำเร็จ', { tone: 'error' }));
+          }}
+          onSaveConfig={(config) => {
             void repository.saveStudentAvatar(studioStudent.id, config)
               .then(() => { setStudioStudent(null); toast('บันทึกอวตารแล้ว'); })
               .catch((reason: unknown) => toast(reason instanceof Error ? reason.message : 'บันทึกอวตารไม่สำเร็จ', { tone: 'error' }));

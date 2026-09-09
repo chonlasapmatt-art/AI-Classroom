@@ -17,6 +17,7 @@ import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
 import { achievementNoticesFor } from '../academic/achievementNotices';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
+import { configToJson, type AvatarConfigV2 } from '../features/avatars/avatarSchema';
 import { isValidOutfitId, outfitPrice } from '../features/avatars/avatarOutfits';
 import { configFromIndex } from '../features/avatars/avatarThemes';
 import { scopeSchoolSnapshot, type VisibilityScope } from './visibility';
@@ -957,6 +958,33 @@ export class DexieSchoolRepository implements SchoolRepository {
         updatedAt: timestamp
       });
     }
+  }
+
+  async saveOwnAvatarConfig(actorProfileId: string, config: AvatarConfigV2): Promise<void> {
+    /*
+     * The server prices the traits, not this.
+     *
+     * Everything sent from here arrives from a browser the child controls, so the only useful thing
+     * to do locally is send the build and let `set_own_avatar_config` decide — it recomputes each
+     * price from the id and refuses anything unearned. What is written to Dexie afterwards is the
+     * same object the server accepted, so an offline read shows what the record actually holds.
+     */
+    const timestamp = nowIso();
+    await this.rpc('set_own_avatar_config', { p_school_id: this.schoolId, p_config: configToJson(config) });
+    const student = await db.students.where({ schoolId: this.schoolId, profileId: actorProfileId }).first();
+    if (!student) return;
+    const existing = (student.avatarConfig ?? configFromIndex(student.avatarIndex)) as AvatarConfigV2;
+    await db.students.put({
+      ...student,
+      // The purse stays where it was: only `redeem_outfit` may move it.
+      avatarConfig: {
+        ...existing,
+        ...configToJson(config),
+        ...(existing.unlockedOutfits ? { unlockedOutfits: existing.unlockedOutfits } : {}),
+        ...(existing.spentPoints !== undefined ? { spentPoints: existing.spentPoints } : {})
+      } as AvatarConfigV2,
+      updatedAt: timestamp
+    });
   }
 
   async saveSubmission(input: SubmissionInput): Promise<void> {

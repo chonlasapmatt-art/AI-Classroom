@@ -12,6 +12,8 @@ import { validateRubric } from '../academic/rubric';
 import { effectiveDueAt } from '../academic/workStatus';
 import { achievementNoticesFor } from '../academic/achievementNotices';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
+import { configToJson, type AvatarConfigV2 } from '../features/avatars/avatarSchema';
+import { traitById } from '../features/avatars/avatarTraits';
 import { isValidOutfitId, outfitPrice } from '../features/avatars/avatarOutfits';
 import { pointsBalanceFor } from '../features/rewards/studentPoints';
 import { configFromIndex } from '../features/avatars/avatarThemes';
@@ -750,6 +752,29 @@ export class FixtureSchoolRepository implements SchoolRepository {
     this.data.students = this.upsert(this.data.students, {
       ...student,
       avatarConfig: { ...(student.avatarConfig ?? configFromIndex(student.avatarIndex)), outfit: outfitId },
+      updatedAt: nowIso()
+    });
+    this.emit();
+  }
+
+  async saveOwnAvatarConfig(actorProfileId: string, config: AvatarConfigV2): Promise<void> {
+    const student = this.data.students.find((item) => item.profileId === actorProfileId);
+    if (!student) throw new Error('แก้ไข avatar ได้เฉพาะบัญชีของตัวเองเท่านั้น');
+    const existing = (student.avatarConfig ?? configFromIndex(student.avatarIndex)) as AvatarConfigV2;
+    // The same refusal the server makes, so Preview behaves like the real thing rather than better.
+    const owned = new Set(existing.unlockedOutfits ?? []);
+    for (const id of Object.values(config.layers ?? {})) {
+      const price = traitById(id)?.price ?? 0;
+      if (price > 0 && !owned.has(id)) throw new Error('ไอเทมนี้ยังไม่ได้แลก');
+    }
+    this.data.students = this.upsert(this.data.students, {
+      ...student,
+      avatarConfig: {
+        ...existing,
+        ...configToJson(config),
+        ...(existing.unlockedOutfits ? { unlockedOutfits: existing.unlockedOutfits } : {}),
+        ...(existing.spentPoints !== undefined ? { spentPoints: existing.spentPoints } : {})
+      } as AvatarConfigV2,
       updatedAt: nowIso()
     });
     this.emit();
