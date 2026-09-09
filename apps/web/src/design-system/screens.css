@@ -3775,3 +3775,66 @@ tr.row-warning td { background: var(--warning-soft); }
 @media (prefers-reduced-motion: reduce) {
   .class-notice-scrim, .class-notice { animation: none; }
 }
+
+/* ── The pinned day column, rebuilt ────────────────────────────────────────────────────────────
+   Previous attempt: an opaque panel behind the cell at `z-index: -1`, plus a fade to its right.
+   A negative index puts that panel behind everything positioned in the table, so the lessons
+   scrolling past were painted *over* it — which is exactly what a teacher saw: half a subject name
+   and a card corner sitting beside "จันทร์" at most scroll positions, with a soft gradient over the
+   top of it that made it look deliberate.
+
+   The cause is the 7px gutter the week's cards are drawn with: a sticky cell paints its own box and
+   nothing else, so every gutter around it is a window onto whatever is sliding underneath. The fix
+   is to give the cell its cover *in front* rather than behind — spread shadows in the panel colour,
+   which paint with the element and therefore inherit its stacking position — and to size them to
+   the gutters rather than to a guess. Nothing passes through a gutter any more, so no mask, no
+   fade, and no fragments.
+
+   `display: flex` on a `<th>` also went: it takes the cell out of the table's own layout, which is
+   what let its box sit a few pixels away from the row it belongs to. The stack is an inner element
+   now, and the cell is a cell. */
+.timetable-grid tbody th {
+  position: sticky; left: 0; z-index: 4;
+  display: table-cell; vertical-align: middle; text-align: center;
+  min-width: 120px; min-height: 96px; padding: var(--space-2);
+  color: var(--ink-700); font-weight: var(--weight-strong);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--surface-muted), var(--surface));
+  box-shadow:
+    /* fills the gutter on every side, in the panel's own colour */
+    -12px 0 0 var(--surface), 9px 0 0 var(--surface),
+    0 -5px 0 var(--surface), 0 5px 0 var(--surface),
+    /* and the edge that says the column is holding its place */
+    14px 0 14px -12px color-mix(in srgb, var(--ink-900) 34%, transparent);
+}
+.timetable-grid tbody th::before, .timetable-grid tbody th::after { content: none; }
+.timetable-grid tbody th span { display: block; font-size: var(--text-xs); color: var(--ink-400); font-weight: var(--weight-regular); }
+
+/* The corner is the same cell one row up, and needs the same cover for the same reason. */
+.timetable-grid thead .timetable-corner {
+  position: sticky; left: 0; z-index: 5; min-width: 120px;
+  background: var(--surface);
+  box-shadow:
+    -12px 0 0 var(--surface), 9px 0 0 var(--surface),
+    0 -9px 0 var(--surface), 0 9px 0 var(--surface);
+}
+.timetable-grid thead .timetable-corner::after { content: none; }
+
+/* The period headings scroll with the week, so they need to clear the pinned column as it passes
+   beneath them rather than being overwritten by it. */
+.timetable-grid thead th:not(:first-child) { position: relative; z-index: 1; background: var(--surface); }
+
+/* ── A period is never half a period ───────────────────────────────────────────────────────────
+   Even with the pinned column covering what passes beneath it, a week scrolled by hand stops
+   wherever the finger left it — which is usually mid-card, so the first thing beside the day is
+   half a subject name cut down the middle of a letter. That is the thing a teacher reads as "the
+   text is running into the day".
+
+   So the week scrolls by the period: each column is a snap point, and the scroll padding is the
+   width of the pinned column, so a snapped period comes to rest against the rail rather than under
+   it. A lesson is either fully readable or fully off screen; there is no half. */
+.timetable-scroll { scroll-snap-type: x mandatory; scroll-padding-inline-start: 129px; }
+.timetable-grid tbody td, .timetable-grid thead th:not(:first-child) { scroll-snap-align: start; }
+/* The pinned column is not a stop of its own — snapping to it would put the week's first period
+   under the rail, which is the state this is here to prevent. */
+.timetable-grid tbody th, .timetable-grid thead .timetable-corner { scroll-snap-align: none; }
