@@ -40,7 +40,21 @@ export function sessionLabel(session: AttendanceSession, subjectName?: string): 
  * built its schedule yet still has children in front of it, and a mark that waits for the schedule
  * is a mark nobody remembers by the time it can be written.
  */
-export function sessionsForClass(snapshot: SchoolSnapshot, classId: string, date: string): AttendanceSession[] {
+export interface SessionOptions {
+  /**
+   * Whether this reader may take the homeroom register.
+   *
+   * Homeroom is the room itself rather than any lesson in it, so it belongs to the person who looks
+   * after the room: the advisor or their assistant. A teacher who takes one subject there has a
+   * period of their own to mark and no business marking the morning. Left undefined it stays open,
+   * which is what an administrator and the fixtures get.
+   */
+  canTakeHomeroom?: boolean;
+}
+
+export function sessionsForClass(
+  snapshot: SchoolSnapshot, classId: string, date: string, options: SessionOptions = {}
+): AttendanceSession[] {
   const classroom = snapshot.classes.find((item) => item.id === classId);
   const entries = snapshot.timetable
     .filter((item) => item.classId === classId
@@ -52,13 +66,21 @@ export function sessionsForClass(snapshot: SchoolSnapshot, classId: string, date
     key: entry.id, label: '', type: 'class', period: entry.period,
     subjectId: entry.subjectId, timetableEntryId: entry.id, time: `${entry.startTime}–${entry.endTime}`
   }));
-  return [
-    { key: 'homeroom', label: 'โฮมรูม', type: 'homeroom', period: null, subjectId: null, timetableEntryId: null, time: '' },
-    ...classSessions,
-    ...(classSessions.length === 0
-      ? [{ key: 'daily', label: 'สรุปทั้งวัน', type: 'daily' as const, period: null, subjectId: null, timetableEntryId: null, time: '' }]
-      : [])
+  const homeroom: AttendanceSession[] = options.canTakeHomeroom === false ? [] : [
+    { key: 'homeroom', label: 'โฮมรูม', type: 'homeroom', period: null, subjectId: null, timetableEntryId: null, time: '' }
   ];
+  /*
+   * A day with no timetable still gets a register.
+   *
+   * A school that has not built its schedule yet still has children in front of it, and a mark that
+   * waits for the schedule is a mark nobody remembers by the time it can be written. When homeroom
+   * is closed to this reader the whole-day sheet is what is left, so it appears whenever there is no
+   * lesson to mark rather than only when homeroom is also absent.
+   */
+  const wholeDay: AttendanceSession[] = classSessions.length === 0
+    ? [{ key: 'daily', label: 'สรุปทั้งวัน', type: 'daily' as const, period: null, subjectId: null, timetableEntryId: null, time: '' }]
+    : [];
+  return [...homeroom, ...classSessions, ...wholeDay];
 }
 
 function minutesOf(time: string): number | null {

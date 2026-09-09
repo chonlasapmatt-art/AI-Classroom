@@ -50,15 +50,26 @@ export function PeriodRegister({ classId }: { classId: string }) {
   const [busy, setBusy] = useState(false);
 
   const roster = useMemo(() => rosterFor(snapshot, classId), [snapshot, classId]);
-  const sessions = useMemo(() => sessionsForClass(snapshot, classId, date), [classId, date, snapshot]);
 
-  // Their own lesson, not the room's first: a teacher opening a room they take one subject in
-  // should land on that subject's register.
-  const ownSubjectIds = useMemo(() => {
-    if (membership.role !== 'teacher') return null;
-    const scope = teacherClassScope(snapshot, membership.profileId, classId);
-    return scope.advisor ? null : scope.subjectIds;
-  }, [classId, membership.profileId, membership.role, snapshot]);
+  /*
+   * What this reader is in the room for.
+   *
+   * An administrator is neutral and gets everything. A teacher gets their own lessons, and the
+   * morning only if they look after the room -- homeroom is the room itself rather than any lesson
+   * in it, so it belongs to the advisor or their assistant. A teacher who takes one subject there
+   * has a period of their own to mark and no business marking the morning.
+   */
+  const scope = useMemo(
+    () => (membership.role === 'teacher' ? teacherClassScope(snapshot, membership.profileId, classId) : null),
+    [classId, membership.profileId, membership.role, snapshot]
+  );
+  const canTakeHomeroom = scope === null || scope.advisor;
+  const ownSubjectIds = scope === null || scope.advisor ? null : scope.subjectIds;
+
+  const sessions = useMemo(
+    () => sessionsForClass(snapshot, classId, date, { canTakeHomeroom }),
+    [canTakeHomeroom, classId, date, snapshot]
+  );
 
   const suggested = useMemo(() => currentSessionFor(sessions, { ownSubjectIds }), [ownSubjectIds, sessions]);
   const session = sessions.find((item) => item.key === chosenKey) ?? suggested;
@@ -72,6 +83,26 @@ export function PeriodRegister({ classId }: { classId: string }) {
 
   const marked = roster.filter((student) => statusOf(student.id) !== null).length;
   const unmarked = roster.filter((student) => statusOf(student.id) === null);
+
+  /*
+   * When the register was taken, which is not the same as when the lesson was.
+   *
+   * A period runs 09:30–10:20 whatever happens; the register is the moment somebody stood in front
+   * of the room and marked it. Schools are asked for that time -- a register taken at the end of a
+   * lesson says something different from one taken at the start -- and it was being written into
+   * the row and shown nowhere. It is the first mark of this sheet, because that is when the taking
+   * began.
+   */
+  const takenAt = useMemo(() => {
+    if (!session) return null;
+    const stamps = snapshot.attendance
+      .filter((item) => item.classId === classId && item.attendanceDate === date
+        && (item.sessionKey ?? 'daily') === session.key)
+      .map((item) => Date.parse(item.createdAt))
+      .filter((value) => Number.isFinite(value));
+    if (stamps.length === 0) return null;
+    return new Date(Math.min(...stamps)).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  }, [classId, date, session, snapshot.attendance]);
   const subjectName = session ? subjectById(snapshot, session.subjectId)?.name : undefined;
 
   const sessionFields = session
@@ -87,6 +118,26 @@ export function PeriodRegister({ classId }: { classId: string }) {
       await repository.setAttendance({ classId, studentId, attendanceDate: date, status, ...sessionFields });
     } catch (reason) {
       toast(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ', { tone: 'error' });
+    }
+  }
+
+  /**
+   * Everybody present, in one press.
+   *
+   * The ordinary answer for a class of forty is "all of them", and it was forty presses to say so.
+   * This writes the marks nobody has touched yet and leaves the ones already set alone, so a
+   * teacher who has ticked the three absences can finish the sheet without undoing them.
+   */
+  async function markAllPresent() {
+    if (!sessionFields || unmarked.length === 0) return;
+    setBusy(true);
+    try {
+      await repository.setAttendanceForStudents(classId, date, 'present', unmarked.map((student) => student.id), sessionFields);
+      toast(`บันทึกมาเรียน ${unmarked.length} คนแล้ว`);
+    } catch (reason) {
+      toast(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ', { tone: 'error' });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -122,9 +173,11 @@ export function PeriodRegister({ classId }: { classId: string }) {
     <Card className="period-register">
       <CardHeader
         title={session ? `เช็กชื่อ · ${sessionLabel(session, subjectName)}` : 'เช็กชื่อคาบนี้'}
-        description={session?.time
-          ? `${session.time} · ${date} · แต่ละคาบมีการเช็กชื่อของตัวเอง ครูวิชาถัดไปจะได้แผ่นใหม่`
-          : `${date} · แต่ละคาบมีการเช็กชื่อของตัวเอง ครูวิชาถัดไปจะได้แผ่นใหม่`}
+        description={[
+          session?.time, date,
+          takenAt ? `เช็กชื่อเมื่อ ${takenAt} น.` : null,
+          'แต่ละคาบมีการเช็กชื่อของตัวเอง ครูวิชาถัดไปจะได้แผ่นใหม่'
+        ].filter(Boolean).join(' · ')}
         action={<Badge tone={marked === roster.length ? 'success' : 'warning'}>{marked}/{roster.length} คน</Badge>}
       />
 
@@ -184,7 +237,20 @@ export function PeriodRegister({ classId }: { classId: string }) {
         })}
       </ul>
 
+      {/* The common answer first, and the closing one after it: most registers are "everybody is
+          here", and the one that writes absences is the one worth pausing over. */}
       <div className="ui-card-actions">
+        <Button
+          variant="primary"
+          icon={<Icon name="check" size={16} />}
+          loading={busy}
+          disabled={unmarked.length === 0}
+          onClick={() => void markAllPresent()}
+        >
+          {unmarked.length === roster.length
+            ? 'มาเรียนทั้งห้อง'
+            : `มาเรียนอีก ${unmarked.length} คนที่เหลือ`}
+        </Button>
         <Button
           variant="secondary"
           disabled={unmarked.length === 0 || busy}

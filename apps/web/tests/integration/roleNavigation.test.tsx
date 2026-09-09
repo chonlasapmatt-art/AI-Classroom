@@ -183,7 +183,7 @@ describe('shortcuts on the overview page', () => {
 
     fireEvent.click(summary);
     await waitFor(() => expect(within(hub!).getByRole('link', { name: /เช็กชื่อ/ })).toBeInTheDocument());
-    expect(within(hub!).getByRole('link', { name: /กิจกรรมหน้าชั้น/ })).toBeInTheDocument();
+    expect(within(hub!).getByRole('link', { name: /เปิดคาบเรียน/ })).toBeInTheDocument();
   });
 
   it('narrows two dozen destinations to the one being looked for', async () => {
@@ -197,7 +197,10 @@ describe('shortcuts on the overview page', () => {
     const search = await within(hub).findByLabelText('ค้นหาทางลัด');
     fireEvent.change(search, { target: { value: 'เช็กชื่อ' } });
     await waitFor(() => expect(within(hub).getByRole('link', { name: /เช็กชื่อ/ })).toBeInTheDocument());
-    expect(within(hub).queryByRole('link', { name: /กิจกรรมหน้าชั้น/ })).not.toBeInTheDocument();
+    // Something that plainly does not match, so the assertion is about the narrowing rather than
+    // about one destination's current name: the register entry now carries the word "เช็กชื่อ"
+    // itself, which is the point of it.
+    expect(within(hub).queryByRole('link', { name: /ปฏิทิน/ })).not.toBeInTheDocument();
 
     // A dead end says so and says what to do about it, rather than leaving an empty panel that
     // reads as the hub having broken.

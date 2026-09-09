@@ -14,6 +14,7 @@ import {
   formatCountdown, pickNextIndex, pickNextStudent, splitIntoTeams, teamCountOptions, teamName, xpPresets
 } from './classroomGames';
 import { useToast } from '../../ui/toastContext';
+import { useSearchParams } from 'react-router-dom';
 import { useRememberedClass } from '../../app/useRememberedClass';
 
 type Tool = 'pick' | 'teams' | 'question' | 'timer';
@@ -53,7 +54,17 @@ export function ClassroomLivePage() {
   const [busy, setBusy] = useState(false);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
 
-  const [selectedClassId, setClassId] = useRememberedClass(classes);
+  /*
+   * A room named in the address wins the first pick.
+   *
+   * Every way into the register now carries the room with it -- the class card, the subject page,
+   * the card on the dashboard -- so arriving here should be arriving in that room, not in a
+   * picker showing whichever room sorts first. It is only the starting point: the picker still
+   * changes it, and a room this person may not see is ignored rather than shown empty.
+   */
+  const [searchParams] = useSearchParams();
+  const requestedClassId = searchParams.get('class') ?? '';
+  const [selectedClassId, setClassId] = useRememberedClass(classes, requestedClassId);
   const roster = useMemo(() => rosterFor(snapshot, selectedClassId), [snapshot, selectedClassId]);
   const subjects = useMemo(() => {
     if (membership.role !== 'teacher') return snapshot.subjects.filter((item) => item.status === 'active');

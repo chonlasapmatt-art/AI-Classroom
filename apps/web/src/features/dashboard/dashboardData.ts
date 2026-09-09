@@ -113,7 +113,9 @@ export function quickActionsFor(role: Role, canCreateWork: boolean): QuickAction
     { to: '/timetable', label: 'ตารางเรียน', icon: 'timetable', hint: 'คาบเรียนของลูก' }
   ];
   const staff: QuickAction[] = [
-    { to: '/attendance', label: 'เช็กชื่อ', icon: 'attendance', hint: 'บันทึกการเข้าเรียนวันนี้' },
+    // Straight to the lesson, not to a screen that asks which room and which period: the register
+    // reads the timetable and opens on the one being taught.
+    { to: '/classroom', label: 'เช็กชื่อคาบนี้', icon: 'attendance', hint: 'เปิดคาบที่กำลังสอนจากตารางสอน' },
     { to: '/scores', label: 'บันทึกคะแนน', icon: 'scores', hint: 'ให้คะแนนงานและแบบทดสอบ' },
     { to: '/announcements', label: 'แจ้งข่าว', icon: 'announcements', hint: 'ส่งประกาศถึงห้องเรียน' }
   ];

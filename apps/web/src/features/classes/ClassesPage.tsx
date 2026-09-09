@@ -294,7 +294,7 @@ export function ClassesPage() {
         title="ห้องเรียน"
         description={isAdmin
           ? `ปีการศึกษา ${term?.academicYear ?? '—'} ภาคเรียนที่ ${term?.term ?? '—'}`
-          : `ห้องที่คุณดูแล ${classes.length} ห้อง · กดดูรายชื่อนักเรียน แล้วไปเช็กชื่อห้องนั้นต่อได้จากที่นี่`}
+          : `ห้องที่คุณดูแล ${classes.length} ห้อง · กด “เช็กชื่อ” เพื่อเปิดคาบที่กำลังสอนของห้องนั้นได้ทันที`}
         action={canEdit ? <Button variant="primary" icon={<Icon name="plus" size={16} />} onClick={openCreate}>เพิ่มห้องเรียน</Button> : undefined}
       />
 
@@ -434,6 +434,13 @@ export function ClassesPage() {
                     label={`${roster.length} / ${classroom.capacity} คน`}
                   />
                   <div className="class-card-actions">
+                    {/* The register lives on the room now. It reads the timetable for the period
+                        being taught, so this goes straight to the sheet rather than to a screen
+                        that asks which room and which lesson -- both of which are already known
+                        by the time somebody presses a button on this card. */}
+                    <LinkButton to={`/classroom?class=${classroom.id}`} variant="primary" size="sm">
+                      เช็กชื่อ
+                    </LinkButton>
                     <Button
                       variant="secondary"
                       icon={<Icon name="students" size={16} />}
@@ -684,7 +691,7 @@ export function ClassesPage() {
           )}
           <div className="ui-form-actions">
             <Button type="button" variant="ghost" onClick={() => setRosterView(null)}>ปิด</Button>
-            <LinkButton to={`/attendance?class=${rosterView.id}`} variant="primary">ไปเช็กชื่อห้องนี้</LinkButton>
+            <LinkButton to={`/classroom?class=${rosterView.id}`} variant="primary">ไปเช็กชื่อห้องนี้</LinkButton>
           </div>
         </Modal>
       )}

@@ -233,7 +233,7 @@ describe('application shell and routes', () => {
     const roster = await screen.findByRole('dialog');
     expect(within(roster).getAllByText(/เลขประจำตัว/).length).toBeGreaterThan(0);
     expect(within(roster).getByRole('link', { name: 'ไปเช็กชื่อห้องนี้' }))
-      .toHaveAttribute('href', expect.stringContaining('/attendance?class='));
+      .toHaveAttribute('href', expect.stringContaining('/classroom?class='));
   });
 
   it('opens the attendance screen on the room the classes screen linked to', async () => {

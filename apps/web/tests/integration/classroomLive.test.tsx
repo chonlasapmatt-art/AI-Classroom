@@ -55,10 +55,10 @@ describe('classroom live tools', () => {
   it('keeps the board in the teacher menu and out of a student session', async () => {
     renderApp('/');
     const menu = () => within(screen.getByRole('navigation', { name: 'เมนูหลัก' }));
-    await waitFor(() => expect(menu().getByRole('link', { name: /กิจกรรมหน้าชั้น/ })).toBeInTheDocument());
+    await waitFor(() => expect(menu().getByRole('link', { name: /เปิดคาบเรียน/ })).toBeInTheDocument());
 
     fireEvent.change(await screen.findByLabelText('เลือกบทบาท'), { target: { value: 'preview-student' } });
-    await waitFor(() => expect(menu().queryByRole('link', { name: /กิจกรรมหน้าชั้น/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(menu().queryByRole('link', { name: /เปิดคาบเรียน/ })).not.toBeInTheDocument());
   });
 
   it('refuses the screen itself to a student, not only the menu entry', async () => {

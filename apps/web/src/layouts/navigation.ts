@@ -39,6 +39,15 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/', 'ภาพรวม', 'dashboard'),
       destination('/announcements', 'ประกาศรวม', 'announcements'),
       destination('/calendar', 'ปฏิทิน', 'calendar'),
+      /*
+       * The room moved up here from "structure".
+       *
+       * It was filed with subjects and the question bank as a thing an administrator sets up once a
+       * year. It is now the way into the register -- every room carries a "เช็กชื่อ" button that
+       * opens the period being taught -- so it belongs with the day: the calendar, the timetable,
+       * and the rooms those two describe.
+       */
+      destination('/classes', 'ห้องเรียน', 'classes'),
       destination('/timetable', 'ตารางสอน', 'timetable')
     ] },
     { key: 'people', label: 'นักเรียนและบุคลากร', items: [
@@ -47,15 +56,21 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/parents', 'ผู้ปกครอง', 'parents'),
       destination('/promotion', 'ปีการศึกษา', 'promotion')
     ] },
-    { key: 'structure', label: 'ห้องเรียนและรายวิชา', items: [
-      destination('/classes', 'ห้องเรียน', 'classes'),
+    { key: 'structure', label: 'รายวิชาและข้อสอบ', items: [
       destination('/subjects', 'รายวิชา', 'subjects'),
       destination('/question-bank', 'คลังข้อสอบ', 'question-bank'),
       destination('/exams', 'ข้อสอบ', 'exams')
     ] },
     { key: 'classroom', label: 'งาน คะแนน และการเข้าเรียน', items: [
-      destination('/attendance', 'เช็กชื่อ / การเข้าเรียน', 'attendance'),
-      destination('/classroom', 'กิจกรรมหน้าชั้น', 'star'),
+      /*
+       * "เช็กชื่อ" is not an errand of its own any more.
+       *
+       * It was a screen somebody had to remember to visit, pick the room on and pick the period on
+       * -- all three of which the timetable already knows the moment a teacher opens the room they
+       * are standing in. So the register lives in the room, and what is left here is the screen for
+       * reading a past day and correcting it, which is a different job and is named as one.
+       */
+      destination('/classroom', 'เปิดคาบเรียน · เช็กชื่อ', 'attendance'),
       destination('/quiz', 'Quiz Challenge', 'quiz'),
       destination('/assignments', 'งานและกิจกรรม', 'assignments'),
       destination('/scores', 'คะแนนและเกรด', 'scores'),
@@ -66,6 +81,7 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     ] },
     { key: 'reports', label: 'รายงาน', items: [
       destination('/reports', 'กล่องข้อความห้องเรียน', 'reports'),
+      destination('/attendance', 'ประวัติการเข้าเรียน', 'attendance'),
       destination('/analytics', 'รายงานเชิงลึก', 'reports'),
       destination('/leaderboard', 'Leaderboard', 'leaderboard'),
       destination('/achievements', 'เหรียญรางวัล', 'achievements')
@@ -82,6 +98,8 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     { key: 'today', label: 'วันนี้', items: [
       destination('/', 'ภาพรวม', 'dashboard'),
       destination('/calendar', 'ปฏิทิน', 'calendar'),
+      // Beside the calendar, because the room is the way into the lesson and the register.
+      destination('/classes', 'ห้องเรียน', 'classes'),
       destination('/timetable', 'ตารางสอน', 'timetable')
     ] },
     /*
@@ -117,7 +135,6 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
      */
     { key: 'people', label: 'นักเรียน', items: [
       destination('/students', 'นักเรียน', 'students'),
-      destination('/classes', 'ห้องเรียน', 'classes'),
       destination('/subjects', 'รายวิชา', 'subjects'),
       destination('/parents', 'ผู้ปกครอง', 'parents')
     ] },
@@ -190,7 +207,7 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/my-children', 'ลูกของฉัน', 'children')
     ] },
     { key: 'attendance', label: 'การเข้าเรียน', items: [
-      destination('/attendance', 'เช็กชื่อ / การเข้าเรียน', 'attendance')
+      destination('/attendance', 'การเข้าเรียนของลูก', 'attendance')
     ] },
     { key: 'timetable', label: 'ตารางเรียน', items: [
       destination('/timetable', 'ตารางสอน', 'timetable'),
