@@ -1,42 +1,40 @@
 import type { ReactElement } from 'react';
-import { layerOrder, type AvatarConfigV2, type AvatarRace, type LayerType, type TraitOption } from './avatarSchema';
+import {
+  layerOrder,
+  type AvatarConfigV2, type AvatarElement, type AvatarRace, type AvatarTints,
+  type LayerType, type TraitOption
+} from './avatarSchema';
+import {
+  auras, backAccessories, bottoms, effects, eyeShapes, eyewear, frontAccessories,
+  hairShapes, headpieces, px, tops, type Sprite,
+  ACCENT, MAGIC, OUTLINE, PRIMARY, SECONDARY, SKIN, SKIN_SHADOW
+} from './avatarSprites';
 
 /**
- * The trait tables: one row of data, one drawing function, per thing an avatar can wear.
+ * The trait tables.
  *
- * Adding a trait is deliberately two edits in one file — a `TraitOption` describing what it is, and
- * a draw function saying what it looks like — with nothing to register elsewhere. The compositor
- * reads the table; the picker reads the table; the search index reads the table. Anything that has
- * to be kept in step with the table lives in the table.
+ * Two kinds of row live here. A handful are drawn one by one, because there is nothing to combine
+ * them with — the six bodies, one per race. The rest are *composed*: a hairstyle is a shape and
+ * something worn on top of it, a face is a pair of eyes and something worn over them, and an outfit
+ * is a top and a bottom, which are separate layers and multiply on their own.
  *
- * ── The 8-bit rules every drawing follows ──
- *   * whole or half units on a 24×24 grid, and `shape-rendering: crispEdges` above, so nothing is
- *     ever drawn between two pixels;
- *   * colour comes from `var(--av-…)` and never from a literal, because the palette is swapped
- *     rather than redrawn — a trait that hard-codes a colour cannot be tinted, and every colour
- *     picker in the customiser silently stops working on it;
- *   * at most six shades per material: base, shadow, highlight, outline and two accents. The first
- *     four are derived in `avatarSchema.ts`; a fifth invented shade is what makes a pixel set look
- *     like several people drew it.
+ * That is where the counts come from, and none of it is arithmetic dressed as content: every
+ * combination has its own id, draws differently from every other, and can be pointed at by a saved
+ * config. Fifty hairstyles drawn one at a time would be fifty chances to drift off the grid and off
+ * the palette, and most of them would differ from a neighbour by two pixels nobody could name.
+ * Twelve shapes and six things to wear on them is the same fifty, drawn once each.
+ *
+ * ── Ids are a promise ──
+ * A config stores a trait id, so renaming one changes what a child is wearing. The ids that existed
+ * before composition — `face_neutral`, `face_smile`, `face_focused`, `face_glow`, `face_fangs` — are
+ * kept exactly, by giving the empty accessory no suffix rather than renaming everything to
+ * `face_neutral__bare`.
  */
 export type TraitDraw = () => ReactElement;
 
 export interface Trait extends TraitOption {
   draw: TraitDraw;
 }
-
-/** A pixel. Named because `<rect x y width height fill>` five hundred times reads as noise. */
-function px(x: number, y: number, w: number, h: number, fill: string, key?: string) {
-  return <rect key={key} x={x} y={y} width={w} height={h} fill={fill} />;
-}
-
-const SKIN = 'var(--av-skin)';
-const SKIN_SHADOW = 'var(--av-skin-shadow)';
-const PRIMARY = 'var(--av-primary)';
-const SECONDARY = 'var(--av-secondary)';
-const ACCENT = 'var(--av-accent)';
-const MAGIC = 'var(--av-magic)';
-const OUTLINE = 'var(--av-outline)';
 
 /*
  * ── body_base ──
@@ -153,92 +151,79 @@ const bodies: Trait[] = [
   }
 ];
 
-/*
- * ── face_features ──
- * Two pixels of eye carry more of an avatar's character than anything else on it, so these are the
- * traits worth having many of. The mouth is drawn with them rather than separately: an expression is
- * eyes and mouth agreeing, and splitting them into two drawers produces avatars that are smiling
- * with frightened eyes.
- */
-const faces: Trait[] = [
-  {
-    id: 'face_neutral', layer: 'face_features', name: 'สายตาปกติ',
-    tags: ['neutral', 'ปกติ'], tintable: [],
-    draw: () => (
-      <g>
-        {px(9.5, 10, 1.5, 1.5, OUTLINE)}
-        {px(13, 10, 1.5, 1.5, OUTLINE)}
-        {px(11, 13, 2, 1, 'var(--av-skin-shadow)')}
-      </g>
-    )
-  },
-  {
-    id: 'face_smile', layer: 'face_features', name: 'ยิ้ม',
-    tags: ['smile', 'ยิ้ม'], tintable: [],
-    draw: () => (
-      <g>
-        {px(9.5, 10, 1.5, 1.5, OUTLINE)}
-        {px(13, 10, 1.5, 1.5, OUTLINE)}
-        {px(10.5, 13, 3, 1, 'var(--av-skin-shadow)')}
-        {px(10, 12.5, 1, 1, 'var(--av-skin-shadow)')}
-        {px(13, 12.5, 1, 1, 'var(--av-skin-shadow)')}
-      </g>
-    )
-  },
-  {
-    id: 'face_focused', layer: 'face_features', name: 'ตั้งใจ',
-    tags: ['focused', 'ตั้งใจ'], tintable: [],
-    draw: () => (
-      <g>
-        {px(9, 9.5, 2, 0.5, OUTLINE)}
-        {px(13, 9.5, 2, 0.5, OUTLINE)}
-        {px(9.5, 10.5, 1.5, 1, OUTLINE)}
-        {px(13, 10.5, 1.5, 1, OUTLINE)}
-        {px(11, 13, 2, 0.5, 'var(--av-skin-shadow)')}
-      </g>
-    )
-  },
-  {
-    id: 'face_glow', layer: 'face_features', name: 'ตาเรืองแสง', element: 'shadow',
-    tags: ['glow', 'เรืองแสง', 'demon'], tintable: ['magic'],
-    draw: () => (
-      <g>
-        {px(9, 10, 2, 2, MAGIC)}
-        {px(13, 10, 2, 2, MAGIC)}
-        {px(9.5, 10.5, 1, 1, 'var(--av-magic-highlight)')}
-        {px(13.5, 10.5, 1, 1, 'var(--av-magic-highlight)')}
-        {px(11, 13, 2, 1, 'var(--av-skin-shadow)')}
-      </g>
-    )
-  },
-  {
-    id: 'face_fangs', layer: 'face_features', name: 'ยิ้มเขี้ยว',
-    tags: ['fang', 'เขี้ยว', 'grin'], tintable: [],
-    draw: () => (
-      <g>
-        {px(9.5, 10, 1.5, 1.5, OUTLINE)}
-        {px(13, 10, 1.5, 1.5, OUTLINE)}
-        {px(10, 13, 4, 1, OUTLINE)}
-        {px(10.5, 13, 1, 1, '#ffffff')}
-        {px(12.5, 13, 1, 1, '#ffffff')}
-      </g>
-    )
-  },
-  {
-    id: 'face_visor', layer: 'face_features', name: 'ตาไซเบอร์', race: ['robot'], element: 'cyber',
-    tags: ['visor', 'cyber', 'ไซเบอร์'], tintable: ['accent'],
-    draw: () => (
-      <g>
-        {px(8, 9.5, 8, 2.5, OUTLINE)}
-        {px(8.5, 10, 3, 1.5, ACCENT)}
-        {px(12.5, 10, 3, 1.5, ACCENT)}
-        {px(9, 15, 6, 0.5, 'var(--av-secondary-shadow)')}
-      </g>
-    )
-  }
-];
+/** The "wearing nothing extra" row of a combining table, which every one of them has. */
+const isEmpty = (sprite: Sprite) => sprite.tags.includes('none');
 
-export const traits: Trait[] = [...bodies, ...faces];
+/**
+ * Two sprites drawn as one trait, the second over the first.
+ *
+ * That order is the layering *inside* a layer: a hat goes over hair, a mask over eyes. Where the
+ * second is the empty one the id keeps the first's name alone, so every id that existed before
+ * composition still resolves to the same drawing.
+ */
+function compose(
+  prefix: string, layer: LayerType, base: Sprite, worn: Sprite,
+  tintable: Array<keyof AvatarTints>
+): Trait {
+  const bare = isEmpty(worn);
+  const price = (base.price ?? 0) + (worn.price ?? 0);
+  return {
+    id: bare ? `${prefix}_${base.id}` : `${prefix}_${base.id}__${worn.id}`,
+    layer,
+    name: bare ? base.name : `${base.name} · ${worn.name}`,
+    // The empty accessory contributes nothing, not even its own "none" — a short haircut is not a
+    // trait that draws nothing, and search should not offer it under "ไม่มี".
+    tags: bare ? base.tags : [...new Set([...base.tags, ...worn.tags])],
+    tintable,
+    ...(price > 0 ? { price } : {}),
+    draw: () => (<g>{base.draw()}{worn.draw()}</g>)
+  };
+}
+
+/** A sprite that stands alone: clothes, wings, auras. */
+function single(
+  prefix: string, layer: LayerType, sprite: Sprite,
+  tintable: Array<keyof AvatarTints>, element?: AvatarElement
+): Trait {
+  return {
+    id: `${prefix}_${sprite.id}`,
+    layer,
+    name: sprite.name,
+    tags: sprite.tags,
+    tintable,
+    ...(sprite.price ? { price: sprite.price } : {}),
+    ...(element ? { element } : {}),
+    draw: sprite.draw
+  };
+}
+
+/** An aura or an effect named after an element belongs to it, for the customiser's filters. */
+function elementOf(sprite: Sprite): AvatarElement | undefined {
+  const known: AvatarElement[] = ['fire', 'ice', 'lightning', 'shadow', 'nature', 'star', 'cyber'];
+  return known.find((element) => sprite.id.includes(element) || sprite.tags.includes(element));
+}
+
+/** 12 shapes × 6 things worn on the head. */
+const hair: Trait[] = hairShapes.flatMap((shape) => headpieces.map(
+  (piece) => compose('hair', 'hair_headpiece', shape, piece, ['hair', 'secondary', 'magic', 'accent'])));
+
+/** 12 pairs of eyes × 9 things worn over them. */
+const faces: Trait[] = eyeShapes.flatMap((eye) => eyewear.map(
+  (worn) => compose('face', 'face_features', eye, worn, ['skin', 'magic', 'accent'])));
+
+/** 25 tops × 6 bottoms, which is 150 outfits out of 31 drawings because they are two layers. */
+const topClothing: Trait[] = tops.map((top) => single('top', 'top_clothing', top, ['primary', 'secondary', 'accent', 'magic']));
+const bottomClothing: Trait[] = bottoms.map((bottom) => single('bottom', 'bottom_clothing', bottom, ['secondary', 'primary', 'magic']));
+
+const backWorn: Trait[] = backAccessories.map((item) => single('back', 'back_accessory', item, ['secondary', 'primary', 'accent']));
+const frontWorn: Trait[] = frontAccessories.map((item) => single('front', 'front_accessory', item, ['secondary', 'primary', 'accent', 'magic']));
+const auraTraits: Trait[] = auras.map((item) => single('aura', 'back_aura', item, ['magic', 'accent', 'secondary'], elementOf(item)));
+const effectTraits: Trait[] = effects.map((item) => single('fx', 'front_fx', item, ['magic', 'accent', 'secondary'], elementOf(item)));
+
+export const traits: Trait[] = [
+  ...bodies, ...hair, ...faces, ...topClothing, ...bottomClothing,
+  ...backWorn, ...frontWorn, ...auraTraits, ...effectTraits
+];
 
 const traitIndex = new Map(traits.map((trait) => [trait.id, trait]));
 
@@ -254,6 +239,19 @@ export function traitsForLayer(layer: LayerType, race?: AvatarRace): Trait[] {
 /** The body a race falls back to when a config names no layer at all. */
 export function defaultBodyFor(race: AvatarRace): string {
   return bodies.find((body) => body.race?.includes(race))?.id ?? 'body_human';
+}
+
+/**
+ * How many options each drawer holds.
+ *
+ * Computed rather than written down, because the customiser prints these counts on screen — "50+
+ * styles", "100+ items" — and a number typed beside a list is a number that stops being true the
+ * first time somebody adds to the list.
+ */
+export function traitCounts(): Record<LayerType, number> {
+  const counts = Object.fromEntries(layerOrder.map((layer) => [layer, 0])) as Record<LayerType, number>;
+  for (const trait of traits) counts[trait.layer] += 1;
+  return counts;
 }
 
 /** Which trait fills each layer, once `hides` has had its say. */
