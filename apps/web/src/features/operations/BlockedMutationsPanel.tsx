@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
 import {
-  discardBlockedMutation, listBlockedMutations, retryBlockedMutation, type BlockedMutation
+  discardBlockedMutation, listBlockedMutations, retryAllBlockedMutations, retryBlockedMutation,
+  type BlockedMutation
 } from './blockedMutations';
 import { Badge, Button, Card, CardHeader, ConfirmDialog } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
@@ -52,6 +53,21 @@ export function BlockedMutationsPanel() {
     } finally { setBusy(null); }
   }
 
+  /*
+   * Everything at once, for the case that produces most of these rows: one server-side rule
+   * refused a whole class of writes, somebody has since corrected it, and every row it stopped is
+   * now deliverable. One press per row is not a remedy when the rule refused a term of turned-in
+   * work.
+   */
+  async function retryEverything() {
+    setBusy('all');
+    try {
+      const count = await retryAllBlockedMutations(membership.schoolId);
+      setMessage(`ส่งกลับเข้าคิวแล้ว ${count} รายการ · จะลองใหม่ในการซิงก์ครั้งถัดไป · รายการที่ยังถูกปฏิเสธจะกลับมาแสดงที่นี่พร้อมเหตุผลใหม่`);
+      await load();
+    } finally { setBusy(null); }
+  }
+
   async function discard(row: BlockedMutation) {
     setDiscarding(null);
     setBusy(row.queueId);
@@ -72,7 +88,16 @@ export function BlockedMutationsPanel() {
       <CardHeader
         title="รายการที่ต้องตรวจสอบ"
         description="เซิร์ฟเวอร์ไม่รับรายการเหล่านี้ และจะไม่ลองส่งอีกจนกว่าจะจัดการ"
-        action={<Badge tone="warning">{rows.length} รายการ</Badge>}
+        action={
+          <>
+            {rows.length > 1 && (
+              <Button variant="secondary" size="sm" loading={busy === 'all'} onClick={() => void retryEverything()}>
+                ลองใหม่ทั้งหมด
+              </Button>
+            )}
+            <Badge tone="warning">{rows.length} รายการ</Badge>
+          </>
+        }
       />
       {message && <div className="alert" role="status">{message}</div>}
       <ul className="blocked-list">

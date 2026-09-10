@@ -19,10 +19,53 @@ describe('the notice after an update', () => {
     window.localStorage.setItem('smart-classroom-seen-version', '0.0.1');
     render(<WhatsNewNotice />);
     expect(screen.getByRole('status', { name: 'สิ่งที่เปลี่ยนไปในเวอร์ชันนี้' })).toBeTruthy();
-    // Every change in this release is on screen — the banner truncates, this one does not.
+    // The newest release leads, because it is the one the reader has just taken.
     const shipped = releaseNotes[0]!;
-    for (const change of shipped.changes) expect(screen.getByText(change.text)).toBeTruthy();
+    expect(screen.getByText(shipped.changes[0]!.text)).toBeTruthy();
     expect(screen.getByText(new RegExp(APP_VERSION.replace(/\./g, '\\.')))).toBeTruthy();
+  });
+
+  /*
+   * Four lines, then the rest on request.
+   *
+   * This used to require every change on screen at once. For one release that is a handful; for a
+   * device several versions behind it is everything from every release in between — coming from
+   * 3.3.0 to 3.4.0 produced a seventeen-item wall under a ten-second clock, which is a length
+   * nobody reads on a timer nobody can beat.
+   */
+  it('shows a readable few and keeps the rest one press away', () => {
+    window.localStorage.setItem('smart-classroom-seen-version', '0.0.1');
+    render(<WhatsNewNotice />);
+
+    const atFirst = screen.getAllByRole('listitem').length;
+    expect(atFirst).toBeLessThanOrEqual(4);
+
+    fireEvent.click(screen.getByRole('button', { name: /ดูอีก \d+ รายการ/ }));
+
+    expect(screen.getAllByRole('listitem').length).toBeGreaterThan(atFirst);
+    // Opened, there is nothing left to offer.
+    expect(screen.queryByRole('button', { name: /ดูอีก/ })).toBeNull();
+  });
+
+  it('stops promising a countdown once somebody has opened the list', () => {
+    // A panel that goes on saying "closing in 3 seconds" while sitting there is a small lie, and it
+    // teaches people not to read the rest of what it says.
+    window.localStorage.setItem('smart-classroom-seen-version', '0.0.1');
+    const { container } = render(<WhatsNewNotice />);
+    /*
+     * Asked of the footer, not of the document.
+     *
+     * One of the release notes describes this very countdown — "ปิดเองใน 10 วินาที หรือกดปิดได้" —
+     * so a document-wide search for those words finds the changelog talking about the feature and
+     * reports it as the feature itself.
+     */
+    const foot = () => container.querySelector('.whats-new-foot')?.textContent ?? '';
+    expect(foot()).toMatch(/ปิดเองใน \d+ วินาที/);
+
+    fireEvent.click(screen.getByRole('button', { name: /ดูอีก \d+ รายการ/ }));
+
+    expect(foot()).not.toMatch(/ปิดเองใน/);
+    expect(foot()).toMatch(/อ่านจบแล้วกดปิดได้เลย/);
   });
 
   it('tells a fix from a new thing in words, not only in colour', () => {

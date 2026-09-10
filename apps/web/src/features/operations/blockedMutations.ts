@@ -153,6 +153,31 @@ export async function retryBlockedMutation(queueId: string): Promise<void> {
 }
 
 /**
+ * Puts every blocked change back at once.
+ *
+ * A blocked row is one the server refused and will not be tried again, which is right while the
+ * reason still stands. The reason often does not: most of these are refused by one server-side rule,
+ * and when that rule is corrected every row it stopped becomes deliverable in the same moment. Until
+ * now the only way through that was to press "ลองใหม่" once per row — and the rule that refused every
+ * pupil's turn-in left far more rows than anybody would sit through.
+ *
+ * Nothing is forced past the server. Each one is simply offered again, and anything still refused
+ * comes back to this list with whatever the server says about it this time.
+ */
+export async function retryAllBlockedMutations(schoolId: string): Promise<number> {
+  const items = await db.syncQueue.where({ schoolId, status: 'blocked' }).toArray();
+  const now = new Date().toISOString();
+  await db.transaction('rw', db.syncQueue, async () => {
+    for (const item of items) {
+      await db.syncQueue.update(item.queueId, {
+        status: 'pending', attemptCount: 0, nextRetryAt: now, lastError: null
+      });
+    }
+  });
+  return items.length;
+}
+
+/**
  * Drops one change for good.
  *
  * A record the server never accepted goes with it: keeping it would leave a row on this device that
