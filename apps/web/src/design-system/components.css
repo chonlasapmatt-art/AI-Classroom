@@ -280,7 +280,27 @@
 /* Wraps to a second row rather than squeezing its options.
    In a two-column form a four-option control got a narrow column and broke the labels mid-word —
    "งานที่ มอบ หมาย" across three lines, which is not a word anybody can scan. */
-.ui-segmented { display: inline-flex; flex-wrap: wrap; padding: 4px; border-radius: var(--radius-lg); background: var(--surface-sunken); gap: 2px; max-width: 100%; }
+.ui-segmented { position: relative; display: inline-flex; flex-wrap: wrap; padding: 4px; border-radius: var(--radius-lg); background: var(--surface-sunken); gap: 2px; max-width: 100%; }
+/*
+ * The selection, as one pill that moves rather than a background that blinks.
+ *
+ * It travels on transform, which the compositor handles on its own thread. Width and height are
+ * transitioned too, because the buttons are text-sized and no two are the same width -- but this
+ * element is absolutely positioned and childless, so those touch its own box and nothing else's.
+ * Scaling a fixed pill instead would have kept the transition purely composited and stretched its
+ * corner radius into an ellipse on the way, which is worse than the thing being fixed.
+ */
+.ui-segmented-pill {
+  position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none;
+  border-radius: calc(var(--radius-lg) - 4px);
+  background: var(--surface); box-shadow: var(--shadow-xs);
+  transition:
+    transform 240ms var(--ease-move),
+    width 240ms var(--ease-move),
+    height 240ms var(--ease-move);
+}
+/* The buttons sit over the pill, and the selected one no longer paints a background of its own. */
+.ui-segmented button { position: relative; z-index: 1; }
 .ui-segmented button { white-space: nowrap; }
 .ui-segmented button {
   min-height: var(--control-sm); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-pill);
@@ -289,7 +309,11 @@
 }
 .ui-segmented button:hover { color: var(--ink-900); transform: translateY(-1px); }
 .ui-segmented button:active { transform: scale(0.96); }
-.ui-segmented button.selected { background: var(--surface); color: var(--ink-900); box-shadow: var(--shadow-xs); }
+.ui-segmented button.selected { background: transparent; color: var(--ink-900); box-shadow: none; }
+/* Before the pill has been measured -- the first paint, and any browser without ResizeObserver --
+   the selected button paints its own background, so the control is never left with no selection
+   visible at all. */
+.ui-segmented:not(:has(.ui-segmented-pill)) button.selected { background: var(--surface); box-shadow: var(--shadow-xs); }
 
 .ui-toolbar {
   display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4);
@@ -312,7 +336,20 @@
   background: var(--overlay); backdrop-filter: blur(4px) saturate(1.2); overflow: auto;
   animation: ui-fade var(--duration-normal) var(--ease-out);
 }
+/*
+ * Leaving faster than arriving.
+ *
+ * The rule everywhere in this file: an entrance is shown to somebody who has not seen the thing
+ * yet, so it can afford to be watched; an exit is shown to somebody who has already decided to be
+ * rid of it, so it must get out of the way. Roughly three-quarters of the entrance is the ratio
+ * that reads as responsive without reading as a cut.
+ */
+/* A panel on its way out still occupies the page for the length of its exit, and a click that
+   lands on a button inside it in that time does something the person did not ask for. Nothing that
+   is leaving accepts a pointer. */
+.ui-modal-backdrop.is-closing { animation: ui-fade-out 150ms var(--ease-out) both; pointer-events: none; }
 @keyframes ui-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ui-fade-out { to { opacity: 0; } }
 /*
  * The panel scrolls its body, not itself.
  *
@@ -327,8 +364,20 @@
   display: flex; flex-direction: column;
   background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--shadow-lg);
   border: 1px solid var(--line);
-  animation: ui-pop var(--duration-slow) var(--ease-spring) both;
+  /*
+   * 220ms on the overlay curve, and no overshoot.
+   *
+   * It ran for 420ms on --ease-spring, whose control points pass 1 before settling: every dialog in
+   * the product arrived with a small bounce and took the better part of half a second to do it. On
+   * a confirmation asking whether to delete a room that reads as unserious, and on the fifth dialog
+   * of a working morning it reads as slow. The curve is the one the sheet libraries settled on --
+   * a long, flat deceleration with no return -- and the duration is inside the 200-300ms band a
+   * dialog belongs in.
+   */
+  animation: ui-pop 220ms var(--ease-overlay) both;
 }
+.ui-modal.is-closing { animation: ui-pop-out 160ms var(--ease-overlay) both; pointer-events: none; }
+@keyframes ui-pop-out { to { opacity: 0; transform: translateY(6px) scale(.99); } }
 .ui-modal-header { flex: none; }
 .ui-modal-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .ui-modal-actions {
@@ -417,8 +466,10 @@
   padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
   background: var(--inverse-surface); color: var(--inverse-ink);
   box-shadow: var(--shadow-lg); pointer-events: auto;
-  animation: ui-toast-in var(--duration-slow) var(--ease-spring) both;
-  transition: opacity var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out);
+  /* A toast keeps its spring: it is small, it arrives uninvited, and a little life is how it earns
+     the glance. 260ms rather than 420ms, because it is also the thing most often seen twice. */
+  animation: ui-toast-in 260ms var(--ease-spring) both;
+  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
 }
 .ui-toast.ui-toast-exiting { opacity: 0; transform: translateX(24px); pointer-events: none; }
 .ui-toast-icon { flex: none; width: 20px; height: 20px; display: grid; place-items: center; font-size: 1rem; }
@@ -460,8 +511,13 @@
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 91;
   width: min(480px, 90vw); display: flex; flex-direction: column;
   background: var(--surface); box-shadow: var(--shadow-lg);
-  animation: ui-drawer-in var(--duration-slow) var(--ease-emphasized) both;
+  animation: ui-drawer-in 280ms var(--ease-overlay) both;
 }
+/* Back out through the edge it came in by, which is the only exit a side panel can have that does
+   not look like it fell over. */
+.ui-drawer.is-closing { animation: ui-drawer-out 190ms var(--ease-overlay) both; pointer-events: none; }
+.ui-drawer-backdrop.is-closing { animation: ui-fade-out 190ms var(--ease-out) both; pointer-events: none; }
+@keyframes ui-drawer-out { to { transform: translateX(100%); } }
 .ui-drawer-header {
   display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3);
   padding: var(--space-5); border-bottom: 1px solid var(--line);

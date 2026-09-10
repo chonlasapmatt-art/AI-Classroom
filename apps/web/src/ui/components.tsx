@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ButtonHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 import { Link } from 'react-router-dom';
 // `useToast` and the tone type live in ./toastContext, which is what a screen imports to raise one.
 import { ToastContext, type ToastTone } from './toastContext';
 import { Icon } from './Icon';
+import { useDismissAnimation } from './useDismissAnimation';
 
 /**
  * The shared building blocks every screen is made of.
@@ -271,11 +272,63 @@ export function FieldGroup({ title, children, columns = 2 }: { title?: ReactNode
   );
 }
 
+/**
+ * A segmented control whose selection travels.
+ *
+ * The white pill used to be a background on whichever button was selected, so choosing a different
+ * filter made it vanish from one place and appear in another. Two things are lost by that. The
+ * obvious one is smoothness. The one that matters is direction: a pill that slides left tells the
+ * reader they have gone back along a scale — ทั้งหมด, กำลังดำเนินการ, ฉบับร่าง, ปิดแล้ว is a
+ * sequence, and a control that only ever blinks makes it a set of unrelated buttons.
+ *
+ * One pill is drawn behind the row and moved to the selected button's box. It is measured rather
+ * than calculated, because the buttons are text-sized and wrap: the second row of a wrapped control
+ * is somewhere no arithmetic over indices would have put it.
+ */
 export function Segmented<T extends string>({ options, value, onChange, ariaLabel }: {
   options: ReadonlyArray<{ value: T; label: ReactNode }>; value: T; onChange: (next: T) => void; ariaLabel: string;
 }) {
+  const row = useRef<HTMLDivElement>(null);
+  const [pill, setPill] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const element = row.current;
+    if (!element) return;
+    const measure = () => {
+      const selected = element.querySelector<HTMLElement>('button[aria-selected="true"]');
+      if (!selected) { setPill(null); return; }
+      // Two rectangles rather than offsetLeft: the control wraps, and a wrapped button's offset
+      // parent is not the thing anybody would guess from its index.
+      const bounds = element.getBoundingClientRect();
+      const box = selected.getBoundingClientRect();
+      setPill({
+        left: box.left - bounds.left, top: box.top - bounds.top,
+        width: box.width, height: box.height
+      });
+    };
+    measure();
+    // The button keeps moving after the render that selected it — a font arriving, the toolbar
+    // reflowing, the control wrapping onto a second line — so it is watched rather than read once.
+    const frame = requestAnimationFrame(measure);
+    let stopObserving = () => {};
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(measure);
+      observer.observe(element);
+      for (const button of element.querySelectorAll('button')) observer.observe(button);
+      stopObserving = () => observer.disconnect();
+    }
+    return () => { cancelAnimationFrame(frame); stopObserving(); };
+  }, [options, value]);
+
   return (
-    <div className="ui-segmented" role="tablist" aria-label={ariaLabel}>
+    <div className="ui-segmented" role="tablist" aria-label={ariaLabel} ref={row}>
+      {pill && (
+        <span
+          className="ui-segmented-pill"
+          aria-hidden="true"
+          style={{ transform: `translate(${pill.left}px, ${pill.top}px)`, width: pill.width, height: pill.height }}
+        />
+      )}
       {options.map((option) => (
         <button
           key={option.value}
@@ -308,6 +361,15 @@ export function Modal({ title, description, onClose, children, actions, wide }: 
 }) {
   const panel = useRef<HTMLElement | null>(null);
   const titleId = useId();
+  /*
+   * The dialog leaves the way it arrived.
+   *
+   * It used to open on a keyframe and then be removed from the tree, so it faded up over a fifth of
+   * a second and disappeared between two frames. Every dismissal -- Escape, the close button, a
+   * click on the scrim -- now runs the same exit, and `onClose` fires when that exit is over, so
+   * the caller's state, the focus restoration and the scroll lock are unchanged and merely later.
+   */
+  const { closing, dismiss, onAnimationEnd } = useDismissAnimation(onClose, 160);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -320,7 +382,7 @@ export function Modal({ title, description, onClose, children, actions, wide }: 
     (focusable()[0] ?? panel.current)?.focus();
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.stopPropagation(); onClose(); return; }
+      if (event.key === 'Escape') { event.stopPropagation(); dismiss(); return; }
       if (event.key !== 'Tab') return;
       const nodes = focusable();
       if (nodes.length === 0) { event.preventDefault(); return; }
@@ -343,26 +405,27 @@ export function Modal({ title, description, onClose, children, actions, wide }: 
       // they were instead of at the top of the document.
       opener?.focus?.();
     };
-  }, [onClose]);
+  }, [onClose, dismiss]);
 
   return (
     <div
-      className="ui-modal-backdrop"
+      className={`ui-modal-backdrop ${closing ? 'is-closing' : ''}`.trim()}
       // Only a click that both started and ended on the backdrop closes it: a drag that begins on
       // text inside the panel and releases outside is a selection, not a dismissal.
-      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      onMouseDown={(event) => { if (event.target === event.currentTarget) dismiss(); }}
     >
       <section
-        className={`ui-modal ${wide ? 'ui-modal-wide' : ''}`.trim()}
+        className={['ui-modal', wide ? 'ui-modal-wide' : '', closing ? 'is-closing' : ''].filter(Boolean).join(' ')}
         role="dialog" aria-modal="true" aria-labelledby={titleId}
         ref={panel} tabIndex={-1}
+        onAnimationEnd={onAnimationEnd}
       >
         <header className="ui-modal-header">
           <div>
             <h2 id={titleId}>{title}</h2>
             {description && <p>{description}</p>}
           </div>
-          <IconButton label="ปิด" onClick={onClose}><Icon name="close" size={16} /></IconButton>
+          <IconButton label="ปิด" onClick={dismiss}><Icon name="close" size={16} /></IconButton>
         </header>
         {children && <div className="ui-modal-body">{children}</div>}
         {actions && <footer className="ui-modal-actions">{actions}</footer>}
@@ -606,20 +669,31 @@ export function Drawer({ title, onClose, children, footer }: {
   title: ReactNode; onClose(): void; children?: ReactNode; footer?: ReactNode;
 }) {
   const backdropRef = useRef<HTMLDivElement>(null);
+  // A drawer that slides in from the edge and then blinks out is the asymmetry people read as
+  // abrupt. It leaves along the same edge it came from, over a slightly shorter time.
+  const { closing, dismiss, onAnimationEnd } = useDismissAnimation(onClose, 190);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') dismiss(); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
+  }, [dismiss]);
 
   return (
     <>
-      <div className="ui-drawer-backdrop" ref={backdropRef} onClick={(e) => { if (e.target === backdropRef.current) onClose(); }} />
-      <aside className="ui-drawer" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
+      <div
+        className={`ui-drawer-backdrop ${closing ? 'is-closing' : ''}`.trim()}
+        ref={backdropRef}
+        onClick={(e) => { if (e.target === backdropRef.current) dismiss(); }}
+      />
+      <aside
+        className={`ui-drawer ${closing ? 'is-closing' : ''}`.trim()}
+        role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}
+        onAnimationEnd={onAnimationEnd}
+      >
         <header className="ui-drawer-header">
           <h2>{title}</h2>
-          <IconButton label="ปิด" onClick={onClose}>×</IconButton>
+          <IconButton label="ปิด" onClick={dismiss}>×</IconButton>
         </header>
         {children && <div className="ui-drawer-body">{children}</div>}
         {footer && <footer className="ui-drawer-footer">{footer}</footer>}
