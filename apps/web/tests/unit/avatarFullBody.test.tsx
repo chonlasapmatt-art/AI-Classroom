@@ -5,7 +5,7 @@ import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FullBodyAvatar } from '../../src/features/avatars/FullBodyAvatar';
 import {
-  bodySlotOrder, fullBodyArchetypeList, fullBodyArchetypes, overlayForPose, FULL_BODY_GRID
+  bodyForCategory, bodySlotOrder, fullBodyArchetypeList, fullBodyArchetypes, overlayForPose, FULL_BODY_GRID
 } from '../../src/features/avatars/avatarFullBody';
 
 afterEach(cleanup);
@@ -129,7 +129,9 @@ function keyframes(name: string): string {
 
 describe('the poses', () => {
   const expected = [
-    { pose: 'idle', frames: 4, seconds: '0.8s' },
+    // Four frames still, but over 1.2s: a breath is slower than a footfall, and at 0.8s the
+    // figure read as panting rather than standing.
+    { pose: 'idle', frames: 4, seconds: '1.2s' },
     { pose: 'walk', frames: 4, seconds: '0.6s' },
     { pose: 'run', frames: 6, seconds: '0.4s' },
     { pose: 'cast', frames: 6, seconds: '1s' },
@@ -217,5 +219,109 @@ describe('the poses', () => {
     const { container } = render(<FullBodyAvatar archetype="student" animation="walk" paused />);
     expect(container.querySelector('svg')?.getAttribute('class')).toMatch(/paused/);
     expect(poseStyles).toContain('.paused * { animation-play-state: paused !important; }');
+  });
+});
+
+/*
+ * Cute, cool, and not the same avatar ten times.
+ *
+ * The old catalogue drew a thousand avatars as one silhouette with different colours: the same box
+ * head, the same flat rectangle eyes, the same body. These hold the parts of the redraw that make
+ * two avatars read as two characters — the shape above the head, the shape behind the body, and a
+ * face with light in it — and the small motions that stop a still figure reading as a mannequin.
+ */
+describe('the figures a child chooses between', () => {
+  it('offers ten figures, and gives each of them its own silhouette', () => {
+    expect(fullBodyArchetypeList.length).toBe(10);
+    const silhouettes = new Map<string, string>();
+    for (const archetype of fullBodyArchetypeList) {
+      const { container } = render(<FullBodyAvatar archetype={archetype.id} />);
+      // What is above the head and behind the body is the whole read from across a classroom.
+      const shape = [
+        container.querySelector('[data-slot="hair_headwear"]')?.innerHTML ?? '',
+        container.querySelector('[data-slot="back_gear"]')?.innerHTML ?? '',
+        container.querySelector('[data-slot="torso_body"]')?.innerHTML ?? '',
+        container.querySelector('[data-slot="legs_feet"]')?.innerHTML ?? ''
+      ].join('|');
+      const twin = [...silhouettes.entries()].find(([, other]) => other === shape);
+      expect(twin?.[0], `${archetype.id} draws the same figure as ${twin?.[0]}`).toBeUndefined();
+      silhouettes.set(archetype.id, shape);
+      cleanup();
+    }
+  });
+
+  it('keeps every figure standing on the same floor, whatever it has for feet', () => {
+    // A penguin has webbed feet and no thigh; a mage's boots come out from under a hem. Both reach
+    // y 46, which is where the ground shadow is drawn: a costume that stops short of it hovers.
+    for (const archetype of fullBodyArchetypeList) {
+      const { container } = render(<FullBodyAvatar archetype={archetype.id} />);
+      const legs = container.querySelector('[data-part="legs"]');
+      expect(legs, `${archetype.id} has no legs`).not.toBeNull();
+      const lowest = [...(legs?.querySelectorAll('rect, polygon') ?? [])].reduce((deepest, node) => {
+        const y = Number(node.getAttribute('y') ?? '0') + Number(node.getAttribute('height') ?? '0');
+        const points = (node.getAttribute('points') ?? '')
+          .split(' ').map((pair) => Number(pair.split(',')[1] ?? '0'));
+        return Math.max(deepest, y, ...points);
+      }, 0);
+      expect(lowest, `${archetype.id} stops at ${lowest} rather than the floor`).toBeGreaterThanOrEqual(44);
+      cleanup();
+    }
+  });
+
+  it('draws an eye with light in it rather than a coloured box', () => {
+    const { container } = render(<FullBodyAvatar archetype="cat" />);
+    const eyes = container.querySelector('[data-part="eyes"]');
+    expect(eyes).not.toBeNull();
+    const whites = [...(eyes?.querySelectorAll('rect') ?? [])]
+      .filter((node) => node.getAttribute('fill') === '#ffffff');
+    // Per eye: the white of it, the big glint where the light is, and the small one opposite that is
+    // what makes it look wet. Two eyes, so six.
+    expect(whites.length).toBeGreaterThanOrEqual(6);
+    // Two tones of iris, so the light has a direction.
+    const irises = [...(eyes?.querySelectorAll('rect') ?? [])]
+      .map((node) => node.getAttribute('fill'))
+      .filter((fill) => fill?.startsWith('var(--av-'));
+    expect(new Set(irises).size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('gives the animals ears that can move, and the cute ones a blush', () => {
+    for (const id of ['cat', 'fox', 'rabbit'] as const) {
+      const { container } = render(<FullBodyAvatar archetype={id} />);
+      const ears = container.querySelector('[data-part="ears"]');
+      expect(ears, `${id} has no ears`).not.toBeNull();
+      expect(ears?.children.length, `${id} ears are empty`).toBeGreaterThan(0);
+      // The handle the twitch keyframe addresses, put on by the compositor.
+      expect(ears?.getAttribute('class')).toMatch(/ears/);
+      cleanup();
+    }
+  });
+
+  it('blinks and twitches in every pose, because neither is a pose', () => {
+    expect(poseStyles).toMatch(/\.avatar \.eyes \{ animation: blink [\d.]+s steps\(1, end\) infinite; \}/);
+    expect(poseStyles).toMatch(/\.avatar \.ears \{ animation: earTwitch [\d.]+s steps\(1, end\) infinite; \}/);
+    // Shut, then open — two drawings rather than a squashed one.
+    expect(keyframes('blink')).toContain('scaleY(0.12)');
+  });
+
+  it('turns the rune circle as well as opening it, and blooms it in the chosen colour', () => {
+    const rune = keyframes('runeOpen');
+    expect(rune).toContain('rotate(');
+    expect(rune).toContain('scale(1.15)');
+    expect(poseStyles).toContain('.cast .fx { filter: drop-shadow(0 0 1.5px var(--av-magic)); }');
+  });
+
+  it('files a catalogue avatar under the figure its category already implies', () => {
+    // The thousand catalogue avatars carry no race and no figure, and the category is the answer
+    // that was always there: an avatar in "สัตว์" is an animal whatever its six integers say.
+    expect(bodyForCategory('mage')).toBe('arcaneMage');
+    expect(bodyForCategory('dragon')).toBe('dragonKnight');
+    expect(bodyForCategory('demon')).toBe('demon');
+    expect(bodyForCategory('techwear')).toBe('techwear');
+    expect(bodyForCategory('sporty')).toBe('athlete');
+    expect(bodyForCategory('classic')).toBe('student');
+    // The four animals rotate on the avatar's own index, so a page of them is four silhouettes.
+    expect(new Set([0, 1, 2, 3].map((seed) => bodyForCategory('animal', seed))).size).toBe(4);
+    // And the same avatar answers the same way on every build.
+    expect(bodyForCategory('animal', 7)).toBe(bodyForCategory('animal', 7));
   });
 });

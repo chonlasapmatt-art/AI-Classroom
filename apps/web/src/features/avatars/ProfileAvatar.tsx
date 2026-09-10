@@ -4,7 +4,7 @@ import { useRepository } from '../../data/RepositoryContext';
 import { configForAvatarId, initialsFor } from './avatarCatalog';
 import { bodyArchetypeFor } from './avatarFullBody';
 import { FullBodyAvatar } from './FullBodyAvatar';
-import { isConfigV2, type AvatarConfigV2 } from './avatarSchema';
+import { isConfigV2, migrateConfig, type AvatarConfigV2 } from './avatarSchema';
 import { ThemedAvatar } from './ThemedAvatar';
 
 /*
@@ -81,8 +81,16 @@ export function ProfileAvatar({ displayName, avatarId, avatarPhotoId, avatarInde
   const base = chosen ?? avatarConfig ?? null;
   const config = base && avatarConfig?.outfit ? { ...base, outfit: avatarConfig.outfit } : base;
 
-  // What the child built, drawn whole, wherever there is room for it.
-  const built = isConfigV2(config) ? (config as AvatarConfigV2) : null;
+  /*
+   * What the child built, drawn whole, wherever there is room for it.
+   *
+   * A catalogue avatar is six integers with no race and no figure recorded, so it used to fall back
+   * to the bust here — meaning a child who picked from the thousand saw a portrait on their profile
+   * while a child who used the customiser saw a person. `migrateConfig` answers both questions from
+   * the integers: it derives the race the theme was always drawing, and the six colours from the
+   * palette, so a catalogue avatar arrives with a figure and its own colours rather than defaults.
+   */
+  const built = config ? (isConfigV2(config) ? (config as AvatarConfigV2) : migrateConfig(config)) : null;
   const body = size >= FIGURE_MIN_SIZE ? bodyArchetypeFor(built) : null;
   if (built && body) {
     return (

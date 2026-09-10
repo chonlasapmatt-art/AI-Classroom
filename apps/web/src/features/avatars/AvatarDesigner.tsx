@@ -14,7 +14,7 @@ import { defaultBodyFor, traitCounts, traitsForLayer, type Trait } from './avata
 import { avatarOutfits, canWearOutfit, defaultOutfit, outfitPrice } from './avatarOutfits';
 import { avatarPalettes, skinTones } from './avatarThemes';
 import { FullBodyAvatar } from './FullBodyAvatar';
-import { archetypeForRace, fullBodyArchetypeList } from './avatarFullBody';
+import { archetypeForRace, bodyForCategory, fullBodyArchetypeList } from './avatarFullBody';
 import { ThemedAvatar } from './ThemedAvatar';
 
 /**
@@ -586,7 +586,16 @@ export function AvatarDesigner({
                         onClick={() => pickCatalogue(avatar)}
                       >
                         <span className="designer-tile-figure">
-                          <ThemedAvatar avatarIndex={avatar.index} config={avatar.config} size={56} animation="idle" />
+                          {/* The thumbnail is the figure, in the colours being edited and held on its first frame:
+                              a page of forty looping avatars is a fairground, and a page of forty
+                              busts was the reason the catalogue read as one avatar repeated. */}
+                          <FullBodyAvatar
+                            archetype={bodyForCategory(avatar.category, avatar.index)}
+                            tints={draft.tints}
+                            size={64}
+                            label={avatar.name}
+                            paused
+                          />
                         </span>
                         <span className="designer-tile-name">{avatar.name}</span>
                       </button>
