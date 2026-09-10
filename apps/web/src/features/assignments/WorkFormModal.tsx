@@ -10,6 +10,7 @@ import { rubricMaxScore } from '../../academic/rubric';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import type { Assignment, Rubric, Subject, WorkType } from '../../domain/types';
 import type { AssignmentInput } from '../../data/schoolRepository';
+import { formatDay, formatMoment } from '../../ui/dateFormat';
 
 const workTypeOptions: Array<{ value: WorkType; label: string }> = [
   { value: 'homework', label: 'การบ้าน' },
@@ -231,7 +232,7 @@ export function WorkFormModal({
     return (
       <Modal
         title="ภาระงานค่อนข้างสูง"
-        description={`ห้อง ${className} มีงานครบกำหนด ${warning.count} รายการในวันที่ ${new Date(warning.dueDate).toLocaleDateString('th-TH')}`}
+        description={`ห้อง ${className} มีงานครบกำหนด ${warning.count} รายการในวันที่ ${formatDay(warning.dueDate)}`}
         onClose={() => setPendingPublish(null)}
         actions={
           <>
@@ -311,7 +312,7 @@ export function WorkFormModal({
             </header>
             <h3>{title.trim() || 'ยังไม่ได้ตั้งชื่องาน'}</h3>
             <dl className="work-preview-facts">
-              <div><dt>กำหนดส่ง</dt><dd>{dueAt ? new Date(dueAt).toLocaleString('th-TH') : 'ยังไม่กำหนด'}</dd></div>
+              <div><dt>กำหนดส่ง</dt><dd>{formatMoment(dueAt, 'ยังไม่กำหนด')}</dd></div>
               <div><dt>คะแนนเต็ม</dt><dd>{Number.isFinite(effectiveMax) && effectiveMax > 0 ? `${effectiveMax} คะแนน` : 'ยังไม่กำหนด'}</dd></div>
               <div><dt>แจ้งเตือน</dt><dd>{offsets.length > 0 ? `${offsets.length} ครั้งก่อนกำหนดส่ง` : 'ไม่แจ้งเตือน'}</dd></div>
             </dl>
@@ -454,7 +455,7 @@ export function WorkFormModal({
             {warning && (
               <div className="inline-warning" role="status">
                 <Badge tone="warning">ภาระงานสูง</Badge>
-                <span>วันที่ {new Date(warning.dueDate).toLocaleDateString('th-TH')} ห้องนี้มีงานครบกำหนด {warning.count} รายการ</span>
+                <span>วันที่ {formatDay(warning.dueDate)} ห้องนี้มีงานครบกำหนด {warning.count} รายการ</span>
               </div>
             )}
             {error && <p className="ui-field-message" role="alert">{error}</p>}

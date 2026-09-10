@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { eraseManagedAccount, type ManagedAccountRole } from './adminAccount';
+import { Button } from '../../ui/components';
 
 /**
  * Deletes the account behind one roster row, after asking twice in the same button.
@@ -35,22 +36,29 @@ export function EraseAccountButton({ schoolId, role, profileId, displayName, onD
     }
   }
 
+  /*
+   * It lives in rows of pill buttons, so it is one too.
+   *
+   * As a bare `.text-button` it was a coloured word standing among controls with borders — which
+   * read as a link to somewhere rather than as the most destructive thing on the row, and made
+   * every roster row look like it had been assembled from two different products.
+   */
   if (!armed) {
     return (
-      <button type="button" className="text-button" disabled={busy} onClick={() => setArmed(true)}>
+      <Button variant="ghost" size="sm" className="erase-account" disabled={busy} onClick={() => setArmed(true)}>
         ลบบัญชี
-      </button>
+      </Button>
     );
   }
   return (
     <>
-      <span className="hint">ลบบัญชีถาวร ย้อนกลับไม่ได้ · ชื่อยังอยู่ในรายชื่อโรงเรียน</span>
-      <button type="button" className="text-button danger" disabled={busy} onClick={() => void erase()}>
+      <span className="ui-field-hint">ลบบัญชีถาวร ย้อนกลับไม่ได้ · ชื่อยังอยู่ในรายชื่อโรงเรียน</span>
+      <Button variant="danger" size="sm" loading={busy} onClick={() => void erase()}>
         {busy ? 'กำลังลบ...' : 'ยืนยันลบถาวร'}
-      </button>
-      <button type="button" className="text-button" disabled={busy} onClick={() => setArmed(false)}>
+      </Button>
+      <Button variant="ghost" size="sm" disabled={busy} onClick={() => setArmed(false)}>
         ยกเลิก
-      </button>
+      </Button>
     </>
   );
 }

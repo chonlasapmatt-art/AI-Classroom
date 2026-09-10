@@ -9,7 +9,7 @@ import { EraseAccountButton } from '../auth/EraseAccountButton';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
 import {
-  Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, Modal, PageHeader, PromptDialog
+  Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, IconButton, Modal, PageHeader, PromptDialog
 } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
@@ -296,13 +296,19 @@ export function TeachersPage() {
                       const classroom = snapshot.classes.find((item) => item.id === link.classId);
                       return (
                         <span key={link.id} className="teacher-assignment">
-                          <Badge tone="neutral">
+                          <span className="teacher-assignment-label">
                             {classroom?.name ?? 'ห้องที่ถูกลบ'} · {link.subjectId
                               ? (snapshot.subjects.find((subject) => subject.id === link.subjectId)?.name ?? 'วิชาที่ถูกลบ') + ' · '
                               : ''}{responsibilityLabels[responsibilityOf(link)]}
-                          </Badge>
+                          </span>
                           {canEdit && (
-                            <Button variant="ghost" size="sm" onClick={() => void repository.unassignTeacher(link.id)}>ยกเลิก</Button>
+                            <IconButton
+                              label={`ยกเลิกหน้าที่ ${classroom?.name ?? ''} ของ ${teacher.displayName}`}
+                              className="teacher-assignment-remove"
+                              onClick={() => void repository.unassignTeacher(link.id)}
+                            >
+                              <Icon name="close" size={12} />
+                            </IconButton>
                           )}
                         </span>
                       );
@@ -396,12 +402,18 @@ export function TeachersPage() {
                 <div className="record-actions">
                   {currentLinks.map((linkRow) => (
                     <span key={linkRow.id} className="teacher-assignment">
-                      <Badge tone="neutral">
+                      <span className="teacher-assignment-label">
                         {linkRow.subjectId
                           ? (snapshot.subjects.find((item) => item.id === linkRow.subjectId)?.name ?? "วิชาที่ถูกลบ") + " · "
                           : ""}{responsibilityLabels[responsibilityOf(linkRow)]}
-                      </Badge>
-                      <Button variant="ghost" size="sm" onClick={() => void repository.unassignTeacher(linkRow.id)}>ยกเลิก</Button>
+                      </span>
+                      <IconButton
+                        label={`ยกเลิก${responsibilityLabels[responsibilityOf(linkRow)]}`}
+                        className="teacher-assignment-remove"
+                        onClick={() => void repository.unassignTeacher(linkRow.id)}
+                      >
+                        <Icon name="close" size={12} />
+                      </IconButton>
                     </span>
                   ))}
                 </div>

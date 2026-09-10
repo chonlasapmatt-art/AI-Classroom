@@ -8,6 +8,7 @@ import type {
   NotificationPreference, Rubric, RubricScore, Student, Submission, SubmissionVersion, SyncRecord
 } from '../domain/types';
 import type { RubricEntryInput } from './schoolRepository';
+import { formatMoment } from '../ui/dateFormat';
 
 /**
  * The academic workflow expressed as pure record builders.
@@ -84,7 +85,7 @@ export function planPublish(context: PublishContext, createRecord: RecordFactory
       notifications.push(notification(createRecord(), {
         studentId, classId: work.classId, assignmentId: work.id, kind: 'assignment_published',
         title: `งานใหม่: ${work.title}`,
-        body: work.dueAt ? `กำหนดส่ง ${new Date(work.dueAt).toLocaleString('th-TH')}` : 'ไม่กำหนดวันส่ง',
+        body: work.dueAt ? `กำหนดส่ง ${formatMoment(work.dueAt)}` : 'ไม่กำหนดวันส่ง',
         dedupeKey, state: 'delivered', scheduledAt: timestamp, sentAt: timestamp
       }));
       seen.add(dedupeKey);
@@ -148,7 +149,7 @@ export function planWorkUpdate(before: Assignment, after: Assignment, context: P
         studentId, classId: after.classId, assignmentId: after.id, kind: 'deadline_changed',
         title: movedDeadline ? `กำหนดส่งเปลี่ยน: ${after.title}` : `รายละเอียดงานเปลี่ยน: ${after.title}`,
         body: movedDeadline
-          ? `เดิม ${before.dueAt ? new Date(before.dueAt).toLocaleString('th-TH') : 'ไม่กำหนด'} · ใหม่ ${after.dueAt ? new Date(after.dueAt).toLocaleString('th-TH') : 'ไม่กำหนด'}`
+          ? `เดิม ${formatMoment(before.dueAt, 'ไม่กำหนด')} · ใหม่ ${formatMoment(after.dueAt, 'ไม่กำหนด')}`
           : `ครูปรับ ${changed.join(', ')}`,
         dedupeKey, state: 'delivered', scheduledAt: timestamp, sentAt: timestamp
       }));

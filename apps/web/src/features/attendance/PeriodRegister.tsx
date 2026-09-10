@@ -8,6 +8,7 @@ import { Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, Field, Prog
 import { Icon } from '../../ui/Icon';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { useToast } from '../../ui/toastContext';
+import { formatDay } from '../../ui/dateFormat';
 import { currentSessionFor, sessionLabel, sessionsForClass } from './sessions';
 import { attendanceMarkLabels, attendanceMarkOrder, attendanceMarkShortLabels } from './attendanceMarks';
 
@@ -174,7 +175,9 @@ export function PeriodRegister({ classId }: { classId: string }) {
       <CardHeader
         title={session ? `เช็กชื่อ · ${sessionLabel(session, subjectName)}` : 'เช็กชื่อคาบนี้'}
         description={[
-          session?.time, date,
+          // The date is stored as `2026-09-10` and was being printed that way, in a Thai sentence,
+          // on the one screen a teacher looks at while a class waits.
+          session?.time, formatDay(date),
           takenAt ? `เช็กชื่อเมื่อ ${takenAt} น.` : null,
           'แต่ละคาบมีการเช็กชื่อของตัวเอง ครูวิชาถัดไปจะได้แผ่นใหม่'
         ].filter(Boolean).join(' · ')}

@@ -43,8 +43,10 @@ export function LinkButton({ to, variant = 'secondary', size = 'md', children }:
   return <Link className={`ui-button ui-button-${variant} ui-size-${size}`} to={to}>{children}</Link>;
 }
 
-export function IconButton({ label, children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
-  return <button {...rest} aria-label={label} className="ui-icon-button">{children}</button>;
+export function IconButton({ label, children, className = '', ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+  // The passed class is merged rather than dropped: it used to be swallowed by the literal below,
+  // so every caller that tried to size or tint one silently got the default and no error.
+  return <button {...rest} aria-label={label} className={`ui-icon-button ${className}`.trim()}>{children}</button>;
 }
 
 export function Card({ children, className = '', as: Element = 'section', padded = true }: {

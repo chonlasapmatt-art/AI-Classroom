@@ -20,6 +20,7 @@ import { ActivityCard, AlertStack, AnnouncementCard, QuickActions, SyncLine } fr
 import { dashboardAlerts, quickActionsFor, recentActivity, recentAnnouncements } from './dashboardData';
 import { AdminEntry } from './AdminEntry';
 import { ShortcutHub } from './ShortcutHub';
+import { formatMoment } from '../../ui/dateFormat';
 
 const avatarStorageKey = (profileId: string) => 'smart-classroom.avatar.' + profileId;
 
@@ -233,7 +234,7 @@ export function DashboardPage() {
                   </div>
                   {pending[0] && (
                     <p className="ui-field-hint">
-                      งานถัดไป: {pending[0].work.title} · {pending[0].dueAt ? new Date(pending[0].dueAt).toLocaleString('th-TH') : 'ไม่กำหนด'}
+                      งานถัดไป: {pending[0].work.title} · {formatMoment(pending[0].dueAt, 'ไม่กำหนด')}
                     </p>
                   )}
                 </Card>
@@ -338,7 +339,7 @@ export function DashboardPage() {
                     <span className="timeline-dot" style={color ? { background: color.solid } : undefined} />
                     <div>
                       <strong>{item.work.title}</strong>
-                      <span>{subject?.name ?? 'ไม่ระบุวิชา'} · {item.dueAt ? new Date(item.dueAt).toLocaleString('th-TH') : 'ไม่กำหนด'}</span>
+                      <span>{subject?.name ?? 'ไม่ระบุวิชา'} · {formatMoment(item.dueAt, 'ไม่กำหนด')}</span>
                     </div>
                     <Badge tone={workStateTone[item.state]}>{workStateLabels[item.state]}</Badge>
                   </li>

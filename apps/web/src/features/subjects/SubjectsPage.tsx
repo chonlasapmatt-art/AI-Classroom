@@ -300,22 +300,30 @@ export function SubjectsPage() {
                   {countFor(subject.id)} งาน/กิจกรรม/การสอบในระบบ
                   {materialCountFor(subject.id) > 0 && ` · ${materialCountFor(subject.id)} บทเรียน`}
                 </p>
-                <div className="record-actions">
+                {/* Whether the subject is taught this year is a fact about it, so it sits with the
+                    card's own text. Inside the button row it read as a fourth thing to press, and
+                    pushed the last verb onto a line of its own on every card in the catalogue. */}
+                <div className="subject-card-flags">
                   <Badge tone={subject.status === 'active' ? 'success' : 'warning'}>
                     {subject.status === 'active' ? 'เปิดสอน' : 'เก็บถาวร'}
                   </Badge>
-                  {/* The subject's own page: its staff, its lessons, and the questions asked
-                      about it. Everything else on this card is the catalogue entry. */}
-                  <LinkButton to={`/subjects/${subject.id}`} size="sm" variant="secondary">
-                    เปิดบทเรียน
-                  </LinkButton>
-                  {canEdit && (
-                    <>
-                      <Button variant="ghost" size="sm" onClick={() => edit(subject)}>แก้ไข</Button>
-                      {subject.status === 'active' && (
-                        <Button variant="ghost" size="sm" onClick={() => void repository.archiveSubject(subject.id)}>เก็บถาวร</Button>
-                      )}
-                    </>
+                </div>
+                <div className="record-actions">
+                  <div className="subject-card-verbs">
+                    {/* The subject's own page: its staff, its lessons, and the questions asked
+                        about it. Everything else on this card is the catalogue entry. */}
+                    <LinkButton to={`/subjects/${subject.id}`} size="sm" variant="secondary">
+                      เปิดบทเรียน
+                    </LinkButton>
+                    {canEdit && <Button variant="ghost" size="sm" onClick={() => edit(subject)}>แก้ไข</Button>}
+                  </div>
+                  {canEdit && subject.status === 'active' && (
+                    <Button
+                      variant="ghost" size="sm" className="subject-card-archive"
+                      onClick={() => void repository.archiveSubject(subject.id)}
+                    >
+                      เก็บถาวร
+                    </Button>
                   )}
                 </div>
               </article>

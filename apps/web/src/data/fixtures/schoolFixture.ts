@@ -6,6 +6,7 @@ import type {
 } from '../../domain/types';
 import { standardSubjects } from '../subjectCatalog';
 import type { SchoolSnapshot } from '../schoolRepository';
+import { formatMoment } from '../../ui/dateFormat';
 
 /**
  * Development fixtures. These records only ever reach the fixture repository, never the production
@@ -291,7 +292,7 @@ export function buildFixtureData(): FixtureData {
       studentId, classId: primaryClassId, assignmentId: assignment.id,
       kind: order === 0 ? ('submission_reminder' as const) : ('assignment_published' as const),
       title: order === 0 ? `เตือนส่งงาน: ${assignment.title}` : `งานใหม่: ${assignment.title}`,
-      body: assignment.dueAt ? `กำหนดส่ง ${new Date(assignment.dueAt).toLocaleString('th-TH')}` : 'ไม่กำหนดวันส่ง',
+      body: assignment.dueAt ? `กำหนดส่ง ${formatMoment(assignment.dueAt)}` : 'ไม่กำหนดวันส่ง',
       dedupeKey: `published:${assignment.id}:${studentId}`,
       state: seat % 3 === 0 ? ('read' as const) : ('delivered' as const),
       scheduledAt: `${addDays(FIXTURE_TODAY, -1)}T03:00:00.000Z`,

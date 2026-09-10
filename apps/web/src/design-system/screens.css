@@ -3041,8 +3041,38 @@ tr.row-warning td { background: var(--warning-soft); }
    save will do and not a refusal to accept the press. */
 .subject-choice-chip.is-held:not(.is-chosen) { border-style: dashed; color: var(--ink-500); }
 .subject-choice-chip .subject-icon { flex: none; }
-.teacher-assignment { display: inline-flex; align-items: center; gap: var(--space-1); flex-wrap: wrap; max-width: 100%; min-width: 0; }
-.teacher-assignment .ui-badge { white-space: normal; text-align: left; }
+/* One responsibility is one chip, and the way to end it is inside the chip.
+   It used to be a badge with the word "ยกเลิก" parked beside it, which on a row of three
+   responsibilities produced three chips and three loose words, and left no way to tell at a glance
+   which cancel belonged to which room. The remove lives inside the pill now, so the pairing is
+   structural rather than something the reader has to infer from spacing. */
+.teacher-assignment {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  max-width: 100%; min-width: 0;
+  padding: .28rem .3rem .28rem .7rem;
+  border: 1px solid var(--line); border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.teacher-assignment:hover { border-color: var(--line-strong); }
+.teacher-assignment-label {
+  min-width: 0;
+  color: var(--ink-700); font-size: var(--text-xs); font-weight: var(--weight-medium);
+  white-space: normal; text-align: left;
+}
+/* 24px is under the 44px this product uses everywhere else, and deliberately: the chip itself is
+   not a target, so the whole pill is padded to a comfortable height and the × keeps a generous
+   invisible margin around a small glyph rather than a large button crowding a short label. */
+.teacher-assignment-remove {
+  flex: 0 0 auto;
+  width: 24px; height: 24px; min-height: 0; padding: 0;
+  border-radius: var(--radius-pill);
+  color: var(--ink-400);
+}
+.teacher-assignment-remove:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger-soft) 70%, transparent);
+}
 
 /*
  * Subject colour, mixed into whatever surface it lands on.
@@ -3792,7 +3822,25 @@ tr.row-warning td { background: var(--warning-soft); }
     box-shadow var(--duration-normal) var(--ease-out),
     transform var(--duration-normal) var(--ease-out),
     border-color var(--duration-normal) var(--ease-out);
+  /* A column, so the footer can be pushed to the bottom. A two-line subject name used to drag its
+     own card's buttons a line lower than every other card beside it, which made a tidy catalogue
+     look like a set of cards that had been dropped. */
+  display: flex; flex-direction: column;
 }
+.subject-card > p { flex: 0 0 auto; }
+.subject-card-flags { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
+.subject-card .record-actions {
+  margin-top: auto; margin-bottom: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid color-mix(in srgb, var(--subject-card-color, var(--color-border)) 18%, var(--color-border));
+  flex-wrap: nowrap; align-items: flex-start; justify-content: space-between;
+  gap: var(--space-2);
+}
+.subject-card-verbs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; }
+/* Archiving takes a subject out of the year. It is not destructive — it is reversible from the
+   filter — but it is not "แก้ไข" either, so it keeps its own end of the row and its own quiet. */
+.subject-card-archive { flex: 0 0 auto; color: var(--ink-400); }
+.subject-card-archive:hover:not(:disabled) { color: var(--ink-900); }
 .subject-card:hover {
   transform: translateY(-2px);
   box-shadow:
@@ -4590,3 +4638,75 @@ tr.row-warning td { background: var(--warning-soft); }
 .designer-stage-tint > span { color: var(--ink-500); font-size: var(--text-xs); }
 .designer-stage-tint > div { display: flex; flex-wrap: wrap; gap: 6px; }
 .designer-stage-tint .designer-swatch { width: 22px; height: 22px; }
+
+
+/* ---------- The card a person on the roster gets ----------
+   What it looked like before: a flex row, avatar on the left, centred against a column whose height
+   was decided by however many buttons happened to wrap. Four actions on a 250px card wrap into two
+   ragged rows, so the avatar floated somewhere near the middle of the card, no two cards in a row
+   were the same height, and the one destructive action sat wherever the wrap left it — most often
+   directly under "แก้ไข", which is a bad place to keep "ลบ".
+
+   It is a column now, and the column is the whole fix. Identity at the top, where a person looks
+   first; whatever is true about the account underneath it; and the actions in a footer pushed to
+   the bottom of the card by margin-top:auto, so every card in the grid ends its actions on the same
+   line whether the name wrapped or not. */
+.student-grid {
+  display: grid;
+  /* Wide enough that the three verbs and the delete sit on one line. At 250px they wrapped into
+     two rows on every card in the school, which is what made the old footer ragged in the first
+     place — the fix has to include giving the row somewhere to fit. */
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  gap: var(--space-3);
+  align-items: stretch;
+}
+.student-card {
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.student-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-3); }
+/* min-width:0 on the identity column is what lets a long Thai name wrap instead of pushing the
+   avatar out of the card — a grid item's default min-width is its content, not zero. */
+.student-card-identity { min-width: 0; }
+.student-card-identity strong {
+  display: block;
+  font-size: var(--text-base); font-weight: var(--weight-medium); line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+}
+.student-card-identity span {
+  display: block; margin-top: .2rem;
+  color: var(--ink-400); font-size: var(--text-xs);
+}
+.student-card-flags { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* The footer is separated by a hairline rather than by space alone, because the gap on its own read
+   as an accident whenever the card above it was short. */
+.student-card .record-actions {
+  margin-top: auto; margin-bottom: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+  /* flex-start, not center: when the verbs do wrap — a long password label, a large text size — a
+     centred delete floats between the two rows with nothing beside it. Anchored to the top it
+     stays on the same line as the first verb, which is where the eye already is. */
+  flex-wrap: nowrap; align-items: flex-start; justify-content: space-between;
+  gap: var(--space-2);
+}
+/* The verbs wrap among themselves; the footer itself does not, which is what keeps the destructive
+   action anchored to one corner instead of riding the wrap. */
+.student-card-verbs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; }
+/* Deleting a child from the roster is the one action here that cannot be undone by clicking again,
+   so it is pushed to its own end of the footer and kept quiet until it is pointed at. A filled red
+   pill on every card in a class of forty is both a wall of alarm and, oddly, easier to hit by
+   accident — it is the most eye-catching thing on the card. */
+.student-card-remove { flex: 0 0 auto; color: var(--ink-400); }
+.student-card-remove:hover:not(:disabled) {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger-soft) 70%, transparent);
+}
+
+@media (max-width: 560px) {
+  /* One card per row on a phone, and the actions get room to sit in one line rather than three. */
+  .student-grid { grid-template-columns: 1fr; }
+}

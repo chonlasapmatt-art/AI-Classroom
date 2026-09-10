@@ -12,6 +12,7 @@ import { createEncryptedBackup, downloadBackup, inspectBackup, readBackupFile, r
 import { BlockedMutationsPanel } from './BlockedMutationsPanel';
 import { ConflictPanel } from './ConflictPanel';
 import { useToast } from '../../ui/toastContext';
+import { formatMoment } from '../../ui/dateFormat';
 
 /** The shortest password the backup is allowed to be sealed with. */
 const MIN_BACKUP_PASSWORD = 12;
@@ -120,7 +121,7 @@ export function OperationsPage() {
     <Badge tone={phaseTone(syncStatus?.phase)}>{syncStatus?.label ?? 'พร้อมใช้งาน'}</Badge>
   );
   const lastSyncText = syncStatus?.lastSyncedAt
-    ? `ซิงก์ล่าสุด ${new Date(syncStatus.lastSyncedAt).toLocaleString('th-TH')}`
+    ? `ซิงก์ล่าสุด ${formatMoment(syncStatus.lastSyncedAt)}`
     : 'ยังไม่เคยซิงก์จากเครื่องนี้';
 
   /*

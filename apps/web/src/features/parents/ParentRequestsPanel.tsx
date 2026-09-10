@@ -11,6 +11,7 @@ import { completeMemberPasswordReset, MEMBER_PASSWORD_MINIMUM } from '../auth/me
 import { Badge, Button, Card, CardHeader, EmptyState } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
+import { formatMoment } from '../../ui/dateFormat';
 
 interface LinkRequest {
   linkId: string;
@@ -122,7 +123,7 @@ export function ParentRequestsPanel({ schoolId }: { schoolId: string }) {
                 <div className="request-main">
                   <strong>{request.parentName}</strong>
                   <span>{request.relationship} ของ {request.studentName}{request.className ? ` · ${request.className}` : ''}</span>
-                  <span>{request.requestedAt ? new Date(request.requestedAt).toLocaleString('th-TH') : ''}</span>
+                  <span>{formatMoment(request.requestedAt, '')}</span>
                 </div>
                 <Badge tone={request.status === 'linked' ? 'success' : request.status === 'pending' ? 'warning' : 'danger'}>
                   {statusLabels[request.status] ?? request.status}
@@ -163,7 +164,7 @@ export function ParentRequestsPanel({ schoolId }: { schoolId: string }) {
               <li key={request.id}>
                 <div className="request-main">
                   <strong>{request.displayName}</strong>
-                  <span>{request.role === 'teacher' ? 'ครู' : 'ผู้ปกครอง'} · {request.requestedAt ? new Date(request.requestedAt).toLocaleString('th-TH') : ''}</span>
+                  <span>{request.role === 'teacher' ? 'ครู' : 'ผู้ปกครอง'} · {formatMoment(request.requestedAt, '')}</span>
                   {issued[request.id] && (
                     // Shown once and never stored. It stays on screen deliberately: reloading the
                     // queue would take the only copy away before anyone could pass it on.

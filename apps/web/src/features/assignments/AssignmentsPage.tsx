@@ -17,6 +17,7 @@ import { WorkFormModal } from './WorkFormModal';
 import { canManageAcademicItem, teacherCanViewScore, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 import { useToast } from '../../ui/toastContext';
 import { Icon } from '../../ui/Icon';
+import { formatDay, formatMoment } from '../../ui/dateFormat';
 
 type Filter = 'all' | 'open' | 'draft' | 'closed';
 type TrackingFilter = 'all' | 'attention' | 'late' | 'waiting' | 'complete';
@@ -289,7 +290,7 @@ export function AssignmentsPage() {
                       <span>{work.workType === 'project' ? 'โครงงาน' : work.workType === 'homework' ? 'การบ้าน' : work.workType === 'activity' ? 'กิจกรรม' : 'งานที่มอบหมาย'}</span>
                       <span>ผู้สอน {teacherLabel}</span>
                       <span>เต็ม {work.maxScore} คะแนน</span>
-                      {dueAt && <span>{new Date(dueAt).toLocaleString('th-TH')} · {timeRemainingLabel(dueAt)}</span>}
+                      {dueAt && <span>{formatMoment(dueAt)} · {timeRemainingLabel(dueAt)}</span>}
                     </div>
                   </div>
                   <div className="work-card-actions">
@@ -422,7 +423,7 @@ export function AssignmentsPage() {
                     onClick={() => setSelectedTrackingWorkId(item.work.id)}
                   >
                     <span>{item.work.title}</span>
-                    <small>{item.dueAt ? new Date(item.dueAt).toLocaleDateString('th-TH') : 'ไม่กำหนดวันส่ง'}</small>
+                    <small>{formatDay(item.dueAt, 'ไม่กำหนดวันส่ง')}</small>
                   </button>
                 ))}
               </div>
@@ -462,7 +463,7 @@ export function AssignmentsPage() {
           <div className="student-status-list">
             {publishedItems.length === 0 ? <EmptyState icon={<Icon name="check" size={28} />} title="ยังไม่มีงานที่ต้องส่ง" description="เมื่อครูเผยแพร่งาน งานจะปรากฏที่ส่วนที่ 1" /> : publishedItems.map((item) => (
               <button key={item.work.id} type="button" className="student-status-row" onClick={() => setExpanded(item.work.id)}>
-                <span className="student-status-copy"><strong>{item.work.title}</strong><small>{item.dueAt ? `กำหนดส่ง ${new Date(item.dueAt).toLocaleString('th-TH')}` : 'ไม่กำหนดวันส่ง'}</small></span>
+                <span className="student-status-copy"><strong>{item.work.title}</strong><small>{item.dueAt ? `กำหนดส่ง ${formatMoment(item.dueAt)}` : 'ไม่กำหนดวันส่ง'}</small></span>
                 <Badge tone={workStateTone[item.state]}>{workStateLabels[item.state]}</Badge>
                 <span className="student-status-arrow">ดูงาน <Icon name="chevron-right" size={14} /></span>
               </button>

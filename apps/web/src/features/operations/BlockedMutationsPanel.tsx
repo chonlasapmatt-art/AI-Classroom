@@ -6,6 +6,7 @@ import {
 } from './blockedMutations';
 import { Badge, Button, Card, CardHeader, ConfirmDialog } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
+import { formatMoment } from '../../ui/dateFormat';
 
 /**
  * The changes the server would not take.
@@ -108,7 +109,7 @@ export function BlockedMutationsPanel() {
                 <strong>{row.entityLabel}{row.name ? ` · ${row.name}` : ''}</strong>
                 <span>{row.reason}</span>
               </div>
-              <Badge tone="neutral">{new Date(row.blockedAt).toLocaleString('th-TH')}</Badge>
+              <Badge tone="neutral">{formatMoment(row.blockedAt)}</Badge>
             </div>
             <p className="blocked-fix"><Icon name="info" size={14} />{row.fix}</p>
             <div className="blocked-actions">

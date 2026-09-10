@@ -1,4 +1,5 @@
 import type { Assignment, ClassroomNotification, NotificationPreference, Submission, WorkType } from '../domain/types';
+import { formatMoment } from '../ui/dateFormat';
 
 /**
  * Reminder scheduling.
@@ -131,7 +132,7 @@ export function planReminders(input: ReminderPlanInput): PlannedReminder[] {
         scheduledAt: applyQuietHours(fireAt.toISOString(), preference),
         dedupeKey: reminderDedupeKey(work.id, studentId, offsetMinutes),
         title: `เตือนส่งงาน: ${work.title}`,
-        body: `${reminderLabel(offsetMinutes)} · กำหนดส่ง ${new Date(due).toLocaleString('th-TH')}`
+        body: `${reminderLabel(offsetMinutes)} · กำหนดส่ง ${formatMoment(due)}`
       });
     }
   }

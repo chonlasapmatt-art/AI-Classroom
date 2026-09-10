@@ -401,17 +401,30 @@ export function StudentsPage() {
           <div className="student-grid">
             {students.map((student) => (
               <article key={student.id} className="student-card">
-                <ProfileAvatar
-                  displayName={student.displayName} avatarId={student.avatarId}
-                  avatarIndex={student.avatarIndex} avatarConfig={student.avatarConfig} size={56}
-                />
-                <div>
-                  <strong>{student.displayName}</strong>
-                  <span>
-                    {student.studentCode} · {classes.find((item) => item.id === classIdOfStudent(snapshot, student.id))?.name ?? 'ยังไม่มีห้อง'}
-                  </span>
-                  <div className="record-actions">
-                    {student.profileId && <Badge tone="success">เคยเข้าใช้งานแล้ว</Badge>}
+                <div className="student-card-head">
+                  <ProfileAvatar
+                    displayName={student.displayName} avatarId={student.avatarId}
+                    avatarIndex={student.avatarIndex} avatarConfig={student.avatarConfig} size={52}
+                  />
+                  <div className="student-card-identity">
+                    <strong>{student.displayName}</strong>
+                    <span>
+                      {student.studentCode} · {classes.find((item) => item.id === classIdOfStudent(snapshot, student.id))?.name ?? 'ยังไม่มีห้อง'}
+                    </span>
+                  </div>
+                </div>
+                {/* What is true about the account, above the actions rather than inside them: a
+                    badge is a statement and the row underneath is a set of verbs, and mixing the
+                    two made the first action on the card look like part of a sentence. */}
+                {student.profileId && (
+                  <div className="student-card-flags"><Badge tone="success">เคยเข้าใช้งานแล้ว</Badge></div>
+                )}
+                {/* The footer keeps the verbs on the left and the one irreversible action on the
+                    right, in their own boxes. Left as a single wrapping row, "ลบ" ended up
+                    wherever the wrap happened to put it — usually alone on a line of its own, and
+                    on a narrower card, directly beneath "แก้ไข". */}
+                <div className="record-actions">
+                  <div className="student-card-verbs">
                     {!isStudentView && (
                       <Button variant="ghost" size="sm" onClick={() => setStudioStudent(student)}>ปรับแต่งอวตาร</Button>
                     )}
@@ -433,10 +446,15 @@ export function StudentsPage() {
                         )}
                       </>
                     )}
-                    {canEdit && (
-                      <Button variant="danger" size="sm" onClick={() => setRemoving(student)}>ลบ</Button>
-                    )}
                   </div>
+                  {canEdit && (
+                    <Button
+                      variant="ghost" size="sm" className="student-card-remove"
+                      onClick={() => setRemoving(student)}
+                    >
+                      ลบ
+                    </Button>
+                  )}
                 </div>
               </article>
             ))}

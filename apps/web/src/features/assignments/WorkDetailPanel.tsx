@@ -9,6 +9,7 @@ import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { isGoogleDriveUrl } from '../../domain/driveLinks';
 import { Icon } from '../../ui/Icon';
+import { formatMoment } from '../../ui/dateFormat';
 
 interface Props {
   work: Assignment;
@@ -98,7 +99,7 @@ export function WorkDetailPanel({ work, roster, actorProfileId, onMessage }: Pro
               </div>
             </td>
             <td><Badge tone={workStateTone[row.state]}>{workStateLabels[row.state]}</Badge></td>
-            <td>{row.submission?.submittedAt ? new Date(row.submission.submittedAt).toLocaleString('th-TH') : '—'}</td>
+            <td>{row.submission?.submittedAt ? formatMoment(row.submission.submittedAt) : '—'}</td>
             <td>{isGoogleDriveUrl(row.submission?.driveUrl)
               ? <a className="drive-link" href={row.submission.driveUrl} target="_blank" rel="noreferrer">เปิด Google Drive <Icon name="external-link" size={14} /></a>
               : <span className="muted">ยังไม่มีลิงก์</span>}</td>
@@ -201,7 +202,7 @@ export function WorkDetailPanel({ work, roster, actorProfileId, onMessage }: Pro
           }
         >
           <Field label="กำหนดส่งเดิม">
-            <input value={work.dueAt ? new Date(work.dueAt).toLocaleString('th-TH') : 'ไม่กำหนด'} readOnly />
+            <input value={formatMoment(work.dueAt, 'ไม่กำหนด')} readOnly />
           </Field>
           <Field label="กำหนดส่งใหม่">
             <input id="extension-date" type="datetime-local" />

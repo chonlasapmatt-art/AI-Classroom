@@ -10,6 +10,7 @@ import {
   startExamAttempt, submitExamAttempt, takeExam, ExamError,
   type ExamAccess, type ExamPaper, type ExamRow
 } from './exams';
+import { formatMoment } from '../../ui/dateFormat';
 
 /**
  * Sitting an exam.
@@ -236,7 +237,7 @@ export function StudentExamPage() {
                 </span>
               </div>
               {info.state === 'scheduled' && info.opensAt && (
-                <p className="field-hint">เปิดสอบ {new Date(info.opensAt).toLocaleString('th-TH')}</p>
+                <p className="field-hint">เปิดสอบ {formatMoment(info.opensAt)}</p>
               )}
               {!info.canStart && !info.activeAttemptId && info.state === 'open' && (
                 <p className="field-hint">ใช้สิทธิ์สอบครบแล้ว</p>

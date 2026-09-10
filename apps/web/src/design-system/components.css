@@ -34,7 +34,9 @@
 .ui-button-ghost { color: var(--ink-600); background: transparent; }
 .ui-button-ghost:hover:not(:disabled) { background: var(--surface-sunken); color: var(--ink-900); }
 .ui-button-danger { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
-.ui-button-danger:hover:not(:disabled) { background: #fbdde2; border-color: var(--danger); }
+/* Mixed from the token rather than written as a hex: the literal #fbdde2 this used to be was a
+   light-theme pink, so hovering a destructive button in dark mode lit it up like a highlighter. */
+.ui-button-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 18%, var(--danger-soft)); border-color: var(--danger); }
 
 .ui-icon-button {
   width: var(--control-sm); height: var(--control-sm); display: grid; place-items: center;
@@ -315,11 +317,26 @@
    visible at all. */
 .ui-segmented:not(:has(.ui-segmented-pill)) button.selected { background: var(--surface); box-shadow: var(--shadow-xs); }
 
+/*
+ * A row of filters, aligned by their labels.
+ *
+ * This was `flex-end`, which lines the fields up by their bottoms — and a field carrying a hint is
+ * taller than one that is not, so on the Quiz setup the "ห้องเรียน" label sat visibly lower than
+ * "รายวิชา" beside it and the whole row read as crooked. Aligning to the start puts every label on
+ * one line and every control on the next, and lets a hint hang below its own field where it
+ * belongs, which is the only part of a field that is allowed to differ in height.
+ */
 .ui-toolbar {
-  display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4);
+  display: flex; align-items: flex-start; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4);
   padding: var(--space-3); border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--brand-50) 55%, var(--surface-sunken));
 }
+/* A select with nothing in it yet — no rooms created, no subject chosen — shrank to the width of
+   its own arrow and stopped looking like a control at all. A flat 9rem and not `min(9rem, 100%)`:
+   a percentage min-width resolves against the containing block, and the containing block here is
+   the field, which is sized by the select — so the percentage resolved to the collapsed width and
+   the floor floored nothing. 144px still fits inside the narrowest phone this product supports. */
+.ui-toolbar select, .ui-toolbar input { min-width: 9rem; }
 
 /* ---------- Modal ---------- */
 /*

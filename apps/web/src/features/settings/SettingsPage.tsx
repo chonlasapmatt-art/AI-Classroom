@@ -13,6 +13,7 @@ import { themeDensities, themeModes, themeMotions, themePresets } from '../../ap
 import { Badge, Button, Card, CardHeader, Field, FieldGroup, LinkButton, PageHeader, Stat } from '../../ui/components';
 import { Icon, type IconName } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
+import { formatMoment } from '../../ui/dateFormat';
 
 type Section = 'display' | 'policy' | 'academic' | 'system';
 
@@ -397,7 +398,7 @@ export function SettingsPage() {
               <li><span className="settings-fact-label">รุ่นที่สร้าง</span><strong>{formatBuildTime()}</strong></li>
               <li>
                 <span className="settings-fact-label">ตรวจหาอัปเดตล่าสุด</span>
-                <strong>{lastChecked ? new Date(lastChecked).toLocaleString('th-TH') : 'ยังไม่เคยตรวจ'}</strong>
+                <strong>{formatMoment(lastChecked, 'ยังไม่เคยตรวจ')}</strong>
               </li>
             </ul>
 

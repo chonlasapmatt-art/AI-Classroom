@@ -15,6 +15,7 @@ import {
 } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
+import { formatDay } from '../../ui/dateFormat';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { attendanceMarkLabels, attendanceMarkOrder } from './attendanceMarks';
 
@@ -138,7 +139,7 @@ function StaffAttendancePage() {
     setBusy(true);
     try {
       await repository.setAttendanceForStudents(selectedClassId, date, status, ids, sessionFields);
-      toast(`บันทึก "${labels[status]}" ${ids.length} คน`, { tone: 'success', message: `${sessionName} · ${date}` });
+      toast(`บันทึก "${labels[status]}" ${ids.length} คน`, { tone: 'success', message: `${sessionName} · ${formatDay(date)}` });
     } catch (reason) {
       toast('บันทึกไม่สำเร็จ', { tone: 'error', message: failureText(reason) });
     } finally {
@@ -153,7 +154,7 @@ function StaffAttendancePage() {
         eyebrow="บันทึกการเข้าเรียนรายคาบ"
         title="เช็กชื่อ"
         description={selectedSession
-          ? `${sessionName} · ${date}`
+          ? `${sessionName} · ${formatDay(date)}`
           : 'เลือกห้องเรียนเพื่อเริ่มเช็กชื่อ'}
         action={canMark && roster.length > 0 ? (
           <>
@@ -338,7 +339,7 @@ function StaffAttendancePage() {
         <ConfirmDialog
           tone="brand"
           title={`บันทึก "มาเรียน" ให้ ${unmarked.length} คนที่ยังไม่เช็ก?`}
-          description={`${sessionName} · ${date} · นักเรียนที่เช็กไปแล้วจะไม่ถูกเปลี่ยน`}
+          description={`${sessionName} · ${formatDay(date)} · นักเรียนที่เช็กไปแล้วจะไม่ถูกเปลี่ยน`}
           confirmLabel="บันทึกมาเรียนทั้งหมด"
           onCancel={() => setConfirming(null)}
           onConfirm={() => void markRemaining('present')}
@@ -349,8 +350,8 @@ function StaffAttendancePage() {
           tone={unmarked.length > 0 ? 'danger' : 'brand'}
           title={unmarked.length > 0 ? `ปิดคาบโดยบันทึก "ขาด" ให้ ${unmarked.length} คน?` : 'คาบนี้เช็กครบแล้ว'}
           description={unmarked.length > 0
-            ? `${sessionName} · ${date} · นักเรียนที่ยังไม่ถูกเช็กจะถูกบันทึกเป็น "ขาด" แก้ไขภายหลังได้จากรายชื่อ`
-            : `${sessionName} · ${date} · ไม่มีนักเรียนที่ค้างอยู่`}
+            ? `${sessionName} · ${formatDay(date)} · นักเรียนที่ยังไม่ถูกเช็กจะถูกบันทึกเป็น "ขาด" แก้ไขภายหลังได้จากรายชื่อ`
+            : `${sessionName} · ${formatDay(date)} · ไม่มีนักเรียนที่ค้างอยู่`}
           confirmLabel={unmarked.length > 0 ? 'ปิดคาบและบันทึกขาด' : 'เข้าใจแล้ว'}
           onCancel={() => setConfirming(null)}
           onConfirm={() => unmarked.length > 0 ? void markRemaining('absent') : setConfirming(null)}
@@ -424,7 +425,7 @@ function ParentAttendanceSummary() {
             </div>
             <div className="attendance-day-summary">
               <strong>{dayLabels[attendanceDayStatus(todayRows)]}</strong>
-              <span>{date} · บันทึกแล้ว {todayRows.length} คาบ</span>
+              <span>{formatDay(date)} · บันทึกแล้ว {todayRows.length} คาบ</span>
             </div>
           </Card>
 
