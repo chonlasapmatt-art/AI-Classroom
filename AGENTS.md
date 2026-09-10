@@ -117,7 +117,7 @@ by a parameter each function could forget to pass.
 teacher codes: all have a status. History stays readable.
 
 **Migrations are immutable.** Never edit one that has been applied. Every repair is a new migration.
-There are 89; the last is `202609100003`. Replacing a function in a *new* migration is the repair
+There are 90; the last is `202609100004`. Replacing a function in a *new* migration is the repair
 path and is not an exception to this — `platform_reauth_fresh` has been replaced twice that way.
 
 **Snapshots, not pointers.** Exams and quiz rounds copy each question they use. Editing the bank next
@@ -156,7 +156,7 @@ apps/web/src/
   sync/           push, pull, retry, protocol contracts
   ui/             the shared component set every screen composes
 supabase/
-  migrations/     89 immutable migrations
+  migrations/     90 immutable migrations
   functions/      17 Edge Functions; _shared holds the crypto and client helpers
 scripts/probes/   live verification scripts — read the README
 docs/             specification and the validation report
