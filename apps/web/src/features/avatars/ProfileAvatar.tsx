@@ -2,7 +2,20 @@ import { useEffect, useState } from 'react';
 import type { AvatarAnimation, AvatarConfig } from '../../domain/types';
 import { useRepository } from '../../data/RepositoryContext';
 import { configForAvatarId, initialsFor } from './avatarCatalog';
+import { bodyArchetypeFor } from './avatarFullBody';
+import { FullBodyAvatar } from './FullBodyAvatar';
+import { isConfigV2, type AvatarConfigV2 } from './avatarSchema';
 import { ThemedAvatar } from './ThemedAvatar';
+
+/*
+ * Below this, a figure is a smudge.
+ *
+ * The saved avatar is a whole person now — the shape the child built and the shape the customiser
+ * previews — and a profile card has room to draw one. A 36-pixel row in a class list does not: at
+ * that size the legs are two dark pixels and the face is gone, so a list keeps the portrait, which
+ * is the same six colours and the same traits seen closer.
+ */
+const FIGURE_MIN_SIZE = 96;
 
 interface Props {
   displayName: string;
@@ -67,6 +80,21 @@ export function ProfileAvatar({ displayName, avatarId, avatarPhotoId, avatarInde
   const chosen = configForAvatarId(avatarId);
   const base = chosen ?? avatarConfig ?? null;
   const config = base && avatarConfig?.outfit ? { ...base, outfit: avatarConfig.outfit } : base;
+
+  // What the child built, drawn whole, wherever there is room for it.
+  const built = isConfigV2(config) ? (config as AvatarConfigV2) : null;
+  const body = size >= FIGURE_MIN_SIZE ? bodyArchetypeFor(built) : null;
+  if (built && body) {
+    return (
+      <FullBodyAvatar
+        archetype={body}
+        animation={animation}
+        tints={built.tints}
+        size={size}
+        label={displayName}
+      />
+    );
+  }
 
   if (!config && avatarIndex === undefined) {
     return (

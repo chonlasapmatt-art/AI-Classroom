@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { db } from '../db/database';
 import { registerAndSync } from './engine';
+import { announceSchoolWrite, subscribeToSchoolWrites } from './syncLive';
 import { registerUpdatePreparation } from '../app/appUpdate';
 import { recall, remember } from '../app/deviceMemory';
 
@@ -59,6 +60,9 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
       try {
         const result = await registerAndSync(schoolId, deviceId(), navigator.userAgent.slice(0, 80), deviceType());
         setLastSyncedAt(new Date().toISOString());
+        // Everybody else in the school is waiting on this. Saying so costs one message and turns a
+        // minute's wait into about a second for the child, the co-teacher and the administrator.
+        if (result.accepted > 0) announceSchoolWrite(schoolId, deviceId());
         if (result.blocked > 0) {
           setPhase('attention');
           setDetail(`มี ${result.blocked} รายการที่ต้องตรวจสอบก่อนซิงก์`);
@@ -101,8 +105,11 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
     void syncNow();
     const timer = window.setInterval(() => { void syncNow(); }, INTERVAL_MS);
     const localMutation = (event: Event) => {
-      const mutation = (event as CustomEvent<{ schoolId?: string }>).detail;
+      const mutation = (event as CustomEvent<{ schoolId?: string; source?: string }>).detail;
       if (mutation?.schoolId !== schoolId) return;
+      // A structural write went to the server first and is already readable there, so the other
+      // devices can be told about it before this one has finished pulling it back.
+      if (mutation.source === 'server') announceSchoolWrite(schoolId, deviceId());
       if (mutationTimer.current !== null) window.clearTimeout(mutationTimer.current);
       // Coalesce a multi-row action (publish, import, attendance sheet) into one push, then send it
       // shortly after the local transaction commits so the UI stays instant without racing itself.
@@ -120,6 +127,13 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
     const pageShow = () => { void syncNow(); };
     // `pagehide` is the one teardown event mobile browsers reliably fire; `beforeunload` is not.
     const pageHide = () => { void syncNow(); };
+    // The same coalescing the local event uses, so a burst of remote writes — a teacher marking a
+    // whole class — becomes one pull rather than thirty.
+    let remoteTimer: number | null = null;
+    const stopListening = subscribeToSchoolWrites(schoolId, deviceId(), () => {
+      if (remoteTimer !== null) window.clearTimeout(remoteTimer);
+      remoteTimer = window.setTimeout(() => { remoteTimer = null; void syncNow(); }, MUTATION_DEBOUNCE_MS);
+    });
     const channel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('smart-classroom-sync') : null;
     const channelMessage = (event: MessageEvent<{ schoolId?: string }>) => {
       if (event.data?.schoolId === schoolId) void syncNow();
@@ -134,6 +148,8 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
     window.addEventListener('pagehide', pageHide);
     return () => {
       window.clearInterval(timer);
+      stopListening();
+      if (remoteTimer !== null) window.clearTimeout(remoteTimer);
       if (mutationTimer.current !== null) window.clearTimeout(mutationTimer.current);
       if (retryTimer.current !== null) window.clearTimeout(retryTimer.current);
       channel?.removeEventListener('message', channelMessage);

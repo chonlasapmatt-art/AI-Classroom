@@ -1,7 +1,7 @@
 import type { SchoolSnapshot } from '../data/schoolRepository';
 import type { Assignment, ClassroomNotification, Student, Submission } from '../domain/types';
 import { rosterFor } from '../data/selectors';
-import { effectiveDueAt, hasSubmitted, workStateFor, type WorkState } from './workStatus';
+import { effectiveDueAt, hasSubmitted, SOON_WINDOW_MS, workStateFor, type WorkState } from './workStatus';
 
 /**
  * Read models the screens share: calendar entries, notification groups and the acknowledgement
@@ -151,6 +151,13 @@ export function notificationEntries(snapshot: SchoolSnapshot, studentId: string,
       if (state === 'graded' || state === 'submitted' || state === 'late') bucket = 'done';
       else if (state === 'overdue') bucket = 'overdue';
       else if (state === 'urgent' || state === 'soon') bucket = 'due-soon';
+      // Work that has been out for an hour reports itself as "not sent" rather than by how close the
+      // deadline is, so the deadline is read here instead: a notice centre sorted by urgency has to
+      // keep telling somebody which of the things they have not sent is due first.
+      else if (state === 'not_submitted') {
+        const remaining = dueAt ? Date.parse(dueAt) - now.getTime() : Number.NaN;
+        bucket = Number.isFinite(remaining) && remaining <= SOON_WINDOW_MS ? 'due-soon' : 'upcoming';
+      }
       else if ((notification.sentAt ?? notification.createdAt).slice(0, 10) === today) bucket = 'today';
 
       return { notification, work, dueAt, state, bucket };

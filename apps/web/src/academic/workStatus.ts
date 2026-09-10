@@ -7,11 +7,21 @@ import type { Assignment, DeadlineExtension, Submission } from '../domain/types'
  * so a badge in one corner of the app can never disagree with a badge in another.
  */
 export type WorkState =
-  | 'draft' | 'cancelled' | 'upcoming' | 'soon' | 'urgent' | 'overdue'
+  | 'draft' | 'cancelled' | 'upcoming' | 'not_submitted' | 'soon' | 'urgent' | 'overdue'
   | 'submitted' | 'late' | 'revision_requested' | 'graded' | 'closed';
 
 export const URGENT_WINDOW_MS = 3 * 60 * 60 * 1000;
 export const SOON_WINDOW_MS = 24 * 60 * 60 * 1000;
+/*
+ * How long a piece of work is simply "new" before nobody having sent it is worth saying out loud.
+ *
+ * Until this, the only thing a status could say about work that had been handed out and not sent
+ * back was how far away the deadline was — so a teacher looking at a room the morning after setting
+ * something read "ใกล้ถึงกำหนด" against every child, including the ones who had already sent it and
+ * the ones who had not opened it. An hour is long enough that the class has actually been given the
+ * work and short enough that the teacher hears about silence while the lesson is still running.
+ */
+export const AWAITING_TURN_IN_MS = 60 * 60 * 1000;
 
 /** The deadline that applies to one student: their personal extension, else the class deadline. */
 export function effectiveDueAt(work: Pick<Assignment, 'id' | 'dueAt'>, studentId: string, extensions: DeadlineExtension[]): string | null {
@@ -24,7 +34,7 @@ export function hasSubmitted(submission: Submission | undefined): boolean {
 }
 
 export interface WorkStateInput {
-  work: Pick<Assignment, 'id' | 'status' | 'dueAt'>;
+  work: Pick<Assignment, 'id' | 'status' | 'dueAt'> & Partial<Pick<Assignment, 'assignedAt' | 'publishedAt'>>;
   submission?: Submission | undefined;
   dueAt?: string | null;
   now?: Date;
@@ -38,12 +48,22 @@ export function workStateFor({ work, submission, dueAt, now = new Date() }: Work
   if (submission?.status === 'revision_requested') return 'revision_requested';
   if (hasSubmitted(submission)) return submission?.isLate ? 'late' : 'submitted';
 
+  // The moment the class was actually given the work: when it was published, or the date it was
+  // set for when an older row carries no publication stamp.
+  const handedOutAt = Date.parse(work.publishedAt ?? work.assignedAt ?? '');
+  const awaited = Number.isFinite(handedOutAt) && now.getTime() - handedOutAt >= AWAITING_TURN_IN_MS;
+
   const deadline = dueAt ?? work.dueAt;
-  if (!deadline) return work.status === 'closed' ? 'closed' : 'upcoming';
+  if (!deadline) {
+    if (work.status === 'closed') return 'closed';
+    return awaited ? 'not_submitted' : 'upcoming';
+  }
 
   const remaining = Date.parse(deadline) - now.getTime();
-  if (Number.isNaN(remaining)) return 'upcoming';
+  if (Number.isNaN(remaining)) return awaited ? 'not_submitted' : 'upcoming';
+  // Past the deadline is the stronger fact, and it already means the work has not been sent.
   if (remaining < 0) return 'overdue';
+  if (awaited) return 'not_submitted';
   if (remaining <= URGENT_WINDOW_MS) return 'urgent';
   if (remaining <= SOON_WINDOW_MS) return 'soon';
   return 'upcoming';
@@ -60,6 +80,7 @@ export const studentWorkStateLabels: Record<WorkState, string> = {
   draft: 'ฉบับร่าง',
   cancelled: 'ยกเลิกแล้ว',
   upcoming: 'ได้รับงานแล้ว',
+  not_submitted: 'ยังไม่ได้ส่ง',
   soon: 'ใกล้ถึงกำหนด',
   urgent: 'ใกล้ถึงกำหนดมาก',
   overdue: 'เลยกำหนด',
@@ -74,6 +95,7 @@ export const workStateLabels: Record<WorkState, string> = {
   draft: 'ฉบับร่าง',
   cancelled: 'ยกเลิกแล้ว',
   upcoming: 'ยังไม่เริ่ม',
+  not_submitted: 'ยังไม่ส่ง',
   soon: 'ใกล้ถึงกำหนด',
   urgent: 'ใกล้ถึงกำหนดมาก',
   overdue: 'เลยกำหนด',
@@ -89,6 +111,7 @@ export const workStateTone: Record<WorkState, 'neutral' | 'info' | 'warning' | '
   draft: 'neutral',
   cancelled: 'neutral',
   upcoming: 'info',
+  not_submitted: 'warning',
   soon: 'warning',
   urgent: 'warning',
   overdue: 'danger',

@@ -13,9 +13,8 @@ import {
 import { defaultBodyFor, traitCounts, traitsForLayer, type Trait } from './avatarTraits';
 import { avatarOutfits, canWearOutfit, defaultOutfit, outfitPrice } from './avatarOutfits';
 import { avatarPalettes, skinTones } from './avatarThemes';
-import { EnhancedPixelAvatar } from './EnhancedPixelAvatar';
 import { FullBodyAvatar } from './FullBodyAvatar';
-import { fullBodyArchetypeList, type FullBodyArchetype } from './avatarFullBody';
+import { archetypeForRace, fullBodyArchetypeList } from './avatarFullBody';
 import { ThemedAvatar } from './ThemedAvatar';
 
 /**
@@ -81,22 +80,6 @@ const poses: Array<{ value: AvatarAnimation; label: string }> = [
   { value: 'jump', label: 'กระโดด' },
   { value: 'cheer', label: 'เชียร์' }
 ];
-
-/**
- * Which full-body figure a race opens on.
- *
- * A dragonkin should not have to hunt for the dragon knight, and a human should not open on one.
- * It is a starting point rather than a rule: the chips below the stage change it, because the two
- * archetypes the brief asks to be previewable are worth being able to try on any avatar.
- */
-const archetypeForRace: Record<AvatarRace, FullBodyArchetype> = {
-  human: 'student',
-  dragonkin: 'dragonKnight',
-  demon: 'demon',
-  beastfolk: 'athlete',
-  spirit: 'arcaneMage',
-  robot: 'student'
-};
 
 /**
  * The four colours the stage offers without opening a drawer.
@@ -172,8 +155,7 @@ export function AvatarDesigner({
    * the default and the thing being edited. The full body is the same six colours on a figure that
    * has legs to walk on -- which is the only way to see what a pose actually does.
    */
-  const [fullBody, setFullBody] = useState(false);
-  const [archetype, setArchetype] = useState<FullBodyArchetype | null>(null);
+
   const [playing, setPlaying] = useState(true);
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [outfit, setOutfit] = useState<string>(currentOutfit ?? defaultOutfit.id);
@@ -310,6 +292,8 @@ export function AvatarDesigner({
   const balance = points ?? 0;
   const level = levelFromPoints(balance);
   const race = draft.race ?? 'human';
+  // The body a child picked, or the one their race has always drawn if they have not picked yet.
+  const body = draft.bodyArchetype ?? archetypeForRace[race] ?? 'student';
 
   return (
     <Modal
@@ -329,60 +313,34 @@ export function AvatarDesigner({
           <div className="designer-preview">
             <span className="designer-chip">คัดแยก {AVATAR_CATALOG_SIZE} แบบ · รายละเอียดขั้นสูง</span>
             <div className="designer-stage">
-              {fullBody
-                ? (
-                  <FullBodyAvatar
-                    archetype={archetype ?? archetypeForRace[race]}
-                    animation={pose}
-                    tints={draft.tints}
-                    size={176}
-                    label={displayName}
-                    paused={!playing}
-                  />
-                )
-                : draft.layers
-                  ? <EnhancedPixelAvatar config={draft} animation={playing ? pose : 'blink'} size={176} grid={32} label={displayName} />
-                  : <ThemedAvatar avatarIndex={0} config={draft} animation={playing ? pose : 'idle'} size={176} label={displayName} />}
+              <FullBodyAvatar
+                archetype={body}
+                animation={pose}
+                tints={draft.tints}
+                size={176}
+                label={displayName}
+                paused={!playing}
+              />
             </div>
 
             {/*
-              * Two bodies, one wardrobe.
+              * One body, and it is the one that gets saved.
               *
-              * The bust is what a saved avatar is and what the rest of the app draws, so it is what
-              * the drawers below edit. The full body is the same six colours on a figure with legs,
-              * which is the only shape a walk, a leap or a cast can be judged in -- at shoulder
-              * height every one of them can only be the picture sliding about.
+              * The customiser used to draw a bust and offer the figure as a preview toggle, so the
+              * shape a child spent their time on was not the shape the app kept: the switch was a
+              * way to look at something the save could not carry. The figure is now the avatar --
+              * chosen here, written with the traits, and drawn on the profile the same way.
               */}
-            <div className="designer-bodyswitch" role="group" aria-label="รูปแบบตัวละครในพรีวิว">
-              <button
-                type="button"
-                className={`designer-pose ${fullBody ? '' : 'active'}`}
-                aria-pressed={!fullBody}
-                onClick={() => setFullBody(false)}
-              >
-                ครึ่งตัว
-              </button>
-              <button
-                type="button"
-                className={`designer-pose ${fullBody ? 'active' : ''}`}
-                aria-pressed={fullBody}
-                onClick={() => setFullBody(true)}
-              >
-                เต็มตัว
-              </button>
-            </div>
-
-            {fullBody && (
-              <>
-                <div className="designer-chips" role="group" aria-label="แบบตัวละครเต็มตัว">
+            <>
+                <div className="designer-chips" role="group" aria-label="แบบตัวละคร">
                   {fullBodyArchetypeList.map((option) => (
                     <button
                       key={option.id}
                       type="button"
-                      className={`designer-catchip ${(archetype ?? archetypeForRace[race]) === option.id ? 'active' : ''}`}
-                      aria-pressed={(archetype ?? archetypeForRace[race]) === option.id}
+                      className={`designer-catchip ${body === option.id ? 'active' : ''}`}
+                      aria-pressed={body === option.id}
                       title={option.description}
-                      onClick={() => setArchetype(option.id)}
+                      onClick={() => setDraft((current) => ({ ...current, v: 2, bodyArchetype: option.id }))}
                     >
                       {option.name}
                     </button>
@@ -414,8 +372,7 @@ export function AvatarDesigner({
                     </div>
                   ))}
                 </div>
-              </>
-            )}
+            </>
             <div className="designer-identity">
               <strong>{displayName}</strong>
               <div className="designer-tags">

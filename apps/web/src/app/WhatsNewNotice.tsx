@@ -82,6 +82,20 @@ export function WhatsNewNotice() {
 
   return (
     <div className="whats-new-layer">
+      {/*
+        * The room dims, and the notice is the thing in the middle of it.
+        *
+        * A panel in a corner over a busy screen is read as a toast — something that will go away on
+        * its own and can therefore be ignored — and this is the one account anybody gets of what
+        * changed under them. The scrim is soft rather than opaque, and pressing it closes the
+        * notice: what is behind stays visible, stays where it was, and is one press away.
+        */}
+      <button
+        type="button"
+        className="whats-new-scrim"
+        aria-label="ปิดรายละเอียดการอัปเดต"
+        onClick={() => setOpen(false)}
+      />
       <section
         className="whats-new"
         role="status"

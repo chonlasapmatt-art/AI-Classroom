@@ -1,4 +1,5 @@
 import type { AvatarConfig } from '../../domain/types';
+import type { FullBodyArchetype } from './avatarFullBody';
 import { avatarPalettes, avatarThemes, hairStyles, skinTones } from './avatarThemes';
 
 /**
@@ -113,6 +114,11 @@ export interface AvatarConfigV2 extends AvatarConfig {
   layers?: Partial<Record<LayerType, string>>;
   tints?: Partial<AvatarTints>;
   animationSet?: 'standard' | 'mage' | 'warrior' | 'beast' | 'spirit';
+  /**
+   * The figure the traits are arranged on. Absent on a record written before bodies existed, which
+   * reads as "whichever body this race draws" rather than as an error.
+   */
+  bodyArchetype?: FullBodyArchetype;
 }
 
 /** True when a config carries version-2 work. A legacy config is not "invalid"; it is complete. */

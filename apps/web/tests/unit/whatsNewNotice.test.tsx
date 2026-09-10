@@ -111,13 +111,22 @@ describe('the notice after an update', () => {
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
   });
 
-  it('does not block the screen behind it', () => {
-    // Taking a register is more urgent than the news that the register got better, so the layer
-    // over the app passes clicks through and only the card itself catches them.
+  it('dims the room around itself', () => {
+    // The one account anybody gets of what changed under them was reading as a toast in a corner —
+    // something that will go away on its own and can therefore be ignored. It is the thing in the
+    // middle of the screen now, with the app dimmed behind it.
     window.localStorage.setItem('smart-classroom-seen-version', '0.0.1');
     const { container } = render(<WhatsNewNotice />);
     expect(container.querySelector('.whats-new-layer')).toBeTruthy();
-    // A scrim would be a sibling element covering the page; there is none.
-    expect(container.querySelectorAll('.whats-new-layer > *').length).toBe(1);
+    expect(container.querySelector('.whats-new-scrim')).toBeTruthy();
+  });
+
+  it('closes when the dimmed area is pressed', async () => {
+    // Dimming the room is not the same as locking the door: what is behind stays where it was and
+    // is one press away, which is what keeps a ten-second notice from interrupting a register.
+    window.localStorage.setItem('smart-classroom-seen-version', '0.0.1');
+    render(<WhatsNewNotice />);
+    fireEvent.click(screen.getByRole('button', { name: 'ปิดรายละเอียดการอัปเดต' }));
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
   });
 });

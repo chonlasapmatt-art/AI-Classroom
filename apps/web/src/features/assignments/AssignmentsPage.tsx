@@ -130,7 +130,7 @@ export function AssignmentsPage() {
     total: selectedWorkRows.length,
     submitted: selectedWorkRows.filter((row) => ['submitted', 'late', 'graded'].includes(row.state)).length,
     late: selectedWorkRows.filter((row) => row.state === 'late').length,
-    waiting: selectedWorkRows.filter((row) => ['overdue', 'urgent', 'soon', 'upcoming', 'revision_requested'].includes(row.state)).length
+    waiting: selectedWorkRows.filter((row) => ['overdue', 'urgent', 'soon', 'upcoming', 'not_submitted', 'revision_requested'].includes(row.state)).length
   }), [selectedWorkRows]);
 
   const trackingRows = useMemo(() => studentTrackingFor(snapshot, effectiveClassId, new Date(), subjectFilter || null), [snapshot, effectiveClassId, subjectFilter]);
@@ -368,7 +368,7 @@ export function AssignmentsPage() {
                           รับทราบงานแล้ว
                         </Button>
                       )}
-                      {['upcoming', 'soon', 'urgent', 'overdue', 'revision_requested'].includes(state) && (
+                      {['upcoming', 'soon', 'urgent', 'overdue', 'not_submitted', 'revision_requested'].includes(state) && (
                         <>
                           <div className="drive-submit-panel">
                             <div className="drive-submit-heading"><span className="drive-submit-icon"><Icon name="external-link" size={18} /></span><div><strong>หรือส่งเป็นลิงก์ Google Drive</strong><small>ไม่บังคับ · แนบไฟล์ด้านบนก็ส่งได้เลย</small></div></div>
@@ -457,7 +457,7 @@ export function AssignmentsPage() {
             <Stat label="งานทั้งหมด" value={publishedItems.length} tone="brand" />
             <Stat label="ส่งแล้ว" value={publishedItems.filter((item) => ['submitted', 'late', 'graded'].includes(item.state)).length} tone="success" />
             <Stat label="ส่งช้า" value={publishedItems.filter((item) => item.state === 'late').length} tone="warning" />
-            <Stat label="ยังค้าง" value={publishedItems.filter((item) => ['overdue', 'urgent', 'soon', 'upcoming', 'revision_requested'].includes(item.state)).length} tone="danger" />
+            <Stat label="ยังค้าง" value={publishedItems.filter((item) => ['overdue', 'urgent', 'soon', 'upcoming', 'not_submitted', 'revision_requested'].includes(item.state)).length} tone="danger" />
           </div>
           <div className="student-status-list">
             {publishedItems.length === 0 ? <EmptyState icon={<Icon name="check" size={28} />} title="ยังไม่มีงานที่ต้องส่ง" description="เมื่อครูเผยแพร่งาน งานจะปรากฏที่ส่วนที่ 1" /> : publishedItems.map((item) => (

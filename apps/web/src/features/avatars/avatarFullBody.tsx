@@ -625,6 +625,33 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
 export const fullBodyArchetypeList: ArchetypeDefinition[] = Object.values(fullBodyArchetypes);
 
 /**
+ * Which figure a race opens on.
+ *
+ * A dragonkin should not have to hunt for the dragon knight, and a human should not open on one. It
+ * is a starting point rather than a rule: the customiser's chips change it, and the choice is saved
+ * with the traits. It also answers for every avatar built before bodies were saved at all, which is
+ * why it lives here rather than inside the customiser that used to own it -- the profile has to draw
+ * the same figure the customiser previewed.
+ */
+export const archetypeForRace: Record<string, FullBodyArchetype> = {
+  human: 'student',
+  dragonkin: 'dragonKnight',
+  demon: 'demon',
+  beastfolk: 'athlete',
+  spirit: 'arcaneMage',
+  robot: 'student'
+};
+
+/** The figure a saved configuration draws: the one it chose, else the one its race opens on. */
+export function bodyArchetypeFor(
+  config: { bodyArchetype?: FullBodyArchetype; race?: string } | null | undefined
+): FullBodyArchetype | null {
+  if (!config) return null;
+  if (config.bodyArchetype) return config.bodyArchetype;
+  return config.race ? archetypeForRace[config.race] ?? null : null;
+}
+
+/**
  * Which effect belongs to which pose.
  *
  * The overlay is part of the pose rather than part of the costume: a rune circle under a figure

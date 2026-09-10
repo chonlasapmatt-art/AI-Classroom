@@ -17,6 +17,7 @@ import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { attendanceMarkLabels, attendanceMarkOrder } from './attendanceMarks';
+import { AttendanceHistoryPanel } from './AttendanceHistoryPanel';
 
 const labels = attendanceMarkLabels;
 const order = attendanceMarkOrder;
@@ -333,6 +334,16 @@ function StaffAttendancePage() {
           </div>
         )}
       </Card>
+
+      {/*
+        * Under the act, the account of it.
+        *
+        * Marking is one room and one period by design; being answerable for the school is every room
+        * and every period at once. Both live on this screen because they are the same records, and
+        * an administrator who spots a wrong mark while reading the summary corrects it there rather
+        * than going back to the room, the date and the period to find it again.
+        */}
+      <AttendanceHistoryPanel canEditEveryRoom={membership.role === 'admin'} />
 
       {confirming === 'present-all' && (
         <ConfirmDialog

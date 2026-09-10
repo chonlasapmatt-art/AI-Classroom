@@ -42,11 +42,39 @@ function submission(overrides: Partial<Submission> = {}): Submission {
 describe('deadline states', () => {
   const now = new Date('2026-09-09T09:00:00.000Z');
 
-  it('separates upcoming, soon, urgent and overdue', () => {
-    expect(workStateFor({ work: work({ dueAt: '2026-09-20T09:00:00.000Z' }), now })).toBe('upcoming');
-    expect(workStateFor({ work: work({ dueAt: '2026-09-09T20:00:00.000Z' }), now })).toBe('soon');
-    expect(workStateFor({ work: work({ dueAt: '2026-09-09T10:30:00.000Z' }), now })).toBe('urgent');
+  // In the first hour a piece of work is new, and how far away the deadline is, is the whole story.
+  const justHandedOut = { assignedAt: '2026-09-09T08:30:00.000Z', publishedAt: '2026-09-09T08:30:00.000Z' };
+
+  it('separates upcoming, soon, urgent and overdue while the work is still new', () => {
+    expect(workStateFor({ work: work({ ...justHandedOut, dueAt: '2026-09-20T09:00:00.000Z' }), now })).toBe('upcoming');
+    expect(workStateFor({ work: work({ ...justHandedOut, dueAt: '2026-09-09T20:00:00.000Z' }), now })).toBe('soon');
+    expect(workStateFor({ work: work({ ...justHandedOut, dueAt: '2026-09-09T10:30:00.000Z' }), now })).toBe('urgent');
+    expect(workStateFor({ work: work({ ...justHandedOut, dueAt: '2026-09-08T09:00:00.000Z' }), now })).toBe('overdue');
+  });
+
+  /*
+   * An hour after the class was given the work, the fact worth reporting is that it has not come
+   * back. A teacher looking at the room the next morning was reading "ใกล้ถึงกำหนด" against every
+   * child, which describes the deadline and says nothing about who has sent anything.
+   */
+  it('says the work has not been sent once it has been out for an hour', () => {
+    expect(workStateFor({ work: work({ dueAt: '2026-09-20T09:00:00.000Z' }), now })).toBe('not_submitted');
+    expect(workStateFor({ work: work({ dueAt: '2026-09-09T20:00:00.000Z' }), now })).toBe('not_submitted');
+    expect(workStateFor({ work: work({ dueAt: '2026-09-09T10:30:00.000Z' }), now })).toBe('not_submitted');
+    expect(workStateFor({ work: work({ dueAt: null }), now })).toBe('not_submitted');
+  });
+
+  it('waits the whole hour before saying so', () => {
+    const fiftyNineMinutes = { assignedAt: '2026-09-09T08:01:00.000Z', publishedAt: '2026-09-09T08:01:00.000Z' };
+    const exactlyAnHour = { assignedAt: '2026-09-09T08:00:00.000Z', publishedAt: '2026-09-09T08:00:00.000Z' };
+    expect(workStateFor({ work: work({ ...fiftyNineMinutes, dueAt: '2026-09-20T09:00:00.000Z' }), now })).toBe('upcoming');
+    expect(workStateFor({ work: work({ ...exactlyAnHour, dueAt: '2026-09-20T09:00:00.000Z' }), now })).toBe('not_submitted');
+  });
+
+  it('keeps the deadline as the stronger fact, and a turn-in stronger still', () => {
     expect(workStateFor({ work: work({ dueAt: '2026-09-08T09:00:00.000Z' }), now })).toBe('overdue');
+    expect(workStateFor({ work: work(), submission: submission({ status: 'submitted' }), now })).toBe('submitted');
+    expect(workStateFor({ work: work({ status: 'draft' }), now })).toBe('draft');
   });
 
   it('lets a submission take over the state', () => {

@@ -369,44 +369,6 @@
 .topbar-signout:active { transform: scale(0.92); }
 .topbar-signout:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-/* ---------- Bottom navigation (phone and small tablet only) ---------- */
-.bottom-nav { display: none; }
-@media (max-width: 1080px) {
-  .bottom-nav {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 24;
-    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
-    background: var(--surface-glass); backdrop-filter: blur(16px) saturate(1.3);
-    border-top: 1px solid var(--color-border);
-    /* The home indicator on a modern phone sits over the last few pixels of the viewport. */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  @supports not (backdrop-filter: blur(1px)) { .bottom-nav { background: var(--color-surface); } }
-  .bottom-nav a {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    min-height: 56px; padding: var(--space-2) 4px;
-    color: var(--color-text-muted); text-decoration: none;
-    transition: color var(--motion-fast) var(--motion-ease);
-  }
-  .bottom-nav a.active { color: var(--brand-600); }
-  /* Never colour alone: the active entry also carries a bar above it, which survives a monochrome
-     screen and a reader who cannot separate the two hues. */
-  .bottom-nav a.active .bottom-nav-icon::before {
-    content: ""; position: absolute; top: -6px; left: 50%; translate: -50% 0;
-    width: 18px; height: 3px; border-radius: var(--radius-pill); background: var(--brand-solid);
-  }
-  .bottom-nav-icon { position: relative; display: grid; place-items: center; }
-  .bottom-nav-badge {
-    position: absolute; top: -2px; right: -4px; width: 8px; height: 8px;
-    border-radius: 50%; background: var(--color-danger);
-    box-shadow: 0 0 0 2px var(--color-surface);
-  }
-  .bottom-nav-label {
-    font-size: 10px; font-weight: var(--weight-strong); line-height: 1.1; text-align: center;
-    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  /* Room for the bar, so the last card in a list is not permanently under it. */
-  .page-content { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
-}
 .page-content { max-width: 1400px; margin: 0 auto; padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-5); }
 /*
  * The bar has five children and a phone has 390px. Without explicit shrink rules the role selector
@@ -3659,6 +3621,30 @@ tr.row-warning td { background: var(--warning-soft); }
 .attendance-status.leave_sick { color: var(--color-info); background: var(--info-soft); }
 .attendance-status.leave_personal { color: var(--color-primary-strong); background: var(--brand-50); }
 
+/* ── The whole register, read across rooms ─────────────────────────────────────────────────────
+   Three columns because there are three questions in a row of history: when and where, who, and
+   what was recorded. The marking screen answers the middle one only, since the room, the date and
+   the period are the screen you are already on; here they travel with each row, so a list mixing
+   rooms and periods stays readable without a header repeated every few lines.
+
+   On a phone the marks drop to their own line under the name, exactly as they do on the roster. */
+.attendance-history-list { display: grid; }
+.attendance-history-list article {
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) minmax(min(140px, 100%), 1fr) auto;
+  gap: var(--space-4); align-items: center;
+  padding-block: var(--space-3);
+  border-block-end: 1px solid var(--color-border);
+}
+.attendance-history-list article:last-child { border-block-end: none; }
+.attendance-history-when { display: grid; gap: 2px; min-inline-size: 0; }
+.attendance-history-when strong { font-variant-numeric: tabular-nums; }
+.attendance-history-when span { color: var(--color-text-muted); font-size: var(--text-xs); }
+@media (max-width: 720px) {
+  .attendance-history-list article { grid-template-columns: 1fr; gap: var(--space-2); }
+  .attendance-history-list .segmented { grid-column: 1 / -1; }
+}
+
 /*
  * On a phone the five marks become a three-column grid rather than a wrapping row: wrapping left
  * "ลากิจ" alone on a full-width second line, which reads as a different kind of control from the
@@ -4007,17 +3993,56 @@ tr.row-warning td { background: var(--warning-soft); }
   padding: var(--space-4);
   pointer-events: none;
 }
+/* The dimmed room. Blur where the browser has it, plain dim where it does not — the notice must
+   read the same on a five-year-old tablet as on a board. */
+.whats-new-scrim {
+  pointer-events: auto;
+  position: fixed; inset: 0;
+  border: none; padding: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 34%, transparent);
+  cursor: pointer;
+  animation: whats-new-scrim-in .32s var(--ease-out) both;
+}
+@supports (backdrop-filter: blur(2px)) {
+  .whats-new-scrim { backdrop-filter: blur(6px) saturate(120%); background: color-mix(in srgb, var(--color-text-primary) 22%, transparent); }
+}
+.whats-new-scrim:focus-visible { outline: none; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-primary) 60%, transparent); }
+/*
+ * The card.
+ *
+ * Three things do the work of looking expensive and none of them is an ornament: a hairline of the
+ * brand colour at the top edge, so the panel reads as belonging to this product rather than to the
+ * browser; a surface that is very slightly lifted out of the page instead of the same flat grey;
+ * and two shadows rather than one, a tight contact shadow under the card and a wide soft one below
+ * it, which is what stops a large rounded rectangle looking like a sticker.
+ */
 .whats-new {
   pointer-events: auto;
+  position: relative;
+  isolation: isolate;
   inline-size: min(560px, 100%);
   max-block-size: min(74vh, 680px); overflow: auto;
   display: grid; gap: var(--space-4);
   padding: var(--space-5);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 26%, var(--color-border));
   border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-lg);
-  animation: whats-new-in .38s var(--motion-ease-emphasized) both;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--color-primary) 7%, var(--color-surface)) 0%,
+      var(--color-surface) 42%);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--color-text-primary) 10%, transparent),
+    0 24px 60px -18px color-mix(in srgb, var(--color-text-primary) 45%, transparent);
+  animation: whats-new-in .42s var(--motion-ease-emphasized) both;
+}
+/* The brand hairline, drawn inside the radius so it follows the corners. */
+.whats-new::before {
+  content: ''; position: absolute; inset-inline: 12%; inset-block-start: 0;
+  block-size: 2px; border-radius: 999px; z-index: 1;
+  background: linear-gradient(90deg,
+    transparent,
+    color-mix(in srgb, var(--color-primary) 85%, transparent),
+    transparent);
 }
 .whats-new-head { display: flex; align-items: flex-start; gap: var(--space-3); }
 .whats-new-head > div { display: grid; gap: 2px; min-inline-size: 0; }
@@ -4124,15 +4149,21 @@ tr.row-warning td { background: var(--warning-soft); }
 .whats-new-meter::after {
   content: ''; position: absolute; inset-block: 0; inset-inline-start: 0;
   inline-size: var(--whats-new-left, 100%);
-  background: var(--color-primary);
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--color-primary) 55%, transparent),
+    var(--color-primary));
   transition: inline-size 1s linear;
 }
 @keyframes whats-new-in {
-  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  from { opacity: 0; transform: translateY(14px) scale(.97); }
   to { opacity: 1; transform: none; }
 }
+@keyframes whats-new-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .whats-new { animation: none; }
+  .whats-new, .whats-new-scrim { animation: none; }
   .whats-new-meter::after { transition: none; }
 }
 
@@ -4584,7 +4615,6 @@ tr.row-warning td { background: var(--warning-soft); }
    Two bodies share one wardrobe: the bust the app draws everywhere, and the figure a pose can
    actually be judged on. The switch and the four colours sit with the figure rather than in a
    drawer, because they are what somebody changes while a pose is playing. */
-.designer-bodyswitch { display: flex; gap: var(--space-2); justify-content: center; margin-top: var(--space-2); }
 .designer-stage-tints { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
 .designer-stage-tint { display: grid; gap: 4px; }
 .designer-stage-tint > span { color: var(--ink-500); font-size: var(--text-xs); }
