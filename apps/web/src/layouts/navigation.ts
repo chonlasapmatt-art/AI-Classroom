@@ -1,6 +1,19 @@
 import type { IconName } from '../ui/Icon';
 import type { Role } from '../domain/types';
-export interface NavItem { to: string; label: string; icon: IconName }
+export interface NavItem {
+  to: string;
+  label: string;
+  icon: IconName;
+  /**
+   * Reachable, but not offered in the menu.
+   *
+   * The menu is also what grants a route -- `isRouteAllowed` reads this list -- so a screen that
+   * should be reached from somewhere else in the product cannot simply be deleted from it without
+   * closing the address to the very buttons that lead there. Hidden means the role still holds the
+   * screen; only the menu row is gone.
+   */
+  hidden?: true;
+}
 export interface NavGroup { key: string; label: string; items: NavItem[] }
 
 /**
@@ -11,6 +24,10 @@ export interface NavGroup { key: string; label: string; items: NavItem[] }
  * "คะแนนและเกรด", which reads to a teacher as two different places.
  */
 export const destination = (to: string, label: string, icon: IconName): NavItem => ({ to, label, icon });
+
+/** The same destination, held by the role but reached from a screen rather than from the menu. */
+export const reachedElsewhere = (to: string, label: string, icon: IconName): NavItem =>
+  ({ to, label, icon, hidden: true });
 
 /**
  * The menu, written per role rather than filtered per role.
@@ -63,14 +80,18 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     ] },
     { key: 'classroom', label: 'งาน คะแนน และการเข้าเรียน', items: [
       /*
-       * "เช็กชื่อ" is not an errand of its own any more.
+       * "เช็กชื่อ" is not an errand of its own any more, and no longer a menu entry either.
        *
        * It was a screen somebody had to remember to visit, pick the room on and pick the period on
-       * -- all three of which the timetable already knows the moment a teacher opens the room they
-       * are standing in. So the register lives in the room, and what is left here is the screen for
-       * reading a past day and correcting it, which is a different job and is named as one.
+       * -- all three of which the timetable already knows the moment somebody opens the room being
+       * taught. The room card in ห้องเรียน offers the two jobs as two buttons: "เช็กชื่อ" goes to
+       * that period's sheet, "ดูรายชื่อนักเรียน" opens the roll. The route is untouched; what is
+       * gone is a third door into a place two clearer ones already lead to.
+       *
+       * What is left in the menu is the screen for reading a past day and correcting it, under
+       * รายงาน, which is a different job and is named as one.
        */
-      destination('/classroom', 'เปิดคาบเรียน · เช็กชื่อ', 'attendance'),
+      reachedElsewhere('/classroom', 'เปิดคาบเรียน · เช็กชื่อ', 'attendance'),
       destination('/quiz', 'Quiz Challenge', 'quiz'),
       destination('/assignments', 'งานและกิจกรรม', 'assignments'),
       destination('/scores', 'คะแนนและเกรด', 'scores'),
@@ -102,15 +123,17 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/timetable', 'ตารางสอน', 'timetable')
     ] },
     /*
-     * Taking the register is not an errand of its own any more.
+     * Taking the register is not an errand of its own any more, and not a menu entry either.
      *
      * "เช็กชื่อ" was a screen a teacher had to remember to visit, choose the room on and choose the
      * period on — all of which the timetable already knows the moment they open the room they are
-     * teaching. So the register lives in the lesson: opening the class is taking the register, and
-     * each period has its own sheet, so the next teacher into the room starts from a clean one.
+     * teaching. So the register lives in the lesson, reached from the room: ห้องเรียน lists the
+     * rooms this teacher has, and each card carries "เช็กชื่อ" and "ดูรายชื่อนักเรียน" as two
+     * separate buttons. Each period still has its own sheet, so the next teacher into the room
+     * starts from a clean one.
      */
     { key: 'activities', label: 'สอนวันนี้', items: [
-      destination('/classroom', 'เปิดคาบเรียน · เช็กชื่อ', 'attendance'),
+      reachedElsewhere('/classroom', 'เปิดคาบเรียน · เช็กชื่อ', 'attendance'),
       destination('/quiz', 'Quiz Challenge', 'quiz'),
       destination('/question-bank', 'คลังข้อสอบ', 'question-bank'),
       destination('/exams', 'ข้อสอบ', 'exams')

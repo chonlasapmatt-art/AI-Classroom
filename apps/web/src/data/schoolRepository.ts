@@ -394,6 +394,16 @@ export interface SchoolRepository {
   saveSubmission(input: SubmissionInput): Promise<void>;
   /** Student turn-in. */
   submitWork(assignmentId: string, studentId: string, studentNote: string, isLate: boolean, driveUrl?: string | null): Promise<void>;
+  /**
+   * Student withdrawal.
+   *
+   * A child who handed in the wrong photograph had no way back: the turn-in was final, and the only
+   * remedy was to ask the teacher to request a revision. This puts the work back into the state it
+   * was in before it was handed in, keeping every version already recorded -- the history is what a
+   * teacher checks when a submission time is disputed, so it is never rewritten. A graded or
+   * returned submission is not withdrawable; by then the mark exists and it is the teacher's.
+   */
+  withdrawWork(assignmentId: string, studentId: string): Promise<void>;
   /** Teacher grade and hand back. */
   returnWork(assignmentId: string, studentId: string, score: number | null, teacherNote: string): Promise<void>;
 

@@ -97,8 +97,10 @@ describe('the menu each role gets', () => {
   it('lets somebody type the name of a screen instead of opening sections', async () => {
     renderApp();
     const search = await screen.findByLabelText('ค้นหาเมนู');
-    fireEvent.change(search, { target: { value: 'เช็กชื่อ' } });
-    await waitFor(() => expect(mainMenu().getByRole('link', { name: /เช็กชื่อ/ })).toBeInTheDocument());
+    // The register is not typed for here any more: it is reached from the room card, so the menu
+    // neither lists it nor finds it. A destination the menu does still hold stands in its place.
+    fireEvent.change(search, { target: { value: 'ห้องเรียน' } });
+    await waitFor(() => expect(mainMenu().getByRole('link', { name: 'ห้องเรียน' })).toBeInTheDocument());
     expect(mainMenu().queryByRole('link', { name: /คลังข้อสอบ/ })).not.toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: 'ไม่มีเมนูนี้' } });
@@ -182,8 +184,9 @@ describe('shortcuts on the overview page', () => {
     expect(hub).not.toHaveAttribute('open');
 
     fireEvent.click(summary);
-    await waitFor(() => expect(within(hub!).getByRole('link', { name: /เช็กชื่อ/ })).toBeInTheDocument());
-    expect(within(hub!).getByRole('link', { name: /เปิดคาบเรียน/ })).toBeInTheDocument();
+    // The register is reached from the room now, so the hub shortcuts the room rather than the board.
+    await waitFor(() => expect(within(hub!).getByRole('link', { name: 'ห้องเรียน' })).toBeInTheDocument());
+    expect(within(hub!).queryByRole('link', { name: /เปิดคาบเรียน/ })).not.toBeInTheDocument();
   });
 
   it('narrows two dozen destinations to the one being looked for', async () => {
@@ -195,11 +198,10 @@ describe('shortcuts on the overview page', () => {
     fireEvent.click(summary);
 
     const search = await within(hub).findByLabelText('ค้นหาทางลัด');
-    fireEvent.change(search, { target: { value: 'เช็กชื่อ' } });
-    await waitFor(() => expect(within(hub).getByRole('link', { name: /เช็กชื่อ/ })).toBeInTheDocument());
+    fireEvent.change(search, { target: { value: 'ห้องเรียน' } });
+    await waitFor(() => expect(within(hub).getByRole('link', { name: 'ห้องเรียน' })).toBeInTheDocument());
     // Something that plainly does not match, so the assertion is about the narrowing rather than
-    // about one destination's current name: the register entry now carries the word "เช็กชื่อ"
-    // itself, which is the point of it.
+    // about one destination's current name.
     expect(within(hub).queryByRole('link', { name: /ปฏิทิน/ })).not.toBeInTheDocument();
 
     // A dead end says so and says what to do about it, rather than leaving an empty panel that

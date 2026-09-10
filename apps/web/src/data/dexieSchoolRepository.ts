@@ -1033,6 +1033,36 @@ export class DexieSchoolRepository implements SchoolRepository {
     if (scheduled.length > 0) await db.notifications.bulkDelete(scheduled);
   }
 
+  /**
+   * Putting work back, before a teacher has marked it.
+   *
+   * The status returns to whatever the child had reached before handing in -- acknowledged, opened,
+   * or not started -- rather than to a fourth state meaning "withdrawn", because the screens already
+   * read those three and a new one would have to be taught to all of them. The submitted time and
+   * the lateness flag are cleared with it: a submission that no longer exists was not late.
+   *
+   * The recorded versions stay. They are the evidence of when the work was first handed in, which is
+   * exactly what somebody asks about when a deadline is disputed, and a withdrawal is not a reason
+   * to lose it.
+   */
+  async withdrawWork(assignmentId: string, studentId: string): Promise<void> {
+    const submission = await this.submissionHead(assignmentId, studentId);
+    if (!submission) return;
+    if (['graded', 'returned'].includes(submission.status)) {
+      throw new Error('ครูตรวจงานนี้แล้ว ยกเลิกการส่งไม่ได้ · ติดต่อครูเพื่อขอส่งใหม่');
+    }
+    if (!submission.submittedAt) return;
+    await commitLocalMutation('submission', {
+      ...submission,
+      submittedAt: null,
+      isLate: false,
+      // A withdrawn resubmission goes back to being a revision the teacher is still waiting for.
+      status: submission.status === 'resubmitted' ? 'revision_requested'
+        : submission.openedAt || submission.acknowledgedAt ? 'in_progress' : 'not_started',
+      updatedAt: nowIso()
+    });
+  }
+
   async returnWork(assignmentId: string, studentId: string, score: number | null, teacherNote: string): Promise<void> {
     const existing = await db.submissions.where({ assignmentId, studentId }).first();
     const assignment = await db.assignments.get(assignmentId);

@@ -148,7 +148,10 @@ export function StudentsPage() {
     try {
       const id = crypto.randomUUID();
       await repository.saveStudent({ id, studentCode, displayName, avatarIndex: snapshot.students.length * 7 });
-      if (destination && term) await repository.enrollStudent(id, destination, term.id);
+      if (destination) {
+        if (!term) throw new Error('ยังไม่มีภาคเรียนในเครื่องนี้ · ซิงก์ข้อมูลก่อน แล้วจึงเพิ่มนักเรียนเข้าห้อง');
+        await repository.enrollStudent(id, destination, term.id);
+      }
       if (mode === 'cloud') {
         // The roster row is written locally and queued, and the account is bound to it by id on the
         // server. Provisioning before that queue drains asks the server about a student it has not
@@ -205,7 +208,10 @@ export function StudentsPage() {
           id, studentCode: row.studentCode, displayName: row.displayName,
           avatarIndex: (snapshot.students.length + saved) * 7
         });
-        if (destination && term) await repository.enrollStudent(id, destination, term.id);
+        if (destination) {
+          if (!term) throw new Error('ยังไม่มีภาคเรียนในเครื่องนี้ · ซิงก์ข้อมูลก่อน แล้วจึงเพิ่มนักเรียนเข้าห้อง');
+          await repository.enrollStudent(id, destination, term.id);
+        }
         saved += 1;
       }
       setPasted('');

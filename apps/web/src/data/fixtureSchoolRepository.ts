@@ -846,6 +846,24 @@ export class FixtureSchoolRepository implements SchoolRepository {
     this.emit();
   }
 
+  async withdrawWork(assignmentId: string, studentId: string): Promise<void> {
+    const submission = this.submissionHead(assignmentId, studentId);
+    if (!submission) return;
+    if (['graded', 'returned'].includes(submission.status)) {
+      throw new Error('ครูตรวจงานนี้แล้ว ยกเลิกการส่งไม่ได้ · ติดต่อครูเพื่อขอส่งใหม่');
+    }
+    if (!submission.submittedAt) return;
+    this.data.submissions = this.upsert(this.data.submissions, {
+      ...submission,
+      submittedAt: null,
+      isLate: false,
+      status: submission.status === 'resubmitted' ? 'revision_requested'
+        : submission.openedAt || submission.acknowledgedAt ? 'in_progress' : 'not_started',
+      updatedAt: nowIso()
+    });
+    this.emit();
+  }
+
   async returnWork(assignmentId: string, studentId: string, score: number | null, teacherNote: string): Promise<void> {
     const existing = this.data.submissions.find((item) => item.assignmentId === assignmentId && item.studentId === studentId);
     const assignment = this.data.assignments.find((item) => item.id === assignmentId);

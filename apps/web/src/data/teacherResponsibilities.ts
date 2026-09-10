@@ -22,6 +22,17 @@ export const responsibilityLabels: Record<TeacherResponsibility, string> = {
 
 function active(link: Pick<ClassTeacher, 'deletedAt'>): boolean { return link.deletedAt === null; }
 
+/**
+ * A responsibility on the room rather than on one of its subjects.
+ *
+ * The field is optional and nullable, and the two absences mean the same thing -- a link with no
+ * subject is an advisor's link. Comparing against `null` alone read an omitted key as a
+ * responsibility for a subject whose id happened to be undefined, so an advisor advised nothing.
+ */
+function isRoomWide(link: Pick<ClassTeacher, 'subjectId'>): boolean {
+  return link.subjectId === null || link.subjectId === undefined;
+}
+
 export function teacherIdsForProfile(snapshot: SchoolSnapshot, profileId: string): Set<string> {
   return new Set(snapshot.teachers
     .filter((teacher) => teacher.profileId === profileId && teacher.status === 'active' && teacher.deletedAt === null)
@@ -49,7 +60,7 @@ export function teacherCanViewScore(
   snapshot: SchoolSnapshot, profileId: string, classId: string, subjectId: string | null
 ): boolean {
   return teacherLinksForProfile(snapshot, profileId, classId).some((link) =>
-    link.subjectId === null || link.subjectId === subjectId);
+    isRoomWide(link) || link.subjectId === subjectId);
 }
 
 /** Only the one active primary teacher assigned to this class/subject may mutate its scores/content. */
@@ -89,7 +100,7 @@ export function teacherClassIds(snapshot: SchoolSnapshot, profileId: string): Se
 
 /** An advisor is on the room itself rather than on one of its subjects. */
 export function teacherIsAdvisor(snapshot: SchoolSnapshot, profileId: string, classId: string): boolean {
-  return teacherLinksForProfile(snapshot, profileId, classId).some((link) => link.subjectId === null);
+  return teacherLinksForProfile(snapshot, profileId, classId).some(isRoomWide);
 }
 
 export interface TeacherClassScope {
@@ -117,7 +128,7 @@ export function teacherClassScope(
   snapshot: SchoolSnapshot, profileId: string, classId: string
 ): TeacherClassScope {
   const links = teacherLinksForProfile(snapshot, profileId, classId);
-  const advisor = links.some((link) => link.subjectId === null);
+  const advisor = links.some(isRoomWide);
   const subjectIds = new Set(links.filter((link) => link.subjectId).map((link) => link.subjectId as string));
   const editableSubjectIds = new Set(links
     .filter((link) => responsibilityOf(link) === 'SUBJECT_OWNER' && link.subjectId)
@@ -147,5 +158,5 @@ export function canOpenClassMarks(
  * parent, not everybody who teaches the child something.
  */
 export function teacherIsAdvisorAnywhere(snapshot: SchoolSnapshot, profileId: string): boolean {
-  return teacherLinksForProfile(snapshot, profileId).some((link) => link.subjectId === null);
+  return teacherLinksForProfile(snapshot, profileId).some(isRoomWide);
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
 import { activeClasses, activeSubjects, classIdOfStudent, rosterFor, subjectById } from '../../data/selectors';
@@ -14,7 +14,7 @@ import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { WorkDetailPanel } from './WorkDetailPanel';
 import { WorkFormModal } from './WorkFormModal';
-import { canManageAcademicItem, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { canManageAcademicItem, teacherCanViewScore, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 import { useToast } from '../../ui/toastContext';
 import { Icon } from '../../ui/Icon';
 
@@ -56,6 +56,14 @@ export function AssignmentsPage() {
   const [editing, setEditing] = useState<Assignment | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedTrackingWorkId, setSelectedTrackingWorkId] = useState<string | null>(null);
+  /*
+   * Where "ดูสถานะการส่ง" takes you.
+   *
+   * The button set the tracked work and nothing else, and the panel it fills is section 2 -- below
+   * a list that is often a screenful on its own and always is on a phone. A teacher pressed it,
+   * saw the page not move, and reported the button as broken; it had in fact worked every time.
+   */
+  const trackingSection = useRef<HTMLElement | null>(null);
   const [cancelling, setCancelling] = useState<Assignment | null>(null);
   const [turnInNote, setTurnInNote] = useState('');
   const [turnInDriveUrls, setTurnInDriveUrls] = useState<Record<string, string>>({});
@@ -76,12 +84,31 @@ export function AssignmentsPage() {
     subjectFilter || manageableSubjects[0]?.id || null
   );
 
-  const items = useMemo(() => calendarItemsFor(snapshot, {
-    classIds: [effectiveClassId],
-    studentId: ownStudent?.id ?? null,
-    subjectId: subjectFilter || null,
-    includeDrafts: isTeacher
-  }), [snapshot, effectiveClassId, ownStudent?.id, subjectFilter, isTeacher]);
+  /**
+   * Which work this person is shown, before any filter they chose themselves.
+   *
+   * A room's work used to arrive as one undifferentiated list for every member of staff, so the
+   * maths teacher scrolled past the science homework, the art project and the computing worksheet
+   * to find their own -- and could not tell at a glance which of the four rows in front of them
+   * they were actually responsible for. Responsibility is already recorded: an advisor is attached
+   * to the room with no subject and can see all of it, a subject teacher is attached to one subject
+   * and sees that one. That is exactly the question teacherCanViewScore answers, and it is the same
+   * question the gradebook asks, so the two screens now agree about what a teacher's room contains.
+   *
+   * An administrator sees everything, because somebody has to. A student sees the published work of
+   * their own room, which calendarItemsFor has always given them.
+   */
+  const items = useMemo(() => {
+    const everything = calendarItemsFor(snapshot, {
+      classIds: [effectiveClassId],
+      studentId: ownStudent?.id ?? null,
+      subjectId: subjectFilter || null,
+      includeDrafts: isTeacher
+    });
+    if (membership.role !== 'teacher') return everything;
+    return everything.filter((item) =>
+      teacherCanViewScore(snapshot, membership.profileId, item.work.classId, item.work.subjectId));
+  }, [snapshot, effectiveClassId, ownStudent?.id, subjectFilter, isTeacher, membership.role, membership.profileId]);
 
   const visible = items.filter((item) => {
     if (filter === 'draft') return item.work.status === 'draft';
@@ -164,6 +191,25 @@ export function AssignmentsPage() {
     toast(driveUrl
       ? 'ส่งงานเรียบร้อยแล้ว · ครูเปิดลิงก์ได้ทันที'
       : `ส่งงานเรียบร้อยแล้ว${attachedFiles > 0 ? ` · แนบไฟล์ ${attachedFiles} ไฟล์` : ''}`);
+  }
+
+  /**
+   * Taking a turn-in back.
+   *
+   * Handing in the wrong photograph used to be final: the only way out was to find the teacher and
+   * ask for a revision request, which meant the child sat looking at "ส่งแล้ว" over work they knew
+   * was wrong. Withdrawing puts the submission back where it was and leaves the recorded versions
+   * alone, so the first hand-in time survives for anybody who later asks about the deadline. Once a
+   * mark exists the repository refuses, and the refusal is what the child is shown.
+   */
+  async function withdraw(work: Assignment) {
+    if (!ownStudent) return;
+    try {
+      await repository.withdrawWork(work.id, ownStudent.id);
+      toast('ยกเลิกการส่งงานแล้ว · แก้ไขแล้วส่งใหม่ได้');
+    } catch (reason) {
+      toast(reason instanceof Error ? reason.message : 'ยกเลิกการส่งงานไม่สำเร็จ', { tone: 'error' });
+    }
   }
 
   return (
@@ -262,16 +308,28 @@ export function AssignmentsPage() {
                         <Button size="sm" variant="ghost" onClick={() => setCancelling(work)}>ยกเลิกงาน</Button>
                       </>
                     )}
-                    <Button size="sm" variant="ghost" onClick={() => {
-                      if (isTeacher) {
-                        setSelectedTrackingWorkId(work.id);
-                        setExpanded(null);
-                      } else {
-                        setExpanded(open ? null : work.id);
-                        if (!open && ownStudent) void repository.markWorkOpened(work.id, ownStudent.id);
-                      }
-                    }}>
-                      {open ? 'ซ่อน' : isTeacher ? 'ดูสถานะการส่ง' : 'เปิดงาน'}
+                    <Button
+                      size="sm" variant="ghost"
+                      /*
+                       * Draft work has no status to show: nobody has been given it, so section 2 --
+                       * which lists published work only -- would either sit empty or, worse, jump to
+                       * whichever other work happened to be first and show that instead. The button
+                       * says why rather than going quiet.
+                       */
+                      disabled={isTeacher && work.status === 'draft'}
+                      title={isTeacher && work.status === 'draft' ? 'เผยแพร่งานก่อน แล้วสถานะของนักเรียนจะแสดงที่ส่วนที่ 2' : undefined}
+                      onClick={() => {
+                        if (isTeacher) {
+                          setSelectedTrackingWorkId(work.id);
+                          setExpanded(null);
+                          trackingSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        } else {
+                          setExpanded(open ? null : work.id);
+                          if (!open && ownStudent) void repository.markWorkOpened(work.id, ownStudent.id);
+                        }
+                      }}
+                    >
+                      {open ? 'ซ่อน' : isTeacher ? (work.status === 'draft' ? 'ยังเป็นฉบับร่าง' : 'ดูสถานะการส่ง') : 'เปิดงาน'}
                     </Button>
                   </div>
                 </div>
@@ -296,6 +354,12 @@ export function AssignmentsPage() {
                       </div>
                     )}
                     <div className="turn-in-actions">
+                      {/* Work already handed in and not yet marked: the child can take it back. */}
+                      {submission?.submittedAt && !['graded', 'returned'].includes(submission.status) && (
+                        <Button variant="secondary" onClick={() => void withdraw(work)}>
+                          ยกเลิกการส่งงาน
+                        </Button>
+                      )}
                       {!submission?.acknowledgedAt && (
                         <Button
                           variant="secondary"
@@ -339,7 +403,7 @@ export function AssignmentsPage() {
       </section>
 
       {isTeacher && (
-        <section className="assignment-section assignment-status-section" aria-labelledby="assignment-status-title">
+        <section ref={trackingSection} className="assignment-section assignment-status-section" aria-labelledby="assignment-status-title">
           <CardHeader
             title={<span id="assignment-status-title">2 · สถานะการส่งงานของนักเรียน</span>}
             description="เลือกงานเพื่อดูการเปิดอ่าน การส่งช้า งานค้าง คะแนน และจัดการรายบุคคล"

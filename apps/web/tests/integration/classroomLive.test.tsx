@@ -52,13 +52,23 @@ describe('classroom live tools', () => {
     expect(screen.getByRole('button', { name: 'เริ่มจับเวลา' })).toBeInTheDocument();
   });
 
-  it('keeps the board in the teacher menu and out of a student session', async () => {
+  it('reaches the board from the room a teacher teaches, never from the menu', async () => {
+    renderApp('/classes');
+    const menu = () => within(screen.getByRole('navigation', { name: 'เมนูหลัก' }));
+    // The room card carries the two jobs as two buttons; the menu offers neither, because it would
+    // be a third door into a screen that then has to ask which room it is standing in.
+    await waitFor(() => expect(screen.getAllByRole('link', { name: 'เช็กชื่อ' }).length).toBeGreaterThan(0));
+    expect(screen.getAllByRole('button', { name: /ดูรายชื่อนักเรียน/ }).length).toBeGreaterThan(0);
+    expect(menu().queryByRole('link', { name: /เปิดคาบเรียน/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps the room list, and with it the board, out of a student session', async () => {
     renderApp('/');
     const menu = () => within(screen.getByRole('navigation', { name: 'เมนูหลัก' }));
-    await waitFor(() => expect(menu().getByRole('link', { name: /เปิดคาบเรียน/ })).toBeInTheDocument());
+    await waitFor(() => expect(menu().getByRole('link', { name: 'ห้องเรียน' })).toBeInTheDocument());
 
     fireEvent.change(await screen.findByLabelText('เลือกบทบาท'), { target: { value: 'preview-student' } });
-    await waitFor(() => expect(menu().queryByRole('link', { name: /เปิดคาบเรียน/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(menu().queryByRole('link', { name: 'ห้องเรียน' })).not.toBeInTheDocument());
   });
 
   it('refuses the screen itself to a student, not only the menu entry', async () => {
