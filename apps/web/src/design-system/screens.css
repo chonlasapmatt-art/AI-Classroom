@@ -4453,9 +4453,25 @@ tr.row-warning td { background: var(--warning-soft); }
 
 @media (max-width: 860px) {
   .designer { grid-template-columns: minmax(0, 1fr); }
-  /* The preview becomes a strip that stays put while the grid scrolls under it. */
-  .designer-side { position: sticky; top: 0; z-index: 2; background: var(--color-surface); }
-  .designer-preview { grid-template-columns: auto minmax(0, 1fr); justify-items: start; align-items: center; }
+  /*
+   * The preview becomes a strip that stays put while the grid scrolls under it.
+   *
+   * That was the intent and the rule was on the wrong element: `position: sticky` sat on the whole
+   * `.designer-side`, which holds the preview AND the ten-row drawer list beneath it. Pinned at the
+   * top of a phone with a z-index over everything, that block covers most of the viewport, so the
+   * category chips scroll underneath it and cannot be pressed at all — a finger aiming at "มังกร"
+   * lands on whichever drawer row happens to be over it. Playwright named the culprit exactly:
+   * `<button class="designer-row active"> from <aside class="designer-side"> subtree intercepts
+   * pointer events`.
+   *
+   * The strip is the preview, so the preview is what is sticky. The drawer list scrolls with the
+   * page, which is what a list of ten choices should do on a screen this size.
+   */
+  .designer-side { position: static; }
+  .designer-preview {
+    position: sticky; top: 0; z-index: 2; background: var(--color-surface);
+    grid-template-columns: auto minmax(0, 1fr); justify-items: start; align-items: center;
+  }
   .designer-stage svg { inline-size: 96px; block-size: 96px; }
   .designer-chip { grid-column: 1 / -1; }
 }

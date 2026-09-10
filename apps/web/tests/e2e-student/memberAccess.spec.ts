@@ -34,11 +34,28 @@ test.describe('choosing who you are', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Smart Classroom' })).toBeVisible();
   });
 
-  test('keeps the school admin entrance off the public page but reachable', async ({ page }) => {
-    // A school admin knows the address. A parent reading down the Home page should not be offered a
-    // door that will refuse them, so the private control room is not linked from anywhere public.
+  test('keeps the school admin entrance out of the row of doors, not off the page', async ({ page }) => {
+    /*
+     * This used to require that nothing on Home linked to the control room at all, on the grounds
+     * that a parent should not be offered a door that will refuse them. The product answered that
+     * differently and deliberately: a control nobody can find unless they are told it exists is not
+     * a control, so the entrance is on the page as a quiet pill underneath the three doors —
+     * unmistakably a control, tall enough to hit on a phone, and visibly the exception rather than
+     * one of the choices.
+     *
+     * What still has to hold is the part that was actually being protected. The row of doors is the
+     * school's population — a teacher, a student, a guardian — and the control room must not appear
+     * among them at the same weight, because every student would read it as one more thing to try.
+     */
     await page.goto('/welcome');
-    await expect(page.getByRole('link', { name: /ผู้ดูแล/ })).toHaveCount(0);
+    const doors = page.locator('.welcome-door');
+    await expect(doors).toHaveCount(3);
+    await expect(doors.filter({ hasText: /ผู้ดูแล/ })).toHaveCount(0);
+
+    // Present, reachable, and subordinate: its own control rather than a fourth door.
+    const sideDoor = page.getByRole('link', { name: /ผู้ดูแล/ });
+    await expect(sideDoor).toHaveCount(1);
+    await expect(sideDoor).toHaveClass(/side-door/);
 
     await page.goto('/admin-access');
     await expect(page.getByRole('heading', { name: 'เข้าสู่ศูนย์ควบคุม' })).toBeVisible();
