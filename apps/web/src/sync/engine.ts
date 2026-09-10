@@ -1,6 +1,6 @@
 import { db, LOCAL_SCHEMA_VERSION } from '../db/database';
 import { requireSupabase } from '../services/supabase';
-import type { SyncQueueItem } from '../domain/types';
+import type { SyncEntityType, SyncQueueItem } from '../domain/types';
 import { isRetryableStatus, nextRetryDelay } from './retry';
 import { SYNC_PROTOCOL_VERSION, type PullResponse, type PushEnvelope, type PushResponse } from './contracts';
 
@@ -118,13 +118,20 @@ export function staleStructuralIds(
 export async function pullStructure(schoolId: string): Promise<number> {
   const client = requireSupabase();
   let applied = 0;
+  const queued = await db.syncQueue.where('schoolId').equals(schoolId).toArray();
+  const undelivered = (entityType: SyncEntityType) =>
+    new Set(queued.filter((item) => item.entityType === entityType).map((item) => item.entityId));
 
   const mirror = async (
     cloudTable: string, localTable: string, columns = '*',
     shape: (row: Record<string, unknown>) => Record<string, unknown> = (row) => row,
     // Journal-backed tables opt out: a row of theirs can be a local write still waiting in the queue,
     // and the server not knowing it yet means "not delivered", never "deleted".
-    reconcileDeletions = true
+    reconcileDeletions = true,
+    // Ids this device still owes the server. Such a row is the local truth until it is delivered:
+    // the mirror must neither overwrite it with an older server copy nor read the server's silence
+    // about it as a deletion. With this, a journal-backed table can reconcile deletions safely.
+    undelivered: Set<string> = new Set()
   ) => {
     const startedAt = new Date().toISOString();
     const { data, error } = await client.from(cloudTable).select(columns).eq('school_id', schoolId);
@@ -134,14 +141,16 @@ export async function pullStructure(schoolId: string): Promise<number> {
     const seen = new Set<string>();
     for (const row of rows) {
       const incoming = shape(fromCloud(row));
-      seen.add(String(incoming.id));
-      const current = await table.get(String(incoming.id));
+      const id = String(incoming.id);
+      seen.add(id);
+      if (undelivered.has(id)) continue;
+      const current = await table.get(id);
       await table.put({ ...mergeLocal(current, incoming), deletedAt: incoming.deletedAt ?? null });
       applied += 1;
     }
     if (!reconcileDeletions) return;
     const held = await table.where('schoolId').equals(schoolId).toArray() as { id: string; updatedAt?: string | null }[];
-    const gone = staleStructuralIds(held, seen, startedAt);
+    const gone = staleStructuralIds(held, seen, startedAt).filter((id) => !undelivered.has(id));
     if (gone.length > 0) {
       await table.bulkDelete(gone);
       applied += gone.length;
@@ -159,6 +168,24 @@ export async function pullStructure(schoolId: string): Promise<number> {
     const { roleInClass, ...rest } = row;
     return { ...rest, role: roleInClass === 'assistant' ? 'assistant' : 'primary' };
   });
+  /*
+   * The roster — who is in the room — is mirrored too, even though students and enrollments travel
+   * through the mutation journal.
+   *
+   * sync_pull hands a device only the changes it was already allowed to read at the instant it
+   * asked, and then the cursor moves past everything else for good. A student's row is invisible to
+   * their future classmates until the enrollment that puts them in a shared room exists, so a
+   * student created a minute before being enrolled was skipped by every device that polled inside
+   * that minute; those devices later received the enrollment alone and never the child. A room of
+   * seven read as six on one screen and five on another, and no later pull could repair it.
+   *
+   * Reads go through RLS, so this returns exactly the roster the signed-in reader may see. That
+   * makes the mirror repair both directions: a child whose row was skipped appears, and a child the
+   * reader may no longer see — one who left the room — stops being listed. Rows this device still
+   * owes the server are held back from both halves.
+   */
+  await mirror('students', 'students', '*', (row) => row, true, undelivered('student'));
+  await mirror('student_class_enrollments', 'enrollments', '*', (row) => row, true, undelivered('enrollment'));
   // An announcement is written locally and pushed through the journal, so the server not returning
   // one can mean it is still in this device's queue.
   await mirror('announcements', 'announcements', '*', (row) => row, false);
