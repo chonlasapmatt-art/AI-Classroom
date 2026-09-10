@@ -19,7 +19,7 @@ import { FullBodyAvatar } from './FullBodyAvatar';
 import { archetypeForRace, bodyForCategory, fullBodyArchetypeList } from './avatarFullBody';
 import { figureSlotsFor } from './avatarFigureParts';
 import {
-  AVATAR_FIGURE_COUNT, figureCategoryLabels, figureMatching, searchFigures,
+  AVATAR_FIGURE_COUNT, figureCategoryLabels, figureMatching, figurePieces, searchFigures,
   type FigureCategory, type FigurePreset
 } from './avatarFigures';
 import { ThemedAvatar } from './ThemedAvatar';
@@ -657,7 +657,19 @@ export function AvatarDesigner({
                   if (pane === 'figures') {
                     const figure = item as FigurePreset;
                     const wearing = wornFigure?.id === figure.id;
-                    const owing = figure.price > 0;
+                    /*
+                     * What this character would cost this child, which is not its list price.
+                     *
+                     * A build made of premium pieces cannot be saved until they are bought, and the
+                     * first version let a child load one anyway: the tile said "510 แต้ม", the
+                     * figure changed, and the refusal arrived at the save button with no name and
+                     * no way forward. Pressing a locked character now buys what is missing — the
+                     * same till the drawers use — and says how far short they are when it cannot.
+                     */
+                    const missing = shopping ? figurePieces(figure).filter((key) => !owned.has(key)) : [];
+                    const owing = missing.reduce((total, key) => total + traitPiecePrice(key), 0);
+                    const shut = missing.length > 0;
+                    const buyingThis = missing.some((key) => buying === key);
                     return (
                       <button
                         key={figure.id}
@@ -665,7 +677,7 @@ export function AvatarDesigner({
                         type="button"
                         aria-selected={wearing}
                         tabIndex={index === 0 ? 0 : -1}
-                        className={`designer-tile ${wearing ? 'selected' : ''}`}
+                        className={`designer-tile ${wearing ? 'selected' : ''} ${shut ? 'locked' : ''}`}
                         title={`${figure.name} · ${figureCategoryLabels[figure.category]}`}
                         /*
                          * Picking a figure loads its build rather than storing its name.
@@ -675,9 +687,26 @@ export function AvatarDesigner({
                          * and the child can change the one thing they wanted to change.
                          */
                         onClick={() => {
-                          setDraft({ ...figure.config, tints: { ...figure.config.tints } });
-                          setSelectedId(null);
-                          setError(null);
+                          const wear = () => {
+                            setDraft({ ...figure.config, tints: { ...figure.config.tints } });
+                            setSelectedId(null);
+                            setError(null);
+                          };
+                          if (!shut) { wear(); return; }
+                          if (!onRedeemPiece || balance < owing) {
+                            setError(`${figure.name} ต้องใช้ ${owing} แต้ม · มีอยู่ ${balance} แต้ม`);
+                            return;
+                          }
+                          // One piece at a time: each purchase reads the balance on the server, and
+                          // two that read it before either writes would buy twice with one budget.
+                          void missing
+                            .reduce(
+                              (queue, key) => queue.then(() => { setBuying(key); return onRedeemPiece(key); }),
+                              Promise.resolve()
+                            )
+                            .then(wear)
+                            .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'แลกไม่สำเร็จ'))
+                            .finally(() => setBuying(null));
                         }}
                       >
                         <span className="designer-tile-figure">
@@ -691,7 +720,11 @@ export function AvatarDesigner({
                           />
                         </span>
                         <span className="designer-tile-name">{figure.name}</span>
-                        {owing && <span className="designer-tile-price">{figure.price} แต้ม</span>}
+                        {figure.price > 0 && (
+                          <span className="designer-tile-price">
+                            {buyingThis ? 'กำลังแลก…' : shut ? `${owing} แต้ม` : `${figure.price} แต้ม · มีแล้ว`}
+                          </span>
+                        )}
                       </button>
                     );
                   }

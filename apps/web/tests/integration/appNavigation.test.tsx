@@ -170,8 +170,53 @@ describe('application shell and routes', () => {
     expect(options[0]).toHaveAttribute('aria-selected', 'true');
     fireEvent.keyDown(gallery, { key: 'ArrowRight' });
     expect(options[1]).toHaveAttribute('aria-selected', 'true');
+    /*
+     * End walks to the last tile; whether it can be *worn* is a different question.
+     *
+     * The far end of this grid is where the premium characters are — a dragon in full armour is
+     * several bought pieces — and a child who has not bought them gets the price rather than the
+     * costume. So the keyboard is checked for what it is for: it moves, and the tile it lands on is
+     * the one the grid then acts on.
+     */
     fireEvent.keyDown(gallery, { key: 'End' });
-    expect(options[options.length - 1]).toHaveAttribute('aria-selected', 'true');
+    const last = options[options.length - 1]!;
+    expect(last).toHaveFocus();
+    const wearable = last.querySelector('.designer-tile-price') === null;
+    if (wearable) {
+      expect(last).toHaveAttribute('aria-selected', 'true');
+    } else {
+      // Priced, and this child has 22 points: the refusal says what it costs and what they have.
+      expect(within(dialog).getByRole('alert').textContent).toMatch(/แต้ม/);
+    }
+  });
+
+  it('offers to buy a premium character rather than refusing it at the save button', async () => {
+    /*
+     * The dead end this replaces: the tile said 510 แต้ม, pressing it loaded the build anyway, and
+     * the refusal arrived at "บันทึกและใช้" as "ไอเทมนี้ยังไม่ได้แลก" — no name, no price, nothing
+     * to press. A locked character now buys what is missing, or says how far short they are.
+     */
+    renderApp();
+    await switchRole('preview-student');
+    fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'เปลี่ยน Avatar' }));
+    const dialog = await screen.findByRole('dialog');
+
+    // The category chips, not the body chips beside the stage — both say "มังกร".
+    const chips = within(dialog).getByRole('group', { name: 'ประเภทตัวละคร' });
+    fireEvent.click(within(chips).getByRole('button', { name: 'มังกร' }));
+    const dragons = await waitFor(() => {
+      const found = within(dialog).getAllByRole('option');
+      expect(found.length).toBeGreaterThan(0);
+      return found;
+    });
+    const priced = dragons.find((option) => option.querySelector('.designer-tile-price'))!;
+    expect(priced, 'no premium dragon in the grid').toBeTruthy();
+    expect(priced.className).toContain('locked');
+
+    fireEvent.click(priced);
+    // The fixture student has 22 points, so this is the shortfall rather than a purchase.
+    expect(within(dialog).getByRole('alert').textContent).toMatch(/ต้องใช้ \d+ แต้ม · มีอยู่ \d+ แต้ม/);
   });
 
   it('keeps the student dashboard personal and shows their avatar beside their name', async () => {

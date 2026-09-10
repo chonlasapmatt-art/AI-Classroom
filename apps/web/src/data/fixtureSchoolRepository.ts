@@ -786,11 +786,22 @@ export class FixtureSchoolRepository implements SchoolRepository {
     const student = this.data.students.find((item) => item.profileId === actorProfileId);
     if (!student) throw new Error('แก้ไข avatar ได้เฉพาะบัญชีของตัวเองเท่านั้น');
     const existing = (student.avatarConfig ?? configFromIndex(student.avatarIndex)) as AvatarConfigV2;
-    // The same refusal the server makes, so Preview behaves like the real thing rather than better.
+    /*
+     * The same refusal the server makes, so Preview behaves like the real thing rather than better
+     * — and the same refusal it makes *now*, which is per piece rather than per combination.
+     *
+     * This used to look for the whole trait id in the wardrobe, which nothing ever put there, and
+     * to say "ไอเทมนี้ยังไม่ได้แลก" without saying which item or what it costs. A child who picked a
+     * dragon and pressed save got a dead end: no name, no price, and nothing to press.
+     */
     const owned = new Set(existing.unlockedOutfits ?? []);
     for (const id of Object.values(config.layers ?? {})) {
-      const price = traitById(id)?.price ?? 0;
-      if (price > 0 && !owned.has(id)) throw new Error('ไอเทมนี้ยังไม่ได้แลก');
+      const trait = traitById(id);
+      const missing = trait ? (trait.unlockKeys ?? []).filter((key) => !owned.has(key)) : [];
+      if (missing.length > 0) {
+        const owing = missing.reduce((total, key) => total + traitPiecePrice(key), 0);
+        throw new Error(`${trait?.name ?? id} ยังไม่ได้แลก · ต้องใช้ ${owing} แต้ม`);
+      }
     }
     this.data.students = this.upsert(this.data.students, {
       ...student,

@@ -335,6 +335,18 @@ const blueprints: Blueprint[] = [
   }
 ];
 
+/** Every priced piece a build uses, in the order they would be bought. */
+export function figurePieces(figure: FigurePreset): string[] {
+  const keys: string[] = [];
+  for (const traitId of Object.values(figure.config.layers ?? {})) {
+    if (!traitId) continue;
+    for (const half of traitId.split('__')) {
+      if (half && traitPiecePrice(half) > 0 && !keys.includes(half)) keys.push(half);
+    }
+  }
+  return keys;
+}
+
 /** Every priced piece a build uses, so a tile can say what it costs before anybody presses it. */
 function priceOf(layers: SlotSet): number {
   return Object.values(layers).reduce((total, traitId) => {
