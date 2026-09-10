@@ -204,6 +204,10 @@ export function ProfilePage() {
             points: pointsBalanceFor(snapshot, student.id).balance,
             unlocked: unlockedOutfitsFor(snapshot, student.id),
             onRedeem: (outfitId: string) => repository.redeemOutfit(membership.profileId, outfitId),
+            /* The same purse, one wardrobe piece at a time: a hat, a pair of wings, a labcoat.
+               Every priced piece in the customiser was unreachable until this — shown, costed, and
+               with no till behind it. */
+            onRedeemPiece: (pieceKey: string) => repository.redeemAvatarTrait(membership.profileId, pieceKey),
             /* Only a student has a record of their own that can hold a build. A teacher or a
                guardian choosing their own avatar stores an id and nothing else, so the drawers stay
                read-only for them and say so rather than losing the edit. */

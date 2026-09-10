@@ -193,6 +193,48 @@
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * โบกมือ · wave — 4 frames, 0.8s
+ *
+ * The one pose that is addressed to somebody. The near arm goes up and swings from the elbow while
+ * the rest of the figure keeps breathing, the head tips towards the raised hand, and the weight
+ * shifts onto the other foot — a wave with a rigid body is a signpost.
+ *
+ * It is deliberately not the cheer: one arm rather than two, no hop, and the arm stops short of
+ * vertical so the hand is beside the head and not above it.
+ * ──────────────────────────────────────────────────────────────────────────── */
+.wave .figure { animation: bodyBreathe 1.2s steps(4) infinite; }
+.wave .frontArm { animation: waveArm 0.8s steps(4) infinite; }
+.wave .backArm { animation: armDangleBack 1.2s steps(4) infinite; }
+.wave .head { animation: waveHeadTilt 0.8s steps(4) infinite; }
+.wave .torso { animation: waveLean 0.8s steps(4) infinite; }
+.wave .tail { animation: tailSway 0.8s steps(4) infinite; }
+/* What the hand holds is turned back upright, the same way the cheer does it. */
+.wave .frontArm .held { animation: heldUprightWave 0.8s steps(4) infinite; }
+
+@keyframes waveArm {
+  0%   { transform: rotate(96deg); }
+  25%  { transform: rotate(118deg); }
+  50%  { transform: rotate(104deg); }
+  75%  { transform: rotate(124deg); }
+  100% { transform: rotate(96deg); }
+}
+@keyframes waveHeadTilt {
+  0%, 100% { transform: rotate(-3deg); }
+  50%      { transform: rotate(-5deg); }
+}
+@keyframes waveLean {
+  0%, 100% { transform: rotate(-2deg); }
+  50%      { transform: rotate(-3deg); }
+}
+@keyframes heldUprightWave {
+  0%   { transform: rotate(-96deg); }
+  25%  { transform: rotate(-118deg); }
+  50%  { transform: rotate(-104deg); }
+  75%  { transform: rotate(-124deg); }
+  100% { transform: rotate(-96deg); }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
  * วิ่ง · run — 6 frames, 0.4s
  * The same cycle at a wider amplitude, plus the two things that separate a run from a fast walk:
  * the torso pitches forward, and there is a frame with neither foot down.

@@ -309,6 +309,15 @@ export interface SchoolRepository {
    * retried request is safe.
    */
   redeemOutfit(actorProfileId: string, outfitId: string): Promise<void>;
+  /**
+   * Buys one wardrobe piece — a hat, a pair of wings, a labcoat — with the child's own points.
+   *
+   * Same contract as an outfit and for the same reasons: the price and the balance are read on the
+   * server, and buying something already owned reports it rather than charging again. The argument
+   * is a *piece* rather than a trait id, because a trait can name a haircut and a hat at once and
+   * nobody should buy the hat twice to wear it with a different haircut.
+   */
+  redeemAvatarTrait(actorProfileId: string, pieceKey: string): Promise<void>;
   /** Uploads a photo of your own and uses it as your profile picture. */
   saveOwnAvatarPhoto(actorProfileId: string, role: 'teacher' | 'student' | 'parent', file: File): Promise<void>;
   /** Goes back to the drawn avatar and deletes the stored photo. */

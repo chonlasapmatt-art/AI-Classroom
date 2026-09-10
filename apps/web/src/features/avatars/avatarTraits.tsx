@@ -167,6 +167,18 @@ function compose(
 ): Trait {
   const bare = isEmpty(worn);
   const price = (base.price ?? 0) + (worn.price ?? 0);
+  /*
+   * What the till sells, which is not what the drawer shows.
+   *
+   * A composed trait can name two priced things at once, and charging for the pair would mean
+   * buying the same hat again for every haircut it is worn with. So ownership is per piece: the
+   * base half under its layer prefix, the worn half by its own name. The server prices exactly
+   * these two keys and refuses a save that names a piece nobody bought.
+   */
+  const unlockKeys = [
+    ...(base.price ? [`${prefix}_${base.id}`] : []),
+    ...(!bare && worn.price ? [worn.id] : [])
+  ];
   return {
     id: bare ? `${prefix}_${base.id}` : `${prefix}_${base.id}__${worn.id}`,
     layer,
@@ -176,6 +188,7 @@ function compose(
     tags: bare ? base.tags : [...new Set([...base.tags, ...worn.tags])],
     tintable,
     ...(price > 0 ? { price } : {}),
+    ...(unlockKeys.length > 0 ? { unlockKeys } : {}),
     draw: () => (<g>{base.draw()}{worn.draw()}</g>)
   };
 }
@@ -191,7 +204,7 @@ function single(
     name: sprite.name,
     tags: sprite.tags,
     tintable,
-    ...(sprite.price ? { price: sprite.price } : {}),
+    ...(sprite.price ? { price: sprite.price, unlockKeys: [`${prefix}_${sprite.id}`] } : {}),
     ...(element ? { element } : {}),
     draw: sprite.draw
   };
@@ -229,6 +242,46 @@ const traitIndex = new Map(traits.map((trait) => [trait.id, trait]));
 
 export function traitById(id: string | undefined | null): Trait | null {
   return id ? traitIndex.get(id) ?? null : null;
+}
+
+/*
+ * The price list the till reads, one piece at a time.
+ *
+ * A drawer shows the cost of what is on the tile, which for a composed trait is two pieces added
+ * together. Buying is per piece, so this is the other view of the same numbers: the base halves
+ * under their layer prefix, the worn halves by their own name, and every one of them priced from
+ * the sprite that carries the price. It mirrors `avatar_trait_key_price` on the server, which is
+ * the thing that actually charges — and the parity test is what keeps the two honest.
+ */
+const pieceIndex = new Map<string, number>([
+  ...hairShapes.filter((sprite) => sprite.price).map((sprite) => [`hair_${sprite.id}`, sprite.price!] as const),
+  ...eyeShapes.filter((sprite) => sprite.price).map((sprite) => [`face_${sprite.id}`, sprite.price!] as const),
+  ...tops.filter((sprite) => sprite.price).map((sprite) => [`top_${sprite.id}`, sprite.price!] as const),
+  ...bottoms.filter((sprite) => sprite.price).map((sprite) => [`bottom_${sprite.id}`, sprite.price!] as const),
+  ...backAccessories.filter((sprite) => sprite.price).map((sprite) => [`back_${sprite.id}`, sprite.price!] as const),
+  ...frontAccessories.filter((sprite) => sprite.price).map((sprite) => [`front_${sprite.id}`, sprite.price!] as const),
+  ...auras.filter((sprite) => sprite.price).map((sprite) => [`aura_${sprite.id}`, sprite.price!] as const),
+  ...effects.filter((sprite) => sprite.price).map((sprite) => [`fx_${sprite.id}`, sprite.price!] as const),
+  // The worn halves keep their own bare names, because a hat is a hat whatever it is worn over.
+  ...headpieces.filter((sprite) => sprite.price).map((sprite) => [sprite.id, sprite.price!] as const),
+  ...eyewear.filter((sprite) => sprite.price).map((sprite) => [sprite.id, sprite.price!] as const)
+]);
+
+/** Points one wardrobe piece costs. Zero for everything that was free from the start. */
+export function traitPiecePrice(key: string): number {
+  return pieceIndex.get(key) ?? 0;
+}
+
+/** Every piece that has a price, cheapest first: the shop's own stock list. */
+export function pricedTraitPieces(): Array<{ key: string; price: number }> {
+  return [...pieceIndex.entries()]
+    .map(([key, price]) => ({ key, price }))
+    .sort((left, right) => left.price - right.price || left.key.localeCompare(right.key));
+}
+
+/** The pieces of a trait this child does not own yet, in the order they would be bought. */
+export function missingPieces(trait: Trait, owned: ReadonlySet<string>): string[] {
+  return (trait.unlockKeys ?? []).filter((key) => !owned.has(key));
 }
 
 export function traitsForLayer(layer: LayerType, race?: AvatarRace): Trait[] {

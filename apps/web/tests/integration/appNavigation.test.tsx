@@ -114,9 +114,27 @@ describe('application shell and routes', () => {
     fireEvent.click(screen.getByRole('button', { name: 'เปลี่ยน Avatar' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('เลือก Avatar ขั้นสูง')).toBeInTheDocument();
+    /*
+     * The picker opens on whole characters.
+     *
+     * It used to open on the thousand portraits, which are busts: pick one and there are no slots
+     * to take apart afterwards. The figures are the front door now, and the portraits are one row
+     * down — still there, because a thousand saved ids still point at them.
+     */
+    expect(within(dialog).getByRole('listbox', { name: 'ตัวละครเต็มตัว' })).toBeInTheDocument();
     expect(within(dialog).getAllByRole('option').length).toBeGreaterThan(50);
 
-    // The search waits for the typing to stop, so the assertion waits with it.
+    // The search waits for the typing to stop, so the assertion waits with it. Searching a kind of
+    // character narrows the figures; every result is one of them.
+    fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'มังกร' } });
+    await waitFor(() => {
+      const found = within(dialog).getAllByRole('option');
+      expect(found.length).toBeGreaterThan(0);
+      for (const option of found) expect(option.getAttribute('title')).toContain('มังกร');
+    });
+
+    // And the portrait catalogue still answers to an id, which is what a saved record holds.
+    fireEvent.click(within(dialog).getByRole('button', { name: /รายการทั้งหมด/ }));
     fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'avatar_007' } });
     await waitFor(() => expect(within(dialog).getAllByRole('option')).toHaveLength(1));
   });
@@ -142,7 +160,8 @@ describe('application shell and routes', () => {
     fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'เปลี่ยน Avatar' }));
     const dialog = await screen.findByRole('dialog');
-    const gallery = within(dialog).getByRole('listbox', { name: 'รายการ avatar' });
+    // The figures grid, which is what the picker now opens on.
+    const gallery = within(dialog).getByRole('listbox', { name: 'ตัวละครเต็มตัว' });
     const options = within(gallery).getAllByRole('option');
 
     // One tab stop for the whole gallery: everything else is reachable, none of it is in the way.

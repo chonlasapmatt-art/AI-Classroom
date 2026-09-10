@@ -3,17 +3,22 @@ import type { AvatarAnimation, AvatarConfig } from '../../domain/types';
 import { useRepository } from '../../data/RepositoryContext';
 import { configForAvatarId, initialsFor } from './avatarCatalog';
 import { bodyArchetypeFor } from './avatarFullBody';
-import { FullBodyAvatar } from './FullBodyAvatar';
+import { figureSlotsFor, hasFigureChoices } from './avatarFigureParts';
+import { FullBodyAvatar, type FullBodyFraming } from './FullBodyAvatar';
 import { isConfigV2, migrateConfig, type AvatarConfigV2 } from './avatarSchema';
 import { ThemedAvatar } from './ThemedAvatar';
 
 /*
- * Below this, a figure is a smudge.
+ * Below this there is no room for legs.
  *
- * The saved avatar is a whole person now — the shape the child built and the shape the customiser
- * previews — and a profile card has room to draw one. A 36-pixel row in a class list does not: at
- * that size the legs are two dark pixels and the face is gone, so a list keeps the portrait, which
- * is the same six colours and the same traits seen closer.
+ * There is one avatar now — the figure the child built, which is also what the customiser previews
+ * and what the picker grid shows — and the only thing that changes with size is how much of it is
+ * in frame. A profile card gets the whole person standing on their shadow; a 36-pixel row in a
+ * class list gets the head and shoulders of the same drawing, because at that size legs are two
+ * dark pixels and the face is what anybody is actually looking for.
+ *
+ * The bust sprite is no longer the source of anything: it renders only for a record that has no
+ * avatar at all, which is a record with nothing to draw.
  */
 const FIGURE_MIN_SIZE = 96;
 
@@ -91,11 +96,14 @@ export function ProfileAvatar({ displayName, avatarId, avatarPhotoId, avatarInde
    * palette, so a catalogue avatar arrives with a figure and its own colours rather than defaults.
    */
   const built = config ? (isConfigV2(config) ? (config as AvatarConfigV2) : migrateConfig(config)) : null;
-  const body = size >= FIGURE_MIN_SIZE ? bodyArchetypeFor(built) : null;
+  const body = bodyArchetypeFor(built);
+  const framing: FullBodyFraming = size >= FIGURE_MIN_SIZE ? 'full' : 'bust';
   if (built && body) {
     return (
       <FullBodyAvatar
         archetype={body}
+        {...(hasFigureChoices(built) ? { slots: figureSlotsFor(built) } : {})}
+        framing={framing}
         animation={animation}
         tints={built.tints}
         size={size}

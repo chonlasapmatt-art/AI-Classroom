@@ -19,6 +19,7 @@ import { achievementNoticesFor } from '../academic/achievementNotices';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
 import { configToJson, type AvatarConfigV2 } from '../features/avatars/avatarSchema';
 import { isValidOutfitId, outfitPrice } from '../features/avatars/avatarOutfits';
+import { traitPiecePrice } from '../features/avatars/avatarTraits';
 import { configFromIndex } from '../features/avatars/avatarThemes';
 import { scopeSchoolSnapshot, type VisibilityScope } from './visibility';
 import {
@@ -941,6 +942,36 @@ export class DexieSchoolRepository implements SchoolRepository {
         ...(config ?? { archetype: 0, palette: 0, skinTone: 0, hair: 0, accessory: 0, badge: 0 }),
         unlockedOutfits: [...unlocked],
         spentPoints: (config?.spentPoints ?? 0) + outfitPrice(outfitId)
+      },
+      updatedAt: nowIso()
+    });
+  }
+
+  /**
+   * Buys one wardrobe piece with the child's own points.
+   *
+   * The same shape as an outfit purchase, which is the point: one till, one purse, one array of
+   * what has been bought. What differs is only what is being priced — a piece of a trait rather
+   * than a whole outfit — and the server does that pricing, here as there.
+   */
+  async redeemAvatarTrait(actorProfileId: string, pieceKey: string): Promise<void> {
+    const price = traitPiecePrice(pieceKey);
+    if (price === 0) throw new Error('ชิ้นนี้ไม่ต้องใช้แต้ม');
+    await this.rpc('redeem_avatar_trait', { p_school_id: this.schoolId, p_key: pieceKey });
+    // The server is the authority on what was spent; this is the local copy catching up so the
+    // wardrobe unlocks without waiting for a pull.
+    const student = await db.students.where({ schoolId: this.schoolId, profileId: actorProfileId }).first();
+    if (!student) return;
+    const config = student.avatarConfig ?? null;
+    const unlocked = new Set(config?.unlockedOutfits ?? []);
+    if (unlocked.has(pieceKey)) return;
+    unlocked.add(pieceKey);
+    await db.students.put({
+      ...student,
+      avatarConfig: {
+        ...(config ?? { archetype: 0, palette: 0, skinTone: 0, hair: 0, accessory: 0, badge: 0 }),
+        unlockedOutfits: [...unlocked],
+        spentPoints: (config?.spentPoints ?? 0) + price
       },
       updatedAt: nowIso()
     });

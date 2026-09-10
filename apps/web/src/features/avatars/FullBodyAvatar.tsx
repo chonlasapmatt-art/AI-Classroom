@@ -27,8 +27,34 @@ import styles from './FullBodyAvatar.module.css';
  * here or in the CSS.
  */
 
+/**
+ * How much of the figure is in frame.
+ *
+ * One drawing, two crops. 'full' is the whole 48-grid — the figure standing on its shadow, which is
+ * what a customiser stage and a profile card have room for. 'bust' moves the viewBox in to the head
+ * and shoulders, so a 36-pixel row in a class list shows a face rather than a two-pixel person.
+ * Nothing is redrawn and nothing is a second sprite: below a certain size the legs are noise, so the
+ * frame excludes them.
+ */
+export type FullBodyFraming = 'full' | 'bust';
+
+/** The bust crop: head and upper torso, centred on the figure's own centre line. */
+const framingViewBox: Record<FullBodyFraming, string> = {
+  full: '0 0 48 48',
+  bust: '9 1 30 30'
+};
+
 export interface FullBodyAvatarProps {
   archetype: FullBodyArchetype;
+  /**
+   * The figure as the child assembled it: one drawing per slot, overriding the costume's own.
+   *
+   * A costume is a starting point — a preset somebody picked off the grid — and this is what they
+   * did to it afterwards. Passed slot by slot rather than as a whole figure so a choice in one
+   * drawer cannot silently drop the rest: no hat means the costume's hat, not a bare head.
+   */
+  slots?: Partial<Record<BodySlot, ReactElement>>;
+  framing?: FullBodyFraming;
   animation?: AvatarAnimation;
   tints?: Partial<AvatarTints> | undefined;
   size?: number;
@@ -39,7 +65,7 @@ export interface FullBodyAvatarProps {
 }
 
 /** Poses this body is choreographed for. Anything else is drawn standing. */
-const posed: AvatarAnimation[] = ['idle', 'walk', 'run', 'cast', 'attack', 'jump', 'cheer'];
+const posed: AvatarAnimation[] = ['idle', 'walk', 'run', 'wave', 'cast', 'attack', 'jump', 'cheer'];
 
 /**
  * Puts the stylesheet's class on the group that says it is that part.
@@ -73,9 +99,10 @@ function isElement(value: unknown): value is ReactElement {
 }
 
 export function FullBodyAvatar({
-  archetype, animation = 'idle', tints, size = 176, label, backdrop, paused
+  archetype, slots, animation = 'idle', tints, size = 176, label, backdrop, paused, framing = 'full'
 }: FullBodyAvatarProps) {
   const definition = fullBodyArchetypes[archetype] ?? fullBodyArchetypes.student;
+  const drawn: Partial<Record<BodySlot, ReactElement>> = { ...definition.slots, ...(slots ?? {}) };
   const pose = posed.includes(animation) ? animation : 'idle';
   const style = tintVariables({ ...defaultTints, ...(tints ?? {}) }) as CSSProperties;
 
@@ -91,7 +118,7 @@ export function FullBodyAvatar({
       className={[styles.avatar, styles[pose], paused ? styles.paused : ''].filter(Boolean).join(' ')}
       width={size}
       height={size}
-      viewBox="0 0 48 48"
+      viewBox={framingViewBox[framing]}
       style={style}
       role="img"
       aria-label={label ? `อวตาร ${label}` : `อวตาร${definition.name}`}
@@ -100,7 +127,7 @@ export function FullBodyAvatar({
       {backdrop ? <rect x="0" y="0" width="48" height="48" rx="8" fill={backdrop} /> : null}
       <g className={styles.figure}>
         {bodySlotOrder.map((slot: BodySlot) => {
-          const drawing = definition.slots[slot];
+          const drawing = drawn[slot];
           if (!drawing) return null;
           return (
             <g key={slot} data-slot={slot}>

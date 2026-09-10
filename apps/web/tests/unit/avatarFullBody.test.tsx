@@ -325,3 +325,44 @@ describe('the figures a child chooses between', () => {
     expect(bodyForCategory('animal', 7)).toBe(bodyForCategory('animal', 7));
   });
 });
+
+/*
+ * One drawing, two crops, four poses anybody can ask for.
+ *
+ * The bust sprite used to be the source for every small avatar in the product, so a child who built
+ * a knight saw a knight on their profile and a generic portrait everywhere else. There is one avatar
+ * now: the figure. What changes with size is how much of it is in frame.
+ */
+describe('the figure everywhere it appears', () => {
+  it('frames the whole person by default and the head and shoulders on request', () => {
+    const { container: full } = render(<FullBodyAvatar archetype="student" />);
+    expect(full.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 48 48');
+    cleanup();
+    // The crop is the head and upper torso, centred on the figure's own centre line: at 36 pixels
+    // the legs are two dark pixels and the face is what anybody is looking for.
+    const { container: bust } = render(<FullBodyAvatar archetype="student" framing="bust" />);
+    expect(bust.querySelector('svg')?.getAttribute('viewBox')).toBe('9 1 30 30');
+  });
+
+  it('choreographs the wave, and does not mistake it for the cheer', () => {
+    const { container } = render(<FullBodyAvatar archetype="student" animation="wave" />);
+    expect(container.querySelector('svg')?.getAttribute('class')).toMatch(/wave/);
+    // One arm, not two: the far arm keeps dangling while the near one waves from the elbow.
+    expect(poseStyles).toContain('.wave .frontArm { animation: waveArm 0.8s steps(4) infinite; }');
+    expect(poseStyles).toContain('.wave .backArm { animation: armDangleBack 1.2s steps(4) infinite; }');
+    // And no hop, which is what would make it read as celebrating instead of greeting.
+    expect(poseStyles).not.toMatch(/\.wave \.figure \{ animation: hop/);
+    const arm = keyframes('waveArm');
+    expect(arm).toContain('rotate(96deg)');
+    expect(arm).toContain('rotate(124deg)');
+  });
+
+  it('offers the four the brief names, in the customiser', () => {
+    const designer = readFileSync(
+      resolve(here, '../../src/features/avatars/AvatarDesigner.tsx'), 'utf8'
+    );
+    for (const pose of ['idle', 'walk', 'wave', 'run']) {
+      expect(designer, `${pose} is not offered`).toContain(`value: '${pose}'`);
+    }
+  });
+});

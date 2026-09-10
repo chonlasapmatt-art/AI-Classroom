@@ -15,6 +15,7 @@ import { isValidAvatarId } from '../features/avatars/avatarCatalog';
 import { configToJson, type AvatarConfigV2 } from '../features/avatars/avatarSchema';
 import { traitById } from '../features/avatars/avatarTraits';
 import { isValidOutfitId, outfitPrice } from '../features/avatars/avatarOutfits';
+import { traitPiecePrice } from '../features/avatars/avatarTraits';
 import { pointsBalanceFor } from '../features/rewards/studentPoints';
 import { configFromIndex } from '../features/avatars/avatarThemes';
 import { attachmentKindFor } from './attachmentKind';
@@ -732,6 +733,30 @@ export class FixtureSchoolRepository implements SchoolRepository {
     const balance = pointsBalanceFor(this.snapshot(), student.id);
     if (balance.balance < price) throw new Error(`แต้มไม่พอ · ต้องใช้ ${price} แต้ม มีอยู่ ${balance.balance} แต้ม`);
     unlocked.add(outfitId);
+    this.data.students = this.data.students.map((item) => (item.id === student.id
+      ? {
+        ...item,
+        avatarConfig: {
+          ...(config ?? { archetype: 0, palette: 0, skinTone: 0, hair: 0, accessory: 0, badge: 0 }),
+          unlockedOutfits: [...unlocked],
+          spentPoints: (config?.spentPoints ?? 0) + price
+        }
+      }
+      : item));
+    this.emit();
+  }
+
+  /** The same purchase against the fixture school, so preview mode can shop without a server. */
+  async redeemAvatarTrait(actorProfileId: string, pieceKey: string): Promise<void> {
+    const student = this.data.students.find((item) => item.profileId === actorProfileId);
+    if (!student) throw new Error('ไม่พบบัญชีนักเรียนของคุณ');
+    const price = traitPiecePrice(pieceKey);
+    const config = student.avatarConfig;
+    const unlocked = new Set(config?.unlockedOutfits ?? []);
+    if (price === 0 || unlocked.has(pieceKey)) return;
+    const balance = pointsBalanceFor(this.snapshot(), student.id);
+    if (balance.balance < price) throw new Error(`แต้มไม่พอ · ต้องใช้ ${price} แต้ม มีอยู่ ${balance.balance} แต้ม`);
+    unlocked.add(pieceKey);
     this.data.students = this.data.students.map((item) => (item.id === student.id
       ? {
         ...item,

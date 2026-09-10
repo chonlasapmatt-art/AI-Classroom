@@ -60,8 +60,20 @@ export default defineConfig({
     react(),
     versionManifest(),
     VitePWA({
-      registerType: 'autoUpdate',
-      // The app asks before reloading, so a lesson is never interrupted by an automatic swap.
+      /*
+       * 'prompt', because the app has a prompt of its own and 'autoUpdate' talks over it.
+       *
+       * In 'autoUpdate' the generated registration reloads the page itself the moment the new worker
+       * takes control. Two things followed, both reported from a classroom: the update card with
+       * "อัปเดตตอนนี้" never appeared, because by the time anything could ask there was nothing left
+       * to ask about; and the panel that reports what changed was wiped a few frames after it
+       * opened, because the reload arrived after the new build had already stamped this device as
+       * having seen that version — shown for no time at all, and then considered read.
+       *
+       * 'prompt' hands the same event to the app instead, which raises the card, drains the outbox
+       * and reloads once, when somebody presses the button.
+       */
+      registerType: 'prompt',
       includeAssets: ['icons/icon.svg'],
       manifest: {
         name: 'AI Smart Classroom',
@@ -86,7 +98,11 @@ export default defineConfig({
         globIgnores: ['platform/**', 'assets/platform-*.js'],
         cleanupOutdatedCaches: true,
         /*
-         * The new worker takes over by itself, and this is a correction rather than a preference.
+         * The new worker still takes over by itself. That part is a correction rather than a
+         * preference and it stays; what changed above is only who reloads the page. The worker
+         * activating on its own is what keeps a device from being stranded behind one button, while
+         * reloading without asking is what took the update card and the release notes away from the
+         * person holding the device.
          *
          * Without it a freshly installed worker sits in `waiting` until the running page sends it
          * SKIP_WAITING — which the app only does when somebody presses "อัปเดตตอนนี้". That made one

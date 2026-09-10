@@ -1,5 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { shouldRequestUpdate, UPDATE_CHECK_INTERVAL_MS } from '../../src/app/appUpdate';
+import {
+  markUpdateApplied, shouldRequestUpdate, takeUpdateApplied, UPDATE_CHECK_INTERVAL_MS
+} from '../../src/app/appUpdate';
 
 /*
  * Two ways the update stopped working, both of them silent.
@@ -49,5 +54,48 @@ describe('when the app asks the server for a newer build', () => {
 
   it('asks when it has never asked before', () => {
     expect(shouldRequestUpdate({ ...base })).toBe(true);
+  });
+});
+
+/*
+ * The third way it stopped working, and this one was loud: it updated itself.
+ *
+ * The service worker was registered with 'autoUpdate', which reloads the page the moment the new
+ * worker takes control. So the card with "อัปเดตตอนนี้" never appeared — there was nothing left to
+ * ask — and the panel that reports what changed was wiped a few frames after opening, because the
+ * reload landed after the new build had already stamped this device as having seen that version.
+ * Shown for no time at all, and then considered read.
+ *
+ * The worker still activates by itself. That is what keeps a device from being stranded behind one
+ * button, and it is not what was wrong: reloading without asking was.
+ */
+describe('how the service worker is registered', () => {
+  const config = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../vite.config.ts'), 'utf8');
+
+  it('hands the new build to the app to announce, rather than reloading the page itself', () => {
+    expect(config).toContain("registerType: 'prompt'");
+    expect(config).not.toContain("registerType: 'autoUpdate'");
+  });
+
+  it('still lets the worker take over on its own, so no device is stranded behind one button', () => {
+    expect(config).toContain('skipWaiting: true');
+    expect(config).toContain('clientsClaim: true');
+  });
+});
+
+/*
+ * What a pressed update leaves behind.
+ *
+ * The comparison the notice normally uses is one localStorage entry away from being wrong for ever:
+ * stamp the version, get torn down before anybody reads the panel, and the device is marked as
+ * having read notes it never saw. The flag is the second, deliberate signal, and it is read once.
+ */
+describe('the flag a pressed update leaves', () => {
+  it('reports one update and then stops', () => {
+    window.localStorage.clear();
+    expect(takeUpdateApplied()).toBe(false);
+    markUpdateApplied();
+    expect(takeUpdateApplied()).toBe(true);
+    expect(takeUpdateApplied()).toBe(false);
   });
 });

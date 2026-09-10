@@ -91,12 +91,42 @@ export function writeLastCheckedAt(value = new Date().toISOString()): void {
  */
 const SEEN_VERSION_KEY = 'smart-classroom-seen-version';
 
+/*
+ * Somebody pressed the update button, and this is the load that came back.
+ *
+ * The notice works out that there is something to report by comparing the version this device was
+ * last told about with the one now running. That comparison is one localStorage entry away from
+ * being wrong for ever: a mount that stamps the version and is then torn down — by a reload
+ * arriving a moment later, a crash, a shell that remounts — leaves the device marked as having read
+ * notes it never saw, and no later load will offer them again. So a deliberate update leaves a flag
+ * as well, and the flag is enough on its own: the next load reports what changed whatever the
+ * comparison says. It is read once and cleared.
+ */
+const UPDATE_APPLIED_KEY = 'smart-classroom-update-applied';
+
 export function readSeenVersion(): string | null {
   try { return window.localStorage.getItem(SEEN_VERSION_KEY); } catch { return null; }
 }
 
 export function writeSeenVersion(version = APP_VERSION): void {
   try { window.localStorage.setItem(SEEN_VERSION_KEY, version); } catch { /* best effort only */ }
+}
+
+/** Records that this device is reloading because somebody asked it to update. */
+export function markUpdateApplied(): void {
+  try { window.localStorage.setItem(UPDATE_APPLIED_KEY, new Date().toISOString()); } catch { /* best effort only */ }
+}
+
+/** Reads the flag and clears it, so an update is reported once rather than on every load after it. */
+export function takeUpdateApplied(): boolean {
+  try {
+    const stamped = window.localStorage.getItem(UPDATE_APPLIED_KEY);
+    if (!stamped) return false;
+    window.localStorage.removeItem(UPDATE_APPLIED_KEY);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function formatBuildTime(isoDate = BUILD_TIME): string {

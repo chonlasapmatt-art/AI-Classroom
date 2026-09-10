@@ -100,6 +100,15 @@ export interface TraitOption {
   tags: string[];
   /** Points, through the same purse the outfits already use. Absent means free. */
   price?: number;
+  /*
+   * The pieces that have to be owned before this can be worn, and the ids the till sells.
+   *
+   * A trait can name two things at once — a haircut and a hat — and charging for the pair would
+   * mean buying the same hat again for every haircut it goes with. So the unit of ownership is the
+   * piece: the base half and the worn half are bought separately, each then wearable with anything.
+   * Absent, or empty, means nothing to buy.
+   */
+  unlockKeys?: string[];
   /** Layers this trait covers, so the compositor never draws one thing through another. */
   hides?: LayerType[];
   /** Which of the six tints this trait actually reads, for the colour drawer to offer. */

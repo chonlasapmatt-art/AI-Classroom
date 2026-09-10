@@ -116,6 +116,25 @@ describe('the notice after an update', () => {
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
   });
 
+  it('reports the update even when this device was already stamped as having seen it', async () => {
+    /*
+     * The fault this covers was reported from a classroom: press อัปเดตตอนนี้, the app comes back,
+     * and nothing says what changed. The reload landed a few frames after the panel opened, so the
+     * version had been stamped and the notes were considered read — for ever, because no later load
+     * compares any differently.
+     */
+    window.localStorage.setItem('smart-classroom-seen-version', APP_VERSION);
+    window.localStorage.setItem('smart-classroom-update-applied', '2026-09-10T10:00:00.000Z');
+    render(<WhatsNewNotice />);
+
+    expect(screen.getByRole('status', { name: 'สิ่งที่เปลี่ยนไปในเวอร์ชันนี้' })).toBeTruthy();
+    // Read once: the flag is cleared, so the next load is quiet again.
+    expect(window.localStorage.getItem('smart-classroom-update-applied')).toBeNull();
+    cleanup();
+    render(<WhatsNewNotice />);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
   it('closes on Escape', async () => {
     window.localStorage.setItem('smart-classroom-seen-version', '0.0.1');
     render(<WhatsNewNotice />);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { APP_VERSION, readSeenVersion, writeSeenVersion } from './appUpdate';
-import { changesIn, notesBetween, type ReleaseNote } from './releaseNotes';
+import { APP_VERSION, readSeenVersion, takeUpdateApplied, writeSeenVersion } from './appUpdate';
+import { changesIn, notesBetween, releaseNotes, type ReleaseNote } from './releaseNotes';
 import { Icon } from '../ui/Icon';
 
 /**
@@ -71,10 +71,21 @@ export function WhatsNewNotice() {
 
   useEffect(() => {
     const since = readSeenVersion();
+    /*
+     * Two reasons to speak, and either will do.
+     *
+     * The comparison is the ordinary one: this device was last told about 3.4.0 and is running
+     * 3.5.0, so here is what happened in between. The flag is the deliberate one: somebody pressed
+     * the update button and this is the load that came back, which has to report even when the
+     * comparison finds nothing — a mount that stamped the version and was then torn down would
+     * otherwise have swallowed the only account anybody gets.
+     */
+    const asked = takeUpdateApplied();
     const fresh = notesBetween(since, APP_VERSION);
+    const shown = fresh.length > 0 ? fresh : asked ? releaseNotes.slice(0, 1) : [];
     writeSeenVersion();
-    if (fresh.length === 0) return;
-    setNotes(fresh);
+    if (shown.length === 0) return;
+    setNotes(shown);
     setOpen(true);
   }, []);
 

@@ -10,11 +10,18 @@ import {
   defaultTints, elementLabels, layerLabels, migrateConfig, raceLabels, tintVariables,
   type AvatarConfigV2, type AvatarRace, type AvatarTints, type LayerType
 } from './avatarSchema';
-import { defaultBodyFor, traitCounts, traitsForLayer, type Trait } from './avatarTraits';
+import {
+  defaultBodyFor, missingPieces, traitCounts, traitPiecePrice, traitsForLayer, type Trait
+} from './avatarTraits';
 import { avatarOutfits, canWearOutfit, defaultOutfit, outfitPrice } from './avatarOutfits';
 import { avatarPalettes, skinTones } from './avatarThemes';
 import { FullBodyAvatar } from './FullBodyAvatar';
 import { archetypeForRace, bodyForCategory, fullBodyArchetypeList } from './avatarFullBody';
+import { figureSlotsFor } from './avatarFigureParts';
+import {
+  AVATAR_FIGURE_COUNT, figureCategoryLabels, figureMatching, searchFigures,
+  type FigureCategory, type FigurePreset
+} from './avatarFigures';
 import { ThemedAvatar } from './ThemedAvatar';
 
 /**
@@ -46,6 +53,8 @@ export interface AvatarDesignerProps {
   unlocked?: ReadonlySet<string>;
   /** Exchanging points for a priced outfit. Absent when nobody is shopping. */
   onRedeem?(outfitId: string): Promise<void>;
+  /** Exchanging points for one wardrobe piece — a hat, wings, a labcoat. */
+  onRedeemPiece?(pieceKey: string): Promise<void>;
   onSave(avatarId: string, outfit: string | null): Promise<void> | void;
   /** Saves a combination no catalogue id names. Absent means the drawers cannot be committed. */
   onSaveConfig?(config: AvatarConfigV2): Promise<void> | void;
@@ -56,7 +65,7 @@ export interface AvatarDesignerProps {
 const PAGE_SIZE = 60;
 
 type Drawer = LayerType | 'tints' | 'outfit';
-type Pane = 'catalogue' | Drawer;
+type Pane = 'figures' | 'catalogue' | Drawer;
 
 const drawerRows: Array<{ pane: Drawer; label: string; countOf?: LayerType }> = [
   { pane: 'hair_headpiece', label: 'ทรงผม/เขา', countOf: 'hair_headpiece' },
@@ -74,6 +83,7 @@ const drawerRows: Array<{ pane: Drawer; label: string; countOf?: LayerType }> = 
 const poses: Array<{ value: AvatarAnimation; label: string }> = [
   { value: 'idle', label: 'ยืน' },
   { value: 'walk', label: 'เดิน' },
+  { value: 'wave', label: 'โบกมือ' },
   { value: 'run', label: 'วิ่ง' },
   { value: 'cast', label: 'ร่ายเวทย์' },
   { value: 'attack', label: 'โจมตี' },
@@ -135,7 +145,7 @@ function startingConfig(currentConfig: AvatarConfigV2 | null | undefined, catalo
 }
 
 export function AvatarDesigner({
-  displayName, currentAvatarId, currentConfig, currentOutfit, points, unlocked,
+  displayName, currentAvatarId, currentConfig, currentOutfit, points, unlocked, onRedeemPiece,
   onRedeem, onSave, onSaveConfig, onClose
 }: AvatarDesignerProps) {
   const opening = useRef(searchAvatars('', 'all').find((avatar) => avatar.id === currentAvatarId) ?? null);
@@ -143,10 +153,18 @@ export function AvatarDesigner({
   const [draft, setDraft] = useState<AvatarConfigV2>(() => startingConfig(currentConfig, opening.current));
   const original = useRef(draft);
 
-  const [pane, setPane] = useState<Pane>('catalogue');
+  /*
+   * The front door is the figures, not the thousand portraits.
+   *
+   * A child arriving at this screen wants to be somebody — a knight, a fox, an astronaut — and the
+   * figures answer that in one press with a whole person who stays editable afterwards. The
+   * portrait catalogue is one row below, unchanged, because a thousand saved ids still point at it.
+   */
+  const [pane, setPane] = useState<Pane>('figures');
   const [query, setQuery] = useState('');
   const [typed, setTyped] = useState('');
   const [category, setCategory] = useState<AvatarCategory | 'all'>('all');
+  const [figureCategory, setFigureCategory] = useState<FigureCategory | 'all'>('all');
   const [pose, setPose] = useState<AvatarAnimation>('idle');
   /*
    * Which of the two bodies the stage is showing.
@@ -182,16 +200,29 @@ export function AvatarDesigner({
   const owned = unlocked ?? new Set<string>();
 
   const results = useMemo(() => searchAvatars(query, category), [query, category]);
+  const figureResults = useMemo(() => searchFigures(query, figureCategory), [query, figureCategory]);
+  /*
+   * Which figure the draft currently is, worked out once.
+   *
+   * Matching compares the whole layer set against three hundred of them, and the first version of
+   * this asked the question inside the tile loop: sixty tiles by three hundred figures on every
+   * keystroke, which is a search box that stutters on a school tablet.
+   */
+  const wornFigure = useMemo(() => figureMatching(draft), [draft]);
   const drawerTraits = useMemo(
-    () => (pane === 'catalogue' || pane === 'tints' || pane === 'outfit' ? [] : traitsForLayer(pane, draft.race)),
+    () => (pane === 'figures' || pane === 'catalogue' || pane === 'tints' || pane === 'outfit'
+      ? []
+      : traitsForLayer(pane, draft.race)),
     [pane, draft.race]
   );
 
-  const gridItems: Array<CatalogAvatar | Trait> = pane === 'catalogue' ? results : drawerTraits;
+  const gridItems: Array<FigurePreset | CatalogAvatar | Trait> = pane === 'figures'
+    ? figureResults
+    : pane === 'catalogue' ? results : drawerTraits;
   const shown = gridItems.slice(0, visible);
 
   /** A priced trait a student has not unlocked cannot be worn yet. Teachers are not shopping. */
-  const locked = (trait: Trait) => shopping && Boolean(trait.price) && !owned.has(trait.id);
+  const locked = (trait: Trait) => shopping && missingPieces(trait, owned).length > 0;
 
   const custom = selectedId === null;
 
@@ -315,6 +346,7 @@ export function AvatarDesigner({
             <div className="designer-stage">
               <FullBodyAvatar
                 archetype={body}
+                slots={figureSlotsFor(draft)}
                 animation={pose}
                 tints={draft.tints}
                 size={176}
@@ -386,6 +418,22 @@ export function AvatarDesigner({
           </div>
 
           <nav className="designer-rows" aria-label="แก้ไขละเอียด">
+            {/*
+              * The front door: whole characters, each of which stays editable after it is picked.
+              *
+              * The thousand portraits below it are unchanged and still the answer for anybody who
+              * saved one — but they are busts, with no slots to take apart, so they cannot be the
+              * first thing a child meets on a screen whose whole purpose is building a figure.
+              */}
+            <button
+              type="button"
+              className={`designer-row ${pane === 'figures' ? 'active' : ''}`}
+              aria-current={pane === 'figures' ? 'true' : undefined}
+              onClick={() => setPane('figures')}
+            >
+              <span>ตัวละครเต็มตัว</span>
+              <small>{AVATAR_FIGURE_COUNT} แบบ</small>
+            </button>
             <button
               type="button"
               className={`designer-row ${pane === 'catalogue' ? 'active' : ''}`}
@@ -460,6 +508,30 @@ export function AvatarDesigner({
               ))}
             </div>
           </div>
+
+          {pane === 'figures' && (
+            <div className="designer-chips" role="group" aria-label="ประเภทตัวละคร">
+              <button
+                type="button"
+                className={`designer-catchip ${figureCategory === 'all' ? 'active' : ''}`}
+                aria-pressed={figureCategory === 'all'}
+                onClick={() => setFigureCategory('all')}
+              >
+                ทั้งหมด
+              </button>
+              {(Object.keys(figureCategoryLabels) as FigureCategory[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`designer-catchip ${figureCategory === key ? 'active' : ''}`}
+                  aria-pressed={figureCategory === key}
+                  onClick={() => setFigureCategory(key)}
+                >
+                  {figureCategoryLabels[key]}
+                </button>
+              ))}
+            </div>
+          )}
 
           {pane === 'catalogue' && (
             <div className="designer-chips" role="group" aria-label="หมวด">
@@ -557,20 +629,72 @@ export function AvatarDesigner({
             </div>
           ) : (
             <>
+              {/*
+                * What is on screen, and what is being worn.
+                *
+                * The second half is the part people asked for: a grid of three hundred figures with
+                * no mark of which one you are wearing is a grid you have to remember your way
+                * around. A build that matches no figure is not nameless either — it is the thing
+                * this screen is for, so it says so.
+                */}
               <p className="ui-field-hint" role="status">
-                {pane === 'catalogue'
-                  ? `พบ ${results.length} แบบ${shown.length < results.length ? ` · แสดง ${shown.length}` : ''}`
-                  : `${drawerTraits.length} แบบใน${layerLabels[pane]}`}
+                {pane === 'figures'
+                  ? `พบ ${figureResults.length} ตัวละคร${shown.length < figureResults.length ? ` · แสดง ${shown.length}` : ''}`
+                    + ` · ตอนนี้: ${wornFigure?.name ?? (custom ? 'แบบที่แก้เอง' : 'ยังไม่เลือก')}`
+                  : pane === 'catalogue'
+                    ? `พบ ${results.length} แบบ${shown.length < results.length ? ` · แสดง ${shown.length}` : ''}`
+                    : `${drawerTraits.length} แบบใน${layerLabels[pane]}`}
               </p>
 
               <div
                 className="designer-grid"
                 role="listbox"
-                aria-label={pane === 'catalogue' ? 'รายการ avatar' : layerLabels[pane]}
+                aria-label={pane === 'figures' ? 'ตัวละครเต็มตัว' : pane === 'catalogue' ? 'รายการ avatar' : layerLabels[pane]}
                 ref={grid}
                 onKeyDown={navigate}
               >
                 {shown.map((item, index) => {
+                  if (pane === 'figures') {
+                    const figure = item as FigurePreset;
+                    const wearing = wornFigure?.id === figure.id;
+                    const owing = figure.price > 0;
+                    return (
+                      <button
+                        key={figure.id}
+                        role="option"
+                        type="button"
+                        aria-selected={wearing}
+                        tabIndex={index === 0 ? 0 : -1}
+                        className={`designer-tile ${wearing ? 'selected' : ''}`}
+                        title={`${figure.name} · ${figureCategoryLabels[figure.category]}`}
+                        /*
+                         * Picking a figure loads its build rather than storing its name.
+                         *
+                         * That is the difference between this grid and the portrait catalogue: what
+                         * is saved is the composition, so every drawer stays open on it afterwards
+                         * and the child can change the one thing they wanted to change.
+                         */
+                        onClick={() => {
+                          setDraft({ ...figure.config, tints: { ...figure.config.tints } });
+                          setSelectedId(null);
+                          setError(null);
+                        }}
+                      >
+                        <span className="designer-tile-figure">
+                          <FullBodyAvatar
+                            archetype={figure.body}
+                            slots={figureSlotsFor(figure.config)}
+                            tints={figure.config.tints}
+                            size={72}
+                            label={figure.name}
+                            paused
+                          />
+                        </span>
+                        <span className="designer-tile-name">{figure.name}</span>
+                        {owing && <span className="designer-tile-price">{figure.price} แต้ม</span>}
+                      </button>
+                    );
+                  }
                   if (pane === 'catalogue') {
                     const avatar = item as CatalogAvatar;
                     const chosen = selectedId === avatar.id;
@@ -604,19 +728,47 @@ export function AvatarDesigner({
                   const trait = item as Trait;
                   const chosen = draft.layers?.[pane as LayerType] === trait.id;
                   const shut = locked(trait);
+                  /*
+                   * What is still to be paid for, and what it costs.
+                   *
+                   * A tile can be locked by two pieces at once — a priced haircut worn under a
+                   * priced hat — and only the ones this child does not already own are for sale.
+                   * Buying the hat for the second time is the thing the piece-level till exists to
+                   * prevent, so the price on the tile is the price of what is actually missing.
+                   */
+                  const missing = missingPieces(trait, owned);
+                  const owing = missing.reduce((total, key) => total + traitPiecePrice(key), 0);
+                  const buyingThis = missing.some((key) => buying === key);
                   return (
                     <button
                       key={trait.id}
                       role="option"
                       type="button"
                       aria-selected={chosen}
-                      aria-disabled={shut}
                       tabIndex={index === 0 ? 0 : -1}
                       className={`designer-tile ${chosen ? 'selected' : ''} ${shut ? 'locked' : ''}`}
                       title={trait.name}
                       onClick={() => {
-                        if (shut) { setError(`${trait.name} ยังไม่ปลดล็อก · ใช้ ${trait.price} แต้ม`); return; }
-                        editLayer(pane as LayerType, trait.id);
+                        if (!shut) { editLayer(pane as LayerType, trait.id); return; }
+                        if (!onRedeemPiece || balance < owing) {
+                          setError(`${trait.name} ต้องใช้ ${owing} แต้ม · มีอยู่ ${balance} แต้ม`);
+                          return;
+                        }
+                        /*
+                         * Bought one piece at a time, and worn as soon as they are all paid for.
+                         *
+                         * Sequential rather than in parallel: each purchase reads the balance on the
+                         * server, and two requests that both read it before either writes would let
+                         * a child buy two pieces with the points for one.
+                         */
+                        void missing
+                          .reduce(
+                            (queue, key) => queue.then(() => { setBuying(key); return onRedeemPiece(key); }),
+                            Promise.resolve()
+                          )
+                          .then(() => { editLayer(pane as LayerType, trait.id); setError(null); })
+                          .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'แลกไม่สำเร็จ'))
+                          .finally(() => setBuying(null));
                       }}
                     >
                       <span className="designer-tile-figure">
@@ -632,7 +784,11 @@ export function AvatarDesigner({
                         </svg>
                       </span>
                       <span className="designer-tile-name">{trait.name}</span>
-                      {shut && <span className="designer-tile-price">ล็อก · {trait.price} แต้ม</span>}
+                      {shut && (
+                        <span className="designer-tile-price">
+                          {buyingThis ? 'กำลังแลก…' : `${owing} แต้ม`}
+                        </span>
+                      )}
                     </button>
                   );
                 })}

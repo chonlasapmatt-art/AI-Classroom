@@ -4,8 +4,8 @@ import { UpdateMark } from './UpdateMark';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db } from '../db/database';
 import {
-  APP_VERSION, fetchIncomingRelease, prepareForUpdate, readLastCheckedAt, shouldRequestUpdate,
-  UPDATE_CHECK_INTERVAL_MS, updateCopy, updateKindFor, writeLastCheckedAt
+  APP_VERSION, fetchIncomingRelease, markUpdateApplied, prepareForUpdate, readLastCheckedAt,
+  shouldRequestUpdate, UPDATE_CHECK_INTERVAL_MS, updateCopy, updateKindFor, writeLastCheckedAt
 } from './appUpdate';
 import { changesIn, notesBetween } from './releaseNotes';
 import type { ReleaseNote } from './releaseNotes';
@@ -162,6 +162,7 @@ export function UpdatePrompt() {
       } else if (result && !result.ready) {
         setPreparationError(result.message);
       }
+      markUpdateApplied();
       await updateServiceWorker(true);
 
       /*
