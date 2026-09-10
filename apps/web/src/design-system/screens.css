@@ -4082,20 +4082,43 @@ tr.row-warning td { background: var(--warning-soft); }
   margin-inline-start: auto; flex: none;
   display: grid; place-items: center;
   min-block-size: 44px; min-inline-size: 44px; padding: 0 var(--space-3);
-  border: 1px solid transparent; border-radius: var(--radius-md);
-  background: transparent;
+  /*
+   * A circle rather than the word in the corner.
+   *
+   * This is the only control on a panel that is otherwise text, and the roundness is what tells it
+   * apart from the list of changes beside it. The 44px is the floor for a touch target and the row
+   * cannot afford more; the padding goes to zero because the cross centres itself.
+   *
+   * Three states, each doing one thing: the surface lifts under the pointer, the cross turns a
+   * quarter circle so a hover reads as movement rather than as a change of colour, and a press
+   * pushes the whole button in. Every animated property here is transform, opacity or colour.
+   */
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
   color: var(--color-text-muted); font: inherit; font-size: var(--text-sm); cursor: pointer;
+  /* It settles a beat after the card, so it reads as a control rather than as part of the panel
+     that slid in. The curve overshoots a little: a dismiss button that lands dead looks dead. */
+  animation: whats-new-close-in .34s cubic-bezier(.25, 1, .5, 1) .22s both;
   transition:
     background var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    transform 140ms cubic-bezier(.25, 1, .5, 1);
 }
+.whats-new-close svg { transition: transform 180ms cubic-bezier(.25, 1, .5, 1); }
 .whats-new-close:hover {
-  border-color: var(--color-border);
-  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
   color: var(--color-text-primary);
+  box-shadow: 0 2px 10px -4px color-mix(in srgb, var(--color-text-primary) 40%, transparent);
 }
+.whats-new-close:hover svg { transform: rotate(90deg); }
+/* Pressed, it goes in rather than staying put: the only feedback a tap on glass can give. */
+.whats-new-close:active { transform: scale(.94); }
 .whats-new-close:focus-visible { outline: none; box-shadow: var(--focus-ring); color: var(--color-text-primary); }
+.whats-new-close:focus-visible svg { transform: rotate(90deg); }
 .whats-new-list, .release-change-list {
   margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2);
 }
@@ -4162,9 +4185,62 @@ tr.row-warning td { background: var(--warning-soft); }
   from { opacity: 0; }
   to { opacity: 1; }
 }
+/*
+ * Going, and going faster than it came.
+ *
+ * The panel unmounts after this has run — the component marks itself as closing and waits — so the
+ * durations here and the one in `WhatsNewNotice.tsx` describe the same 180ms and have to be changed
+ * together. The card falls back the way it rose. The button goes first and turns a little further,
+ * so the press is acknowledged before the thing it dismissed has finished leaving.
+ */
+@keyframes whats-new-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(8px) scale(.97); }
+}
+@keyframes whats-new-close-in {
+  from { opacity: 0; transform: scale(.82); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes whats-new-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.whats-new-layer[data-state="closing"] .whats-new {
+  animation: whats-new-out 180ms cubic-bezier(.32, .72, 0, 1) both;
+}
+.whats-new-layer[data-state="closing"] .whats-new-scrim {
+  animation: whats-new-scrim-in 160ms var(--ease-out) reverse both;
+}
+.whats-new-layer[data-state="closing"] .whats-new-close {
+  animation: none;
+  opacity: 0; transform: scale(.8) rotate(45deg);
+  transition: opacity 120ms var(--ease-out), transform 140ms cubic-bezier(.32, .72, 0, 1);
+}
+/*
+ * Simplified rather than switched off.
+ *
+ * Somebody who has asked for less motion still has to see that a panel arrived and that their press
+ * did something, so opacity keeps doing both of those jobs and nothing moves or turns. The exit
+ * keeps its 180ms, because the component is waiting on it either way and the fade is the part of it
+ * that survives.
+ */
 @media (prefers-reduced-motion: reduce) {
   .whats-new, .whats-new-scrim { animation: none; }
   .whats-new-meter::after { transition: none; }
+  .whats-new-close {
+    animation: whats-new-fade-in .2s var(--ease-out) .1s both;
+    transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+  }
+  .whats-new-close:active { transform: none; }
+  .whats-new-close svg,
+  .whats-new-close:hover svg,
+  .whats-new-close:focus-visible svg { transform: none; transition: none; }
+  .whats-new-layer[data-state="closing"] .whats-new {
+    animation: whats-new-fade-in 180ms var(--ease-out) reverse both;
+  }
+  .whats-new-layer[data-state="closing"] .whats-new-close {
+    transform: none; transition: opacity 120ms var(--ease-out);
+  }
 }
 
 /* The same notes, kept where they can be read after the notice has gone. */

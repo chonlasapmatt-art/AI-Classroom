@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { APP_VERSION, readSeenVersion, writeSeenVersion } from './appUpdate';
 import { changesIn, notesBetween, type ReleaseNote } from './releaseNotes';
+import { Icon } from '../ui/Icon';
 
 /**
  * What just changed, said once, to whoever is holding the device.
@@ -30,13 +31,43 @@ import { changesIn, notesBetween, type ReleaseNote } from './releaseNotes';
 const NOTICE_SECONDS = 10;
 /** How many changes fit under a ten-second clock. The rest are one press away. */
 const PREVIEW_CHANGES = 4;
+/*
+ * The notice leaves the way it arrived.
+ *
+ * React unmounts the moment the flag flips, so an exit has to be waited for rather than declared:
+ * the panel is marked as closing, the stylesheet plays it out, and this is how long that takes.
+ * Shorter than the entrance on purpose — going is not news, and a dismissal that lingers reads as
+ * the app being slow to obey.
+ */
+const EXIT_MS = 180;
 
 export function WhatsNewNotice() {
   const [notes, setNotes] = useState<ReleaseNote[]>([]);
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [remaining, setRemaining] = useState(NOTICE_SECONDS);
   const paused = useRef(false);
+  const exitTimer = useRef<number | null>(null);
+
+  /**
+   * Closes it, once, however the press arrived — the button, the dimmed area, Escape, or the clock
+   * running out. Guarded because all four can reach it, and a second dismissal mid-exit would
+   * restart the animation on something already on its way out.
+   */
+  const dismiss = useCallback(() => {
+    if (exitTimer.current !== null) return;
+    setClosing(true);
+    exitTimer.current = window.setTimeout(() => {
+      exitTimer.current = null;
+      setOpen(false);
+      setClosing(false);
+    }, EXIT_MS);
+  }, []);
+
+  useEffect(() => () => {
+    if (exitTimer.current !== null) window.clearTimeout(exitTimer.current);
+  }, []);
 
   useEffect(() => {
     const since = readSeenVersion();
@@ -52,14 +83,14 @@ export function WhatsNewNotice() {
     const timer = window.setInterval(() => {
       if (paused.current) return;
       setRemaining((value) => {
-        if (value <= 1) { setOpen(false); return 0; }
+        if (value <= 1) { dismiss(); return 0; }
         return value - 1;
       });
     }, 1000);
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') dismiss(); };
     document.addEventListener('keydown', onKey);
     return () => { window.clearInterval(timer); document.removeEventListener('keydown', onKey); };
-  }, [open, expanded]);
+  }, [dismiss, open, expanded]);
 
   if (!open || notes.length === 0) return null;
 
@@ -81,7 +112,7 @@ export function WhatsNewNotice() {
   const hidden = changes.length - shown.length;
 
   return (
-    <div className="whats-new-layer">
+    <div className="whats-new-layer" data-state={closing ? 'closing' : 'open'}>
       {/*
         * The room dims, and the notice is the thing in the middle of it.
         *
@@ -94,7 +125,7 @@ export function WhatsNewNotice() {
         type="button"
         className="whats-new-scrim"
         aria-label="ปิดรายละเอียดการอัปเดต"
-        onClick={() => setOpen(false)}
+        onClick={dismiss}
       />
       <section
         className="whats-new"
@@ -111,8 +142,16 @@ export function WhatsNewNotice() {
             <span className="whats-new-eyebrow">อัปเดตเป็นเวอร์ชัน {APP_VERSION} แล้ว</span>
             <strong>{headline}</strong>
           </div>
-          <button type="button" className="whats-new-close" onClick={() => setOpen(false)} aria-label="ปิด">
-            ปิด
+          {/*
+            * The way out, drawn as a target rather than as a word in the corner.
+            *
+            * It arrives a beat after the card so it is not part of the same movement — a panel and
+            * its dismiss button appearing as one shape reads as decoration, while a control that
+            * settles afterwards reads as something to press. The cross turns under the pointer, the
+            * press pushes it in, and the whole thing leaves before the card does on the way out.
+            */}
+          <button type="button" className="whats-new-close" onClick={dismiss} aria-label="ปิด">
+            <Icon name="close" size={18} />
           </button>
         </header>
 

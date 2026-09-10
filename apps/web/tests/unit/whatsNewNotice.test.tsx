@@ -104,6 +104,18 @@ describe('the notice after an update', () => {
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
   });
 
+  it('plays itself out rather than vanishing under the press', async () => {
+    // An unmount on the press itself gave the stylesheet no frame to animate in, so the notice
+    // disappeared instead of leaving. It is marked as closing first and removed after.
+    window.localStorage.setItem('smart-classroom-seen-version', '0.0.1');
+    const { container } = render(<WhatsNewNotice />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'ปิด' }));
+    expect(container.querySelector('.whats-new-layer')?.getAttribute('data-state')).toBe('closing');
+
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+  });
+
   it('closes on Escape', async () => {
     window.localStorage.setItem('smart-classroom-seen-version', '0.0.1');
     render(<WhatsNewNotice />);
