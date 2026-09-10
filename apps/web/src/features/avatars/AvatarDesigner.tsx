@@ -14,6 +14,8 @@ import { defaultBodyFor, traitCounts, traitsForLayer, type Trait } from './avata
 import { avatarOutfits, canWearOutfit, defaultOutfit, outfitPrice } from './avatarOutfits';
 import { avatarPalettes, skinTones } from './avatarThemes';
 import { EnhancedPixelAvatar } from './EnhancedPixelAvatar';
+import { FullBodyAvatar } from './FullBodyAvatar';
+import { fullBodyArchetypeList, type FullBodyArchetype } from './avatarFullBody';
 import { ThemedAvatar } from './ThemedAvatar';
 
 /**
@@ -80,6 +82,36 @@ const poses: Array<{ value: AvatarAnimation; label: string }> = [
   { value: 'cheer', label: 'เชียร์' }
 ];
 
+/**
+ * Which full-body figure a race opens on.
+ *
+ * A dragonkin should not have to hunt for the dragon knight, and a human should not open on one.
+ * It is a starting point rather than a rule: the chips below the stage change it, because the two
+ * archetypes the brief asks to be previewable are worth being able to try on any avatar.
+ */
+const archetypeForRace: Record<AvatarRace, FullBodyArchetype> = {
+  human: 'student',
+  dragonkin: 'dragonKnight',
+  demon: 'demon',
+  beastfolk: 'athlete',
+  spirit: 'arcaneMage',
+  robot: 'student'
+};
+
+/**
+ * The four colours the stage offers without opening a drawer.
+ *
+ * All six tints live in the colour drawer and always have. These four are the ones a person changes
+ * while watching a pose -- hair, the main garment, the boots and trim, and the magic -- so they are
+ * on the stage beside the figure rather than three taps away behind a tab.
+ */
+const stageTints: Array<{ key: keyof AvatarTints; label: string; swatches: string[] }> = [
+  { key: 'hair', label: 'สีผม', swatches: ['#2f2a44', '#4a2f22', '#1f1b2e', '#7b3f22', '#243b6b', '#be185d'] },
+  { key: 'primary', label: 'ชุดหลัก', swatches: avatarPalettes.slice(0, 6).map((palette) => palette.primary) },
+  { key: 'accent', label: 'ขอบ/รองเท้า', swatches: avatarPalettes.slice(0, 6).map((palette) => palette.accent) },
+  { key: 'magic', label: 'ออร่าเวทมนตร์', swatches: ['#a855f7', '#22d3ee', '#f472b6', '#f59e0b', '#34d399', '#60a5fa'] }
+];
+
 const tintRows: Array<{ key: keyof AvatarTints; label: string; swatches: string[] }> = [
   { key: 'skin', label: 'สีผิว', swatches: [...skinTones] },
   { key: 'hair', label: 'สีผม', swatches: ['#2f2a44', '#4a2f22', '#1f1b2e', '#7b3f22', '#3b2a1d', '#243b6b', '#b45309', '#0f766e', '#be185d', '#0369a1'] },
@@ -133,6 +165,15 @@ export function AvatarDesigner({
   const [typed, setTyped] = useState('');
   const [category, setCategory] = useState<AvatarCategory | 'all'>('all');
   const [pose, setPose] = useState<AvatarAnimation>('idle');
+  /*
+   * Which of the two bodies the stage is showing.
+   *
+   * The bust is what the app draws everywhere else and what a saved config addresses, so it stays
+   * the default and the thing being edited. The full body is the same six colours on a figure that
+   * has legs to walk on -- which is the only way to see what a pose actually does.
+   */
+  const [fullBody, setFullBody] = useState(false);
+  const [archetype, setArchetype] = useState<FullBodyArchetype | null>(null);
   const [playing, setPlaying] = useState(true);
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [outfit, setOutfit] = useState<string>(currentOutfit ?? defaultOutfit.id);
@@ -288,10 +329,93 @@ export function AvatarDesigner({
           <div className="designer-preview">
             <span className="designer-chip">คัดแยก {AVATAR_CATALOG_SIZE} แบบ · รายละเอียดขั้นสูง</span>
             <div className="designer-stage">
-              {draft.layers
-                ? <EnhancedPixelAvatar config={draft} animation={playing ? pose : 'blink'} size={176} grid={32} label={displayName} />
-                : <ThemedAvatar avatarIndex={0} config={draft} animation={playing ? pose : 'idle'} size={176} label={displayName} />}
+              {fullBody
+                ? (
+                  <FullBodyAvatar
+                    archetype={archetype ?? archetypeForRace[race]}
+                    animation={pose}
+                    tints={draft.tints}
+                    size={176}
+                    label={displayName}
+                    paused={!playing}
+                  />
+                )
+                : draft.layers
+                  ? <EnhancedPixelAvatar config={draft} animation={playing ? pose : 'blink'} size={176} grid={32} label={displayName} />
+                  : <ThemedAvatar avatarIndex={0} config={draft} animation={playing ? pose : 'idle'} size={176} label={displayName} />}
             </div>
+
+            {/*
+              * Two bodies, one wardrobe.
+              *
+              * The bust is what a saved avatar is and what the rest of the app draws, so it is what
+              * the drawers below edit. The full body is the same six colours on a figure with legs,
+              * which is the only shape a walk, a leap or a cast can be judged in -- at shoulder
+              * height every one of them can only be the picture sliding about.
+              */}
+            <div className="designer-bodyswitch" role="group" aria-label="รูปแบบตัวละครในพรีวิว">
+              <button
+                type="button"
+                className={`designer-pose ${fullBody ? '' : 'active'}`}
+                aria-pressed={!fullBody}
+                onClick={() => setFullBody(false)}
+              >
+                ครึ่งตัว
+              </button>
+              <button
+                type="button"
+                className={`designer-pose ${fullBody ? 'active' : ''}`}
+                aria-pressed={fullBody}
+                onClick={() => setFullBody(true)}
+              >
+                เต็มตัว
+              </button>
+            </div>
+
+            {fullBody && (
+              <>
+                <div className="designer-chips" role="group" aria-label="แบบตัวละครเต็มตัว">
+                  {fullBodyArchetypeList.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`designer-catchip ${(archetype ?? archetypeForRace[race]) === option.id ? 'active' : ''}`}
+                      aria-pressed={(archetype ?? archetypeForRace[race]) === option.id}
+                      title={option.description}
+                      onClick={() => setArchetype(option.id)}
+                    >
+                      {option.name}
+                    </button>
+                  ))}
+                </div>
+                {/* The four colours worth changing while a pose is playing, on the stage itself. */}
+                <div className="designer-stage-tints">
+                  {stageTints.map((row) => (
+                    <div key={row.key} className="designer-stage-tint">
+                      <span>{row.label}</span>
+                      <div role="group" aria-label={row.label}>
+                        {row.swatches.map((colour) => {
+                          const chosen = (draft.tints?.[row.key] ?? defaultTints[row.key]) === colour;
+                          return (
+                            <button
+                              key={colour}
+                              type="button"
+                              className={`designer-swatch ${chosen ? 'active' : ''}`}
+                              style={{ background: colour }}
+                              aria-label={`${row.label} ${colour}`}
+                              aria-pressed={chosen}
+                              onClick={() => setDraft((current) => ({
+                                ...current, tints: { ...current.tints, [row.key]: colour }
+                              }))}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
             <div className="designer-identity">
               <strong>{displayName}</strong>
               <div className="designer-tags">

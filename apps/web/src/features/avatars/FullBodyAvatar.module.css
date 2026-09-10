@@ -1,0 +1,445 @@
+/*
+ * The poses.
+ *
+ * ── Why steps() and not ease ──
+ * An 8-bit figure that eases between frames stops reading as pixels and starts reading as a blurry
+ * drawing: the in-between positions are off the grid the sprite was authored on, and a half-pixel
+ * limb is a smear. `steps(n)` holds each frame and snaps to the next, which is what a sprite sheet
+ * does and what makes four drawings read as a walk. It is not a stylistic preference here; it is
+ * the only timing function that keeps the figure on its own grid.
+ *
+ * ── Why the parts turn rather than the picture sliding ──
+ * The bust could only translate, so "attack" was the whole avatar moving 1.5px sideways and back.
+ * Here the arm turns at the shoulder, the leg at the hip, the tail at its root, and the figure as a
+ * whole does the bob. Each pivot is stated once, in units of the 48-grid, beside the part it
+ * belongs to.
+ *
+ * Frame counts and durations come from the brief: idle 4/0.8s, walk 4/0.6s, run 6/0.4s,
+ * cast 6/1.0s, attack 4/0.4s, jump 4/0.5s, cheer 4/0.6s.
+ */
+
+.avatar {
+  display: block;
+  overflow: visible;
+  /* Both, because they are read by different things: SVG shapes snap through shape-rendering, and
+     any raster the browser makes of this — a drag image, a print preview — snaps through the other. */
+  shape-rendering: crispEdges;
+  image-rendering: pixelated;
+}
+
+/* ── Pivots ──
+   A limb turns where it joins the body, and each limb joins it in a different place. Both arms
+   sharing the body's centre line was the first version of this file and it was wrong in a way no
+   still frame shows: at small angles a swing looks fine, and at the angle a cheer needs — arms
+   overhead — an arm pivoting from the far shoulder sweeps across the chest instead of going up.
+   So each limb states its own joint, in units of the 48-grid, beside the part it belongs to. */
+.figure { transform-origin: 24px 46px; }   /* the feet: the figure bobs and lands on the floor */
+.torso  { transform-origin: 24px 33px; }   /* the waist */
+.head   { transform-origin: 24px 20px; }   /* the neck */
+.frontArm { transform-origin: 17px 23px; } /* the near shoulder */
+.backArm  { transform-origin: 31px 23px; } /* the far shoulder */
+.frontLeg { transform-origin: 20.5px 36px; } /* the near hip */
+.backLeg  { transform-origin: 27.5px 36px; } /* the far hip */
+/* The hand, so a held thing can be turned back against an arm that has gone past the horizontal. */
+.held   { transform-origin: 15px 29px; }
+.tail   { transform-origin: 31px 34px; }   /* the root of the tail */
+.wing   { transform-origin: 24px 24px; }   /* the shoulder blades */
+.shadow { transform-origin: 24px 46px; }
+.fx     { transform-origin: 24px 30px; }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ยืน · idle — 4 frames, 0.8s
+ * A chest that breathes, arms that hang and drift, a tail and wings that sway. The one requirement
+ * of an idle is that a still classroom screen never looks frozen.
+ * ──────────────────────────────────────────────────────────────────────────── */
+.idle .figure { animation: bodyBreathe 0.8s steps(4) infinite; }
+.idle .frontArm { animation: armDangle 0.8s steps(4) infinite; }
+.idle .backArm { animation: armDangleBack 0.8s steps(4) infinite; }
+.idle .tail { animation: tailSway 1.6s steps(4) infinite; }
+.idle .wing { animation: wingSway 1.6s steps(4) infinite; }
+
+@keyframes bodyBreathe {
+  0%   { transform: translateY(0); }
+  25%  { transform: translateY(-1px); }
+  50%  { transform: translateY(-1px); }
+  75%  { transform: translateY(0); }
+  100% { transform: translateY(0); }
+}
+@keyframes armDangle {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(2deg); }
+  50%  { transform: rotate(3deg); }
+  75%  { transform: rotate(1deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes armDangleBack {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(-2deg); }
+  50%  { transform: rotate(-3deg); }
+  75%  { transform: rotate(-1deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes tailSway {
+  0%   { transform: rotate(-4deg); }
+  25%  { transform: rotate(2deg); }
+  50%  { transform: rotate(6deg); }
+  75%  { transform: rotate(1deg); }
+  100% { transform: rotate(-4deg); }
+}
+@keyframes wingSway {
+  0%   { transform: scaleX(1) translateY(0); }
+  25%  { transform: scaleX(0.97) translateY(-0.5px); }
+  50%  { transform: scaleX(1) translateY(0); }
+  75%  { transform: scaleX(1.02) translateY(0.5px); }
+  100% { transform: scaleX(1) translateY(0); }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * เดิน · walk — 4 frames, 0.6s
+ * Alternating strides, a foot that lifts, and a torso that bobs with the contact frames. The legs
+ * are counter-phased against each other, which is the whole cycle.
+ * ──────────────────────────────────────────────────────────────────────────── */
+.walk .figure { animation: walkBob 0.6s steps(4) infinite; }
+.walk .frontLeg { animation: strideFront 0.6s steps(4) infinite; }
+.walk .backLeg { animation: strideBack 0.6s steps(4) infinite; }
+.walk .frontArm { animation: swingFront 0.6s steps(4) infinite; }
+.walk .backArm { animation: swingBack 0.6s steps(4) infinite; }
+.walk .tail { animation: tailSway 1.2s steps(4) infinite; }
+
+@keyframes walkBob {
+  0%   { transform: translateY(0); }
+  25%  { transform: translateY(-1px); }
+  50%  { transform: translateY(0); }
+  75%  { transform: translateY(-1px); }
+  100% { transform: translateY(0); }
+}
+@keyframes strideFront {
+  0%   { transform: rotate(14deg); }
+  25%  { transform: rotate(0deg) translateY(-1px); }
+  50%  { transform: rotate(-14deg); }
+  75%  { transform: rotate(0deg); }
+  100% { transform: rotate(14deg); }
+}
+@keyframes strideBack {
+  0%   { transform: rotate(-14deg); }
+  25%  { transform: rotate(0deg); }
+  50%  { transform: rotate(14deg); }
+  75%  { transform: rotate(0deg) translateY(-1px); }
+  100% { transform: rotate(-14deg); }
+}
+@keyframes swingFront {
+  0%   { transform: rotate(-12deg); }
+  25%  { transform: rotate(0deg); }
+  50%  { transform: rotate(12deg); }
+  75%  { transform: rotate(0deg); }
+  100% { transform: rotate(-12deg); }
+}
+@keyframes swingBack {
+  0%   { transform: rotate(12deg); }
+  25%  { transform: rotate(0deg); }
+  50%  { transform: rotate(-12deg); }
+  75%  { transform: rotate(0deg); }
+  100% { transform: rotate(12deg); }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * วิ่ง · run — 6 frames, 0.4s
+ * The same cycle at a wider amplitude, plus the two things that separate a run from a fast walk:
+ * the torso pitches forward, and there is a frame with neither foot down.
+ * ──────────────────────────────────────────────────────────────────────────── */
+.run .figure { animation: runBob 0.4s steps(6) infinite; }
+.run .torso { animation: runLean 0.4s steps(6) infinite; }
+.run .frontLeg { animation: runFront 0.4s steps(6) infinite; }
+.run .backLeg { animation: runBack 0.4s steps(6) infinite; }
+.run .frontArm { animation: runArmFront 0.4s steps(6) infinite; }
+.run .backArm { animation: runArmBack 0.4s steps(6) infinite; }
+.run .fx { animation: speedFlicker 0.4s steps(2) infinite; }
+.run .tail { animation: tailStream 0.4s steps(6) infinite; }
+
+@keyframes runBob {
+  0%   { transform: translateY(0); }
+  16%  { transform: translateY(-2px); }
+  33%  { transform: translateY(-1px); }
+  50%  { transform: translateY(0); }
+  66%  { transform: translateY(-2px); }
+  83%  { transform: translateY(-1px); }
+  100% { transform: translateY(0); }
+}
+/* Six degrees: the brief asks for five to eight, and beyond that a chibi torso reads as falling. */
+@keyframes runLean {
+  0%, 100% { transform: rotate(6deg); }
+  50%      { transform: rotate(7deg); }
+}
+@keyframes runFront {
+  0%   { transform: rotate(30deg); }
+  16%  { transform: rotate(10deg); }
+  33%  { transform: rotate(-14deg); }
+  50%  { transform: rotate(-28deg); }
+  66%  { transform: rotate(-8deg); }
+  83%  { transform: rotate(12deg); }
+  100% { transform: rotate(30deg); }
+}
+@keyframes runBack {
+  0%   { transform: rotate(-28deg); }
+  16%  { transform: rotate(-8deg); }
+  33%  { transform: rotate(12deg); }
+  50%  { transform: rotate(30deg); }
+  66%  { transform: rotate(10deg); }
+  83%  { transform: rotate(-14deg); }
+  100% { transform: rotate(-28deg); }
+}
+@keyframes runArmFront {
+  0%   { transform: rotate(-38deg); }
+  33%  { transform: rotate(0deg); }
+  50%  { transform: rotate(30deg); }
+  83%  { transform: rotate(0deg); }
+  100% { transform: rotate(-38deg); }
+}
+@keyframes runArmBack {
+  0%   { transform: rotate(30deg); }
+  33%  { transform: rotate(0deg); }
+  50%  { transform: rotate(-38deg); }
+  83%  { transform: rotate(0deg); }
+  100% { transform: rotate(30deg); }
+}
+@keyframes speedFlicker {
+  0%   { opacity: 0.9; transform: translateX(0); }
+  50%  { opacity: 0.4; transform: translateX(2px); }
+  100% { opacity: 0.9; transform: translateX(0); }
+}
+@keyframes tailStream {
+  0%, 100% { transform: rotate(-14deg); }
+  50%      { transform: rotate(-8deg); }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ร่ายเวทย์ · cast — 6 frames, 1.0s
+ * Hands lift, the figure leaves the ground by two pixels, and a runic circle opens under the feet.
+ * The shadow shrinks as the figure rises, which is the cue that says levitating rather than jumping.
+ * ──────────────────────────────────────────────────────────────────────────── */
+.cast .figure { animation: levitate 1s steps(6) infinite; }
+.cast .frontArm { animation: castRaiseFront 1s steps(6) infinite; }
+.cast .backArm { animation: castRaiseBack 1s steps(6) infinite; }
+.cast .shadow { animation: shadowShrink 1s steps(6) infinite; }
+.cast .fx { animation: runeOpen 1s steps(6) infinite; }
+.cast .tail { animation: tailSway 2s steps(4) infinite; }
+
+@keyframes levitate {
+  0%   { transform: translateY(0); }
+  16%  { transform: translateY(-1px); }
+  33%  { transform: translateY(-2px); }
+  50%  { transform: translateY(-2px); }
+  66%  { transform: translateY(-2px); }
+  83%  { transform: translateY(-1px); }
+  100% { transform: translateY(0); }
+}
+/*
+ * Which way is up.
+ *
+ * An arm hangs downwards from its shoulder, so in SVG's clockwise-positive rotation the near (left)
+ * arm goes up and outwards on a POSITIVE angle and the far (right) arm on a negative one. Signed
+ * the other way — which is how these were first written — both arms swing across the chest instead,
+ * and a "cast" becomes a figure hugging itself.
+ */
+@keyframes castRaiseFront {
+  0%   { transform: rotate(0deg); }
+  16%  { transform: rotate(52deg); }
+  33%  { transform: rotate(96deg); }
+  50%  { transform: rotate(112deg); }
+  66%  { transform: rotate(96deg); }
+  83%  { transform: rotate(44deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes castRaiseBack {
+  0%   { transform: rotate(0deg); }
+  16%  { transform: rotate(-52deg); }
+  33%  { transform: rotate(-96deg); }
+  50%  { transform: rotate(-112deg); }
+  66%  { transform: rotate(-96deg); }
+  83%  { transform: rotate(-44deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes shadowShrink {
+  0%, 100% { transform: scale(1); opacity: 0.28; }
+  33%, 66% { transform: scale(0.78); opacity: 0.18; }
+}
+@keyframes runeOpen {
+  0%   { transform: scale(0.2); opacity: 0; }
+  16%  { transform: scale(0.6); opacity: 0.6; }
+  33%  { transform: scale(0.9); opacity: 1; }
+  50%  { transform: scale(1); opacity: 1; }
+  66%  { transform: scale(1.05); opacity: 0.85; }
+  83%  { transform: scale(1.1); opacity: 0.4; }
+  100% { transform: scale(0.2); opacity: 0; }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * โจมตี · attack — 4 frames, 0.4s
+ * Wind up, thrust, flash, reset. The wind-up is what makes the thrust read: a swing with no
+ * anticipation frame looks like the arm teleported.
+ * ──────────────────────────────────────────────────────────────────────────── */
+.attack .figure { animation: lunge 0.4s steps(4) infinite; }
+.attack .frontArm { animation: slash 0.4s steps(4) infinite; }
+.attack .torso { animation: attackTwist 0.4s steps(4) infinite; }
+.attack .fx { animation: flash 0.4s steps(4) infinite; }
+
+@keyframes lunge {
+  0%   { transform: translateX(1px); }
+  25%  { transform: translateX(2px); }
+  50%  { transform: translateX(-3px); }
+  75%  { transform: translateX(-1px); }
+  100% { transform: translateX(1px); }
+}
+/* Wind up behind, then sweep out and down. The anticipation frame is what makes the sweep read;
+   without it the arm has simply teleported to the other side. */
+@keyframes slash {
+  0%   { transform: rotate(-14deg); }
+  25%  { transform: rotate(-46deg); }
+  50%  { transform: rotate(92deg); }
+  75%  { transform: rotate(38deg); }
+  100% { transform: rotate(-14deg); }
+}
+@keyframes attackTwist {
+  0%, 100% { transform: rotate(0deg); }
+  25%      { transform: rotate(5deg); }
+  50%      { transform: rotate(-8deg); }
+}
+@keyframes flash {
+  0%, 25%   { opacity: 0; transform: scale(0.6); }
+  50%       { opacity: 1; transform: scale(1.15); }
+  75%       { opacity: 0.45; transform: scale(1); }
+  100%      { opacity: 0; transform: scale(0.6); }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * กระโดด · jump — 4 frames, 0.5s
+ * Squash, leap, stretch at the peak, squash on landing. Without the two squash frames a jump is a
+ * figure being lifted rather than one pushing off.
+ * ──────────────────────────────────────────────────────────────────────────── */
+.jump .figure { animation: leap 0.5s steps(4) infinite; }
+.jump .frontLeg { animation: tuckFront 0.5s steps(4) infinite; }
+.jump .backLeg { animation: tuckBack 0.5s steps(4) infinite; }
+.jump .frontArm { animation: jumpArmFront 0.5s steps(4) infinite; }
+.jump .backArm { animation: jumpArmBack 0.5s steps(4) infinite; }
+.jump .shadow { animation: shadowFall 0.5s steps(4) infinite; }
+
+@keyframes leap {
+  0%   { transform: translateY(0) scaleY(0.88) scaleX(1.08); }
+  25%  { transform: translateY(-10px) scaleY(1.06) scaleX(0.96); }
+  50%  { transform: translateY(-10px) scaleY(1.1) scaleX(0.94); }
+  75%  { transform: translateY(-3px) scaleY(1) scaleX(1); }
+  100% { transform: translateY(0) scaleY(0.88) scaleX(1.08); }
+}
+@keyframes tuckFront {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(-22deg); }
+  50%  { transform: rotate(-14deg); }
+  75%  { transform: rotate(6deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes tuckBack {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(18deg); }
+  50%  { transform: rotate(12deg); }
+  75%  { transform: rotate(-6deg); }
+  100% { transform: rotate(0deg); }
+}
+/* Arms thrown out and up on the way, down again on the landing — each away from its own shoulder. */
+@keyframes jumpArmFront {
+  0%   { transform: rotate(-8deg); }
+  25%  { transform: rotate(58deg); }
+  50%  { transform: rotate(66deg); }
+  75%  { transform: rotate(16deg); }
+  100% { transform: rotate(-8deg); }
+}
+@keyframes jumpArmBack {
+  0%   { transform: rotate(8deg); }
+  25%  { transform: rotate(-58deg); }
+  50%  { transform: rotate(-66deg); }
+  75%  { transform: rotate(-16deg); }
+  100% { transform: rotate(8deg); }
+}
+@keyframes shadowFall {
+  0%   { transform: scale(1); opacity: 0.28; }
+  25%  { transform: scale(0.62); opacity: 0.14; }
+  50%  { transform: scale(0.6); opacity: 0.12; }
+  75%  { transform: scale(0.85); opacity: 0.2; }
+  100% { transform: scale(1); opacity: 0.28; }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * เชียร์ · cheer — 4 frames, 0.6s
+ * Arms up, small repeated hops, stars bursting overhead. The hop is deliberately shorter than the
+ * jump: a cheer that leaves the ground as far as a leap reads as the same pose twice.
+ * ──────────────────────────────────────────────────────────────────────────── */
+.cheer .figure { animation: hop 0.6s steps(4) infinite; }
+.cheer .frontArm { animation: cheerArmFront 0.6s steps(4) infinite; }
+.cheer .backArm { animation: cheerArmBack 0.6s steps(4) infinite; }
+.cheer .fx { animation: starBurst 0.6s steps(4) infinite; }
+.cheer .tail { animation: tailSway 0.6s steps(4) infinite; }
+/* The arms go past the horizontal here, so what they carry is turned back to stay upright. */
+.cheer .frontArm .held { animation: heldUprightFront 0.6s steps(4) infinite; }
+.cheer .backArm .held { animation: heldUprightBack 0.6s steps(4) infinite; }
+
+@keyframes heldUprightFront {
+  0%   { transform: rotate(-132deg); }
+  25%  { transform: rotate(-150deg); }
+  50%  { transform: rotate(-156deg); }
+  75%  { transform: rotate(-140deg); }
+  100% { transform: rotate(-132deg); }
+}
+@keyframes heldUprightBack {
+  0%   { transform: rotate(132deg); }
+  25%  { transform: rotate(150deg); }
+  50%  { transform: rotate(156deg); }
+  75%  { transform: rotate(140deg); }
+  100% { transform: rotate(132deg); }
+}
+
+@keyframes hop {
+  0%   { transform: translateY(0) scaleY(0.94); }
+  25%  { transform: translateY(-4px) scaleY(1.03); }
+  50%  { transform: translateY(-5px) scaleY(1.04); }
+  75%  { transform: translateY(-1px) scaleY(1); }
+  100% { transform: translateY(0) scaleY(0.94); }
+}
+/* Overhead is most of a half turn, not a quarter: at 96deg the arm is horizontal, which is a
+   shrug rather than a cheer. Stopping at 150 keeps the arms in a V rather than straight up, which
+   is what reads as celebrating instead of surrendering. */
+@keyframes cheerArmFront {
+  0%   { transform: rotate(132deg); }
+  25%  { transform: rotate(150deg); }
+  50%  { transform: rotate(156deg); }
+  75%  { transform: rotate(140deg); }
+  100% { transform: rotate(132deg); }
+}
+@keyframes cheerArmBack {
+  0%   { transform: rotate(-132deg); }
+  25%  { transform: rotate(-150deg); }
+  50%  { transform: rotate(-156deg); }
+  75%  { transform: rotate(-140deg); }
+  100% { transform: rotate(-132deg); }
+}
+@keyframes starBurst {
+  0%   { opacity: 0; transform: translateY(4px) scale(0.5); }
+  25%  { opacity: 1; transform: translateY(0) scale(1); }
+  50%  { opacity: 0.9; transform: translateY(-3px) scale(1.1); }
+  75%  { opacity: 0.3; transform: translateY(-6px) scale(0.9); }
+  100% { opacity: 0; transform: translateY(4px) scale(0.5); }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The still frame, and the people who need one
+ *
+ * A held pose is information — this is what the costume looks like — while a loop is decoration.
+ * Somebody who has asked their system not to animate gets the first frame of the pose they chose,
+ * which is the frame the pose was designed to read in.
+ * ──────────────────────────────────────────────────────────────────────────── */
+.paused * { animation-play-state: paused !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar, .avatar * { animation: none !important; }
+  /* The overlay is drawn by its own keyframe from opacity 0, so without the animation it would be
+     invisible rather than still. Held open, it is the pose's own first frame. */
+  .fx { opacity: 1 !important; }
+}

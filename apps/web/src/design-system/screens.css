@@ -4490,3 +4490,14 @@ tr.row-warning td { background: var(--warning-soft); }
   background: var(--surface);
 }
 .sync-blocked-action:hover { border-color: var(--warning); }
+
+/* ---------- The full-body stage ----------
+   Two bodies share one wardrobe: the bust the app draws everywhere, and the figure a pose can
+   actually be judged on. The switch and the four colours sit with the figure rather than in a
+   drawer, because they are what somebody changes while a pose is playing. */
+.designer-bodyswitch { display: flex; gap: var(--space-2); justify-content: center; margin-top: var(--space-2); }
+.designer-stage-tints { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+.designer-stage-tint { display: grid; gap: 4px; }
+.designer-stage-tint > span { color: var(--ink-500); font-size: var(--text-xs); }
+.designer-stage-tint > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.designer-stage-tint .designer-swatch { width: 22px; height: 22px; }
