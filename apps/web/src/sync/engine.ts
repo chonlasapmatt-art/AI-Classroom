@@ -68,7 +68,20 @@ function mergeLocal(existing: Record<string, unknown> | undefined, incoming: Rec
   return merged;
 }
 
-export async function registerAndSync(schoolId: string, deviceId: string, deviceName: string, deviceType: 'board'|'desktop'|'tablet'|'mobile') {
+/**
+ * Where an account's place in the journal is remembered.
+ *
+ * The cursor belongs to a person, not to a browser. Keyed by device alone, the first account to
+ * sync on a shared machine drained the journal to its end, and every account that signed in after
+ * it started from that revision and was told there was nothing new. Students and enrolments only
+ * ever arrive through the journal — school structure is mirrored in full on every pull — so the
+ * room appeared with no names in it for everybody except whoever happened to sync first.
+ */
+export function syncCursorKey(schoolId: string, deviceId: string, profileId: string): string {
+  return `${schoolId}:${deviceId}:${profileId}`;
+}
+
+export async function registerAndSync(schoolId: string, deviceId: string, deviceName: string, deviceType: 'board'|'desktop'|'tablet'|'mobile', profileId: string) {
   const client=requireSupabase();
   const {error}=await client.rpc('register_device',{p_school_id:schoolId,p_device_id:deviceId,p_device_name:deviceName,p_device_type:deviceType,p_client_version:CLIENT_VERSION,p_protocol_version:SYNC_PROTOCOL_VERSION});
   if(error) throw error;
@@ -81,7 +94,7 @@ export async function registerAndSync(schoolId: string, deviceId: string, device
     pushed = { accepted: pushed.accepted + next.accepted, blocked: pushed.blocked + next.blocked };
     if (next.accepted === 0) break;
   }
-  const pulled=await pullChanges(schoolId,deviceId);
+  const pulled=await pullChanges(schoolId,deviceId,profileId);
   const structure=await pullStructure(schoolId);
   return {...pushed,pulled,structure};
 }
@@ -220,13 +233,33 @@ async function pullParentLinks(schoolId: string): Promise<number> {
   return applied;
 }
 
-export async function pullChanges(schoolId: string, deviceId: string): Promise<number> {
-  const client=requireSupabase(); const key=`${schoolId}:${deviceId}`; const state=await db.syncState.get(key); const after=state?.lastPullRevision ?? 0;
+/**
+ * Every change this account has not seen yet.
+ *
+ * The server caps a page, so one call means "up to 500 changes newer", not "up to date". An account
+ * replaying the journal from the beginning — which the first sync of every account on a shared
+ * device now is — has more than one page to fetch, and stopping after the first left half a roster
+ * on screen until the next timer tick.
+ */
+export async function pullChanges(schoolId: string, deviceId: string, profileId: string): Promise<number> {
+  const key = syncCursorKey(schoolId, deviceId, profileId);
+  let applied = 0;
+  for (let page = 0; page < 100; page += 1) {
+    const before = (await db.syncState.get(key))?.lastPullRevision ?? 0;
+    applied += await pullPage(schoolId, deviceId, profileId, before);
+    const reached = (await db.syncState.get(key))?.lastPullRevision ?? 0;
+    if (reached <= before) break;
+  }
+  return applied;
+}
+
+async function pullPage(schoolId: string, deviceId: string, profileId: string, after: number): Promise<number> {
+  const client=requireSupabase(); const key=syncCursorKey(schoolId,deviceId,profileId);
   const {data,error}=await client.rpc('sync_pull',{p_school_id:schoolId,p_after_revision:after,p_limit:500}); if(error) throw error;
   const response=data as unknown as PullResponse; if(response.minimumSupportedProtocol>SYNC_PROTOCOL_VERSION) throw new Error('CLIENT_UPDATE_REQUIRED');
   let applied=0;
   for(const change of response.changes){const cloud=cloudTables[change.entityType];const local=localTables[change.entityType];if(!cloud||!local)continue;const table=db.table<Record<string,unknown>,string>(local);if(change.operation==='delete'){const existing=await table.get(change.entityId);if(existing)await table.put({...existing,deletedAt:new Date().toISOString(),version:change.version,id:change.entityId});applied+=1;continue;}const {data:rows,error:readError}=await client.from(cloud).select('*').eq('id',change.entityId).limit(1);if(readError)throw readError;if(rows?.[0]){const current=await table.get(change.entityId);await table.put(mergeLocal(current,fromCloud(rows[0] as Record<string,unknown>)));applied+=1;}}
-  await db.syncState.put({key,deviceId,schoolId,lastPullRevision:response.nextRevision,lastSuccessfulSyncAt:new Date().toISOString(),localSchemaVersion:LOCAL_SCHEMA_VERSION,syncProtocolVersion:SYNC_PROTOCOL_VERSION}); return applied;
+  await db.syncState.put({key,deviceId,profileId,schoolId,lastPullRevision:response.nextRevision,lastSuccessfulSyncAt:new Date().toISOString(),localSchemaVersion:LOCAL_SCHEMA_VERSION,syncProtocolVersion:SYNC_PROTOCOL_VERSION}); return applied;
 }
 
 async function reschedule(item: SyncQueueItem, error: string) { const attemptCount = item.attemptCount + 1; await db.syncQueue.update(item.queueId, { attemptCount, lastError: error, nextRetryAt: new Date(Date.now() + nextRetryDelay(attemptCount)).toISOString() }); }

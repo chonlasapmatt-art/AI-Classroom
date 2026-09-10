@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { db } from '../db/database';
-import { registerAndSync } from './engine';
+import { registerAndSync, syncCursorKey } from './engine';
 import { registerUpdatePreparation } from '../app/appUpdate';
 import { recall, remember } from '../app/deviceMemory';
 
@@ -42,7 +42,7 @@ function deviceType(): 'board' | 'desktop' | 'tablet' | 'mobile' {
  * again whenever the connection comes back, and quietly on a timer. Work is never lost while
  * offline — it stays in the queue — so a failure here only delays delivery, it does not drop it.
  */
-export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatus {
+export function useBackgroundSync(schoolId: string, profileId: string, enabled: boolean): SyncStatus {
   const [phase, setPhase] = useState<SyncPhase>(navigator.onLine ? 'idle' : 'offline');
   const [detail, setDetail] = useState('');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
     const task = (async () => {
       setPhase('syncing');
       try {
-        const result = await registerAndSync(schoolId, deviceId(), navigator.userAgent.slice(0, 80), deviceType());
+        const result = await registerAndSync(schoolId, deviceId(), navigator.userAgent.slice(0, 80), deviceType(), profileId);
         setLastSyncedAt(new Date().toISOString());
         if (result.blocked > 0) {
           setPhase('attention');
@@ -91,11 +91,11 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
       if (activeSync.current === task) activeSync.current = null;
     }).catch(() => undefined);
     return task;
-  }, [enabled, schoolId]);
+  }, [enabled, profileId, schoolId]);
 
   useEffect(() => {
     if (!enabled) return;
-    void db.syncState.get(`${schoolId}:${deviceId()}`).then((state) => {
+    void db.syncState.get(syncCursorKey(schoolId, deviceId(), profileId)).then((state) => {
       if (state?.lastSuccessfulSyncAt) setLastSyncedAt(state.lastSuccessfulSyncAt);
     }).catch(() => undefined);
     void syncNow();
@@ -146,7 +146,7 @@ export function useBackgroundSync(schoolId: string, enabled: boolean): SyncStatu
       window.removeEventListener('pageshow', pageShow);
       window.removeEventListener('pagehide', pageHide);
     };
-  }, [enabled, schoolId, syncNow]);
+  }, [enabled, profileId, schoolId, syncNow]);
 
   useEffect(() => {
     if (!enabled) return;

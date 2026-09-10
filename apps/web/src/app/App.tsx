@@ -208,7 +208,7 @@ function CloudRoutes() {
       <Route path="/*" element={(
         <SessionProvider value={session}>
           <RepositoryProvider repository={repository}>
-            <SyncedShell schoolId={schoolId} />
+            <SyncedShell schoolId={schoolId} profileId={active?.profileId ?? ''} />
           </RepositoryProvider>
         </SessionProvider>
       )} />
@@ -236,9 +236,15 @@ export function PublicHome() {
   return <WelcomePage />;
 }
 
-/** Keeps the device in step with the server for as long as a cloud session is on screen. */
-function SyncedShell({ schoolId }: { schoolId: string }) {
-  const status = useBackgroundSync(schoolId, Boolean(schoolId));
+/**
+ * Keeps the device in step with the server for as long as a cloud session is on screen.
+ *
+ * The account is part of that, not just the school: several people sign in on one classroom
+ * machine, and each of them has their own place in the journal to keep. The profile passed here is
+ * the real signed-in principal — a support view changes whose data is shown, never who is reading.
+ */
+function SyncedShell({ schoolId, profileId }: { schoolId: string; profileId: string }) {
+  const status = useBackgroundSync(schoolId, profileId, Boolean(schoolId && profileId));
   return <SyncStatusProvider value={status}><AppRoutes /></SyncStatusProvider>;
 }
 

@@ -162,7 +162,7 @@ export interface SyncQueueItem {
   createdAt: string;
 }
 
-export interface SyncState { key: string; deviceId: string; schoolId: string; lastPullRevision: number; lastSuccessfulSyncAt: string | null; localSchemaVersion: number; syncProtocolVersion: number; }
+export interface SyncState { key: string; deviceId: string; profileId: string; schoolId: string; lastPullRevision: number; lastSuccessfulSyncAt: string | null; localSchemaVersion: number; syncProtocolVersion: number; }
 export interface LocalSessionMetadata { profileId: string; schoolId: string; displayName: string; role: Role; pinSalt: string | null; pinVerifier: string | null; trustedUntil: string | null; lastOnlineValidationAt: string; }
 export interface DeviceMetadata { deviceId: string; schoolId: string; deviceName: string; deviceType: 'board' | 'desktop' | 'tablet' | 'mobile'; status: 'active' | 'revoked'; }
 
