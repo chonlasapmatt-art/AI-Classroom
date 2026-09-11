@@ -10,7 +10,7 @@ import {
 import { subjectIconForName } from '../../data/subjectIconMatch';
 import { SubjectIcon } from './SubjectIcon';
 import type { Subject } from '../../domain/types';
-import { Badge, Button, Card, CardHeader, EmptyState, Field, FieldGroup, LinkButton, PageHeader } from '../../ui/components';
+import { Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, Field, FieldGroup, LinkButton, PageHeader } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
 
@@ -20,6 +20,7 @@ export function SubjectsPage() {
   const snapshot = useSchoolSnapshot();
   const [editing, setEditing] = useState<Subject | null>(null);
   const [openForm, setOpenForm] = useState(false);
+  const [removing, setRemoving] = useState<Subject | null>(null);
   const { toast } = useToast();
 
   // The two choices a person makes by looking rather than by reading. They are held here rather
@@ -116,6 +117,35 @@ export function SubjectsPage() {
     return snapshot.assignments.filter((item) => item.subjectId === subjectId).length
       + snapshot.activities.filter((item) => item.subjectId === subjectId).length
       + snapshot.tests.filter((item) => item.subjectId === subjectId).length;
+  }
+
+  /**
+   * Everything a delete would have to take with it, counted before it is offered.
+   *
+   * The work, the marks and the registers are the reason a delete is refused: a subject is the
+   * label on every score recorded under it, and removing the label leaves a child's marks reading
+   * as nothing. The periods and the staff link are not records of anything that happened — they are
+   * statements about a subject that is about to stop existing — so they go with it, and the dialog
+   * says how many rather than making somebody find out afterwards.
+   */
+  function removalCost(subjectId: string) {
+    return {
+      records: countFor(subjectId)
+        + snapshot.scoreEvents.filter((item) => item.subjectId === subjectId).length
+        + snapshot.attendance.filter((item) => item.subjectId === subjectId).length,
+      slots: snapshot.timetable.filter((item) => item.subjectId === subjectId && item.status === 'active').length
+    };
+  }
+
+  async function removeSubject(subject: Subject) {
+    try {
+      await repository.deleteSubject(subject.id);
+      toast(`ลบ ${subject.name} ออกจากรายวิชาแล้ว`, { tone: 'success' });
+    } catch (reason) {
+      toast(reason instanceof Error ? reason.message : 'ลบรายวิชาไม่สำเร็จ', { tone: 'error' });
+    } finally {
+      setRemoving(null);
+    }
   }
 
   return (
@@ -315,6 +345,17 @@ export function SubjectsPage() {
                       {subject.status === 'active' && (
                         <Button variant="ghost" size="sm" onClick={() => void repository.archiveSubject(subject.id)}>เก็บถาวร</Button>
                       )}
+                      {/* Delete is for the subject created by mistake; archive is for the one with a
+                          history. So the button says which of the two this subject is before it is
+                          pressed, rather than letting the press find out. */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<Icon name="trash" size={14} />}
+                        onClick={() => setRemoving(subject)}
+                      >
+                        ลบ
+                      </Button>
                     </>
                   )}
                 </div>
@@ -323,6 +364,33 @@ export function SubjectsPage() {
           })}
         </section>
       )}
+
+      {removing && (() => {
+        const cost = removalCost(removing.id);
+        const blocked = cost.records > 0;
+        return (
+          <ConfirmDialog
+            tone={blocked ? 'warning' : 'danger'}
+            title={blocked ? `ลบ ${removing.name} ไม่ได้` : `ลบ ${removing.name} ออกจากรายวิชา?`}
+            description={blocked
+              ? `วิชานี้มีข้อมูลการเรียนอยู่ ${cost.records} รายการ (งาน กิจกรรม ข้อสอบ คะแนน และการเช็กชื่อ) · ถ้าลบ คะแนนของนักเรียนจะไม่เหลือชื่อวิชากำกับ · ใช้ "เก็บถาวร" แทน วิชาจะหายจากรายการที่เปิดสอนแต่ประวัติยังอยู่ครบ`
+              : [
+                'วิชานี้ยังไม่มีงาน คะแนน หรือการเช็กชื่อผูกอยู่ จึงลบออกได้',
+                cost.slots > 0 ? `คาบในตารางสอน ${cost.slots} คาบที่เป็นวิชานี้จะถูกลบไปด้วย` : null,
+                'ครูที่กำหนดให้ดูแลวิชานี้จะถูกปลดออกจากวิชา'
+              ].filter(Boolean).join(' · ')}
+            confirmLabel={blocked ? 'เก็บถาวรแทน' : 'ลบรายวิชา'}
+            cancelLabel={blocked ? 'ปิด' : 'ยกเลิก'}
+            onCancel={() => setRemoving(null)}
+            onConfirm={() => {
+              // The refusal still offers the move that works, because "you cannot do this" with no
+              // second door is how somebody deletes the records instead to get their way.
+              if (blocked) { void repository.archiveSubject(removing.id); setRemoving(null); return; }
+              void removeSubject(removing);
+            }}
+          />
+        );
+      })()}
     </>
   );
 }
