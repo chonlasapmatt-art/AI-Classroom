@@ -100,7 +100,69 @@ describe('the top bar', () => {
   it('states the role rather than leaving it to be inferred from the buttons on screen', async () => {
     renderApp();
     await enterPreview();
-    expect(document.querySelector('.topbar-role')?.textContent?.trim().length ?? 0).toBeGreaterThan(0);
+    /*
+     * The role used to be a chip of its own beside a 34px avatar link. It is inside the profile card
+     * now — the same card as the one at the foot of the menu — so the assertion follows it there
+     * rather than checking that a particular element still exists.
+     */
+    const card = document.querySelector('.topbar-profile');
+    expect(card).not.toBeNull();
+    expect(card?.querySelector('.topbar-profile-text > span')?.textContent?.trim().length ?? 0)
+      .toBeGreaterThan(0);
+  });
+
+  /*
+   * One door onto the profile, and it is the thing that looks like one.
+   *
+   * There were two: a menu row called "โปรไฟล์ของฉัน", and a card below it showing the person's
+   * avatar, name and role that did nothing at all when pressed. The row is gone and the card is the
+   * control, in the menu and on the bar, with the same name in both places.
+   */
+  it('makes the profile card the way into the profile, in every layout that has one', async () => {
+    renderApp();
+    await enterPreview();
+
+    const cards = screen.getAllByRole('button', { name: /^เปิดโปรไฟล์ของ / });
+    // The menu's and the bar's, and nothing else claiming to be one.
+    expect(cards.length).toBe(2);
+    for (const card of cards) {
+      // A button, so Enter and Space both activate it without a handler of their own.
+      expect(card.tagName).toBe('BUTTON');
+      // The name is the loud half and the role is the caption, which is what stops the two reading
+      // as one address.
+      expect(card.querySelector('strong')?.textContent?.trim().length ?? 0).toBeGreaterThan(0);
+    }
+
+    // And no second door left behind in the menu.
+    const menu = within(screen.getByRole('navigation', { name: 'เมนูหลัก' }));
+    expect(menu.queryByRole('link', { name: /โปรไฟล์ของฉัน/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps leaving separate from looking at your own profile', async () => {
+    renderApp();
+    await enterPreview();
+
+    /*
+     * The two controls sit beside each other in the menu and on the bar, and one of them signs you
+     * out. They must never be the same target, and the card must never be able to trigger the other:
+     * a mis-tap at the foot of a menu is somebody losing the work they had open.
+     */
+    const cards = screen.getAllByRole('button', { name: /^เปิดโปรไฟล์ของ / });
+    for (const card of cards) {
+      expect(within(card).queryByRole('button')).toBeNull();
+      expect(card.textContent ?? '').not.toContain('ออกจาก');
+    }
+
+    const leaving = screen.getAllByRole('button', { name: /^ออกจาก(ระบบ|โหมดตัวอย่าง)$/ });
+    expect(leaving.length).toBeGreaterThan(0);
+    for (const button of leaving) {
+      expect(cards.some((card) => card.contains(button))).toBe(false);
+    }
+
+    // Pressing the card opens the profile. It does not ask whether you meant to leave.
+    fireEvent.click(cards[0]!);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('โปรไฟล์'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
 

@@ -25,7 +25,15 @@ export interface NavGroup { key: string; label: string; items: NavItem[] }
  */
 export const destination = (to: string, label: string, icon: IconName): NavItem => ({ to, label, icon });
 
-/** The same destination, held by the role but reached from a screen rather than from the menu. */
+/**
+ * The same destination, held by the role but reached from a screen rather than from the menu.
+ *
+ * `/profile` is one of these now. It used to be a row in every role's menu called "โปรไฟล์ของฉัน",
+ * sitting a few centimetres below the card at the foot of the sidebar that already showed the
+ * person's avatar, their name and their role — two doors onto the same screen, one of them looking
+ * exactly like the thing it leads to and not being pressable. The card is the door; the row was the
+ * duplicate, and the route is still granted from here.
+ */
 export const reachedElsewhere = (to: string, label: string, icon: IconName): NavItem =>
   ({ to, label, icon, hidden: true });
 
@@ -111,7 +119,7 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     ] },
     { key: 'account', label: 'ตั้งค่า', items: [
       destination('/settings', 'ตั้งค่า', 'settings'),
-      destination('/profile', 'โปรไฟล์ของฉัน', 'profile')
+      reachedElsewhere('/profile', 'โปรไฟล์ของฉัน', 'profile')
     ] }
   ],
   teacher: [
@@ -168,9 +176,9 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     { key: 'operations', label: 'Sync', items: [
       destination('/operations', 'สถานะ Sync', 'operations')
     ] },
-    { key: 'account', label: 'โปรไฟล์', items: [
+    { key: 'account', label: 'ตั้งค่า', items: [
       destination('/settings', 'ตั้งค่า', 'settings'),
-      destination('/profile', 'โปรไฟล์ของฉัน', 'profile')
+      reachedElsewhere('/profile', 'โปรไฟล์ของฉัน', 'profile')
     ] }
   ],
   student: [
@@ -218,8 +226,8 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       destination('/students', 'เพื่อนร่วมชั้น', 'students'),
       destination('/subjects', 'รายวิชาและบทเรียน', 'subjects')
     ] },
-    { key: 'account', label: 'โปรไฟล์', items: [
-      destination('/profile', 'โปรไฟล์ของฉัน', 'profile'),
+    { key: 'account', label: 'ตั้งค่า', items: [
+      reachedElsewhere('/profile', 'โปรไฟล์ของฉัน', 'profile'),
       destination('/settings', 'ตั้งค่า', 'settings')
     ] }
   ],
@@ -238,8 +246,8 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     // No `/parents` entry here. For a guardian that screen only redirects to `/my-children`, so it
     // was a second door onto a page the menu already names — and the two sat under headings that
     // read as different places.
-    { key: 'account', label: 'โปรไฟล์', items: [
-      destination('/profile', 'โปรไฟล์ของฉัน', 'profile'),
+    { key: 'account', label: 'ตั้งค่า', items: [
+      reachedElsewhere('/profile', 'โปรไฟล์ของฉัน', 'profile'),
       destination('/settings', 'ตั้งค่า', 'settings')
     ] }
   ]

@@ -21,6 +21,17 @@ afterEach(() => { cleanup(); disablePreviewMode(); resetFixtureRepository(); });
  */
 const mainMenu = () => within(screen.getByRole('navigation', { name: 'เมนูหลัก' }));
 
+/**
+ * The way onto the profile screen, which is now the card rather than a menu row.
+ *
+ * There were two doors: a row in the menu called "โปรไฟล์ของฉัน", and — a few centimetres below it —
+ * a card showing the person's avatar, their name and their role, which did nothing when pressed.
+ * People pressed the card. The card is the control now and the row is gone, so these tests press
+ * what a person presses.
+ */
+const profileCards = () => screen.getAllByRole('button', { name: /^เปิดโปรไฟล์ของ / });
+const openOwnProfile = () => fireEvent.click(profileCards()[0]!);
+
 function renderApp(path = '/') {
   enablePreviewMode();
   return render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>);
@@ -108,7 +119,7 @@ describe('application shell and routes', () => {
   it('lets a student open the avatar picker from their own profile', async () => {
     renderApp();
     await switchRole('preview-student');
-    fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    openOwnProfile();
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('โปรไฟล์'));
 
     fireEvent.click(screen.getByRole('button', { name: 'เปลี่ยน Avatar' }));
@@ -142,7 +153,7 @@ describe('application shell and routes', () => {
   it('lets somebody try a pose before they commit to an avatar', async () => {
     renderApp();
     await switchRole('preview-student');
-    fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    openOwnProfile();
     fireEvent.click(await screen.findByRole('button', { name: 'เปลี่ยน Avatar' }));
     const dialog = await screen.findByRole('dialog');
 
@@ -157,7 +168,7 @@ describe('application shell and routes', () => {
   it('walks the avatar gallery with the arrow keys instead of a tab stop per avatar', async () => {
     renderApp();
     await switchRole('preview-student');
-    fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    openOwnProfile();
     fireEvent.click(await screen.findByRole('button', { name: 'เปลี่ยน Avatar' }));
     const dialog = await screen.findByRole('dialog');
     // The figures grid, which is what the picker now opens on.
@@ -198,7 +209,7 @@ describe('application shell and routes', () => {
      */
     renderApp();
     await switchRole('preview-student');
-    fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    openOwnProfile();
     fireEvent.click(await screen.findByRole('button', { name: 'เปลี่ยน Avatar' }));
     const dialog = await screen.findByRole('dialog');
 
@@ -267,7 +278,7 @@ describe('application shell and routes', () => {
   it.each(['preview-admin', 'preview-teacher', 'preview-parent'])('lets %s customise an avatar', async (membershipId) => {
     renderApp();
     await switchRole(membershipId);
-    fireEvent.click(await mainMenu().findByRole('link', { name: /โปรไฟล์ของฉัน/ }));
+    openOwnProfile();
     await waitFor(() => expect(screen.getByRole('button', { name: 'เปลี่ยน Avatar' })).toBeInTheDocument());
   });
 

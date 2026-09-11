@@ -166,6 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
   const snapshot = useSchoolSnapshot();
   const location = useLocation();
+  const navigate = useNavigate();
   const sync = useSyncStatus();
   const [open, setOpen] = useState(false);
   /*
@@ -201,6 +202,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Preview leaves a demonstration, not an account, and saying so is what keeps the two apart.
   const previewing = session.mode === 'preview';
   const signOutLabel = previewing ? 'ออกจากโหมดตัวอย่าง' : 'ออกจากระบบ';
+  /*
+   * One sentence for every copy of the card.
+   *
+   * The card carries a picture, a name and a role, which a screen reader reads as three unrelated
+   * things sitting inside a button. Naming the button says what pressing it does, and saying it
+   * once means the sidebar and the top bar cannot drift into describing the same control
+   * differently — which is how the same action ends up with two names in the same product.
+   */
+  const profileLabel = `เปิดโปรไฟล์ของ ${membership.displayName} · ${roleLabels[membership.role]}`;
   const classroomActivity = membership.role === 'teacher'
     ? feedbackFeed(snapshot, { role: membership.role, profileId: membership.profileId }).length
     : 0;
@@ -308,9 +318,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       student: ['/', '/assignments', '/scores', '/notifications', '/profile'],
       parent: ['/', '/my-children', '/attendance', '/announcements', '/profile']
     };
-    const available = new Map(visibleGroups.flatMap((group) => group.items.map((item) => [item.to, item])));
+    /*
+     * Read from the role's whole list rather than from the visible menu.
+     *
+     * `/profile` is no longer a menu row — the card at the foot of the sidebar is the way in — and
+     * `visibleGroups` drops hidden entries, so taking the bar's five from there would have taken a
+     * student's and a guardian's profile off the bottom of their phone along with it. The bar names
+     * its five by hand; what it needs from the navigation is the label and the icon, not permission.
+     */
+    const available = new Map(navigationByRole[membership.role]
+      .flatMap((group) => group.items.map((item) => [item.to, item] as const)));
     return wanted[membership.role].map((to) => available.get(to)).filter((item): item is NavItem => Boolean(item));
-  }, [membership.role, visibleGroups]);
+  }, [membership.role]);
 
   function toggleGroup(key: string) {
     setExpandedGroups((current) => {
@@ -431,10 +450,32 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </nav>
         <div className="sidebar-user">
-          <div className="sidebar-user-identity">
+          {/*
+            * The card is the door.
+            *
+            * It showed the avatar, the name and the role and did nothing when pressed, while a menu
+            * row three centimetres above it called "โปรไฟล์ของฉัน" opened the screen the card was a
+            * picture of. People pressed the card. Now the card is the control and the row is gone —
+            * a button rather than a link, because it sits beside another button and because Enter
+            * and Space both have to work on it, which is free on a button and a special case on
+            * anything else.
+            */}
+          <button
+            type="button"
+            className="sidebar-profile"
+            onClick={() => { setOpen(false); navigate('/profile'); }}
+            aria-label={profileLabel}
+          >
             <ProfileAvatar displayName={membership.displayName} avatarId={visibleAvatarId} avatarPhotoId={ownAvatarPhotoId} size={40} />
-            <div><strong>{membership.displayName}</strong><span>{roleLabels[membership.role]}</span></div>
-          </div>
+            <span className="sidebar-profile-text">
+              <strong>{membership.displayName}</strong>
+              <span>{roleLabels[membership.role]}</span>
+            </span>
+          </button>
+          {/* A rule, not only a gap. The two controls here are "look at my profile" and "leave", and
+              at the foot of a menu where everything is the same width they read as one stack of
+              rows unless something says otherwise before the press rather than after it. */}
+          <span className="sidebar-user-split" aria-hidden="true" />
           {/* Icon and words, not a glyph on its own: an icon-only control at the foot of a menu is
               the one people ask where to find. In the rail the words are dropped by CSS and the
               title takes over, which is the only width where there is no room for them. */}
@@ -512,16 +553,35 @@ export function AppShell({ children }: { children: ReactNode }) {
               and a teacher see different products; saying which one this is prevents the support
               call that starts "the button isn't there". */}
           <div className="topbar-identity">
-            <span className="topbar-role">{roleLabels[membership.role]}</span>
-            <NavLink to="/profile" className="topbar-avatar" aria-label={`โปรไฟล์ของ ${membership.displayName}`}>
+            {/*
+              * The same card as the sidebar's, at the size a bar has room for.
+              *
+              * The role used to be a chip beside the avatar and the avatar was the only part that
+              * could be pressed, so the thing that looked like a person's identity was three
+              * elements of which one was a 34px target. It is one control now, with the same words
+              * and the same destination as the card at the foot of the menu — the text drops below
+              * the drawer breakpoint, where the bar has no room for it and the label carries the
+              * name instead.
+              */}
+            <button
+              type="button"
+              className="topbar-profile"
+              onClick={() => navigate('/profile')}
+              aria-label={profileLabel}
+              title={profileLabel}
+            >
               <ProfileAvatar
                 displayName={membership.displayName} avatarId={visibleAvatarId}
                 avatarPhotoId={ownAvatarPhotoId} size={34}
               />
-            </NavLink>
+              <span className="topbar-profile-text">
+                <strong>{membership.displayName}</strong>
+                <span>{roleLabels[membership.role]}</span>
+              </span>
+            </button>
             {/* The same action, on the bar, because on a phone the menu is a drawer nobody opens:
                 the bottom bar is the navigation there, and leaving was the one thing that still
-                required the drawer. Last in the row and hard-separated from the avatar beside it,
+                required the drawer. Last in the row and hard-separated from the card beside it,
                 so a destructive control never sits inside the run of ordinary ones. */}
             <button
               type="button"
