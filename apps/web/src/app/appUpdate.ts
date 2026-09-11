@@ -117,6 +117,65 @@ export function markUpdateApplied(): void {
   try { window.localStorage.setItem(UPDATE_APPLIED_KEY, new Date().toISOString()); } catch { /* best effort only */ }
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * "ภายหลัง"
+ *
+ * Pressing it used to mean "never on this tab": the banner cleared the flag that said an update was
+ * waiting, and nothing brought it back until the page was loaded again. On a classroom tablet that
+ * is never reloaded, a single press postponed the update indefinitely — the same silence as having
+ * no update at all, except the device was now two builds behind.
+ *
+ * So postponing is a time rather than a decision. The prompt comes back on its own, between two and
+ * three hours later, with exactly the same wording; nothing reloads in the meantime.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const UPDATE_SNOOZE_MIN_MS = 2 * 60 * 60 * 1000;
+export const UPDATE_SNOOZE_MAX_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * How long this particular postponement lasts.
+ *
+ * Spread across the hour rather than fixed, so a staff room that dismissed the same banner in the
+ * same minute is not interrupted again in the same minute. `random` is a parameter so a test can
+ * pin it; it is not a decision anybody should be able to see.
+ */
+export function nextSnoozeMs(random: () => number = Math.random): number {
+  const spread = UPDATE_SNOOZE_MAX_MS - UPDATE_SNOOZE_MIN_MS;
+  return UPDATE_SNOOZE_MIN_MS + Math.floor(Math.min(Math.max(random(), 0), 1) * spread);
+}
+
+const SNOOZE_KEY = 'smart-classroom-update-snoozed-until';
+
+/** Puts the prompt away until a moment between two and three hours from now. */
+export function snoozeUpdate(now = Date.now(), durationMs = nextSnoozeMs()): string {
+  const until = new Date(now + durationMs).toISOString();
+  try { window.localStorage.setItem(SNOOZE_KEY, until); } catch { /* best effort only */ }
+  return until;
+}
+
+export function readSnoozedUntil(): string | null {
+  try { return window.localStorage.getItem(SNOOZE_KEY); } catch { return null; }
+}
+
+export function clearUpdateSnooze(): void {
+  try { window.localStorage.removeItem(SNOOZE_KEY); } catch { /* best effort only */ }
+}
+
+/**
+ * How much of a postponement is left, in milliseconds. Zero means ask now.
+ *
+ * Clamped to the maximum at the top end, which is not defensiveness for its own sake: the stored
+ * value is an absolute time, and a device whose clock is wrong — a tablet that lost its battery and
+ * came back in 2035 — would otherwise write a timestamp that silences the update prompt for a
+ * decade. Three hours is the longest this is ever allowed to mean.
+ */
+export function snoozeRemainingMs(snoozedUntil: string | null, now = Date.now()): number {
+  if (!snoozedUntil) return 0;
+  const until = Date.parse(snoozedUntil);
+  if (Number.isNaN(until)) return 0;
+  return Math.min(Math.max(until - now, 0), UPDATE_SNOOZE_MAX_MS);
+}
+
 /** Reads the flag and clears it, so an update is reported once rather than on every load after it. */
 export function takeUpdateApplied(): boolean {
   try {

@@ -16,7 +16,8 @@ import './design-system/screens.css';
 // Before the first render, so nobody sees a light frame on the way to a dark one.
 applyStoredTheme();
 
-// And before anything can ask for a file the build that just took over no longer has.
+// Watches for the one failure a mid-session handover can cause. It no longer reloads on the
+// handover itself — the update card asks, and nothing restarts the app without being pressed.
 reloadOnWorkerHandover();
 
 createRoot(document.getElementById('root')!).render(

@@ -4,9 +4,11 @@ import { UpdateMark } from './UpdateMark';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db } from '../db/database';
 import {
-  APP_VERSION, fetchIncomingRelease, markUpdateApplied, prepareForUpdate, readLastCheckedAt,
-  shouldRequestUpdate, UPDATE_CHECK_INTERVAL_MS, updateCopy, updateKindFor, writeLastCheckedAt
+  APP_VERSION, clearUpdateSnooze, fetchIncomingRelease, markUpdateApplied, prepareForUpdate,
+  readLastCheckedAt, readSnoozedUntil, shouldRequestUpdate, snoozeRemainingMs, snoozeUpdate,
+  UPDATE_CHECK_INTERVAL_MS, updateCopy, updateKindFor, writeLastCheckedAt
 } from './appUpdate';
+import { clearChunkRecovery } from './swHandover';
 import { changesIn, notesBetween } from './releaseNotes';
 import type { ReleaseNote } from './releaseNotes';
 
@@ -15,9 +17,16 @@ import type { ReleaseNote } from './releaseNotes';
  *
  * A classroom device may stay open all day, so the tab re-checks on an interval, when the browser
  * comes back online, and whenever the tab becomes visible again — but it never reloads by itself.
+ * Nothing here restarts the app: the reload happens inside `applyUpdateSafely`, and nowhere else.
+ *
+ * "ภายหลัง" is a postponement rather than a refusal. It used to clear the flag that said an update
+ * was waiting, so on a tablet that is never reloaded one press meant never — the device stayed on
+ * an old build with nothing left to tell it so. Now it stores a time between two and three hours
+ * away and the same banner comes back by itself, without a reload in between.
  */
 export function UpdatePrompt() {
   const [dismissed, setDismissed] = useState(false);
+  const [snoozedUntil, setSnoozedUntil] = useState<string | null>(() => readSnoozedUntil());
   const [preparing, setPreparing] = useState(false);
   const [preparationError, setPreparationError] = useState<string | null>(null);
   const [incomingVersion, setIncomingVersion] = useState<string | null>(null);
@@ -46,7 +55,8 @@ export function UpdatePrompt() {
 
   const {
     offlineReady: [offlineReady, setOfflineReady],
-    needRefresh: [needRefresh, setNeedRefresh],
+    // The setter is deliberately not taken: nothing here clears the fact that an update is waiting.
+    needRefresh: [needRefresh],
     updateServiceWorker
   } = useRegisterSW({
     onRegisteredSW(_url, registration) {
@@ -113,9 +123,35 @@ export function UpdatePrompt() {
   /** A newer build is on this device, whether it announced itself or simply took over. */
   const updateReady = needRefresh || handedOver;
 
+  /*
+   * The postponement, and what ends it.
+   *
+   * Three things can end one, and a classroom needs all three: the timer, for a tab left open; the
+   * page becoming visible again, because a sleeping tablet does not run its timers and would
+   * otherwise come back from lunch still holding a postponement that expired an hour ago; and the
+   * stored time simply having passed by the time this mounts, which is the case on every load.
+   */
   useEffect(() => {
     if (!updateReady) return;
-    setDismissed(false);
+    const wake = () => { clearUpdateSnooze(); setSnoozedUntil(null); setDismissed(false); };
+    const remaining = snoozeRemainingMs(snoozedUntil);
+    if (remaining <= 0) { wake(); return; }
+
+    setDismissed(true);
+    const timer = window.setTimeout(wake, remaining);
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (snoozeRemainingMs(snoozedUntil) <= 0) wake();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [updateReady, snoozedUntil]);
+
+  useEffect(() => {
+    if (!updateReady) return;
     setPreparationError(null);
     let active = true;
     void fetchIncomingRelease().then((release) => {
@@ -163,6 +199,10 @@ export function UpdatePrompt() {
         setPreparationError(result.message);
       }
       markUpdateApplied();
+      // This reload was asked for, so it spends neither the postponement nor the one recovery
+      // reload a session is allowed.
+      clearUpdateSnooze();
+      clearChunkRecovery();
       await updateServiceWorker(true);
 
       /*
@@ -222,7 +262,15 @@ export function UpdatePrompt() {
           <Button
             variant="ghost"
             disabled={preparing}
-            onClick={() => { setNeedRefresh(false); setHandedOver(false); setDismissed(true); }}
+            /*
+             * `needRefresh` stays true on purpose.
+             *
+             * Clearing it was how this used to hide the banner, and it threw away the only record
+             * that an update was waiting — so nothing could bring the banner back without a reload,
+             * which is the one thing a classroom tablet never gets. Postponing is now a stored time
+             * and the flag is left alone.
+             */
+            onClick={() => { setSnoozedUntil(snoozeUpdate()); setDismissed(true); }}
           >
             ภายหลัง
           </Button>
