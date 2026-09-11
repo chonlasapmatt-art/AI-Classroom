@@ -17,7 +17,10 @@ import { avatarOutfits, canWearOutfit, defaultOutfit, outfitPrice } from './avat
 import { avatarPalettes, skinTones } from './avatarThemes';
 import { FullBodyAvatar } from './FullBodyAvatar';
 import { avatarDirections, directionLabels, directionRig, type AvatarDirection } from './avatarDirection';
-import { archetypeForRace, bodyForCategory, fullBodyArchetypeList } from './avatarFullBody';
+import {
+  archetypeForRace, archetypeGroupLabels, archetypesInGroup, bodyForCategory,
+  fullBodyArchetypes, type ArchetypeGroup
+} from './avatarFullBody';
 import { figureSlotsFor } from './avatarFigureParts';
 import {
   AVATAR_FIGURE_COUNT, figureCategoryLabels, figureMatching, figurePieces, searchFigures,
@@ -168,6 +171,17 @@ export function AvatarDesigner({
   const [figureCategory, setFigureCategory] = useState<FigureCategory | 'all'>('all');
   const [pose, setPose] = useState<AvatarAnimation>('idle');
   const [direction, setDirection] = useState<AvatarDirection>('front');
+  /*
+   * Opens on the family the figure already belongs to.
+   *
+   * Editing a wolf and landing on the people tab is a reader having to find their way back to where
+   * they already were. Read once, at mount, rather than followed: after that the tab is theirs, and
+   * a tab that jumps when the figure changes is a tab that fights whoever is browsing.
+   */
+  const [bodyGroup, setBodyGroup] = useState<ArchetypeGroup>(() => {
+    const opened = currentConfig?.bodyArchetype;
+    return (opened && fullBodyArchetypes[opened]?.group) || 'humanoid';
+  });
   /*
    * Which of the two bodies the stage is showing.
    *
@@ -370,8 +384,29 @@ export function AvatarDesigner({
               * chosen here, written with the traits, and drawn on the profile the same way.
               */}
             <>
+                {/*
+                  * Forty-one figures, behind four families.
+                  *
+                  * Ten fitted in one row. Forty-one is a wall, and a wall of chips is a list nobody
+                  * reads to the end of — the ones at the bottom may as well not exist. The families
+                  * are the way a child already thinks about it: a person, an animal, something
+                  * magic, something mechanical.
+                  */}
+                <div className="designer-chips" role="group" aria-label="กลุ่มตัวละคร">
+                  {(Object.keys(archetypeGroupLabels) as ArchetypeGroup[]).map((group) => (
+                    <button
+                      key={group}
+                      type="button"
+                      className={`designer-catchip ${bodyGroup === group ? 'active' : ''}`}
+                      aria-pressed={bodyGroup === group}
+                      onClick={() => setBodyGroup(group)}
+                    >
+                      {archetypeGroupLabels[group]} ({archetypesInGroup(group).length})
+                    </button>
+                  ))}
+                </div>
                 <div className="designer-chips" role="group" aria-label="แบบตัวละคร">
-                  {fullBodyArchetypeList.map((option) => (
+                  {archetypesInGroup(bodyGroup).map((option) => (
                     <button
                       key={option.id}
                       type="button"

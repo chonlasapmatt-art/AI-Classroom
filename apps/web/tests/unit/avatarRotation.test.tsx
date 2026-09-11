@@ -135,6 +135,67 @@ describe('which way the figure is facing', () => {
     expect(bodySlotOrder.indexOf('hair_side')).toBeLessThan(bodySlotOrder.indexOf('hair_headwear'));
   });
 
+  it('gives every one of the forty-one a whole figure in every direction', () => {
+    /*
+     * A spec that forgets a slot is a figure with no legs, and it would show only in the one
+     * direction somebody happened to look at while writing it. Every costume, every direction, the
+     * four parts a pose has to be able to move.
+     */
+    for (const archetype of fullBodyArchetypeList) {
+      for (const direction of avatarDirections) {
+        const { container } = render(
+          <FullBodyAvatar archetype={archetype.id} direction={direction} />);
+        for (const part of ['head', 'torso', 'frontArm', 'backArm', 'legs']) {
+          expect(
+            container.querySelector(`[data-part="${part}"]`),
+            `${archetype.id} facing ${direction} has no ${part}`
+          ).not.toBeNull();
+        }
+        cleanup();
+      }
+    }
+  });
+
+  it('differs from its neighbours in structure rather than in colour', () => {
+    /*
+     * The same rule `avatarIdentity.ts` enforces on a child's own build, applied to the set the
+     * product ships: an archetype that shares its body, its head, what is behind it and what it
+     * holds with another archetype is that one in a different palette, and a picker with two of
+     * those in it is a picker with a wasted row.
+     */
+    const anchorsOf = (id: string) => {
+      const { container } = render(<FullBodyAvatar archetype={id as never} />);
+      const slot = (name: string) => container.querySelector(`[data-slot="${name}"]`)?.innerHTML ?? '';
+      const anchors = [
+        slot('torso_body'),
+        slot('legs_feet'),
+        slot('headwear') + slot('hair_headwear'),
+        // The skull carries the ears and the snout, which for an animal *is* the silhouette: a dog
+        // and a cat in the same hoodie are told apart by the ears and the tail and by nothing else.
+        slot('head_neck'),
+        slot('back_gear'),
+        slot('front_arm_weapon')
+      ];
+      cleanup();
+      return anchors;
+    };
+
+    const all = fullBodyArchetypeList.map((archetype) => ({
+      id: archetype.id, anchors: anchorsOf(archetype.id)
+    }));
+    for (let left = 0; left < all.length; left += 1) {
+      for (let right = left + 1; right < all.length; right += 1) {
+        const shared = all[left]!.anchors.filter((value, index) => value === all[right]!.anchors[index]).length;
+        // At least two of the six must differ — the same "a re-roll moves two anchor groups" rule
+        // `avatarIdentity.ts` applies to a child's own build.
+        expect(
+          shared,
+          `${all[left]!.id} and ${all[right]!.id} share ${shared} of 6 structural anchors`
+        ).toBeLessThan(5);
+      }
+    }
+  });
+
   it('builds every costume for the direction it is being seen from', () => {
     // A stored object could only ever hold one direction, which is why the costume is a function of
     // the rig rather than a table of elements.

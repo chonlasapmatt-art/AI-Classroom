@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { FullBodyAvatar } from '../../src/features/avatars/FullBodyAvatar';
 import { directionRig } from '../../src/features/avatars/avatarDirection';
 import {
-  bodyForCategory, bodySlotOrder, fullBodyArchetypeList, fullBodyArchetypes, overlayForPose, FULL_BODY_GRID
+  archetypeGroupLabels, archetypesInGroup, bodyForCategory, bodySlotOrder, fullBodyArchetypeList,
+  fullBodyArchetypes, overlayForPose, FULL_BODY_GRID
 } from '../../src/features/avatars/avatarFullBody';
 
 afterEach(cleanup);
@@ -242,14 +243,37 @@ describe('the poses', () => {
  * face with light in it — and the small motions that stop a still figure reading as a mannequin.
  */
 describe('the figures a child chooses between', () => {
-  it('offers ten figures, and gives each of them its own silhouette', () => {
-    expect(fullBodyArchetypeList.length).toBe(10);
+  it('offers forty-one figures in four families, and gives each of them its own silhouette', () => {
+    /*
+     * Ten was the whole set for as long as every costume was drawn by hand. Four families is what a
+     * child actually browses by — a person, an animal, something magic, something mechanical — and
+     * the count is checked per family because a set of forty-one that is thirty animals and two
+     * robots is not the set anybody asked for.
+     */
+    expect(fullBodyArchetypeList.length).toBe(41);
+    expect(archetypesInGroup('humanoid').length, 'people').toBe(10);
+    expect(archetypesInGroup('beast').length, 'animals').toBe(13);
+    expect(archetypesInGroup('fantasy').length, 'fantasy').toBe(11);
+    expect(archetypesInGroup('scifi').length, 'machines').toBe(7);
+    // And nothing is filed in two families or in none.
+    expect(new Set(fullBodyArchetypeList.map((archetype) => archetype.id)).size).toBe(41);
+    for (const archetype of fullBodyArchetypeList) {
+      expect(archetypeGroupLabels[archetype.group], archetype.id).toBeTruthy();
+    }
     const silhouettes = new Map<string, string>();
     for (const archetype of fullBodyArchetypeList) {
       const { container } = render(<FullBodyAvatar archetype={archetype.id} />);
-      // What is above the head and behind the body is the whole read from across a classroom.
+      /*
+       * What is above the head and behind the body is the whole read from across a classroom.
+       *
+       * `headwear` is in this list because it used to be *inside* `hair_headwear` and the pipeline
+       * split the two. Leaving it out after the split would have been a quiet loosening: a beret and
+       * a bare head are not the same silhouette, and without it the artist and the athlete — same
+       * shirt, same trainers, same hair — read as one figure to this check.
+       */
       const shape = [
         container.querySelector('[data-slot="hair_headwear"]')?.innerHTML ?? '',
+        container.querySelector('[data-slot="headwear"]')?.innerHTML ?? '',
         container.querySelector('[data-slot="back_gear"]')?.innerHTML ?? '',
         container.querySelector('[data-slot="torso_body"]')?.innerHTML ?? '',
         container.querySelector('[data-slot="legs_feet"]')?.innerHTML ?? ''

@@ -7,7 +7,8 @@ import {
 } from './avatarSprites';
 import {
   backArm, batWings, bodySlotOrder, brimHat, bushyTail, cape, catTail, demonHorns, demonTail,
-  earShape, faceFeatures, flameOrbs, flipperArm, frontArm, groundShadow, headShape, hornedHelm, legsSneakers,
+  backpack, earShape, faceFeatures, flameOrbs, flask, flipperArm, frontArm, groundShadow, headShape,
+  hornedHelm, jetpack, lantern, legsSneakers, openBook, palette,
   legsStanding, legsWebbed, robedLegs, scaledTail, shield, spellAura,
   staff, sword, torsoRound, torsoShirt,
   type BodySlot, type EarStyle, type SnoutStyle
@@ -342,16 +343,6 @@ function dragonWings(): ReactElement {
   );
 }
 
-function backpack(): ReactElement {
-  return (
-    <g data-part="back">
-      {px(31, 22, 6, 9, SECONDARY)}
-      {px(31, 22, 6, 1.5, SECONDARY_SHADOW)}
-      {px(32, 25, 4, 3, ACCENT)}
-      {px(29, 23, 2, 7, SECONDARY_SHADOW)}
-    </g>
-  );
-}
 
 function tome(): ReactElement {
   return (
@@ -375,17 +366,6 @@ function banner(): ReactElement {
   );
 }
 
-function jetpack(): ReactElement {
-  return (
-    <g data-part="back">
-      {px(30.5, 22, 6, 8, SECONDARY)}
-      {px(30.5, 22, 6, 1.5, WHITE)}
-      {px(32, 30, 3, 3, SECONDARY_SHADOW)}
-      <polygon points="32,33 35,33 33.5,38" fill={MAGIC} />
-      <polygon points="32.5,33 34.5,33 33.5,36" fill={MAGIC_HIGHLIGHT} />
-    </g>
-  );
-}
 
 function foxTails(): ReactElement {
   return (
@@ -418,16 +398,6 @@ const backGear: Record<string, () => ReactElement> = {
  * Front — what the near hand is holding
  * ──────────────────────────────────────────────────────────────────────────── */
 
-function flask(): ReactElement {
-  return (
-    <g>
-      {px(13, 27, 4, 2, WHITE)}
-      <polygon points="13.5,29 16.5,29 17.5,34 12.5,34" fill={WHITE} opacity="0.85" />
-      <polygon points="13.2,31 16.8,31 17.5,34 12.5,34" fill={MAGIC} />
-      {px(14, 25.5, 2, 1.5, SECONDARY)}
-    </g>
-  );
-}
 
 function laptop(): ReactElement {
   return (
@@ -450,29 +420,7 @@ function ball(): ReactElement {
   );
 }
 
-function palette(): ReactElement {
-  return (
-    <g>
-      <ellipse cx="12.5" cy="30" rx="4.5" ry="3.5" fill={WHITE} />
-      <circle cx="10.5" cy="29" r="1" fill={ACCENT} />
-      <circle cx="13" cy="28.5" r="1" fill={MAGIC} />
-      <circle cx="14.5" cy="30.5" r="1" fill={SECONDARY} />
-      <circle cx="11" cy="31.5" r="1" fill={PRIMARY} />
-    </g>
-  );
-}
 
-function lantern(): ReactElement {
-  return (
-    <g>
-      {px(13.5, 24, 1, 3, SECONDARY_SHADOW)}
-      {px(11.5, 27, 5, 5, SECONDARY)}
-      {px(12.25, 28, 3.5, 3, MAGIC)}
-      {px(12.25, 28, 3.5, 1, MAGIC_HIGHLIGHT)}
-      {px(11.5, 32, 5, 1, SECONDARY_SHADOW)}
-    </g>
-  );
-}
 
 function petCat(): ReactElement {
   return (
@@ -517,17 +465,6 @@ function orb(): ReactElement {
  * as something carried behind. Held in the near hand those same coordinates put it across the
  * chest, which is how every scholar in the catalogue ended up wearing a white box.
  */
-function openBook(): ReactElement {
-  return (
-    <g>
-      {px(9, 26.5, 8, 6, SECONDARY)}
-      {px(9.75, 27.25, 3.25, 4.5, WHITE)}
-      {px(13, 27.25, 3.25, 4.5, '#fff7e8')}
-      {px(12.75, 26.5, 0.5, 6, SECONDARY_SHADOW)}
-      {px(9, 32, 8, 0.5, OUTLINE)}
-    </g>
-  );
-}
 
 function compass(): ReactElement {
   return (

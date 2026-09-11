@@ -425,7 +425,13 @@ export function frontArm(options: ArmOptions, held?: ReactElement): ReactElement
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /** What is on top of the head. Fur shapes are drawn in hair colour, so they match what is worn. */
-export type EarStyle = 'none' | 'pointed' | 'round' | 'cat' | 'fox' | 'rabbit';
+export type EarStyle =
+  | 'none' | 'pointed' | 'round' | 'cat' | 'fox' | 'rabbit'
+  /* ── the four the second pass needed ──
+   * A bear and a panda are the same round ear at different heights; a wolf's is a cat's stretched
+   * and set wider; an owl has tufts rather than ears. Each is here because the species it belongs to
+   * is unrecognisable without it — an owl drawn with cat ears is a cat. */
+  | 'bear' | 'wolf' | 'owl' | 'small';
 /** What the middle of the face is. A muzzle pushes forward; a beak replaces the mouth entirely. */
 export type SnoutStyle = 'none' | 'muzzle' | 'beak';
 
@@ -578,6 +584,42 @@ export function earShape(ears: EarStyle, rig?: DirectionRig): ReactElement {
               {px(27.25, 2, 2.5, 5, BLUSH)}
               {px(29.75, 0.75, 1.25, 7.5, HAIR_SHADOW)}
             </g>
+          </>
+        ) : null}
+        {/* A bear's, and a panda's: round, low and set wide, which is the whole difference from a
+            cat's. Set high they read as a mouse. */}
+        {ears === 'bear' ? (
+          <>
+            <circle cx="15" cy="6" r="3.5" fill={fur} />
+            <circle cx="33" cy="6" r="3.5" fill={fur} />
+            <circle cx="15" cy="6" r="1.75" fill={BLUSH} />
+            <circle cx="33" cy="6" r="1.75" fill={BLUSH} />
+          </>
+        ) : null}
+        {/* A wolf's: a cat's ear stretched and stood further apart, tipped in the darker fur. */}
+        {ears === 'wolf' ? (
+          <>
+            <polygon points="14.5,7.5 16.5,0 21.5,6" fill={fur} />
+            <polygon points="33.5,7.5 31.5,0 26.5,6" fill={fur} />
+            <polygon points="16.5,0 15.6,2.5 18,2" fill={HAIR_SHADOW} />
+            <polygon points="31.5,0 32.4,2.5 30,2" fill={HAIR_SHADOW} />
+          </>
+        ) : null}
+        {/* An owl has no ears at all — the tufts are feathers, and they sit inboard rather than at
+            the edge of the skull, which is what stops it reading as a horned cat. */}
+        {ears === 'owl' ? (
+          <>
+            <polygon points="17.5,5 19,0.5 21.5,4.5" fill={fur} />
+            <polygon points="30.5,5 29,0.5 26.5,4.5" fill={fur} />
+            <polygon points="18.5,4.5 19,2 20.2,4.2" fill={HAIR_HIGHLIGHT} />
+          </>
+        ) : null}
+        {/* Barely there: a deer, a raccoon, anything whose silhouette is carried by something else. */}
+        {ears === 'small' ? (
+          <>
+            {px(13.5, 7, 2.5, 3, fur)}
+            {px(32, 7, 2.5, 3, HAIR_SHADOW)}
+            {px(14, 7.75, 1.5, 1.5, BLUSH)}
           </>
         ) : null}
     </g>
@@ -1139,22 +1181,508 @@ export function flameOrbs(): ReactElement {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * The second parts library
+ *
+ * Ten costumes needed five torsos, four pairs of legs and a handful of held things. Forty-one need
+ * more vocabulary, and the vocabulary is the point: an archetype assembled from parts nothing else
+ * uses is a bespoke drawing wearing a spec's clothes, while an archetype that is only a recolour of
+ * another is the thing this whole pass exists to stop. Each part below is used by at least two
+ * archetypes and is the reason at least one of them is recognisable.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** A wolf's: long, low and straight out behind, unlike a cat's upright curl. */
+export function wolfTail(): ReactElement {
+  return (
+    <g data-part="tail">
+      <polygon points="31,31 40,28 43,31 40,35 31,35" fill={HAIR} />
+      <polygon points="40,28 43,31 41,32" fill={HAIR_HIGHLIGHT} />
+      <polygon points="31,33 40,33 40,35 31,35" fill={HAIR_SHADOW} />
+    </g>
+  );
+}
+
+/** A raccoon's, which is the species: the rings are the whole recognition. */
+export function ringTail(): ReactElement {
+  return (
+    <g data-part="tail">
+      {px(31, 30, 10, 4, HAIR)}
+      {px(33, 30, 2, 4, HAIR_SHADOW)}
+      {px(36.5, 30, 2, 4, HAIR_SHADOW)}
+      {px(40, 30, 1.5, 4, WHITE)}
+    </g>
+  );
+}
+
+/** A stub, for a bear, a panda or a deer — animals a long tail would make into something else. */
+export function stubTail(): ReactElement {
+  return (
+    <g data-part="tail">
+      <circle cx="33" cy="33" r="2.5" fill={HAIR} />
+      <circle cx="32.4" cy="32.4" r="1.1" fill={HAIR_HIGHLIGHT} />
+    </g>
+  );
+}
+
+/** Feathered, for an owl and for anything angelic: layered rather than membraned. */
+export function featherWings(): ReactElement {
+  return (
+    <g data-part="wing">
+      <polygon points="16,24 7,22 5,30 15,32" fill={WHITE} />
+      <polygon points="32,24 41,22 43,30 33,32" fill={WHITE} />
+      <polygon points="16,27 8,26 7,30 15,31" fill={SECONDARY_SHADOW} opacity="0.4" />
+      <polygon points="32,27 40,26 41,30 33,31" fill={SECONDARY_SHADOW} opacity="0.4" />
+    </g>
+  );
+}
+
+/** A fairy's: four small panes, lit rather than solid, so they read as glass at 32 pixels. */
+export function fairyWings(): ReactElement {
+  return (
+    <g data-part="wing" opacity="0.75">
+      <ellipse cx="12" cy="24" rx="5" ry="7" fill={MAGIC} />
+      <ellipse cx="36" cy="24" rx="5" ry="7" fill={MAGIC} />
+      <ellipse cx="13" cy="32" rx="3.5" ry="4.5" fill={MAGIC_HIGHLIGHT} />
+      <ellipse cx="35" cy="32" rx="3.5" ry="4.5" fill={MAGIC_HIGHLIGHT} />
+    </g>
+  );
+}
+
+/* ── torsos ── */
+
+/** A white coat over whatever is under it: the scientist, the inventor, the medic. */
+export function torsoLabcoat(): ReactElement {
+  return (
+    <g data-part="torso">
+      {px(16, 21, 16, 14, WHITE)}
+      {px(16, 21, 16, 1.5, 'var(--av-primary-highlight)')}
+      {px(23.5, 21, 1, 14, SECONDARY_SHADOW)}
+      {px(17, 22, 5, 4, PRIMARY)}
+      {px(18, 27, 3, 1, ACCENT)}
+    </g>
+  );
+}
+
+/** A collar, a lapel and a tie: the developer, the scholar, anybody at a desk. */
+export function torsoSuit(): ReactElement {
+  return (
+    <g data-part="torso">
+      {px(17, 21, 14, 12, SECONDARY)}
+      {px(17, 21, 14, 1.5, 'var(--av-primary-highlight)')}
+      <polygon points="21,21 24,27 24,21" fill={WHITE} />
+      <polygon points="27,21 24,27 24,21" fill={WHITE} />
+      {px(23.25, 22, 1.5, 7, ACCENT)}
+      {px(17, 31.5, 14, 1.5, SECONDARY_SHADOW)}
+    </g>
+  );
+}
+
+/** A sealed suit with a chest panel and a collar ring: the astronaut and the diver. */
+export function torsoSpacesuit(): ReactElement {
+  return (
+    <g data-part="torso">
+      {px(15.5, 21, 17, 14, WHITE)}
+      {px(15.5, 21, 17, 2, SECONDARY)}
+      {px(19, 24, 10, 5, SECONDARY_SHADOW)}
+      {px(20, 25, 3, 2, MAGIC)}
+      {px(24.5, 25, 3.5, 1, ACCENT)}
+      {px(15.5, 31, 17, 1.5, ACCENT)}
+    </g>
+  );
+}
+
+/** Layered plate with a pauldron each side: the paladin, the heavy warrior. */
+export function torsoHeavyPlate(): ReactElement {
+  return (
+    <g data-part="torso">
+      {px(16, 21, 16, 13, SECONDARY)}
+      {px(16, 21, 16, 1.5, 'var(--av-primary-highlight)')}
+      {px(13.5, 21, 5, 5, SECONDARY)}
+      {px(29.5, 21, 5, 5, SECONDARY)}
+      {px(13.5, 21, 5, 1, ACCENT)}
+      {px(29.5, 21, 5, 1, ACCENT)}
+      {px(21, 26, 6, 6, ACCENT)}
+      {px(22, 27.5, 4, 3, MAGIC)}
+    </g>
+  );
+}
+
+/** A panelled chassis with a core: the robot, the android, the drone. */
+export function torsoChassis(): ReactElement {
+  return (
+    <g data-part="torso">
+      {px(16.5, 21, 15, 13, SECONDARY)}
+      {px(16.5, 21, 15, 1.5, 'var(--av-primary-highlight)')}
+      {px(16.5, 26, 15, 0.5, OUTLINE)}
+      <circle cx="24" cy="29" r="3" fill={MAGIC} />
+      <circle cx="24" cy="29" r="1.25" fill={MAGIC_HIGHLIGHT} />
+      {px(17.5, 22.5, 3, 2, SECONDARY_SHADOW)}
+      {px(27.5, 22.5, 3, 2, SECONDARY_SHADOW)}
+    </g>
+  );
+}
+
+/* ── legs ── */
+
+interface HoofOptions { boot: string; trouser: string }
+
+/** Cloven, for a deer and a faun: the leg narrows where a boot would widen. */
+export function legsHooves({ boot, trouser }: HoofOptions): ReactElement {
+  const leg = (x: number) => (
+    <g>
+      {px(x, 35, 5, 6, trouser)}
+      {px(x + 1, 41, 3, 3, HAIR_SHADOW)}
+      {px(x + 0.5, 44, 4, 2, boot)}
+      {px(x + 2.25, 44, 0.5, 2, OUTLINE)}
+    </g>
+  );
+  return (
+    <g data-part="legs">
+      <g data-part="backLeg">{leg(25)}</g>
+      <g data-part="frontLeg">{leg(18)}</g>
+    </g>
+  );
+}
+
+/** Jointed metal: a piston at the knee and a plate at the foot. */
+export function legsMechanical({ boot, trouser }: HoofOptions): ReactElement {
+  const leg = (x: number) => (
+    <g>
+      {px(x + 0.5, 35, 4, 4, trouser)}
+      {px(x + 1.5, 39, 2, 3, OUTLINE)}
+      {px(x + 0.5, 42, 4, 2, trouser)}
+      {px(x - 0.5, 44, 6, 2, boot)}
+      {px(x - 0.5, 44, 6, 0.5, ACCENT)}
+    </g>
+  );
+  return (
+    <g data-part="legs">
+      <g data-part="backLeg">{leg(25)}</g>
+      <g data-part="frontLeg">{leg(18)}</g>
+    </g>
+  );
+}
+
+/**
+ * No legs at all: a wisp, a drone, anything that hovers.
+ *
+ * It still occupies the leg band and still reaches the floor, because the ground shadow is drawn at
+ * y 46 and a figure whose lowest point is y 38 reads as falling rather than as flying. The taper
+ * and the two motes are what say the gap is deliberate.
+ */
+export function legsHovering(): ReactElement {
+  return (
+    <g data-part="legs">
+      <g data-part="backLeg">
+        <polygon points="20,35 28,35 26,41 22,41" fill={MAGIC} opacity="0.75" />
+        <polygon points="22,41 26,41 25,44 23,44" fill={MAGIC} opacity="0.45" />
+      </g>
+      <g data-part="frontLeg">
+        {px(21, 44, 2, 1.5, MAGIC_HIGHLIGHT)}
+        {px(25, 45, 1.5, 1, MAGIC_HIGHLIGHT)}
+      </g>
+    </g>
+  );
+}
+
+/* ── worn on the head ── */
+
+/** A sealed dome with a lit band: the astronaut. Nothing else in the set covers the whole skull. */
+export function spaceHelmet(): ReactElement {
+  return (
+    <g data-part="headwear">
+      <ellipse cx="24" cy="11" rx="11.5" ry="11" fill={WHITE} opacity="0.28" />
+      <ellipse cx="24" cy="11" rx="11.5" ry="11" fill="none" stroke={SECONDARY} strokeWidth="1.5" />
+      {px(13.5, 3.5, 21, 2, SECONDARY)}
+      {px(15, 5.5, 18, 1, MAGIC_HIGHLIGHT)}
+      {px(12.5, 17, 23, 2, SECONDARY_SHADOW)}
+    </g>
+  );
+}
+
+/** A thin band with one stone: the elf, the celestial, the royal. */
+export function circlet(): ReactElement {
+  return (
+    <g data-part="headwear">
+      {px(14.5, 6, 19, 1.5, ACCENT)}
+      {px(14.5, 6, 19, 0.5, 'var(--av-primary-highlight)')}
+      <polygon points="24,3 25.5,6 22.5,6" fill={MAGIC} />
+      <polygon points="24,4 24.8,6 23.2,6" fill={MAGIC_HIGHLIGHT} />
+    </g>
+  );
+}
+
+/** Straight, back-swept and cold: the ice dragon, told from the fire one by the angle alone. */
+export function iceHorns(): ReactElement {
+  return (
+    <g data-part="headwear">
+      {px(14.5, 3.5, 19, 5, HAIR)}
+      {px(14.5, 3.5, 19, 1.5, HAIR_HIGHLIGHT)}
+      <polygon points="16,5 9,0 13,7" fill={MAGIC} />
+      <polygon points="32,5 39,0 35,7" fill={MAGIC} />
+      <polygon points="16,5 11,2 14,6" fill={MAGIC_HIGHLIGHT} />
+      <polygon points="32,5 37,2 34,6" fill={MAGIC_HIGHLIGHT} />
+    </g>
+  );
+}
+
+/** Two aerials over a plated cap: the android, the drone, anything that receives. */
+export function antennaCap(): ReactElement {
+  return (
+    <g data-part="headwear">
+      {px(14.5, 4, 19, 4.5, SECONDARY)}
+      {px(14.5, 4, 19, 1.25, 'var(--av-primary-highlight)')}
+      {px(17, 7.5, 1, 4, SECONDARY_SHADOW)}
+      {px(17, 1.25, 1, 3.25, SECONDARY)}
+      {px(30, 1.25, 1, 3.25, SECONDARY)}
+      {/* Centred at 1.25 with a radius of 1.25, so the tip of each aerial is exactly the ceiling.
+          At 0.75 the lit half of the bead was outside the frame and sheared off by every crop. */}
+      <circle cx="17.5" cy="1.25" r="1.25" fill={MAGIC} />
+      <circle cx="30.5" cy="1.25" r="1.25" fill={MAGIC_HIGHLIGHT} />
+    </g>
+  );
+}
+
+/** A hood pulled up, face still showing: the explorer, the netrunner, the rogue. */
+export function hoodUp(): ReactElement {
+  return (
+    <g data-part="headwear">
+      <polygon points="24,0.5 36,10 36,17 31,12 17,12 12,17 12,10" fill={PRIMARY} />
+      <polygon points="24,0.5 30,9 18,9" fill={PRIMARY_HIGHLIGHT} opacity="0.45" />
+      {px(12, 16, 24, 2, PRIMARY_SHADOW)}
+    </g>
+  );
+}
+
+/**
+ * A smooth plate over the whole skull with one lit seam: the android that is trying to pass.
+ *
+ * It exists because the android was a recolour of the robot — the same chassis, the same aerials,
+ * the same legs, differing only in an overlay the silhouette test does not look at. Two of the four
+ * structural anchors had to move, and the head is the one a reader checks first.
+ */
+export function faceplate(): ReactElement {
+  return (
+    <g data-part="headwear">
+      {px(14.5, 3, 19, 6, SECONDARY)}
+      {px(14.5, 3, 19, 1.25, 'var(--av-primary-highlight)')}
+      {px(14.5, 8, 19, 1, SECONDARY_SHADOW)}
+      {px(16, 9.5, 16, 1, MAGIC)}
+      {px(23, 1.5, 2, 1.5, MAGIC_HIGHLIGHT)}
+    </g>
+  );
+}
+
+/** A soft cap pulled to one side: the artist, the musician. */
+export function beret(): ReactElement {
+  return (
+    <g data-part="headwear">
+      <ellipse cx="24" cy="5" rx="10.5" ry="4" fill={SECONDARY} />
+      <ellipse cx="21" cy="4" rx="4" ry="1.75" fill={'var(--av-primary-highlight)'} opacity="0.5" />
+      {px(32, 1.5, 1.5, 2.5, ACCENT)}
+      {px(14, 6.5, 20, 1.5, SECONDARY_SHADOW)}
+    </g>
+  );
+}
+
+/** Goggles pushed up onto the forehead, which is how somebody who uses them wears them. */
+export function goggleBand(): ReactElement {
+  return (
+    <g data-part="headwear">
+      {px(14.5, 3.5, 19, 5, HAIR)}
+      {px(14.5, 3.5, 19, 1.5, HAIR_HIGHLIGHT)}
+      {px(14, 7, 20, 2.5, SECONDARY_SHADOW)}
+      <circle cx="19" cy="8.25" r="2.5" fill={SECONDARY} />
+      <circle cx="29" cy="8.25" r="2.5" fill={SECONDARY} />
+      <circle cx="19" cy="8.25" r="1.25" fill={MAGIC} />
+      <circle cx="29" cy="8.25" r="1.25" fill={MAGIC} />
+    </g>
+  );
+}
+
+/* ── things a hand holds ── */
+
+/*
+ * Six drawings that were private to the figure translator and are now shared.
+ *
+ * They were reachable only from , which imports from here — so an archetype that
+ * wanted a flask could not have one without a cycle. Moving them is the alternative to drawing a
+ * second flask, and a second drawing of the same object is how two parts of one product end up
+ * disagreeing about what a flask looks like.
+ */
+
+/*
+ * Six drawings that were private to the figure translator and are now shared.
+ *
+ * They were reachable only from `avatarFigureParts`, which imports from here — so an archetype
+ * that wanted a flask could not have one without a cycle. Moving them is the alternative to
+ * drawing a second flask, and a second drawing of one object is how two parts of a product end up
+ * disagreeing about what a flask looks like.
+ */
+export function flask(): ReactElement {
+  return (
+    <g>
+      {px(13, 27, 4, 2, WHITE)}
+      <polygon points="13.5,29 16.5,29 17.5,34 12.5,34" fill={WHITE} opacity="0.85" />
+      <polygon points="13.2,31 16.8,31 17.5,34 12.5,34" fill={MAGIC} />
+      {px(14, 25.5, 2, 1.5, SECONDARY)}
+    </g>
+  );
+}
+
+export function openBook(): ReactElement {
+  return (
+    <g>
+      {px(9, 26.5, 8, 6, SECONDARY)}
+      {px(9.75, 27.25, 3.25, 4.5, WHITE)}
+      {px(13, 27.25, 3.25, 4.5, '#fff7e8')}
+      {px(12.75, 26.5, 0.5, 6, SECONDARY_SHADOW)}
+      {px(9, 32, 8, 0.5, OUTLINE)}
+    </g>
+  );
+}
+
+export function palette(): ReactElement {
+  return (
+    <g>
+      <ellipse cx="12.5" cy="30" rx="4.5" ry="3.5" fill={WHITE} />
+      <circle cx="10.5" cy="29" r="1" fill={ACCENT} />
+      <circle cx="13" cy="28.5" r="1" fill={MAGIC} />
+      <circle cx="14.5" cy="30.5" r="1" fill={SECONDARY} />
+      <circle cx="11" cy="31.5" r="1" fill={PRIMARY} />
+    </g>
+  );
+}
+
+export function lantern(): ReactElement {
+  return (
+    <g>
+      {px(13.5, 24, 1, 3, SECONDARY_SHADOW)}
+      {px(11.5, 27, 5, 5, SECONDARY)}
+      {px(12.25, 28, 3.5, 3, MAGIC)}
+      {px(12.25, 28, 3.5, 1, MAGIC_HIGHLIGHT)}
+      {px(11.5, 32, 5, 1, SECONDARY_SHADOW)}
+    </g>
+  );
+}
+
+export function backpack(): ReactElement {
+  return (
+    <g data-part="back">
+      {px(31, 22, 6, 9, SECONDARY)}
+      {px(31, 22, 6, 1.5, SECONDARY_SHADOW)}
+      {px(32, 25, 4, 3, ACCENT)}
+      {px(29, 23, 2, 7, SECONDARY_SHADOW)}
+    </g>
+  );
+}
+
+export function jetpack(): ReactElement {
+  return (
+    <g data-part="back">
+      {px(30.5, 22, 6, 8, SECONDARY)}
+      {px(30.5, 22, 6, 1.5, WHITE)}
+      {px(32, 30, 3, 3, SECONDARY_SHADOW)}
+      <polygon points="32,33 35,33 33.5,38" fill={MAGIC} />
+      <polygon points="32.5,33 34.5,33 33.5,36" fill={MAGIC_HIGHLIGHT} />
+    </g>
+  );
+}
+
+export function wrench(): ReactElement {
+  return (
+    <g data-part="held">
+      {px(14, 24, 2, 9, SECONDARY)}
+      {px(13, 22, 4, 3, SECONDARY)}
+      {px(14, 22, 2, 1.5, OUTLINE)}
+      {px(14, 24, 0.75, 9, 'var(--av-primary-highlight)')}
+    </g>
+  );
+}
+
+export function paintBrush(): ReactElement {
+  return (
+    <g data-part="held">
+      {px(14.5, 23, 1.5, 9, ACCENT)}
+      {px(14, 21, 2.5, 2, SECONDARY)}
+      {px(14, 19.5, 2.5, 1.75, MAGIC)}
+    </g>
+  );
+}
+
+export function guitar(): ReactElement {
+  return (
+    <g data-part="held">
+      <ellipse cx="15" cy="30" rx="4.5" ry="5.5" fill={SECONDARY} />
+      <circle cx="15" cy="30" r="1.75" fill={OUTLINE} />
+      {px(14.25, 19, 1.5, 7, SECONDARY_SHADOW)}
+      {px(13.75, 18, 2.5, 1.5, ACCENT)}
+    </g>
+  );
+}
+
+export function torch(): ReactElement {
+  return (
+    <g data-part="held">
+      {px(14.5, 25, 1.5, 8, SECONDARY_SHADOW)}
+      <polygon points="15.25,18 18,23 12.5,23" fill={ACCENT} />
+      <polygon points="15.25,20 16.8,23 13.7,23" fill={MAGIC_HIGHLIGHT} />
+    </g>
+  );
+}
+
+export function blaster(): ReactElement {
+  return (
+    <g data-part="held">
+      {px(11, 25, 7, 3, SECONDARY)}
+      {px(11, 25, 7, 1, 'var(--av-primary-highlight)')}
+      {px(14.5, 28, 2, 4, SECONDARY_SHADOW)}
+      {px(9, 25.5, 2, 2, MAGIC)}
+    </g>
+  );
+}
+
+export function tabletSlab(): ReactElement {
+  return (
+    <g data-part="held">
+      {px(10.5, 24, 7, 9, SECONDARY)}
+      {px(11.5, 25, 5, 7, MAGIC)}
+      {px(11.5, 25, 5, 1.5, MAGIC_HIGHLIGHT)}
+    </g>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
  * The archetypes
  *
- * Each is the nine slots filled in. Two of them — the dragon knight and the arcane mage — are the
- * pair drawn in full; the rest answer the same nine slots differently, which is the point of
- * having slots rather than five separate drawings.
+ * Forty-one figures in four families. Ten of them are written out in full below because they were
+ * drawn one at a time before there was a vocabulary to assemble them from, and rewriting a costume a
+ * thousand children are already wearing to save a few lines is not a trade worth making. The other
+ * thirty-one are assembled from the parts above by `buildArchetype`, which is the same nine slots
+ * filled in — just stated as what the figure *is* rather than as a list of function calls.
  * ──────────────────────────────────────────────────────────────────────────── */
 
 export type FullBodyArchetype =
+  // The ten drawn one at a time, before there was a vocabulary to assemble from. Their ids are in a
+  // thousand saved records, so they are never renamed and never re-spelled.
   | 'dragonKnight' | 'arcaneMage' | 'demon' | 'student' | 'athlete'
-  | 'cat' | 'fox' | 'rabbit' | 'penguin' | 'techwear';
+  | 'cat' | 'fox' | 'rabbit' | 'penguin' | 'techwear'
+  // People.
+  | 'scientist' | 'developer' | 'scholar' | 'explorer' | 'artist' | 'musician' | 'inventor'
+  | 'adventurer'
+  // Animals.
+  | 'dog' | 'panda' | 'bear' | 'owl' | 'raccoon' | 'wolf' | 'tiger' | 'deer' | 'fantasyBeast'
+  // Fantasy.
+  | 'iceDragon' | 'elf' | 'fairy' | 'vampire' | 'warrior' | 'paladin' | 'celestial' | 'voidStalker'
+  // Machines.
+  | 'robotChassis' | 'cyborg' | 'astronaut' | 'androidAI' | 'netrunner' | 'drone';
 
 export interface ArchetypeDefinition {
   id: FullBodyArchetype;
   /** Thai, because it is read by the person choosing it. */
   name: string;
   description: string;
+  /** Which of the four families the picker files it under. */
+  group: ArchetypeGroup;
   /**
    * The costume, built for the direction it is being seen from.
    *
@@ -1166,9 +1694,10 @@ export interface ArchetypeDefinition {
   slots: (rig: DirectionRig) => Partial<Record<BodySlot, ReactElement>>;
 }
 
-export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> = {
+const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition>> = {
   dragonKnight: {
     id: 'dragonKnight',
+    group: 'fantasy',
     name: 'นักรบมังกร',
     description: 'เขา ปีกค้างคาว หางเป็นปล้อง ขากรงเล็บ และดาบในมือหน้า',
     slots: (rig) => ({
@@ -1185,6 +1714,7 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
   },
   arcaneMage: {
     id: 'arcaneMage',
+    group: 'fantasy',
     name: 'จอมเวทย์มนตร์',
     description: 'ผ้าคลุมมีฮู้ด แขนเสื้อกว้าง รองเท้าโผล่ใต้ชายผ้า ตำราลอย และไม้เท้า',
     slots: (rig) => ({
@@ -1202,6 +1732,7 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
   },
   demon: {
     id: 'demon',
+    group: 'fantasy',
     name: 'ปีศาจ',
     description: 'เขาแหลม หูแหลม หางปีศาจ และเท้ากีบ',
     slots: (rig) => ({
@@ -1218,6 +1749,7 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
   },
   student: {
     id: 'student',
+    group: 'humanoid',
     name: 'นักเรียน',
     description: 'เสื้อคอปก กางเกงนักเรียน และรองเท้าผ้าใบ',
     slots: (rig) => ({
@@ -1233,6 +1765,7 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
   },
   athlete: {
     id: 'athlete',
+    group: 'humanoid',
     name: 'นักกีฬา',
     description: 'ชุดกีฬา รองเท้าวิ่ง และท่ายืนพร้อมออกตัว',
     slots: (rig) => ({
@@ -1257,6 +1790,7 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
    */
   cat: {
     id: 'cat',
+    group: 'beast',
     name: 'น้องแมว',
     description: 'หูแมวมีวุ้นสีชมพู แก้มแดง หนวด และหางแกว่ง',
     slots: (rig) => ({
@@ -1273,6 +1807,7 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
   },
   fox: {
     id: 'fox',
+    group: 'beast',
     name: 'น้องจิ้งจอก',
     description: 'หูแหลมปลายเข้ม ปากยื่น และหางฟูปลายขาว',
     slots: (rig) => ({
@@ -1289,6 +1824,7 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
   },
   rabbit: {
     id: 'rabbit',
+    group: 'beast',
     name: 'น้องกระต่าย',
     description: 'หูยาวตั้ง หางปุย แก้มแดง และรองเท้าผ้าใบ',
     slots: (rig) => ({
@@ -1305,6 +1841,7 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
   },
   penguin: {
     id: 'penguin',
+    group: 'beast',
     name: 'น้องเพนกวิน',
     description: 'ตัวกลมนุ่ม ปีกเป็นครีบ จมูกปาก และเท้าพังผืน',
     slots: (rig) => ({
@@ -1320,6 +1857,7 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
   },
   techwear: {
     id: 'techwear',
+    group: 'scifi',
     name: 'สตรีทเทคแวร์',
     description: 'ฮู้ดตัวโคร่ง วิเซอร์เรืองแสง หูฟัง และสนีกเกอร์',
     slots: (rig) => ({
@@ -1337,7 +1875,239 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
   }
 };
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * The other thirty-one, stated rather than drawn
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * What a figure is made of, as a record.
+ *
+ * Ten costumes could be written out by hand. Forty-one cannot: a list of function calls repeated
+ * forty-one times is forty-one chances to give one of them the wrong pair of legs, and no way to see
+ * at a glance that the wolf and the fox are actually different. A spec is the same nine slots said
+ * once each — and because it is data, "is this one a recolour of that one" becomes a question that
+ * can be answered by reading two lines rather than two drawings.
+ */
+interface ArchetypeSpec {
+  id: FullBodyArchetype;
+  name: string;
+  description: string;
+  group: ArchetypeGroup;
+  ears?: EarStyle;
+  snout?: SnoutStyle;
+  whiskers?: boolean;
+  /** Claws rather than boots, which changes the foot and nothing else. */
+  claw?: boolean;
+  eye?: string;
+  eyeLight?: string;
+  sharp?: boolean;
+  blush?: boolean;
+  mouth?: 'smile' | 'fang' | 'none';
+  torso: () => ReactElement;
+  legs: 'standing' | 'sneakers' | 'webbed' | 'robed' | 'hooves' | 'mechanical' | 'hovering';
+  /** What is worn on the head. Absent leaves the hair the child chose showing. */
+  headwear?: () => ReactElement;
+  hair?: () => ReactElement;
+  back?: () => ReactElement;
+  /** Colours the sleeves; the arms take it from here so a labcoat's arms are white. */
+  sleeve?: string;
+  frontHand?: () => ReactElement;
+  backHand?: () => ReactElement;
+  overlay?: () => ReactElement;
+}
+
+/** The four families the picker groups by, and the reason each one exists. */
+export type ArchetypeGroup = 'humanoid' | 'beast' | 'fantasy' | 'scifi';
+
+export const archetypeGroupLabels: Record<ArchetypeGroup, string> = {
+  humanoid: 'คน',
+  beast: 'สัตว์',
+  fantasy: 'แฟนตาซี',
+  scifi: 'ไซไฟ'
+};
+
+function legsFor(kind: ArchetypeSpec['legs'], claw: boolean): ReactElement {
+  const plain = { boot: SECONDARY, trouser: PRIMARY, skin: SKIN };
+  switch (kind) {
+    case 'sneakers': return legsSneakers(plain);
+    case 'webbed': return legsWebbed();
+    case 'robed': return robedLegs({ boot: ACCENT, trouser: SECONDARY, skin: SKIN });
+    case 'hooves': return legsHooves({ boot: SECONDARY, trouser: PRIMARY });
+    case 'mechanical': return legsMechanical({ boot: ACCENT, trouser: SECONDARY });
+    case 'hovering': return legsHovering();
+    case 'standing':
+    default: return legsStanding(plain, claw);
+  }
+}
+
+/** One spec, turned into the same nine slots everything else fills. */
+function buildArchetype(spec: ArchetypeSpec): ArchetypeDefinition {
+  const sleeve = spec.sleeve ?? PRIMARY;
+  return {
+    id: spec.id,
+    name: spec.name,
+    description: spec.description,
+    group: spec.group,
+    slots: (rig) => {
+      const slots: Partial<Record<BodySlot, ReactElement>> = {
+        shadow: groundShadow(),
+        back_arm: backArm({ sleeve, skin: SKIN }, spec.backHand?.()),
+        legs_feet: legsFor(spec.legs, spec.claw ?? false),
+        torso_body: spec.torso(),
+        head_neck: headShape({
+          ...(spec.snout === undefined ? {} : { snout: spec.snout }),
+          ...(spec.ears === undefined ? {} : { ears: spec.ears }),
+          rig
+        }),
+        face: faceFeatures({
+          eye: spec.eye ?? OUTLINE,
+          ...(spec.eyeLight === undefined ? {} : { eyeLight: spec.eyeLight }),
+          ...(spec.sharp === undefined ? {} : { sharp: spec.sharp }),
+          ...(spec.blush === undefined ? {} : { blush: spec.blush }),
+          ...(spec.mouth === undefined ? {} : { mouth: spec.mouth }),
+          ...(spec.snout === undefined ? {} : { snout: spec.snout }),
+          ...(spec.whiskers === undefined ? {} : { whiskers: spec.whiskers }),
+          rig
+        }),
+        front_arm_weapon: frontArm({ sleeve, skin: SKIN }, spec.frontHand?.())
+      };
+      if (spec.hair) slots.hair_headwear = spec.hair();
+      if (spec.headwear) slots.headwear = spec.headwear();
+      if (spec.back) slots.back_gear = spec.back();
+      if (spec.overlay) slots.overlay_fx = spec.overlay();
+      return slots;
+    }
+  };
+}
+
+/*
+ * The thirty-one.
+ *
+ * Grouped as the brief groups them, and each one differs from its neighbours in at least two of the
+ * structural anchors — the body it stands on, what is on its head, what is behind it, what it holds.
+ * One anchor's difference is a recolour; that rule is the same one `avatarIdentity.ts` enforces on a
+ * child's own build, and it is enforced here by a test that compares every pair.
+ */
+const archetypeSpecs: ArchetypeSpec[] = [
+  /* ── people ── */
+  { id: 'scientist', name: 'นักวิทยาศาสตร์', description: 'เสื้อกาวน์ แว่นตา และหลอดทดลองในมือ', group: 'humanoid',
+    torso: torsoLabcoat, legs: 'standing', sleeve: WHITE, hair: shortHair, headwear: goggleBand,
+    frontHand: flask, eyeLight: 'var(--av-magic-highlight)' },
+  { id: 'developer', name: 'นักเขียนโปรแกรม', description: 'เสื้อฮู้ด หูฟัง และแท็บเล็ตในมือ', group: 'humanoid',
+    torso: torsoHoodie, legs: 'sneakers', hair: shortHair, headwear: hoodUp, frontHand: tabletSlab },
+  { id: 'scholar', name: 'นักวิชาการ', description: 'สูทเรียบ แว่นตา และตำราเปิดอยู่', group: 'humanoid',
+    torso: torsoSuit, legs: 'standing', sleeve: SECONDARY, hair: shortHair, headwear: circlet,
+    frontHand: openBook, backHand: spellbook },
+  { id: 'explorer', name: 'นักสำรวจ', description: 'ฮู้ดกันลม เป้สะพายหลัง และคบเพลิง', group: 'humanoid',
+    torso: torsoShirt, legs: 'standing', hair: shortHair, headwear: hoodUp, back: backpack, frontHand: torch },
+  { id: 'artist', name: 'ศิลปิน', description: 'หมวกเบเรต์ ผ้ากันเปื้อน และพู่กัน', group: 'humanoid',
+    torso: torsoShirt, legs: 'sneakers', hair: shortHair, headwear: beret, frontHand: paintBrush,
+    backHand: palette, blush: true },
+  { id: 'musician', name: 'นักดนตรี', description: 'หมวกเบเรต์ กีตาร์ และท่ายืนเล่น', group: 'humanoid',
+    torso: torsoSuit, legs: 'sneakers', sleeve: SECONDARY, hair: shortHair, headwear: beret,
+    frontHand: guitar, mouth: 'smile' },
+  { id: 'inventor', name: 'นักประดิษฐ์', description: 'เสื้อกาวน์ แว่นตานิรภัย และประแจ', group: 'humanoid',
+    torso: torsoLabcoat, legs: 'mechanical', sleeve: WHITE, hair: shortHair, headwear: goggleBand,
+    frontHand: wrench, backHand: lantern },
+  { id: 'adventurer', name: 'นักผจญภัย', description: 'เกราะเบา ผ้าคลุม ดาบ และโล่', group: 'humanoid',
+    torso: torsoPlate, legs: 'standing', sleeve: SECONDARY, hair: shortHair, back: cape,
+    frontHand: sword, backHand: shield },
+
+  /* ── animals ── */
+  { id: 'dog', name: 'น้องหมา', description: 'หูตก ปากยื่น หางกระดิก และแก้มแดง', group: 'beast',
+    ears: 'small', snout: 'muzzle', whiskers: true, blush: true, torso: torsoHoodie, legs: 'standing',
+    hair: furTuft, back: wolfTail, mouth: 'fang' },
+  { id: 'panda', name: 'น้องแพนด้า', description: 'หูกลม ตาขอบดำ ตัวกลม และหางสั้น', group: 'beast',
+    ears: 'bear', blush: true, torso: torsoRound, legs: 'standing', hair: furTuft, back: stubTail,
+    eye: OUTLINE, eyeLight: WHITE },
+  { id: 'bear', name: 'น้องหมี', description: 'หูกลมต่ำ ตัวใหญ่ อุ้งเท้าหนา', group: 'beast',
+    ears: 'bear', snout: 'muzzle', torso: torsoRound, legs: 'standing', claw: true, hair: furTuft,
+    back: stubTail },
+  { id: 'owl', name: 'น้องนกฮูก', description: 'พู่ขนบนหัว ปากงุ้ม และปีกขนนก', group: 'beast',
+    ears: 'owl', snout: 'beak', torso: torsoRound, legs: 'webbed', hair: furTuft, back: featherWings,
+    eye: ACCENT, eyeLight: WHITE, sharp: true },
+  { id: 'raccoon', name: 'น้องแรคคูน', description: 'หน้ากากรอบตา หางลายปล้อง และมือคล่อง', group: 'beast',
+    ears: 'small', snout: 'muzzle', whiskers: true, torso: torsoShirt, legs: 'standing', hair: furTuft,
+    back: ringTail, eye: OUTLINE, eyeLight: WHITE },
+  { id: 'wolf', name: 'น้องหมาป่า', description: 'หูแหลมสูง ตาคม และหางยาวตรง', group: 'beast',
+    ears: 'wolf', snout: 'muzzle', whiskers: true, sharp: true, torso: torsoPlate, legs: 'standing',
+    claw: true, hair: furTuft, back: wolfTail, mouth: 'fang', eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
+  { id: 'tiger', name: 'น้องเสือ', description: 'หูกลม ลายพาดกลอน เขี้ยว และกรงเล็บ', group: 'beast',
+    ears: 'cat', snout: 'muzzle', whiskers: true, sharp: true, torso: torsoPlate, legs: 'standing',
+    claw: true, hair: furTuft, back: catTail, mouth: 'fang', eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT },
+  { id: 'deer', name: 'น้องกวาง', description: 'หูเล็ก กีบเท้า และเขากวาง', group: 'beast',
+    ears: 'small', snout: 'muzzle', blush: true, torso: torsoShirt, legs: 'hooves', hair: furTuft,
+    back: stubTail },
+  { id: 'fantasyBeast', name: 'สัตว์ในตำนาน', description: 'เขาโค้ง ปีกค้างคาว หางปล้อง และออร่า', group: 'beast',
+    ears: 'wolf', snout: 'muzzle', sharp: true, torso: torsoPlate, legs: 'standing', claw: true,
+    headwear: hornedHelm, back: batWings, overlay: spellAura, mouth: 'fang',
+    eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
+
+  /* ── fantasy ── */
+  { id: 'iceDragon', name: 'มังกรน้ำแข็ง', description: 'เขาน้ำแข็งตรง เกล็ดเย็น หางปล้อง และคทา', group: 'fantasy',
+    snout: 'muzzle', sharp: true, torso: torsoPlate, legs: 'standing', claw: true, sleeve: SECONDARY,
+    headwear: iceHorns, back: scaledTail, frontHand: staff, overlay: spellAura,
+    eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
+  { id: 'elf', name: 'เอลฟ์', description: 'หูแหลม มงกุฎบาง และธนูแห่งป่า', group: 'fantasy',
+    ears: 'pointed', torso: torsoShirt, legs: 'standing', hair: shortHair, headwear: circlet,
+    back: cape, frontHand: staff, eye: SECONDARY, eyeLight: 'var(--av-magic-highlight)' },
+  { id: 'fairy', name: 'นางฟ้า', description: 'ปีกใส ตัวเล็ก และผงแสง', group: 'fantasy',
+    ears: 'pointed', blush: true, torso: torsoShirt, legs: 'hovering', hair: shortHair,
+    headwear: circlet, back: fairyWings, overlay: flameOrbs, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
+  { id: 'vampire', name: 'แวมไพร์', description: 'หูแหลม เขี้ยว ผ้าคลุมยาว และตาแดง', group: 'fantasy',
+    ears: 'pointed', sharp: true, mouth: 'fang', torso: torsoSuit, legs: 'standing', sleeve: SECONDARY,
+    hair: shortHair, back: cape, eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT },
+  { id: 'warrior', name: 'นักรบ', description: 'เกราะอก ดาบ โล่ และท่ายืนมั่น', group: 'fantasy',
+    torso: torsoHeavyPlate, legs: 'standing', sleeve: SECONDARY, headwear: hornedHelm,
+    frontHand: sword, backHand: shield, sharp: true },
+  { id: 'paladin', name: 'อัศวินศักดิ์สิทธิ์', description: 'เกราะหนัก ปีกขนนก และแสงศักดิ์สิทธิ์', group: 'fantasy',
+    torso: torsoHeavyPlate, legs: 'standing', sleeve: SECONDARY, headwear: circlet,
+    back: featherWings, frontHand: sword, overlay: spellAura, eye: ACCENT, eyeLight: WHITE },
+  { id: 'celestial', name: 'เทพสวรรค์', description: 'ลอยเหนือพื้น ปีกขนนก และวงแสง', group: 'fantasy',
+    torso: torsoRobe, legs: 'hovering', sleeve: WHITE, headwear: circlet, back: featherWings,
+    overlay: flameOrbs, eye: MAGIC, eyeLight: WHITE },
+  { id: 'voidStalker', name: 'ผู้เดินในเงา', description: 'ฮู้ดคลุม เงาดำ และตาเรืองแสง', group: 'fantasy',
+    sharp: true, mouth: 'none', torso: torsoRobe, legs: 'hovering', sleeve: SECONDARY,
+    headwear: hoodUp, back: cape, overlay: spellAura, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
+
+  /* ── machines ── */
+  { id: 'robotChassis', name: 'หุ่นยนต์', description: 'โครงเหล็ก แกนพลังงาน และเสาอากาศ', group: 'scifi',
+    ears: 'round', mouth: 'none', torso: torsoChassis, legs: 'mechanical', sleeve: SECONDARY,
+    headwear: antennaCap, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, sharp: true },
+  { id: 'cyborg', name: 'ไซบอร์ก', description: 'ครึ่งคนครึ่งจักรกล ตาเรืองแสง และแขนกล', group: 'scifi',
+    ears: 'round', sharp: true, torso: torsoChassis, legs: 'standing', sleeve: SECONDARY,
+    headwear: techVisor, frontHand: blaster, eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT },
+  { id: 'astronaut', name: 'นักบินอวกาศ', description: 'ชุดอวกาศ หมวกกระจก และเจ็ตแพ็ก', group: 'scifi',
+    torso: torsoSpacesuit, legs: 'mechanical', sleeve: WHITE, headwear: spaceHelmet, back: jetpack,
+    eye: OUTLINE, eyeLight: 'var(--av-magic-highlight)' },
+  { id: 'androidAI', name: 'แอนดรอยด์', description: 'ผิวเรียบ รอยต่อเรืองแสง และเสาอากาศคู่', group: 'scifi',
+    mouth: 'none', sharp: true, torso: torsoSuit, legs: 'standing', sleeve: SECONDARY,
+    headwear: faceplate, overlay: flameOrbs, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
+  { id: 'netrunner', name: 'เน็ตรันเนอร์', description: 'ฮู้ดไซเบอร์ แว่นเรืองแสง และแท็บเล็ต', group: 'scifi',
+    sharp: true, mouth: 'none', torso: torsoHoodie, legs: 'mechanical', headwear: hoodUp,
+    back: backpack, frontHand: tabletSlab, overlay: spellAura, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
+  { id: 'drone', name: 'โดรนลอยฟ้า', description: 'ไม่มีขา ลอยด้วยแกนพลังงาน และเสาอากาศ', group: 'scifi',
+    mouth: 'none', sharp: true, torso: torsoChassis, legs: 'hovering', sleeve: SECONDARY,
+    headwear: antennaCap, back: jetpack, overlay: flameOrbs, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT }
+];
+
+/**
+ * The ten and the thirty-one, as one table.
+ *
+ * Spread in this order so a hand-written costume always wins: if a spec ever reuses an id that is
+ * already drawn by hand, the drawing a thousand children are wearing is the one that survives.
+ */
+export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> = {
+  ...Object.fromEntries(archetypeSpecs.map((spec) => [spec.id, buildArchetype(spec)])),
+  ...handDrawnArchetypes
+} as Record<FullBodyArchetype, ArchetypeDefinition>;
+
 export const fullBodyArchetypeList: ArchetypeDefinition[] = Object.values(fullBodyArchetypes);
+
+/** The figures in one family, in the order they are declared. */
+export function archetypesInGroup(group: ArchetypeGroup): ArchetypeDefinition[] {
+  return fullBodyArchetypeList.filter((archetype) => archetype.group === group);
+}
 
 /**
  * Which figure a race opens on.
