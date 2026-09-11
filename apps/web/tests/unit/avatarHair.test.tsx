@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { FullBodyAvatar } from '../../src/features/avatars/FullBodyAvatar';
 import { figureSlotsFor } from '../../src/features/avatars/avatarFigureParts';
 import { hairFor, hairStyleIds } from '../../src/features/avatars/avatarHair';
-import { bodySlotOrder, fullBodyArchetypeList } from '../../src/features/avatars/avatarFullBody';
+import {
+  bodyArchetypeFor, bodySlotOrder, fullBodyArchetypeList, type FullBodyArchetype
+} from '../../src/features/avatars/avatarFullBody';
 import { FIGURE_BOUNDS } from '../../src/features/avatars/avatarGeometry';
 import type { AvatarConfigV2, AvatarRace } from '../../src/features/avatars/avatarSchema';
 
@@ -226,16 +228,56 @@ describe('the hair system', () => {
   });
 
   it('draws a whole person for a record that says nothing about hair at all', () => {
-    // Most saved avatars predate the hair drawer. A bare skull is not an acceptable answer for one.
+    /*
+     * Most saved avatars predate the hair drawer, and a bare skull is not an acceptable answer for
+     * one. It used to be answered with a fallback cut, which had to be wrong for four of the six —
+     * a cap over a cat's ears, a cap on a robot's plate. The character answers now: the fur between
+     * a cat's ears, a visor, a helm, a head of hair for the ones that have one.
+     *
+     * Measured on the composed figure rather than on one slot, because the answer legitimately
+     * arrives in different slots for different characters, and what matters is that the head is not
+     * bare on the screen.
+     */
     for (const race of races) {
-      const slots = figureSlotsFor({
+      const config: AvatarConfigV2 = {
         archetype: 0, palette: 0, skinTone: 0, hair: 0, accessory: 0, badge: 0, v: 2, race,
         layers: { top_clothing: 'top_uniform' }
-      });
-      const { container } = render(<svg>{slots.hair_headwear}</svg>);
-      expect(container.querySelector('[data-part="hair"]'), race).not.toBeNull();
+      };
+      const body = bodyArchetypeFor(config)!;
+      const { container } = render(
+        <FullBodyAvatar archetype={body} slots={figureSlotsFor(config)} />
+      );
+      const onHead = ['hair', 'headwear', 'ears'].some((part) => container.querySelector(`[data-part="${part}"]`));
+      expect(onHead, `${race} has a bare head`).toBe(true);
       cleanup();
     }
+  });
+
+  it('fits a chosen cut to the head it is going on, not to the race field', () => {
+    /*
+     * A cut is authored against a fit and never scaled to a skull, so the only way to put the same
+     * bob on a fox and on a child is to hand it the right fit. The wardrobe used to read the race
+     * field, which is `human` for everybody who has not touched it — so every one of the
+     * forty-one characters wore the human cap, including the muzzled and the manufactured.
+     */
+    const cut = (bodyArchetype: FullBodyArchetype) => figureSlotsFor({
+      archetype: 0, palette: 0, skinTone: 0, hair: 0, accessory: 0, badge: 0, v: 2,
+      bodyArchetype,
+      layers: { hair_headpiece: 'hair_bob' }
+    });
+
+    const child = render(<svg>{cut('student')!.hair_headwear}</svg>);
+    const human = boxesIn(child.container);
+    cleanup();
+    const beast = render(<svg>{cut('fox')!.hair_headwear}</svg>);
+    const muzzled = boxesIn(beast.container);
+    cleanup();
+
+    // The cap is the part the fit moves: whatever covers the hairline at y 4. A muzzled head wears
+    // a shallower one, and measuring the whole drawing would be measuring the locks instead.
+    const capBottom = (boxes: Box[]) =>
+      Math.max(...boxes.filter((box) => box.top <= 4 && box.bottom >= 4).map((box) => box.bottom));
+    expect(capBottom(muzzled), 'a fox wears the human cut').toBeLessThan(capBottom(human));
   });
 });
 

@@ -11,7 +11,7 @@ checked on the production URL after each release.
 | --- | --- |
 | Migrations | 93 (last: `202609120001`) |
 | Edge Functions | 17 |
-| Test files | 134 |
+| Test files | 135 |
 | Automated tests | 1124, all passing |
 
 Gates: `typecheck` PASS · `lint` PASS (`--max-warnings 0`) · `test` PASS (1124) · `build` PASS.

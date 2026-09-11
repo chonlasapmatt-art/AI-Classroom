@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { SKULL } from './avatarGeometry';
+import type { AvatarRace } from './avatarSchema';
 import { directionRig, faceCentre, faceSqueeze, yawShift, type DirectionRig } from './avatarDirection';
 import {
   px,
@@ -1687,6 +1688,45 @@ export type FullBodyArchetype =
   // Machines.
   | 'robotChassis' | 'cyborg' | 'astronaut' | 'androidAI' | 'netrunner' | 'drone';
 
+/**
+ * The species facts of a costume, stated rather than left inside its drawing.
+ *
+ * ── Why this exists ──
+ * A child picks a character — a cat, an ice dragon, a robot chassis — and then dresses it from the
+ * drawers. Those are two different questions, and the wardrobe was answering both: it drew a whole
+ * human figure over whatever had been chosen, so every one of the forty-one characters came out as
+ * the same person and only the things the wardrobe happened to leave empty (a tail, an aura) ever
+ * reached the screen. Picking a model did nothing you could see.
+ *
+ * The costume owns the body and the wardrobe owns the clothes, so the wardrobe has to be able to
+ * read the body it is dressing: where the ears are, whether there is a muzzle, whether this is a
+ * torso box or one soft shape, and which cap a hairstyle takes on this skull. That is all this is —
+ * no drawings, nothing the compositor has to order, just the handful of facts a garment or a
+ * haircut has to fit itself to.
+ */
+export interface ArchetypeBody {
+  ears: EarStyle;
+  snout: SnoutStyle;
+  whiskers: boolean;
+  /** Claws rather than boots, which changes the foot and nothing else. */
+  claw: boolean;
+  /** One soft shape rather than a torso box: a penguin, a drone, anything without a waist. */
+  round: boolean;
+  /**
+   * Which cap a chosen hairstyle takes on this head.
+   *
+   * A hairstyle is authored against a fit rather than scaled to a skull — see `avatarHair` — and the
+   * fits are named after the six races because that is where they came from. A muzzled or eared head
+   * wears a shallower cut, and a manufactured one wears a plate with a seam rather than hair.
+   */
+  hairRace: AvatarRace;
+}
+
+/** A plain human frame: what a costume has unless it says otherwise. */
+export const plainBody: ArchetypeBody = {
+  ears: 'none', snout: 'none', whiskers: false, claw: false, round: false, hairRace: 'human'
+};
+
 export interface ArchetypeDefinition {
   id: FullBodyArchetype;
   /** Thai, because it is read by the person choosing it. */
@@ -1694,6 +1734,8 @@ export interface ArchetypeDefinition {
   description: string;
   /** Which of the four families the picker files it under. */
   group: ArchetypeGroup;
+  /** The body under the costume, for the wardrobe that dresses it. */
+  body: ArchetypeBody;
   /**
    * The costume, built for the direction it is being seen from.
    *
@@ -1708,6 +1750,7 @@ export interface ArchetypeDefinition {
 const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition>> = {
   dragonKnight: {
     id: 'dragonKnight',
+    body: { ...plainBody, snout: 'muzzle', claw: true, hairRace: 'dragonkin' },
     group: 'fantasy',
     name: 'นักรบมังกร',
     description: 'เขา ปีกค้างคาว หางเป็นปล้อง ขากรงเล็บ และดาบในมือหน้า',
@@ -1725,6 +1768,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
   },
   arcaneMage: {
     id: 'arcaneMage',
+    body: { ...plainBody, hairRace: 'spirit' },
     group: 'fantasy',
     name: 'จอมเวทย์มนตร์',
     description: 'ผ้าคลุมมีฮู้ด แขนเสื้อกว้าง รองเท้าโผล่ใต้ชายผ้า ตำราลอย และไม้เท้า',
@@ -1743,6 +1787,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
   },
   demon: {
     id: 'demon',
+    body: { ...plainBody, ears: 'pointed', claw: true, hairRace: 'demon' },
     group: 'fantasy',
     name: 'ปีศาจ',
     description: 'เขาแหลม หูแหลม หางปีศาจ และเท้ากีบ',
@@ -1760,6 +1805,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
   },
   student: {
     id: 'student',
+    body: plainBody,
     group: 'humanoid',
     name: 'นักเรียน',
     description: 'เสื้อคอปก กางเกงนักเรียน และรองเท้าผ้าใบ',
@@ -1776,6 +1822,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
   },
   athlete: {
     id: 'athlete',
+    body: plainBody,
     group: 'humanoid',
     name: 'นักกีฬา',
     description: 'ชุดกีฬา รองเท้าวิ่ง และท่ายืนพร้อมออกตัว',
@@ -1801,6 +1848,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
    */
   cat: {
     id: 'cat',
+    body: { ...plainBody, ears: 'cat', whiskers: true, hairRace: 'beastfolk' },
     group: 'beast',
     name: 'น้องแมว',
     description: 'หูแมวมีวุ้นสีชมพู แก้มแดง หนวด และหางแกว่ง',
@@ -1818,6 +1866,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
   },
   fox: {
     id: 'fox',
+    body: { ...plainBody, ears: 'fox', snout: 'muzzle', whiskers: true, claw: true, hairRace: 'beastfolk' },
     group: 'beast',
     name: 'น้องจิ้งจอก',
     description: 'หูแหลมปลายเข้ม ปากยื่น และหางฟูปลายขาว',
@@ -1835,6 +1884,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
   },
   rabbit: {
     id: 'rabbit',
+    body: { ...plainBody, ears: 'rabbit', hairRace: 'beastfolk' },
     group: 'beast',
     name: 'น้องกระต่าย',
     description: 'หูยาวตั้ง หางปุย แก้มแดง และรองเท้าผ้าใบ',
@@ -1852,6 +1902,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
   },
   penguin: {
     id: 'penguin',
+    body: { ...plainBody, snout: 'beak', round: true, hairRace: 'beastfolk' },
     group: 'beast',
     name: 'น้องเพนกวิน',
     description: 'ตัวกลมนุ่ม ปีกเป็นครีบ จมูกปาก และเท้าพังผืน',
@@ -1868,6 +1919,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
   },
   techwear: {
     id: 'techwear',
+    body: { ...plainBody, hairRace: 'robot' },
     group: 'scifi',
     name: 'สตรีทเทคแวร์',
     description: 'ฮู้ดตัวโคร่ง วิเซอร์เรืองแสง หูฟัง และสนีกเกอร์',
@@ -1951,6 +2003,22 @@ function legsFor(kind: ArchetypeSpec['legs'], claw: boolean): ReactElement {
   }
 }
 
+/**
+ * Which cap a spec's head takes, read off the head rather than listed again.
+ *
+ * The fits are named after the six races because that is where they came from, and what separates
+ * them is depth: a muzzled or eared skull wears a shallower cut, a manufactured one wears a plate
+ * with a seam, and a pointed-eared one sits between. Deriving it here means a new archetype cannot
+ * forget to say — it says it by having ears or a snout, which it had to do anyway.
+ */
+function hairRaceFor(spec: ArchetypeSpec): AvatarRace {
+  if (spec.group === 'scifi') return 'robot';
+  if (spec.snout && spec.snout !== 'none') return 'beastfolk';
+  if (spec.ears && spec.ears !== 'none' && spec.ears !== 'pointed') return 'beastfolk';
+  if (spec.ears === 'pointed') return spec.group === 'fantasy' ? 'demon' : 'spirit';
+  return 'human';
+}
+
 /** One spec, turned into the same nine slots everything else fills. */
 function buildArchetype(spec: ArchetypeSpec): ArchetypeDefinition {
   const sleeve = spec.sleeve ?? PRIMARY;
@@ -1959,6 +2027,15 @@ function buildArchetype(spec: ArchetypeSpec): ArchetypeDefinition {
     name: spec.name,
     description: spec.description,
     group: spec.group,
+    body: {
+      ears: spec.ears ?? 'none',
+      snout: spec.snout ?? 'none',
+      whiskers: spec.whiskers ?? false,
+      claw: spec.claw ?? false,
+      // A body with no waist is one the wardrobe cannot cut a shirt for: it keeps its own shape.
+      round: spec.legs === 'webbed' || spec.legs === 'hovering',
+      hairRace: hairRaceFor(spec)
+    },
     slots: (rig) => {
       const slots: Partial<Record<BodySlot, ReactElement>> = {
         shadow: groundShadow(),
@@ -2172,6 +2249,17 @@ export function bodyArchetypeFor(
   if (!config) return null;
   if (config.bodyArchetype) return config.bodyArchetype;
   return config.race ? archetypeForRace[config.race] ?? null : null;
+}
+
+/**
+ * The body a costume stands on, for the wardrobe that has to dress it.
+ *
+ * Answers for an id it does not know and for no id at all, because both happen: a build that drops
+ * an archetype must not blank the children wearing it, and most saved avatars predate bodies
+ * entirely. Either way the answer is a plain human frame, which is what those avatars were drawn as.
+ */
+export function archetypeBodyFor(id: FullBodyArchetype | null | undefined): ArchetypeBody {
+  return (id ? fullBodyArchetypes[id]?.body : undefined) ?? plainBody;
 }
 
 /**

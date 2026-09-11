@@ -6,11 +6,12 @@ import {
   SKIN, WHITE
 } from './avatarSprites';
 import {
-  backArm, batWings, bodySlotOrder, brimHat, bushyTail, cape, catTail, demonHorns, demonTail,
+  archetypeBodyFor, backArm, batWings, bodyArchetypeFor, bodySlotOrder, brimHat, bushyTail, cape,
+  catTail, demonHorns, demonTail,
   backpack, earShape, faceFeatures, flameOrbs, flask, flipperArm, frontArm, groundShadow, headShape,
   hornedHelm, jetpack, lantern, legsSneakers, openBook, palette,
   legsStanding, legsWebbed, robedLegs, scaledTail, shield, spellAura,
-  staff, sword, torsoRound, torsoShirt,
+  staff, sword, torsoRound,
   type BodySlot, type EarStyle, type SnoutStyle
 } from './avatarFullBody';
 import { hairFor, hairStyleDefinitions } from './avatarHair';
@@ -864,17 +865,50 @@ function layerOf(config: AvatarConfigV2, layer: LayerType): string | undefined {
 }
 
 /**
+ * The species this configuration is, which the character chosen answers before the race does.
+ *
+ * ── What was wrong ──
+ * A child picked one of forty-one characters — น้องแมว, มังกรน้ำแข็ง, หุ่นยนต์ — and the figure did not
+ * change. The wardrobe drew a complete human over the top of whatever had been chosen: its head,
+ * its face, its torso, its legs and its arms, every time, whether or not the child had chosen
+ * anything in those drawers. All that survived of the character was the handful of slots the
+ * wardrobe happened to leave empty, which is why picking a cat produced a person with a tail.
+ *
+ * ── The rule ──
+ * The character says what the body is. The race says it only when a child has picked one that is
+ * not the default, because then they have said something specific that the character cannot know —
+ * and a human-by-default race is not a statement, it is the absence of one. Everything a child
+ * actually chose in a drawer still goes on top: this decides the body, never the clothes.
+ */
+function speciesOf(config: AvatarConfigV2): RaceShape & { hairRace: AvatarRace } {
+  const race = config.race ?? 'human';
+  if (race !== 'human' && races[race]) {
+    return { ...races[race], hairRace: race };
+  }
+  const body = archetypeBodyFor(bodyArchetypeFor(config));
+  return {
+    ears: body.ears,
+    snout: body.snout,
+    whiskers: body.whiskers,
+    claw: body.claw,
+    round: body.round,
+    hairRace: body.hairRace
+  };
+}
+
+/**
  * Every slot of the figure, from one saved configuration.
  *
- * A missing choice is not an error: an avatar saved before a drawer existed simply gets its race's
- * own answer, which is why a record from the first week still draws a whole person. The order of
- * the returned map does not matter — the compositor draws by `bodySlotOrder` and nothing else
+ * A missing choice is not an error and it is not a gap either: the slot is left out of the map, and
+ * the compositor then draws the character's own — so a cat that has been given no hat keeps the
+ * fur between its ears, and a drone that has been given no shirt keeps its chassis. The order of
+ * the returned map does not matter; the compositor draws by `bodySlotOrder` and nothing else
  * decides it.
  */
 export function figureSlotsFor(
   config: AvatarConfigV2, rig: DirectionRig = directionRig('front')
 ): Partial<Record<BodySlot, ReactElement>> {
-  const race = races[config.race ?? 'human'] ?? races.human;
+  const race = speciesOf(config);
 
   const topId = layerOf(config, 'top_clothing');
   const top = topId ? tops[baseOf(topId)] : undefined;
@@ -891,13 +925,21 @@ export function figureSlotsFor(
 
   const hairId = layerOf(config, 'hair_headpiece');
   /*
-   * The style, fitted to this race, as two drawings.
+   * The style, fitted to the head it is going on, as two drawings.
    *
-   * `hairFor` answers for an id it does not know and for no id at all, so an avatar saved before
-   * this drawer existed — which is most of them — gets the cut its race falls back to rather than a
-   * bare skull, and a build that later drops a style does not blank out the children wearing it.
+   * The fit is the character's rather than the race's now, which is what stops a cap sitting on a
+   * muzzle as though the skull under it were human: a cut is authored against a fit and never
+   * scaled to a skull, so the only way to put the same bob on a fox and on a child is to hand it
+   * the right fit. `hairFor` still answers for an id it does not know, so a build that drops a
+   * style does not blank out the children wearing it.
+   *
+   * No style chosen means no drawing rather than a fallback cut. A record that predates this drawer
+   * keeps its character's own head — the fur between a cat's ears, a visor, a helm — which is the
+   * thing a fallback cap was covering up.
    */
-  const hair = hairFor(hairId ? baseOf(hairId) : undefined, config.race, rig);
+  const hair = hairId
+    ? hairFor(baseOf(hairId), race.hairRace, rig)
+    : { back: null, side: null, front: null };
   const worn = hairId ? wornOf(hairId) : undefined;
   const headpiece = worn ? headpieces[worn] : undefined;
 
@@ -925,15 +967,21 @@ export function figureSlotsFor(
       ? race.tail()
       : undefined;
 
+  /*
+   * A garment is drawn when there is a garment, and not otherwise.
+   *
+   * The wardrobe used to fill these three slots whatever the child had chosen — a shirt, a pair of
+   * trousers and two bare arms — which is how a robot chassis, a penguin's body and a drone's hull
+   * all came out wearing the same school shirt. An empty drawer now leaves the slot out of the map
+   * and the character's own body stands, which is what it was drawn for.
+   *
+   * The arms are here rather than beside them because they are half garment: they carry the
+   * sleeve's colour, and the front one carries whatever is being held. Either of those is a reason
+   * to draw them; neither being present is a reason to leave the character's own arms alone.
+   */
+  const holding = held && baseOf(frontId ?? '') !== 'none' ? held() : undefined;
   const slots: Partial<Record<BodySlot, ReactElement>> = {
     shadow: groundShadow(),
-    back_arm: backArm({ sleeve, skin: SKIN }),
-    legs_feet: race.round
-      ? legsWebbed()
-      : bottom
-        ? bottom()
-        : legsStanding({ boot: SECONDARY, trouser: PRIMARY, skin: SKIN }, race.claw),
-    torso_body: race.round ? torsoRound() : top ? topFrom(top) : torsoShirt(),
     head_neck: headShape({
       /*
        * The ears are drawn after the hair instead, in the headwear step.
@@ -945,9 +993,19 @@ export function figureSlotsFor(
       ears: 'none',
       snout: race.snout,
       rig
-    }),
-    face: faceFeatures({
-      eye: face?.eye ?? OUTLINE,
+    })
+  };
+
+  /*
+   * An expression is the child's when they picked one, and the character's when they did not.
+   *
+   * A cat has round pupils and a blush, a robot has a lit bar where a mouth would be, and both were
+   * being painted over with the same neutral pair of eyes — including on the saved avatars that
+   * predate this drawer entirely and never asked for a neutral face.
+   */
+  if (face) {
+    slots.face = faceFeatures({
+      eye: face.eye ?? OUTLINE,
       ...(face?.eyeLight === undefined ? {} : { eyeLight: face.eyeLight }),
       ...(face?.sharp === undefined ? {} : { sharp: face.sharp }),
       ...(face?.blush === undefined ? {} : { blush: face.blush }),
@@ -955,25 +1013,44 @@ export function figureSlotsFor(
       snout: race.snout,
       ...(race.whiskers === undefined ? {} : { whiskers: race.whiskers }),
       rig
-    }),
-    /* The wrap round the ear and the jaw: over the edge of the face, under the fringe. Without it a
-       turned head shows a band of bare scalp between the cap and the jaw. */
-    hair_side: hair.side,
-    /* The cap and the fringe. Length and volume are not here — they went into `hair_back`. */
-    hair_headwear: hair.front,
-    /* Worn rather than grown, and last over the head: ears and horns first, then a hat, then what
-       is over the eyes. A fringe under a hat and a hat under a fringe are different drawings. */
-    headwear: (
-      <g>
-        {race.ears === 'none' ? null : earShape(race.ears, rig)}
-        {headpiece ? headpiece() : null}
-        {glasses ? glasses() : null}
-      </g>
-    ),
-    front_arm_weapon: race.round
-      ? flipperArm('front')
-      : frontArm({ sleeve, skin: SKIN }, held && baseOf(frontId ?? '') !== 'none' ? held() : undefined)
-  };
+    });
+  }
+
+  /* The wrap round the ear and the jaw: over the edge of the face, under the fringe. Without it a
+     turned head shows a band of bare scalp between the cap and the jaw. */
+  if (hair.side) slots.hair_side = hair.side;
+  /* The cap and the fringe. Length and volume are not here — they went into `hair_back`. */
+  if (hair.front) slots.hair_headwear = hair.front;
+
+  if (race.round) {
+    // No waist to cut a garment for, so the body is one shape and the arms are flippers.
+    slots.torso_body = torsoRound();
+    slots.legs_feet = legsWebbed();
+    slots.back_arm = flipperArm('back');
+    slots.front_arm_weapon = flipperArm('front');
+  } else {
+    if (top) slots.torso_body = topFrom(top);
+    if (bottom) slots.legs_feet = bottom();
+    if (top || holding) {
+      slots.back_arm = backArm({ sleeve, skin: SKIN });
+      slots.front_arm_weapon = frontArm({ sleeve, skin: SKIN }, holding);
+    }
+  }
+
+  /*
+   * Worn rather than grown, and last over the head: ears and horns first, then a hat, then what is
+   * over the eyes. A fringe under a hat and a hat under a fringe are different drawings.
+   *
+   * Left out entirely when there is nothing to put there, so a character's own helm, visor or pair
+   * of horns is not replaced by an empty group — which is what used to happen, and is why an ice
+   * dragon arrived bare-headed.
+   */
+  const onHead = [
+    race.ears === 'none' ? null : earShape(race.ears, rig),
+    headpiece ? headpiece() : null,
+    glasses ? glasses() : null
+  ].filter(Boolean);
+  if (onHead.length > 0) slots.headwear = <g>{onHead}</g>;
 
   if (backDrawing) slots.back_gear = backDrawing;
   if (hair.back) slots.hair_back = hair.back;
