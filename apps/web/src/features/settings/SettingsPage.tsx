@@ -8,6 +8,7 @@ import { APP_VERSION, checkForUpdateNow, formatBuildTime, readLastCheckedAt } fr
 import { releaseNotes } from '../../app/releaseNotes';
 import { UpdateMark } from '../../app/UpdateMark';
 import { AcademicSettingsPanel } from './AcademicSettingsPanel';
+import { MenuArrangementCard } from './MenuArrangementCard';
 import { useTheme } from '../../app/ThemeContext';
 import { themeDensities, themeModes, themeMotions, themePresets } from '../../app/theme';
 import { Badge, Button, Card, CardHeader, Field, FieldGroup, LinkButton, PageHeader, Stat } from '../../ui/components';
@@ -226,6 +227,8 @@ export function SettingsPage() {
           </div>
         </Card>
       )}
+
+      {section === 'display' && <MenuArrangementCard />}
 
       {section === 'policy' && (
         <>

@@ -4789,3 +4789,31 @@ tr.row-warning td { background: var(--warning-soft); }
 .designer-stage-tint > span { color: var(--ink-500); font-size: var(--text-xs); }
 .designer-stage-tint > div { display: flex; flex-wrap: wrap; gap: 6px; }
 .designer-stage-tint .designer-swatch { width: 22px; height: 22px; }
+
+/* --------------------------------------------------------------------------
+ * Menu arrangement, in settings
+ *
+ * Two controls that are deliberately not the same weight: a switch that changes what this device
+ * shows, and a button that changes what everybody sees. The card states which is which in words
+ * rather than leaving the difference to the colour of a button.
+ * -------------------------------------------------------------------------- */
+.menu-arrange-card { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.menu-arrange-toggle {
+  display: grid; grid-template-columns: auto 1fr; align-items: start; gap: var(--space-3);
+  padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-sunken); cursor: pointer;
+}
+.menu-arrange-toggle input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.menu-arrange-toggle strong, .menu-arrange-toggle small { display: block; }
+.menu-arrange-toggle small { margin-top: 2px; color: var(--ink-500); font-size: var(--text-xs); line-height: var(--leading-normal); }
+
+.menu-arrange-state {
+  display: flex; align-items: start; gap: var(--space-2);
+  padding: var(--space-3); border-radius: var(--radius-sm); background: var(--surface-muted);
+}
+.menu-arrange-state strong, .menu-arrange-state small { display: block; }
+.menu-arrange-state small { margin-top: 2px; color: var(--ink-500); font-size: var(--text-xs); }
+
+.menu-arrange-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.menu-arrange-note { margin: 0; color: var(--ink-500); font-size: var(--text-xs); }

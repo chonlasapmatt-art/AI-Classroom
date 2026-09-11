@@ -15,6 +15,10 @@ import { useSyncStatus } from '../sync/SyncStatusContext';
 import { ConfirmDialog, PageLoading } from '../ui/components';
 import { Icon } from '../ui/Icon';
 import { destination, isAdvisorOnlyRoute, navigationByRole, type NavGroup, type NavItem } from './navigation';
+import {
+  applyArrangement, ARRANGE_MODE_KEY, arrangementStorageKey, moveGroup, moveItem, NAV_ORDER_EVENT,
+  NAV_ORDER_SETTING, publishedArrangement, readArrangement, type NavArrangement
+} from './navigationOrder';
 import { teacherIsAdvisorAnywhere } from '../data/teacherResponsibilities';
 import type { Role } from '../domain/types';
 import type { SessionValue, SupportView } from '../app/SessionContext';
@@ -234,7 +238,46 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
     return groups.filter((group) => group.items.length > 0);
   }, [membership.profileId, membership.role, session.mode, snapshot]);
-  const [expandedGroups, setExpandedGroups] = useState(() => readExpandedGroups(membership.role, visibleGroups, location.pathname));
+
+  /*
+   * The order, in three layers: this device, then the school, then the code.
+   *
+   * The device's own arrangement is held in state rather than read from `localStorage` where it is
+   * used. It lives outside React and the controls that change it are on another screen, so a read
+   * during render would be a render that does not re-run when the value changes — the settings page
+   * would turn the mode on and the menu would not notice. State plus the event is what makes a
+   * store React cannot see behave like one it can.
+   */
+  const localArrangementOf = (role: Role) =>
+    readArrangement(recallRecord<Record<string, unknown>>(arrangementStorageKey(role), {}));
+  const [localArrangement, setLocalArrangement] = useState<NavArrangement | null>(
+    () => localArrangementOf(membership.role));
+  const [arranging, setArranging] = useState(() => recall(ARRANGE_MODE_KEY) === 'true');
+
+  useEffect(() => {
+    const refresh = () => {
+      setLocalArrangement(localArrangementOf(membership.role));
+      setArranging(recall(ARRANGE_MODE_KEY) === 'true');
+    };
+    refresh();
+    window.addEventListener(NAV_ORDER_EVENT, refresh);
+    return () => window.removeEventListener(NAV_ORDER_EVENT, refresh);
+    // Re-read on a role change too: the menus are different menus and so are their arrangements.
+  }, [membership.role]);
+
+  const orderedGroups = useMemo(() => {
+    const published = publishedArrangement(
+      snapshot.settings.find((item) => item.key === NAV_ORDER_SETTING)?.valueJson, membership.role);
+    return applyArrangement(visibleGroups, localArrangement ?? published);
+  }, [localArrangement, membership.role, snapshot.settings, visibleGroups]);
+
+  /** Writes this device's own order and tells the rest of the app. Never the school's. */
+  function rearrange(next: NavArrangement) {
+    rememberRecord(arrangementStorageKey(membership.role), next);
+    setLocalArrangement(next);
+    window.dispatchEvent(new Event(NAV_ORDER_EVENT));
+  }
+  const [expandedGroups, setExpandedGroups] = useState(() => readExpandedGroups(membership.role, orderedGroups, location.pathname));
   const [menuQuery, setMenuQuery] = useState('');
   const { nav: navElement, marker } = useActiveRowMarker([location.pathname, expandedGroups, collapsed, menuQuery, membership.role]);
   // Matching the section name as well as the entry answers "where did they put the timetable?" —
@@ -242,17 +285,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const menuMatches = useMemo(() => {
     const needle = menuQuery.trim().toLowerCase();
     if (!needle) return [];
-    return visibleGroups.flatMap((group) => group.items
+    return orderedGroups.flatMap((group) => group.items
       .filter((item) => `${item.label} ${group.label} ${item.to}`.toLowerCase().includes(needle)));
-  }, [menuQuery, visibleGroups]);
+  }, [menuQuery, orderedGroups]);
   const [ownAvatarId, setOwnAvatarId] = useState(() => recall(avatarStorageKey(membership.profileId)));
   const ownAvatarPhotoId = ownStudent?.avatarPhotoId ?? ownTeacher?.avatarPhotoId ?? ownParentLink?.avatarPhotoId ?? null;
   const visibleAvatarId = ownStudent?.avatarId ?? ownTeacher?.avatarId ?? ownParentLink?.avatarId ?? ownAvatarId;
 
   useEffect(() => {
-    setExpandedGroups(readExpandedGroups(membership.role, visibleGroups, location.pathname));
+    setExpandedGroups(readExpandedGroups(membership.role, orderedGroups, location.pathname));
     setOwnAvatarId(recall(avatarStorageKey(membership.profileId)));
-  }, [location.pathname, membership.profileId, membership.role, visibleGroups]);
+  }, [location.pathname, membership.profileId, membership.role, orderedGroups]);
 
   /*
    * The drawer had a scrim in the stylesheet and nothing rendering it, so on a phone it opened
@@ -295,14 +338,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const currentPage = useMemo(() => {
     const path = location.pathname;
     let best: { group: string; item: NavItem } | null = null;
-    for (const group of visibleGroups) {
+    for (const group of orderedGroups) {
       for (const item of group.items) {
         const matches = item.to === '/' ? path === '/' : path === item.to || path.startsWith(`${item.to}/`);
         if (matches && (!best || item.to.length > best.item.to.length)) best = { group: group.label, item };
       }
     }
     return best;
-  }, [location.pathname, visibleGroups]);
+  }, [location.pathname, orderedGroups]);
 
   /*
    * The phone's bottom bar: the five destinations this role opens most, and nothing else.
@@ -409,32 +452,88 @@ export function AppShell({ children }: { children: ReactNode }) {
                   ))}
               </div>
             </section>
-          ) : visibleGroups.map((group) => (
+          ) : orderedGroups.map((group, groupIndex) => (
             <section className="sidebar-section" key={group.key}>
-              <button
-                type="button"
-                className="sidebar-section-toggle"
-                aria-expanded={expandedGroups[group.key] ?? true}
-                onClick={() => toggleGroup(group.key)}
-              >
-                <span>{group.label}</span><Icon name={expandedGroups[group.key] ? 'chevron-up' : 'chevron-down'} size={14} />
-              </button>
+              <div className="sidebar-section-head">
+                <button
+                  type="button"
+                  className="sidebar-section-toggle"
+                  aria-expanded={expandedGroups[group.key] ?? true}
+                  onClick={() => toggleGroup(group.key)}
+                >
+                  <span>{group.label}</span><Icon name={expandedGroups[group.key] ? 'chevron-up' : 'chevron-down'} size={14} />
+                </button>
+                {/*
+                  * Two buttons rather than a drag.
+                  *
+                  * The menu is a scrolling column inside a drawer, on devices that are mostly
+                  * touched: dragging a row up past the fold means holding a finger still while the
+                  * list scrolls under it, which is the interaction people give up on. Up and down
+                  * are also the only ones a keyboard and a screen reader can follow, and they say
+                  * where a section will land rather than leaving somebody to find out.
+                  */}
+                {arranging && (
+                  <span className="sidebar-arrange">
+                    <button
+                      type="button"
+                      disabled={groupIndex === 0}
+                      aria-label={`ย้ายหมวด ${group.label} ขึ้น`}
+                      onClick={() => rearrange(moveGroup(orderedGroups, group.key, -1))}
+                    >
+                      <Icon name="chevron-up" size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={groupIndex === orderedGroups.length - 1}
+                      aria-label={`ย้ายหมวด ${group.label} ลง`}
+                      onClick={() => rearrange(moveGroup(orderedGroups, group.key, 1))}
+                    >
+                      <Icon name="chevron-down" size={14} />
+                    </button>
+                  </span>
+                )}
+              </div>
               {/* A collapsed section in the rail would be unreachable: its heading is hidden there,
                   so there is nothing left to click to open it. */}
               {(collapsed || expandedGroups[group.key]) && <div className="sidebar-section-items">
-                {group.items.map((item) => (
-                  <NavLink
-                    key={item.to} to={item.to} end={item.to === '/'} title={item.label}
-                    data-icon={item.icon}
-                    onClick={() => setOpen(false)}
-                  >
-                    <Icon name={item.icon} size={18} />
-                    <span className="nav-label">{item.label}</span>
-                    {item.to === '/notifications' && unread > 0 && <span className="nav-badge">{unread}</span>}
-                    {/* A teacher is told when the room has been busy; an administrator reads the
-                        same inbox without being pulled into it, so no count is shown for them. */}
-                    {item.to === '/reports' && classroomActivity > 0 && <span className="nav-badge">{classroomActivity}</span>}
-                  </NavLink>
+                {group.items.map((item, itemIndex) => (
+                  <div className={arranging ? 'sidebar-row arranging' : 'sidebar-row'} key={item.to}>
+                    <NavLink
+                      to={item.to} end={item.to === '/'} title={item.label}
+                      data-icon={item.icon}
+                      onClick={() => setOpen(false)}
+                    >
+                      <Icon name={item.icon} size={18} />
+                      <span className="nav-label">{item.label}</span>
+                      {item.to === '/notifications' && unread > 0 && <span className="nav-badge">{unread}</span>}
+                      {/* A teacher is told when the room has been busy; an administrator reads the
+                          same inbox without being pulled into it, so no count is shown for them. */}
+                      {item.to === '/reports' && classroomActivity > 0 && <span className="nav-badge">{classroomActivity}</span>}
+                    </NavLink>
+                    {/* An entry moves inside its own section and never into another: a row that can
+                        cross a heading is a row somebody files under a name that does not describe
+                        it, and the headings are the only thing making a long menu readable. */}
+                    {arranging && (
+                      <span className="sidebar-arrange">
+                        <button
+                          type="button"
+                          disabled={itemIndex === 0}
+                          aria-label={`ย้าย ${item.label} ขึ้น`}
+                          onClick={() => rearrange(moveItem(orderedGroups, group.key, item.to, -1))}
+                        >
+                          <Icon name="chevron-up" size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={itemIndex === group.items.length - 1}
+                          aria-label={`ย้าย ${item.label} ลง`}
+                          onClick={() => rearrange(moveItem(orderedGroups, group.key, item.to, 1))}
+                        >
+                          <Icon name="chevron-down" size={14} />
+                        </button>
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>}
             </section>
