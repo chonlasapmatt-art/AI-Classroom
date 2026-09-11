@@ -11,7 +11,10 @@ import {
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { Assignment, Student } from '../../domain/types';
-import { teacherCanEditSubject, teacherClassIds, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import {
+  teacherCanEditSubject, teacherCanViewScore, teacherClassIds, teacherIsAdvisorAnywhere,
+  teacherOwnedSubjectIds
+} from '../../data/teacherResponsibilities';
 import { useToast } from '../../ui/toastContext';
 import { Icon } from '../../ui/Icon';
 
@@ -53,11 +56,38 @@ export function GradeEditorPage() {
     : visibleClasses[0]?.id ?? '';
   const roster = rosterFor(snapshot, selectedClassId);
 
+  /*
+   * What may be read here, which is not the same list as what may be written.
+   *
+   * This used to be filtered by the right to *mark*, so a room's advisor — whose job is the child
+   * rather than one of their subjects — opened the screen and saw nothing at all, or was refused it
+   * outright. They are entitled to read the marks of every subject in their own room: a guardian
+   * rings the advisor, and an advisor who can only see the one subject they happen to teach cannot
+   * answer. `teacherCanViewScore` is the rule that says so, and it is the same rule the database
+   * enforces in `teacher_can_view_score` — a room-wide link reads the room, a subject link reads its
+   * subject, and a teacher on neither reads nothing.
+   *
+   * Writing is untouched: see `editableWorkIds` below.
+   */
   const works = useMemo(() => snapshot.assignments
     .filter((item) => item.classId === selectedClassId && item.status !== 'draft' && item.status !== 'cancelled')
-    .filter((item) => membership.role !== 'teacher' || teacherCanEditSubject(snapshot, membership.profileId, item.classId, item.subjectId))
+    .filter((item) => membership.role !== 'teacher' || teacherCanViewScore(snapshot, membership.profileId, item.classId, item.subjectId))
     .sort((a, b) => (b.dueAt ?? b.assignedAt).localeCompare(a.dueAt ?? a.assignedAt)),
     [membership.profileId, membership.role, snapshot, selectedClassId]);
+
+  /**
+   * Which of those may actually be marked.
+   *
+   * Only the subject's owner, exactly as before and exactly as `teacher_can_edit_subject_score`
+   * decides on the server. A set rather than a call per render because the answer is asked once per
+   * row of a class list and the underlying lookup walks the whole staff table.
+   */
+  const editableWorkIds = useMemo(() => new Set(works
+    .filter((item) => membership.role === 'admin'
+      || (membership.role === 'teacher'
+        && teacherCanEditSubject(snapshot, membership.profileId, item.classId, item.subjectId)))
+    .map((item) => item.id)),
+    [membership.profileId, membership.role, snapshot, works]);
 
   /**
    * What each piece of work looks like before it is opened.
@@ -75,9 +105,10 @@ export function GradeEditorPage() {
       work: item,
       subject: subjectById(snapshot, item.subjectId),
       handedIn: handedIn.length,
-      unmarked
+      unmarked,
+      editable: editableWorkIds.has(item.id)
     };
-  }), [snapshot, works]);
+  }), [editableWorkIds, snapshot, works]);
 
   /*
    * The right to mark comes from the staff list, not from whether there is anything to mark yet.
@@ -92,8 +123,20 @@ export function GradeEditorPage() {
     [membership.profileId, snapshot]
   );
   const canEdit = membership.role === 'admin' || (membership.role === 'teacher' && ownedSubjects.size > 0);
+  /*
+   * Opening the screen and marking on it are two different rights.
+   *
+   * They were one, and the one was "do you own a subject" — so an advisor who teaches nothing was
+   * turned away from the only screen in the product that lays a room's marks out child by child.
+   * An advisor may open it; what they may do inside is decided per piece of work, below.
+   */
+  const advisesAnywhere = membership.role === 'teacher'
+    && teacherIsAdvisorAnywhere(snapshot, membership.profileId);
+  const canOpen = canEdit || advisesAnywhere;
 
   const work: Assignment | undefined = works.find((item) => item.id === workId) ?? works[0];
+  /** Whether the piece of work on screen is one this account may write to. */
+  const canMarkThisWork = work ? editableWorkIds.has(work.id) : false;
   const rows = useMemo(() => (work ? rosterRowsFor(snapshot, work, roster) : []), [snapshot, work, roster]);
   const rubric = work?.rubricId ? snapshot.rubrics.find((item) => item.id === work.rubricId) ?? null : null;
   const subject = work ? subjectById(snapshot, work.subjectId) : null;
@@ -117,7 +160,10 @@ export function GradeEditorPage() {
   }
 
   async function saveOne(studentId: string) {
-    if (!work) return;
+    // Belt as well as braces. The inputs are not rendered on a piece of work this account may only
+    // read, and the server refuses the write regardless; this stops a stale draft left over from a
+    // subject the teacher *could* mark being flushed into one they cannot when the selection moves.
+    if (!work || !canMarkThisWork) return;
     const draft = drafts[studentId];
     if (!draft?.dirty) return;
     setBusy(true);
@@ -139,7 +185,7 @@ export function GradeEditorPage() {
   }
 
   async function saveAll() {
-    if (!work) return;
+    if (!work || !canMarkThisWork) return;
     setBusy(true);
     setError(null);
     let saved = 0;
@@ -163,14 +209,14 @@ export function GradeEditorPage() {
     }
   }
 
-  if (!canEdit) {
+  if (!canOpen) {
     return (
       <>
         <PageHeader eyebrow="คะแนน" title="แก้ไขคะแนนและเกรด" />
         <Card>
           <EmptyState
-            title="ยังไม่ได้เป็นครูเจ้าของรายวิชา"
-            description="การให้คะแนนเปิดให้เฉพาะครูเจ้าของรายวิชาในห้องนั้น ให้ผู้ดูแลระบบกำหนดคุณเป็นครูประจำวิชาที่หน้าห้องเรียนก่อน"
+            title="ยังไม่ได้รับมอบหมายห้องเรียนหรือรายวิชา"
+            description="การให้คะแนนเปิดให้เฉพาะครูเจ้าของรายวิชาในห้องนั้น ส่วนครูที่ปรึกษาของห้องเปิดดูคะแนนทุกรายวิชาของห้องตัวเองได้แต่แก้ไขไม่ได้ ให้ผู้ดูแลระบบกำหนดคุณเข้าห้องเรียนที่หน้าห้องเรียนก่อน"
           />
         </Card>
       </>
@@ -182,8 +228,10 @@ export function GradeEditorPage() {
       <PageHeader
         eyebrow="คะแนนและเกรด"
         title="แก้ไขคะแนนและเกรด"
-        description="กรอกคะแนนทั้งห้องในหน้าเดียว ระบบคำนวณเปอร์เซ็นต์และเกรดให้ทันที และปรับเกรดได้พร้อมเหตุผล"
-        action={dirtyCount > 0 && (
+        description={canEdit
+          ? 'กรอกคะแนนทั้งห้องในหน้าเดียว ระบบคำนวณเปอร์เซ็นต์และเกรดให้ทันที และปรับเกรดได้พร้อมเหตุผล'
+          : 'ดูคะแนนทุกรายวิชาของห้องที่คุณเป็นครูที่ปรึกษา · แก้ไขได้เฉพาะครูเจ้าของรายวิชา'}
+        action={dirtyCount > 0 && canMarkThisWork && (
           <Button variant="primary" loading={busy} onClick={() => void saveAll()}>
             บันทึกทั้งหมด ({dirtyCount})
           </Button>
@@ -213,13 +261,21 @@ export function GradeEditorPage() {
               <small>
                 {card.subject ? `${card.subject.name} · ` : ''}เต็ม {card.work.maxScore} คะแนน
               </small>
-              {/* The number somebody came here to act on, said before the work is opened. */}
-              <small className={card.unmarked > 0 ? 'grade-picker-todo' : 'grade-picker-done'}>
-                {card.handedIn === 0
-                  ? 'ยังไม่มีใครส่ง'
-                  : card.unmarked > 0
-                    ? `รอตรวจ ${card.unmarked} จาก ${card.handedIn} ที่ส่งแล้ว`
-                    : `ตรวจครบแล้ว ${card.handedIn} คน`}
+              {/*
+                * Said on the card rather than after it is opened.
+                *
+                * An advisor's list holds their own subject beside half a dozen they may only read,
+                * and the difference decides what they can do when they get there — so it is on the
+                * thing they are choosing between, not on the screen that follows the choice.
+                */}
+              <small className={card.editable ? 'grade-picker-todo' : 'grade-picker-done'}>
+                {!card.editable
+                  ? 'ดูอย่างเดียว'
+                  : card.handedIn === 0
+                    ? 'ยังไม่มีใครส่ง'
+                    : card.unmarked > 0
+                      ? `รอตรวจ ${card.unmarked} จาก ${card.handedIn} ที่ส่งแล้ว`
+                      : `ตรวจครบแล้ว ${card.handedIn} คน`}
               </small>
             </button>
           ))}
@@ -248,9 +304,12 @@ export function GradeEditorPage() {
                   {work.title}
                 </span>
               }
-              description={rubric
-                ? `ให้คะแนนด้วยเกณฑ์ ${rubric.title} · เต็ม ${work.maxScore} คะแนน · เปิดหน้ารายละเอียดงานเพื่อกรอกรายหัวข้อ`
-                : `คะแนนเต็ม ${work.maxScore} · เกรดคำนวณจากเกณฑ์ของโรงเรียน`}
+              description={!canMarkThisWork
+                ? `คะแนนเต็ม ${work.maxScore} · ดูอย่างเดียว เพราะคุณเป็นครูที่ปรึกษาของห้องนี้ ไม่ใช่ครูเจ้าของรายวิชา`
+                : rubric
+                  ? `ให้คะแนนด้วยเกณฑ์ ${rubric.title} · เต็ม ${work.maxScore} คะแนน · เปิดหน้ารายละเอียดงานเพื่อกรอกรายหัวข้อ`
+                  : `คะแนนเต็ม ${work.maxScore} · เกรดคำนวณจากเกณฑ์ของโรงเรียน`}
+              action={!canMarkThisWork && <Badge tone="neutral">ดูอย่างเดียว</Badge>}
             />
           </div>
 
@@ -288,16 +347,25 @@ export function GradeEditorPage() {
                   </td>
                   <td><Badge tone={workStateTone[row.state]}>{workStateLabels[row.state]}</Badge></td>
                   <td>
-                    <div className="score-cell">
-                      <input
-                        type="number" min="0" max={work.maxScore} step="0.5"
-                        value={draft.value}
-                        aria-label={`คะแนนของ ${row.student.displayName}`}
-                        onChange={(event) => setDraft(row.student.id, event.target.value)}
-                        onBlur={() => void saveOne(row.student.id)}
-                      />
-                      <span className="muted">/ {work.maxScore}</span>
-                    </div>
+                    {/* A number rather than a disabled box. A greyed-out input at every row reads as
+                        a screen that is broken or still loading; a plain figure reads as a record. */}
+                    {canMarkThisWork ? (
+                      <div className="score-cell">
+                        <input
+                          type="number" min="0" max={work.maxScore} step="0.5"
+                          value={draft.value}
+                          aria-label={`คะแนนของ ${row.student.displayName}`}
+                          onChange={(event) => setDraft(row.student.id, event.target.value)}
+                          onBlur={() => void saveOne(row.student.id)}
+                        />
+                        <span className="muted">/ {work.maxScore}</span>
+                      </div>
+                    ) : (
+                      <div className="score-cell readonly">
+                        <strong>{stored === null ? '—' : stored}</strong>
+                        <span className="muted">/ {work.maxScore}</span>
+                      </div>
+                    )}
                   </td>
                   <td>{preview.percentage === null ? <span className="muted">—</span> : `${preview.percentage}%`}</td>
                   <td>
@@ -312,7 +380,9 @@ export function GradeEditorPage() {
                   </td>
                   <td>
                     <div className="cell-actions">
-                      <Button size="sm" variant="ghost" onClick={() => setOverriding(row.student)}>ปรับเกรด</Button>
+                      {canMarkThisWork
+                        ? <Button size="sm" variant="ghost" onClick={() => setOverriding(row.student)}>ปรับเกรด</Button>
+                        : <span className="muted">—</span>}
                     </div>
                   </td>
                 </tr>

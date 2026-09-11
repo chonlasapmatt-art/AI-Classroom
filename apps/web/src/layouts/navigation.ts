@@ -185,7 +185,18 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     { key: 'today', label: 'วันนี้', items: [
       destination('/', 'ภาพรวม', 'dashboard'),
       destination('/notifications', 'การแจ้งเตือน', 'bell'),
-      destination('/calendar', 'ปฏิทิน', 'calendar')
+      destination('/calendar', 'ปฏิทิน', 'calendar'),
+      /*
+       * Beside the calendar, rather than under a heading of its own.
+       *
+       * "ตารางเรียน" was a section containing one row with the same name, so the menu said the word
+       * twice and spent a whole heading on it. What a timetable answers is "what is on today", which
+       * is the question the calendar beside it answers over a longer span — so they belong together,
+       * and the section they were in is gone rather than renamed.
+       *
+       * A student reads a class timetable. Only the people who teach from one call it ตารางสอน.
+       */
+      destination('/timetable', 'ตารางเรียน', 'timetable')
     ] },
     { key: 'work', label: 'งานของฉัน', items: [
       destination('/assignments', 'งานและกิจกรรม', 'assignments'),
@@ -213,10 +224,6 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
     { key: 'scores', label: 'คะแนน', items: [
       destination('/scores', 'คะแนนและเกรด', 'scores')
     ] },
-    { key: 'timetable', label: 'ตารางเรียน', items: [
-      // A student reads a class timetable. Only the people who teach from one call it ตารางสอน.
-      destination('/timetable', 'ตารางเรียน', 'timetable')
-    ] },
     /*
      * A subject is where the lessons are now, so it is on every menu: a student opens it to
      * watch what their teacher published, and a guardian opens it to see what is being taught and
@@ -234,14 +241,14 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
   parent: [
     { key: 'children', label: 'ลูกของฉัน', items: [
       destination('/', 'ภาพรวม', 'dashboard'),
-      destination('/my-children', 'ลูกของฉัน', 'children')
+      destination('/my-children', 'ลูกของฉัน', 'children'),
+      // The timetable sits with the calendar for the same reason it does on a student's menu: it is
+      // the short answer to "what is on today", and it had a whole section to itself for one row.
+      destination('/timetable', 'ตารางเรียนของลูก', 'timetable'),
+      destination('/subjects', 'รายวิชาและบทเรียน', 'subjects')
     ] },
     { key: 'attendance', label: 'การเข้าเรียน', items: [
       destination('/attendance', 'การเข้าเรียนของลูก', 'attendance')
-    ] },
-    { key: 'timetable', label: 'ตารางเรียน', items: [
-      destination('/timetable', 'ตารางเรียนของลูก', 'timetable'),
-      destination('/subjects', 'รายวิชาและบทเรียน', 'subjects')
     ] },
     // No `/parents` entry here. For a guardian that screen only redirects to `/my-children`, so it
     // was a second door onto a page the menu already names — and the two sat under headings that

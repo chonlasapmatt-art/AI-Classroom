@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
-import { activeClasses, activeSubjects, classIdOfStudent, rosterFor } from '../../data/selectors';
+import { activeClasses, activeSubjects, classIdOfStudent, rosterFor, subjectsAssessedIn } from '../../data/selectors';
 import { subjectColor } from '../../data/subjectCatalog';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import {
@@ -19,7 +19,18 @@ import { teacherClassIds, teacherClassScope } from '../../data/teacherResponsibi
  * `embedded` drops the page's own heading, for the teacher's screen where this sits beside the
  * marks entry under a single title.
  */
-export function GradebookPage({ embedded = false }: { embedded?: boolean } = {}) {
+export function GradebookPage({ embedded = false, classId: fixedClassId }: {
+  embedded?: boolean;
+  /**
+   * The room to show, when the caller already owns the choice.
+   *
+   * The room book picks the room once, at the top, and then shows the totals under it and the
+   * subject detail beside them. Without this the embedded totals brought a second room selector of
+   * their own onto the same screen — two controls for one fact, which is how a teacher ends up
+   * reading one room's average under another room's name.
+   */
+  classId?: string;
+} = {}) {
   const { membership } = useSession();
   const snapshot = useSchoolSnapshot();
   const allClasses = activeClasses(snapshot);
@@ -43,21 +54,46 @@ export function GradebookPage({ embedded = false }: { embedded?: boolean } = {})
 
   // A student's own room is not a preference, so it comes first; everybody else resumes where they
   // were, which for a teacher moving between the register and the marks is the same room.
-  const [selectedClassId, setClassId] = useRememberedClass(classes, ownClassId);
+  const [rememberedClassId, setClassId] = useRememberedClass(classes, ownClassId);
+  const selectedClassId = fixedClassId ?? rememberedClassId;
   const classroom = classes.find((item) => item.id === selectedClassId);
   const scope = useMemo(
     () => teacherClassScope(snapshot, membership.profileId, selectedClassId),
     [membership.profileId, selectedClassId, snapshot]
   );
   const teacherHoldsOneSubject = membership.role === 'teacher' && !scope.advisor;
+  /*
+   * Three answers, because there are three questions being asked of this list.
+   *
+   * A subject teacher is offered the subjects they teach in this room, and nothing else — the room's
+   * combined total belongs to the advisor. An advisor, and an administrator, are offered every
+   * subject, because a total that omits half of them is not a total.
+   *
+   * And a child is offered the subjects their room is actually assessed in. It used to be the whole
+   * school's subject list, so a student's own gradebook held a dozen rows that could only answer
+   * "no marks" — which reads, to the person whose marks they are, as work that has gone missing
+   * rather than as a subject they have never sat.
+   */
   const subjects = teacherHoldsOneSubject
     ? allSubjects.filter((item) => scope.subjectIds.has(item.id))
-    : allSubjects;
+    : membership.role === 'student' || membership.role === 'parent'
+      ? subjectsAssessedIn(snapshot, selectedClassId)
+      : allSubjects;
   // A subject teacher has no "every subject" view to fall back on: the combined total of a room is
   // the advisor's, so the filter starts on one of their own subjects and stays on one.
-  const effectiveSubjectId = teacherHoldsOneSubject
-    ? (subjects.some((item) => item.id === subjectId) ? subjectId : subjects[0]?.id ?? '')
-    : subjectId;
+  /*
+   * A caller that owns the room owns the subject too.
+   *
+   * The room book asks this for one thing — the room's combined total, every subject at once — and
+   * puts the per-subject question behind its own switch. Leaving the filter here as well gave that
+   * screen two subject selectors a few centimetres apart, one of which silently narrowed the "total"
+   * the other was labelled as.
+   */
+  const effectiveSubjectId = fixedClassId
+    ? ''
+    : teacherHoldsOneSubject
+      ? (subjects.some((item) => item.id === subjectId) ? subjectId : subjects[0]?.id ?? '')
+      : subjectId;
   const term = snapshot.terms.find((item) => item.id === termId)
     ?? snapshot.terms.find((item) => item.status === 'active')
     ?? snapshot.terms[0];
@@ -143,20 +179,22 @@ export function GradebookPage({ embedded = false }: { embedded?: boolean } = {})
           <span className="gradebook-filter-hint">ข้อมูลจะปรับทันทีเมื่อเลือกตัวกรอง</span>
         </div>
         <Toolbar>
-          {!ownClassId && (
+          {!ownClassId && !fixedClassId && (
             <Field label="ห้องเรียน">
               <select value={selectedClassId} onChange={(event) => setClassId(event.target.value)}>
                 {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </Field>
           )}
-          <Field label="รายวิชา">
-            <select value={effectiveSubjectId} onChange={(event) => setSubjectId(event.target.value)}>
-              {/* "ทุกวิชา" combines subjects, so it belongs to whoever may read all of them. */}
-              {!teacherHoldsOneSubject && <option value="">ทุกวิชา</option>}
-              {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-            </select>
-          </Field>
+          {!fixedClassId && (
+            <Field label="รายวิชา">
+              <select value={effectiveSubjectId} onChange={(event) => setSubjectId(event.target.value)}>
+                {/* "ทุกวิชา" combines subjects, so it belongs to whoever may read all of them. */}
+                {!teacherHoldsOneSubject && <option value="">ทุกวิชา</option>}
+                {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+              </select>
+            </Field>
+          )}
           <Field label="ภาคเรียน">
             <select value={term?.id ?? ''} onChange={(event) => setTermId(event.target.value)}>
               {snapshot.terms.map((item) => (

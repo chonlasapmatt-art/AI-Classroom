@@ -1,7 +1,8 @@
 import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
-import { activeClasses, activeSubjects, classIdOfStudent, rosterFor, scorePolicyFrom, standingsFor, subjectById, subjectResultsFor } from '../../data/selectors';
+import { activeClasses, activeSubjects, classIdOfStudent, gradePointAverage, rosterFor, scorePolicyFrom, standingsFor, subjectById, subjectResultsFor } from '../../data/selectors';
+import { isFailingGrade } from './scoreEngine';
 import { subjectColor } from '../../data/subjectCatalog';
 import { SubjectIcon } from '../subjects/SubjectIcon';
 import type { SchoolSnapshot } from '../../data/schoolRepository';
@@ -23,7 +24,8 @@ const detailKindLabels: Record<'assignment' | 'homework' | 'project' | 'activity
 
 /** Marks are read far more often than they are typed, so the scale is spelled out beside the number. */
 function GradeBadge({ grade }: { grade: string }) {
-  return <Badge tone={grade === 'F' ? 'danger' : grade.startsWith('4') || grade.startsWith('3') ? 'success' : 'info'}>เกรด {grade}</Badge>;
+  const tone = isFailingGrade(grade) ? 'danger' : Number(grade) >= 3 ? 'success' : 'info';
+  return <Badge tone={tone}>เกรด {grade}</Badge>;
 }
 
 /**
@@ -129,18 +131,34 @@ function StudentScoresView({ snapshot, studentId, classId, subjects, policy }: {
     : [];
 
   const average = results.length === 0 ? 0 : results.reduce((sum, item) => sum + item.total, 0) / results.length;
-  const failing = results.filter((item) => item.grade === 'F').length;
+  const failing = results.filter((item) => isFailingGrade(item.grade)).length;
+  /*
+   * Every subject, as one number.
+   *
+   * The grade point average is what a Thai school means by "เกรดเฉลี่ย" and it is the figure a child
+   * and a guardian actually ask for: an average percentage is an arithmetic mean of things measured
+   * out of a hundred, which is not what goes on a report card. Both are shown — the percentage says
+   * how the marks are going, the average grade says where the term stands.
+   */
+  const gpa = gradePointAverage(results);
 
   return (
     <>
       {results.length > 0 && (
         <div className="ui-stat-grid">
           <Stat label="วิชาที่มีคะแนนแล้ว" value={results.length} hint={`จาก ${subjects.length} วิชา`} tone="brand" icon={<Icon name="subjects" size={18} />} />
+          <Stat
+            label="เกรดเฉลี่ยรวม"
+            value={gpa.toFixed(2)}
+            hint={`จาก ${results.length} วิชา · เต็ม 4.00`}
+            tone={gpa >= 3 ? 'success' : gpa >= 2 ? 'info' : 'warning'}
+            icon={<Icon name="gradebook" size={18} />}
+          />
           <Stat label="คะแนนเฉลี่ย" value={average.toFixed(1)} hint="เต็ม 100 ต่อวิชา" tone="info" icon={<Icon name="scores" size={18} />} />
           <Stat
             label="ต้องปรับปรุง"
             value={failing}
-            hint={failing === 0 ? 'ผ่านเกณฑ์ทุกวิชา' : 'วิชาที่ได้เกรด F'}
+            hint={failing === 0 ? 'ผ่านเกณฑ์ทุกวิชา' : 'วิชาที่ได้เกรด 0'}
             tone={failing === 0 ? 'success' : 'danger'}
             icon={<Icon name={failing === 0 ? 'check' : 'warning'} size={18} />}
           />
@@ -181,7 +199,7 @@ function StudentScoresView({ snapshot, studentId, classId, subjects, policy }: {
                   <span className="student-subject-icon"><SubjectIcon iconKey={result.subject.iconKey} size={22} /></span>
                   <span className="student-subject-card-head"><strong>{result.subject.name}</strong><span>{result.itemCount} รายการที่มีคะแนน</span></span>
                   <span className="student-subject-total">{result.total.toFixed(policy.decimals)}<small>/ 100</small></span>
-                  <ProgressBar value={result.total} max={100} tone={result.grade === 'F' ? 'danger' : 'brand'} />
+                  <ProgressBar value={result.total} max={100} tone={isFailingGrade(result.grade) ? 'danger' : 'brand'} />
                   <span className="student-subject-foot">
                     <GradeBadge grade={result.grade} />
                     <span className="student-subject-open">ดูรายละเอียด<Icon name="more" size={14} /></span>
@@ -323,7 +341,7 @@ export function ScoresPage({ embedded = false }: { embedded?: boolean } = {}) {
   const visibleRoster = roster.filter((student) => matchesQuery(student.displayName));
 
   const classAverage = standings.length === 0 ? 0 : standings.reduce((sum, entry) => sum + entry.total, 0) / standings.length;
-  const passing = standings.filter((entry) => entry.grade !== 'F').length;
+  const passing = standings.filter((entry) => !isFailingGrade(entry.grade)).length;
   const missingTotal = standings.reduce((sum, entry) => sum + entry.missingWork, 0);
 
   /** How many of the class already have a mark for one activity or test — the thing a teacher is deciding by. */
@@ -470,7 +488,7 @@ export function ScoresPage({ embedded = false }: { embedded?: boolean } = {}) {
                   <td>
                     <div className="score-total">
                       <span>{entry.total.toFixed(policy.decimals)}</span>
-                      <ProgressBar value={entry.total} max={100} tone={entry.grade === 'F' ? 'danger' : 'brand'} />
+                      <ProgressBar value={entry.total} max={100} tone={isFailingGrade(entry.grade) ? 'danger' : 'brand'} />
                     </div>
                   </td>
                   <td><GradeBadge grade={entry.grade} /></td>

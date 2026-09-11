@@ -103,6 +103,19 @@ export function teacherIsAdvisor(snapshot: SchoolSnapshot, profileId: string, cl
   return teacherLinksForProfile(snapshot, profileId, classId).some(isRoomWide);
 }
 
+/**
+ * The rooms this teacher looks after, as opposed to the rooms they teach in.
+ *
+ * A narrower gate than `teacherClassIds`, and deliberately so. Teaching one subject in six rooms
+ * makes somebody responsible for six columns of marks; being a room's advisor makes them
+ * responsible for twenty-eight children's whole reports, and those are different jobs with
+ * different screens. The room book is the second one's, so it asks this rather than asking who
+ * teaches where.
+ */
+export function teacherAdvisedClassIds(snapshot: SchoolSnapshot, profileId: string): Set<string> {
+  return new Set(teacherLinksForProfile(snapshot, profileId).filter(isRoomWide).map((link) => link.classId));
+}
+
 export interface TeacherClassScope {
   /** Whether the teacher is on this room at all. Everything else is meaningless when false. */
   assigned: boolean;

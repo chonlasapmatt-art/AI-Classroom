@@ -205,13 +205,24 @@ describe('reminder engine', () => {
 
 describe('grading', () => {
   it('turns a score into a percentage and a grade', () => {
+    /*
+     * The national scale, which is what a Thai report card says: 4 from eighty per cent, a whole
+     * grade for every ten below it, and a half grade at each midpoint. It replaced A+/A/B/C, which
+     * nobody in the building uses and which disagreed with the grade points the same app was
+     * already awarding from the same percentage.
+     */
     expect(percentageOf(18, 20)).toBe(90);
     expect(percentageOf(19, 20)).toBe(95);
-    expect(gradeForPercentage(95)).toBe('A+');
-    expect(gradeForPercentage(90)).toBe('A');
-    expect(gradeForPercentage(85)).toBe('B');
-    expect(gradeForPercentage(72)).toBe('C');
-    expect(gradeForPercentage(69)).toBe('ต่ำกว่าเกณฑ์');
+    expect(gradeForPercentage(95)).toBe('4');
+    expect(gradeForPercentage(80)).toBe('4');
+    expect(gradeForPercentage(78)).toBe('3.5');
+    expect(gradeForPercentage(72)).toBe('3');
+    expect(gradeForPercentage(66)).toBe('2.5');
+    expect(gradeForPercentage(61)).toBe('2');
+    expect(gradeForPercentage(57)).toBe('1.5');
+    expect(gradeForPercentage(51)).toBe('1');
+    // Nought is a grade, not the absence of one.
+    expect(gradeForPercentage(49)).toBe('0');
   });
 
   it('rejects impossible scores', () => {
@@ -224,10 +235,11 @@ describe('grading', () => {
   });
 
   it('keeps the calculated grade when a teacher overrides it', () => {
-    const result = resolveGrade(17, 20, { override: 'A' });
+    // 85% is a 4 on the national scale; the teacher's override stands beside it rather than over it.
+    const result = resolveGrade(17, 20, { override: '3.5' });
     expect(result.percentage).toBe(85);
-    expect(result.calculatedGrade).toBe('B');
-    expect(result.finalGrade).toBe('A');
+    expect(result.calculatedGrade).toBe('4');
+    expect(result.finalGrade).toBe('3.5');
     expect(result.overridden).toBe(true);
   });
 
@@ -304,7 +316,7 @@ describe('gradebook', () => {
     const malee = rows.find((row) => row.student.id === 'st2')!;
     expect(somchai.percentage).toBeGreaterThan(80);
     expect(malee.percentage).toBeGreaterThan(somchai.percentage!);
-    expect(malee.grade).toBe('A+');
+    expect(malee.grade).toBe('4');
   });
 
   it('validates that the configured weights add up to 100', () => {

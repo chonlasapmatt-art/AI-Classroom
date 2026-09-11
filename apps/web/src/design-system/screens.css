@@ -1361,6 +1361,11 @@
 .editor-title { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .score-cell { display: flex; align-items: center; gap: var(--space-2); }
 .score-cell input { width: 88px; min-height: var(--control-sm); }
+/* A mark somebody else gave, on a subject this reader may only read. A plain figure rather than a
+   disabled input: a column of greyed-out boxes reads as a screen that failed to load, and a reader
+   who cannot mark is not being refused an action — they are being shown a record. */
+.score-cell.readonly { min-height: var(--control-sm); }
+.score-cell.readonly strong { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
 .row-dirty { background: var(--warning-soft); }
 .override-summary { display: flex; gap: var(--space-5); margin-bottom: var(--space-4); }
 .override-summary span { display: block; }

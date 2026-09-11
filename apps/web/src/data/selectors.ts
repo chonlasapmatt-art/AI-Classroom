@@ -221,6 +221,36 @@ export function subjectById(snapshot: SchoolSnapshot, subjectId: string | null):
   return snapshot.subjects.find((item) => item.id === subjectId) ?? null;
 }
 
+/**
+ * The subjects a room is actually assessed in.
+ *
+ * Not the school's subject list. A child's gradebook offered every subject the school teaches, so
+ * the picker on their own marks held a dozen rows that could only ever answer "no marks" — a
+ * fourteen-year-old choosing a subject they have never sat and concluding the app had lost their
+ * work. What belongs there is what they study and are marked in, which is what has an assessment
+ * item in their room.
+ *
+ * Drafts and cancelled work are excluded, and an unpublished test is not: a subject whose only item
+ * is a paper nobody has sat yet is still a subject on the timetable, and the gradebook says so with
+ * an empty total rather than by omitting it.
+ */
+export function subjectsAssessedIn(snapshot: SchoolSnapshot, classId: string): Subject[] {
+  if (!classId) return [];
+  const ids = new Set<string>();
+  for (const item of snapshot.assignments) {
+    if (item.classId === classId && item.subjectId && item.status !== 'draft' && item.status !== 'cancelled') {
+      ids.add(item.subjectId);
+    }
+  }
+  for (const item of snapshot.activities) {
+    if (item.classId === classId && item.subjectId && item.status === 'published') ids.add(item.subjectId);
+  }
+  for (const item of snapshot.tests) {
+    if (item.classId === classId && item.subjectId && item.status !== 'draft') ids.add(item.subjectId);
+  }
+  return activeSubjects(snapshot).filter((subject) => ids.has(subject.id));
+}
+
 /** Score items limited to one subject, so a gradebook column means one learning area. */
 export function scoreItemsForSubject(snapshot: SchoolSnapshot, studentId: string, classId: string, subjectId: string): ScoreItem[] {
   const items: ScoreItem[] = [];
@@ -240,6 +270,106 @@ export function scoreItemsForSubject(snapshot: SchoolSnapshot, studentId: string
     items.push({ category: 'test', score: score?.score ?? null, maxScore: test.maxScore, published: Boolean(score?.publishedAt) });
   }
   return items;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * How a room is getting on with one subject
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** How one piece of work arrived. 'missing' is the absence of a hand-in, not a late one. */
+export type HandInTiming = 'early' | 'onTime' | 'late' | 'missing';
+
+export interface HandInRow {
+  assignmentId: string;
+  title: string;
+  dueAt: string | null;
+  submittedAt: string | null;
+  timing: HandInTiming;
+  score: number | null;
+  maxScore: number;
+}
+
+export interface StudentHandIns {
+  student: Student;
+  rows: HandInRow[];
+  early: number;
+  onTime: number;
+  late: number;
+  missing: number;
+  /** Marked out of the marks available, as a percentage, or null while nothing is marked yet. */
+  percentage: number | null;
+}
+
+/** A day. Anything handed in more than this before the deadline is somebody who was ahead of it. */
+const EARLY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * When a hand-in arrived, relative to when it was due.
+ *
+ * `isLate` is the record the server stamped and is believed over any arithmetic done here — a
+ * deadline can move after the fact, and the flag is what the child was told. Early and on time are
+ * the split the flag does not make: a room where half the work lands in the last hour is a room a
+ * form teacher wants to know about, and "not late" hides that completely.
+ */
+export function handInTiming(
+  submission: { submittedAt: string | null; isLate: boolean } | undefined,
+  dueAt: string | null
+): HandInTiming {
+  if (!submission?.submittedAt) return 'missing';
+  if (submission.isLate) return 'late';
+  if (!dueAt) return 'onTime';
+  const due = Date.parse(dueAt);
+  const sent = Date.parse(submission.submittedAt);
+  if (Number.isNaN(due) || Number.isNaN(sent)) return 'onTime';
+  return due - sent >= EARLY_MS ? 'early' : 'onTime';
+}
+
+/**
+ * One row per child: every piece of work in a subject, when it arrived, and what it scored.
+ *
+ * This is what a form teacher opens a room book for. The marks alone answer "how is this child
+ * doing"; they do not answer "why", and the commonest why in a Thai classroom is a child who is
+ * handing everything in a week late. Counting the four outcomes beside the average puts the two
+ * questions on the same row.
+ */
+export function subjectHandInsFor(
+  snapshot: SchoolSnapshot, classId: string, subjectId: string
+): StudentHandIns[] {
+  const works = snapshot.assignments
+    .filter((item) => item.classId === classId && item.subjectId === subjectId
+      && item.status !== 'draft' && item.status !== 'cancelled')
+    .sort((a, b) => (a.dueAt ?? a.assignedAt).localeCompare(b.dueAt ?? b.assignedAt));
+
+  return rosterFor(snapshot, classId).map((student) => {
+    const rows: HandInRow[] = works.map((work) => {
+      const submission = snapshot.submissions.find((item) =>
+        item.assignmentId === work.id && item.studentId === student.id && !item.deletedAt);
+      return {
+        assignmentId: work.id,
+        title: work.title,
+        dueAt: work.dueAt,
+        submittedAt: submission?.submittedAt ?? null,
+        timing: handInTiming(submission, work.dueAt),
+        score: submission?.score ?? null,
+        maxScore: work.maxScore
+      };
+    });
+
+    const marked = rows.filter((row) => row.score !== null && row.maxScore > 0);
+    const earned = marked.reduce((sum, row) => sum + (row.score ?? 0), 0);
+    const available = marked.reduce((sum, row) => sum + row.maxScore, 0);
+    const count = (timing: HandInTiming) => rows.filter((row) => row.timing === timing).length;
+
+    return {
+      student,
+      rows,
+      early: count('early'),
+      onTime: count('onTime'),
+      late: count('late'),
+      missing: count('missing'),
+      percentage: available > 0 ? Math.round((earned / available) * 1000) / 10 : null
+    };
+  });
 }
 
 export interface SubjectResult { subject: Subject; total: number; grade: ReturnType<typeof gradeFor>; itemCount: number }

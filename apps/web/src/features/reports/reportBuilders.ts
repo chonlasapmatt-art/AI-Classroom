@@ -1,3 +1,4 @@
+import { isFailingGrade } from '../scores/scoreEngine';
 import { attendanceDailySummary, classIdOfStudent, rosterFor, scorePolicyFrom, standingsFor } from '../../data/selectors';
 import type { SchoolSnapshot } from '../../data/schoolRepository';
 
@@ -63,7 +64,10 @@ export function buildReport(id: ReportId, snapshot: SchoolSnapshot, classId: str
       };
 
     case 'grade': {
-      const grades = ['A', 'B', 'C', 'D', 'F'];
+      // The national scale, highest first, and every band listed even when nobody is in it: a
+      // distribution with the empty grades missing is a distribution that cannot be compared with
+      // last term's. The list is stated rather than derived from the standings for the same reason.
+      const grades = ['4', '3.5', '3', '2.5', '2', '1.5', '1', '0'];
       return {
         id, title, columns: ['เกรด', 'จำนวนนักเรียน', 'สัดส่วน (%)'],
         rows: grades.map((grade) => {
@@ -88,12 +92,12 @@ export function buildReport(id: ReportId, snapshot: SchoolSnapshot, classId: str
         id, title: reportTitles['at-risk'],
         columns: ['รหัสนักเรียน', 'ชื่อ-สกุล', 'อัตราเข้าเรียน (%)', 'งานค้างส่ง', 'คะแนนรวม', 'เหตุผล'],
         rows: standings
-          .filter((entry) => entry.presentRate < AT_RISK_PRESENT_RATE || entry.missingWork >= AT_RISK_MISSING_WORK || entry.grade === 'F')
+          .filter((entry) => entry.presentRate < AT_RISK_PRESENT_RATE || entry.missingWork >= AT_RISK_MISSING_WORK || isFailingGrade(entry.grade))
           .map((entry) => {
             const reasons: string[] = [];
             if (entry.presentRate < AT_RISK_PRESENT_RATE) reasons.push('เข้าเรียนน้อย');
             if (entry.missingWork >= AT_RISK_MISSING_WORK) reasons.push('งานค้างส่ง');
-            if (entry.grade === 'F') reasons.push('คะแนนต่ำกว่าเกณฑ์');
+            if (isFailingGrade(entry.grade)) reasons.push('คะแนนต่ำกว่าเกณฑ์');
             return [entry.student.studentCode, entry.student.displayName, entry.presentRate, entry.missingWork, entry.total, reasons.join(' / ')];
           })
       };

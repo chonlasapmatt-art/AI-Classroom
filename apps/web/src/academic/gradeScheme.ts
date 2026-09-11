@@ -10,15 +10,28 @@ export interface GradeBand { grade: string; minPercentage: number; label: string
 
 export interface GradeScheme { bands: GradeBand[]; belowLabel: string; belowGrade: string }
 
+/**
+ * The national scale, which is what a Thai report card says.
+ *
+ * Eight grades as numbers: 4 from eighty per cent, a whole grade for every ten below it, and a half
+ * grade at each midpoint for a mark that has nearly reached the next one. The letters this used to
+ * default to — A+, A, B, C — are an American scale nobody in the building uses, and they disagreed
+ * with the grade points the same app was already awarding from the same percentage.
+ *
+ * A school may still replace all of it from settings; what changed is what it starts as.
+ */
 export const defaultGradeScheme: GradeScheme = {
   bands: [
-    { grade: 'A+', minPercentage: 95, label: 'ดีเยี่ยม' },
-    { grade: 'A', minPercentage: 90, label: 'ดีมาก' },
-    { grade: 'B', minPercentage: 80, label: 'ดี' },
-    { grade: 'C', minPercentage: 70, label: 'พอใช้' }
+    { grade: '4', minPercentage: 80, label: 'ดีเยี่ยม' },
+    { grade: '3.5', minPercentage: 75, label: 'ดีมาก' },
+    { grade: '3', minPercentage: 70, label: 'ดี' },
+    { grade: '2.5', minPercentage: 65, label: 'ค่อนข้างดี' },
+    { grade: '2', minPercentage: 60, label: 'ปานกลาง' },
+    { grade: '1.5', minPercentage: 55, label: 'พอใช้' },
+    { grade: '1', minPercentage: 50, label: 'ผ่านเกณฑ์ขั้นต่ำ' }
   ],
-  belowGrade: 'ต่ำกว่าเกณฑ์',
-  belowLabel: 'ต่ำกว่าเกณฑ์'
+  belowGrade: '0',
+  belowLabel: 'ไม่ผ่านเกณฑ์'
 };
 
 export function gradeSchemeFrom(settings: Setting[]): GradeScheme {
@@ -92,7 +105,15 @@ export function validateScore(value: number | null, maxScore: number): number | 
   return Math.round(value * 100) / 100;
 }
 
-/** Grade points on the Thai 4.00 scale, derived from the same percentage. */
+/**
+ * Grade points on the Thai 4.00 scale, derived from the same percentage.
+ *
+ * The same thresholds as `defaultGradeScheme` and as `gradeFor` in the score engine, deliberately
+ * repeated rather than shared: this returns a number to be averaged into a grade point average,
+ * that returns the string a report card prints, and the scheme is a school setting that may be
+ * changed. Deriving one from another would make a school that edits its bands silently edit its
+ * transcript arithmetic too.
+ */
 export function gradePointFor(percentage: number | null): number {
   if (percentage === null) return 0;
   if (percentage >= 80) return 4;
