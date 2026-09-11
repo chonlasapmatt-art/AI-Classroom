@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Navigate } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
-import { privacyPolicyFrom } from '../../data/selectors';
+import { compareNames } from '../../data/collation';
+import { privacyPolicyFrom, studentsByName } from '../../data/selectors';
 import { provisionManagedAccount, setManagedAccountPassword } from '../auth/adminAccount';
 import { ManagedPasswordFields } from '../auth/ManagedPasswordFields';
 import { activateMemberLogin, describeActivatedLogin } from '../auth/identityActivation';
@@ -96,6 +97,18 @@ async function loadManagedParents(schoolId: string): Promise<ManagedParent[]> {
     }));
 }
 
+/*
+ * Guardians in the order a Thai list is read.
+ *
+ * The server's `order('display_name')` is a byte comparison: it files every name that begins with a
+ * leading vowel — เ แ โ ใ ไ, which start a great many Thai words — away from where the alphabet puts
+ * them, and it sorts "นางสมศรี", "นายอนันต์" and "นางสาวกมล" under their titles rather than their
+ * names, so the list is in no order at all. The local path had no order whatsoever.
+ */
+function byParentName<T extends { parentName: string }>(rows: T[]): T[] {
+  return [...rows].sort((left, right) => compareNames(left.parentName, right.parentName));
+}
+
 export function ParentsPage() {
   const { membership, mode } = useSession();
   const repository = useRepository();
@@ -132,7 +145,7 @@ export function ParentsPage() {
 
   const parentRows = useMemo<ParentRow[]>(() => {
     if (mode === 'cloud' && canManageAccounts) {
-      return managedParents.map((parent) => ({
+      return byParentName(managedParents.map((parent) => ({
         key: parent.id,
         parentName: parent.parentName,
         profileId: parent.profileId,
@@ -143,7 +156,7 @@ export function ParentsPage() {
           .filter((name) => Boolean(name)),
         links: parent.links,
         status: parent.status
-      }));
+      })));
     }
     const grouped = new Map<string, ParentRow>();
     for (const link of snapshot.parentLinks) {
@@ -158,7 +171,7 @@ export function ParentsPage() {
       if (link.status === 'linked') row.status = 'linked';
       grouped.set(key, row);
     }
-    return Array.from(grouped.values());
+    return byParentName(Array.from(grouped.values()));
   }, [canManageAccounts, managedParents, mode, nameOfStudent, snapshot.parentLinks]);
 
   const refreshParents = useCallback(async () => {
@@ -458,7 +471,7 @@ export function ParentsPage() {
                     >
                       <select name="studentId" defaultValue="" aria-label={`เพิ่มนักเรียนที่ ${row.parentName} ดูแล`} required>
                         <option value="">เพิ่มนักเรียนที่ดูแล…</option>
-                        {snapshot.students
+                        {studentsByName(snapshot.students)
                           .filter((student) => !row.links.some((link) => link.studentId === student.id && link.status !== 'revoked'))
                           .map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
                       </select>

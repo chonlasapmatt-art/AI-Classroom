@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
+import { activeTeachers } from '../../data/selectors';
 import type { TeacherVerificationStatus } from '../../domain/types';
 import { responsibilityLabels, responsibilityOf, type TeacherResponsibility } from '../../data/teacherResponsibilities';
 import { useSyncStatus } from '../../sync/SyncStatusContext';
@@ -38,6 +39,10 @@ export function TeachersPage() {
   const sync = useSyncStatus();
   const snapshot = useSchoolSnapshot();
   const { toast } = useToast();
+  /* One order for the staff list and for every picker that names a teacher: by the given name,
+     with the title in front of it discounted, so a room of ครู… is not filed under ค. */
+  const teachersByName = activeTeachers(snapshot);
+
   const [passwordTeacher, setPasswordTeacher] = useState<typeof snapshot.teachers[number] | null>(null);
   const [verifying, setVerifying] = useState<{ id: string; name: string } | null>(null);
   /*
@@ -250,7 +255,7 @@ export function TeachersPage() {
           />
         )}
         <ul className="record-list">
-          {snapshot.teachers.map((teacher) => {
+          {teachersByName.map((teacher) => {
             const links = snapshot.classTeachers.filter((item) => item.teacherId === teacher.id);
             return (
               <li key={teacher.id}>
@@ -325,7 +330,7 @@ export function TeachersPage() {
             <Field label="ครู">
               <select value={assignment.teacherId} onChange={(event) => setAssignment({ ...assignment, teacherId: event.target.value })}>
                 <option value="">เลือกครู</option>
-                {snapshot.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.displayName}</option>)}
+                {teachersByName.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.displayName}</option>)}
               </select>
             </Field>
             <Field label="ห้องเรียน">

@@ -1,4 +1,5 @@
-import type { Attendance, AttendanceStatus, Classroom, ClassroomNotification, ClassTeacher, ScoreEvent, Setting, Student, Subject } from '../domain/types';
+import type { Attendance, AttendanceStatus, Classroom, ClassroomNotification, ClassTeacher, ScoreEvent, Setting, Student, Subject, Teacher } from '../domain/types';
+import { byName, compareClassNames, compareLabels, compareNames } from './collation';
 import { isLeave } from '../features/attendance/attendanceMarks';
 import { calculateTotal, defaultScorePolicy, gradeFor, type Category, type ScoreItem, type ScorePolicy } from '../features/scores/scoreEngine';
 import type { SchoolSnapshot } from './schoolRepository';
@@ -30,8 +31,26 @@ export function privacyPolicyFrom(settings: Setting[]): { policyVersion: string;
   };
 }
 
+/**
+ * Every open room, in the order a school reads them: ป.1/1, ป.1/2, ป.1/3, ป.2/1 … ม.6/4.
+ *
+ * `localeCompare(name, 'th')` on its own put ป.10/1 between ป.1/2 and ป.2/1, because without
+ * `numeric` the "1" of 10 is compared against the "2" and the comparison stops there. Every room
+ * picker in the product reads this list, so one comparator fixes all of them at once.
+ */
 export function activeClasses(snapshot: SchoolSnapshot): Classroom[] {
-  return snapshot.classes.filter((item) => item.status === 'active').sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  return snapshot.classes.filter((item) => item.status === 'active')
+    .sort((left, right) => compareClassNames(left.name, right.name));
+}
+
+/** Every teacher on the staff list, by name, with the title in front of it discounted. */
+export function activeTeachers(snapshot: SchoolSnapshot): Teacher[] {
+  return [...snapshot.teachers].sort((left, right) => compareNames(left.displayName, right.displayName));
+}
+
+/** Every child in the school, by name. A roster keeps its own order — see `rosterFor`. */
+export function studentsByName(students: readonly Student[]): Student[] {
+  return byName(students, (student) => student.displayName);
 }
 
 /** An assignment that has not been ended. The server applies the same rule to every room read. */
@@ -49,9 +68,18 @@ export function classTeacherLinks(snapshot: SchoolSnapshot, classId: string): Cl
     .sort((a, b) => (a.role === b.role ? 0 : a.role === 'primary' ? -1 : 1));
 }
 
+/**
+ * A room's children, by student number — which is the order a Thai register is called in.
+ *
+ * Numerically, which is the fix: the numbers are stored as text, so a plain comparison put 10 before
+ * 2 and a register of forty read 1, 10, 11 … 19, 2, 20. The number is what the teacher calls out, so
+ * it stays the sort key; the name is the tie-break for the schools that leave the number blank.
+ */
 export function rosterFor(snapshot: SchoolSnapshot, classId: string): Student[] {
   const ids = new Set(snapshot.enrollments.filter((item) => item.classId === classId && item.status === 'active').map((item) => item.studentId));
-  return snapshot.students.filter((item) => ids.has(item.id)).sort((a, b) => a.studentCode.localeCompare(b.studentCode));
+  return snapshot.students.filter((item) => ids.has(item.id))
+    .sort((left, right) => compareLabels(left.studentCode, right.studentCode)
+      || compareNames(left.displayName, right.displayName));
 }
 
 export function classIdOfStudent(snapshot: SchoolSnapshot, studentId: string): string | null {

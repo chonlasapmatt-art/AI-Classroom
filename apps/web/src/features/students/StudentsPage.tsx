@@ -1,7 +1,7 @@
 import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
-import { activeClasses, classIdOfStudent, rosterFor } from '../../data/selectors';
+import { activeClasses, classIdOfStudent, rosterFor, studentsByName } from '../../data/selectors';
 import { ProfileAvatar } from '../avatars/ProfileAvatar';
 import { AvatarDesigner } from '../avatars/AvatarDesigner';
 import { configForAvatarId } from '../avatars/avatarCatalog';
@@ -67,10 +67,18 @@ export function StudentsPage() {
     () => new Set(snapshot.enrollments.filter((item) => item.status === 'active').map((item) => item.studentId)),
     [snapshot.enrollments]
   );
+  /*
+   * A room keeps the order its register is called in; every other list is by name.
+   *
+   * "ทั้งหมด" and "ยังไม่มีห้อง" handed back whatever order the rows arrived in, which is insertion
+   * order — so the school-wide list had no order at all and the only way to find somebody was the
+   * search box. `rosterFor` already puts one room in student-code order, which is the order a
+   * register is read in, and that stays.
+   */
   const roster = useMemo(() => {
-    if (selectedClassId === 'all') return snapshot.students;
-    if (selectedClassId === 'unplaced') return snapshot.students.filter((student) => !placedStudentIds.has(student.id));
-    return selectedClassId ? rosterFor(snapshot, selectedClassId) : snapshot.students;
+    if (selectedClassId === 'all') return studentsByName(snapshot.students);
+    if (selectedClassId === 'unplaced') return studentsByName(snapshot.students.filter((student) => !placedStudentIds.has(student.id)));
+    return selectedClassId ? rosterFor(snapshot, selectedClassId) : studentsByName(snapshot.students);
   }, [placedStudentIds, snapshot, selectedClassId]);
   const unplacedCount = useMemo(
     () => snapshot.students.filter((student) => !placedStudentIds.has(student.id)).length,

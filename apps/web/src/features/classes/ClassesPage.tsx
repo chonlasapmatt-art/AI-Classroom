@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useSession } from '../../app/SessionContext';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
+import { compareClassNames, compareNames } from '../../data/collation';
 import { classTeacherLinks, rosterFor, subjectById } from '../../data/selectors';
 import {
   Badge, Button, Card, CardHeader, ConfirmDialog, EmptyState, Field, FieldGroup, LinkButton, Modal,
@@ -76,7 +77,9 @@ export function ClassesPage() {
   const isAdmin = membership.role === 'admin';
   const term = snapshot.terms.find((item) => item.status === 'active') ?? snapshot.terms[0];
   const canEdit = isAdmin && repository.canManageStructure && Boolean(term);
-  const classes = [...snapshot.classes].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  // ป.10/1 sorted between ป.1/2 and ป.2/1 under a plain comparison, because '1' precedes '2' and the
+  // 0 is never reached. compareClassNames counts the numbers as numbers; see data/collation.ts.
+  const classes = [...snapshot.classes].sort((a, b) => compareClassNames(a.name, b.name));
   const activeClassrooms = classes.filter((item) => item.status === 'active');
   /*
    * Putting a child into a room is not the same permission as opening one.
@@ -118,7 +121,7 @@ export function ClassesPage() {
 
   /** Names the class a student sits in today, so the transfer picker is not eight hundred bare names. */
   const studentOptions = useMemo(() => [...snapshot.students]
-    .sort((a, b) => a.displayName.localeCompare(b.displayName, 'th'))
+    .sort((a, b) => compareNames(a.displayName, b.displayName))
     .map((student) => {
       const enrollment = snapshot.enrollments.find((item) => item.studentId === student.id && item.status === 'active');
       const currentClass = snapshot.classes.find((item) => item.id === enrollment?.classId);
