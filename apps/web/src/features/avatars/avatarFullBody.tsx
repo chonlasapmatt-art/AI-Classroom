@@ -1,4 +1,6 @@
 import type { ReactElement } from 'react';
+import { SKULL } from './avatarGeometry';
+import { directionRig, faceCentre, yawShift, type DirectionRig } from './avatarDirection';
 import {
   px,
   ACCENT, HAIR, HAIR_HIGHLIGHT, HAIR_SHADOW, MAGIC, MAGIC_HIGHLIGHT, OUTLINE,
@@ -39,6 +41,7 @@ import {
 
 /** Back to front. The compositor draws in exactly this order and nothing else decides it. */
 export type BodySlot =
+  | 'aura_back'
   | 'shadow'
   | 'back_gear'
   | 'hair_back'
@@ -46,33 +49,57 @@ export type BodySlot =
   | 'legs_feet'
   | 'torso_body'
   | 'head_neck'
+  | 'face'
+  | 'hair_side'
   | 'hair_headwear'
+  | 'headwear'
   | 'front_arm_weapon'
   | 'overlay_fx';
 
-/*
- * Ten, because hair has a back.
+/**
+ * Fourteen steps, back to front, and nothing else decides the order.
  *
- * While there were nine, every hairstyle was drawn after the face — so an afro covered the eyes, a
- * plait came over the chin, and the only way to have length was to have it in front of the person
- * wearing it. `hair_back` is the missing half: volume and length hang there, behind the torso and
- * behind the arms, and only the cap and the fringe are drawn over the face in `hair_headwear`.
+ * Each one exists because something was wrong without it, and most of them were wrong in the same
+ * way: a part that had no step of its own had to share one, and sharing a step means one of the two
+ * is drawn in the wrong place.
+ *
+ *   1. `aura_back` — light behind the figure. Above the shadow, under everything solid.
+ *   2. `shadow` — the ground contact. Under the figure, over the aura, or it reads as a hole in it.
+ *   3. `back_gear` — wings, tails, capes: rooted at the back and hanging behind the body.
+ *   4. `hair_back` — length and volume. Behind the torso, which is where a plait actually hangs.
+ *   5. `back_arm` — the far arm.
+ *   6. `legs_feet`
+ *   7. `torso_body`
+ *   8. `head_neck` — the skull, the jaw and the ears. Not the face.
+ *   9. `face` — eyes, mouth, snout. Its own step because the back view has none of it.
+ *  10. `hair_side` — the wrap around the ear and jaw. Over the face's edge, under the fringe, and
+ *      the step that stops a turned head showing bare skull where the hair should be.
+ *  11. `hair_headwear` — the cap and the fringe.
+ *  12. `headwear` — hats, horns, animal ears worn rather than grown.
+ *  13. `front_arm_weapon` — the near arm and whatever it holds.
+ *  14. `overlay_fx` — sparks, runes, speed lines: in front of all of it.
+ *
+ * A costume may leave a step empty. It may never move one.
  */
 export const bodySlotOrder: BodySlot[] = [
-  'shadow', 'back_gear', 'hair_back', 'back_arm', 'legs_feet', 'torso_body',
-  'head_neck', 'hair_headwear', 'front_arm_weapon', 'overlay_fx'
+  'aura_back', 'shadow', 'back_gear', 'hair_back', 'back_arm', 'legs_feet', 'torso_body',
+  'head_neck', 'face', 'hair_side', 'hair_headwear', 'headwear', 'front_arm_weapon', 'overlay_fx'
 ];
 
 /** Thai, because these are read by the person choosing what to change. */
 export const bodySlotLabels: Record<BodySlot, string> = {
+  aura_back: 'ออร่าด้านหลัง',
   shadow: 'เงาใต้เท้า',
   back_gear: 'ปีก/หาง/ผ้าคลุม',
   hair_back: 'ผมด้านหลัง',
+  face: 'ตา/ปาก',
+  hair_side: 'ผมด้านข้าง',
+  headwear: 'หมวก/เขา/หู',
   back_arm: 'แขนหลัง',
   legs_feet: 'ขาและรองเท้า',
   torso_body: 'ลำตัว',
   head_neck: 'ใบหน้า',
-  hair_headwear: 'ผมและหมวก',
+  hair_headwear: 'ผมด้านหน้า',
   front_arm_weapon: 'แขนหน้าและอาวุธ',
   overlay_fx: 'เอฟเฟกต์'
 };
@@ -472,10 +499,23 @@ function eyeAt(x: number, { eye, eyeLight, sharp }: EyeOptions, mirrored = false
  * has on its head. One drawing, two positions in the stack; the alternative was two drawings that
  * drift.
  */
-export function earShape(ears: EarStyle): ReactElement {
+export function earShape(ears: EarStyle, rig?: DirectionRig): ReactElement {
   const fur = 'var(--av-hair)';
+  /*
+   * A turn hides one ear without anything being taken out of the drawing.
+   *
+   * The pair is painted *before* the skull — that is what keeps their roots out of sight — so
+   * sliding the pair along the turn does the occlusion for free: the far ear travels under the
+   * skull and is covered by it, and the near one comes out past the cheek, which is exactly what
+   * happens to a pair of ears on a head that turns.
+   *
+   * The alternative was to stop rendering one of them, and that restarts the twitch keyframe every
+   * time somebody changes direction, because a group whose children change is a new element as far
+   * as the animation is concerned.
+   */
+  const slide = rig ? yawShift(rig, 5) : 0;
   return (
-    <g data-part="ears">
+    <g data-part="ears" transform={slide === 0 ? undefined : `translate(${slide} 0)`}>
         {ears === 'pointed' ? (
           <>
             <polygon points="15,9 11,6 14.5,13" fill={SKIN} />
@@ -544,9 +584,24 @@ export function earShape(ears: EarStyle): ReactElement {
   );
 }
 
-export function headNeck({
-  eye, eyeLight, snout = 'none', ears = 'none', blush, whiskers, sharp, mouth = 'smile'
-}: FaceOptions): ReactElement {
+/**
+ * The skull, the jaw and the neck — the head with nothing on it yet.
+ *
+ * Separated from the face because the two turn differently. A skull barely moves as the head turns:
+ * it is a rounded volume seen from a slightly different side, and at this size that is a couple of
+ * units of shading. The features move the whole way, and on the back view they are not drawn at all.
+ * One element holding both could only ever do one of those things.
+ *
+ * The ears belong here rather than with the face: they are on the sides of the volume, so they are
+ * what a turn hides first.
+ */
+export function headShape({ snout = 'none', ears = 'none', rig }:
+Partial<FaceOptions> & { rig?: DirectionRig }): ReactElement {
+  const turn = rig ?? directionRig('front');
+  // The lit side follows the turn: a head turned to the reader's right is lit down its left. The
+  // band is the third tone the whole figure is lit by and it is the only part of the skull that
+  // moves, which is what stops a turn reading as the head being slid sideways.
+  const shadeLeft = turn.yaw > 0.2 ? 15 : 31;
   return (
     <g data-part="head">
       {/* The neck, which is what stops a chibi head sitting straight on the collarbone. */}
@@ -554,18 +609,50 @@ export function headNeck({
       {/*
         * Ears go behind the skull so their base is hidden, and in their own group so they can
         * twitch: an animal head that never moves its ears is a hat.
+        *
+        * The one a turn has taken out of sight is not drawn: an ear on the far side of a head that
+        * has turned away is behind the skull, and drawing it anyway is the thing that makes a
+        * side view read as a front view with the features pushed over.
         */}
-      {ears === 'none' ? null : earShape(ears)}
+      {ears === 'none' ? null : earShape(ears, turn)}
       {/* Skull, then a jaw narrowing to a chin — the line that makes a head read as a face. */}
       {px(15, 4, 18, 13, SKIN)}
       {px(16.5, 17, 15, 2, SKIN)}
       {px(18.5, 19, 11, 1.5, SKIN_SHADOW)}
       {px(15, 4, 18, 1.5, 'var(--av-skin-highlight)')}
-      {/* Ambient shadow down the right of the face: the third tone the whole figure is lit by. */}
-      {px(31, 5.5, 2, 11.5, SKIN_SHADOW)}
+      {px(shadeLeft, 5.5, 2, 11.5, SKIN_SHADOW)}
+      {/* A muzzle is the shape of the skull rather than a feature on it, so it turns with the head
+          and stays drawn on the back view — a fox seen from behind still has a snout in profile. */}
+      {snout === 'muzzle' ? px(19 + yawShift(turn, 3), 13, 10, 5, SKIN_SHADOW) : null}
+    </g>
+  );
+}
+
+/**
+ * Everything that makes the head a face: eyes, mouth, blush, whiskers, and the front of a snout.
+ *
+ * Its own layer in the pipeline, for the two reasons the split exists. It is not drawn at all on the
+ * back view — there is no arrangement of eyes that reads as the back of a head — and it moves the
+ * full width of the turn while the skull under it barely moves, which is what the eye reads as a
+ * head that has turned rather than a face that has slid.
+ */
+export function faceFeatures({
+  eye, eyeLight, snout = 'none', blush, whiskers, sharp, mouth = 'smile', rig
+}: FaceOptions & { rig?: DirectionRig }): ReactElement {
+  const turn = rig ?? directionRig('front');
+  /*
+   * The back of a head has no face, and the group stays anyway.
+   *
+   * Empty rather than absent so the element keeps its identity across a change of direction: a
+   * group that disappears and comes back is a new element, and the blink keyframe addressing its
+   * eyes restarts from nothing every time somebody turns the figure round and back.
+   */
+  if (turn.faceHidden) return <g data-part="face" />;
+  const shift = faceCentre(turn) - SKULL.centre;
+  return (
+    <g data-part="face" transform={shift === 0 ? undefined : `translate(${shift} 0)`}>
       {snout === 'muzzle' ? (
         <>
-          {px(19, 13, 10, 5, SKIN_SHADOW)}
           {px(19, 13, 10, 1, SKIN)}
           {px(20.5, 15.5, 2, 1.5, OUTLINE)}
           {px(25.5, 15.5, 2, 1.5, OUTLINE)}
@@ -619,6 +706,26 @@ export function headNeck({
         </>
       ) : null}
     </g>
+  );
+}
+
+/**
+ * The head and its face as one element, for a caller that fills one slot rather than two.
+ *
+ * The composed figure fills `head_neck` and `face` separately, which is what lets the back view drop
+ * the features without the compositor knowing what a face is. This is the same two drawings in the
+ * same order for anything that has only one place to put them.
+ */
+export function headNeck(options: FaceOptions & { rig?: DirectionRig }): ReactElement {
+  return (
+    <>
+      {headShape({
+        ...(options.snout === undefined ? {} : { snout: options.snout }),
+        ...(options.ears === undefined ? {} : { ears: options.ears }),
+        ...(options.rig === undefined ? {} : { rig: options.rig })
+      })}
+      {faceFeatures(options)}
+    </>
   );
 }
 
@@ -1048,7 +1155,15 @@ export interface ArchetypeDefinition {
   /** Thai, because it is read by the person choosing it. */
   name: string;
   description: string;
-  slots: Partial<Record<BodySlot, ReactElement>>;
+  /**
+   * The costume, built for the direction it is being seen from.
+   *
+   * A function rather than a fixed object because a head that has turned is not the same drawing
+   * with a transform on it: the face moves the full width of the turn, the ears slide behind the
+   * skull, and on the back view the features are not drawn at all. A stored object could only ever
+   * hold one of those.
+   */
+  slots: (rig: DirectionRig) => Partial<Record<BodySlot, ReactElement>>;
 }
 
 export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> = {
@@ -1056,75 +1171,80 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
     id: 'dragonKnight',
     name: 'นักรบมังกร',
     description: 'เขา ปีกค้างคาว หางเป็นปล้อง ขากรงเล็บ และดาบในมือหน้า',
-    slots: {
+    slots: (rig) => ({
       shadow: groundShadow(),
       back_gear: <g>{batWings()}{scaledTail()}</g>,
       back_arm: backArm({ sleeve: SECONDARY, skin: SKIN }, shield()),
       legs_feet: legsStanding({ boot: SECONDARY, trouser: PRIMARY, skin: SKIN }, true),
       torso_body: torsoPlate(),
-      head_neck: headNeck({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, snout: 'muzzle', sharp: true }),
-      hair_headwear: hornedHelm(),
+      head_neck: headShape({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, snout: 'muzzle', sharp: true, rig }),
+      face: faceFeatures({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, snout: 'muzzle', sharp: true, rig }),
+      headwear: hornedHelm(),
       front_arm_weapon: frontArm({ sleeve: SECONDARY, skin: SKIN }, sword())
-    }
+    })
   },
   arcaneMage: {
     id: 'arcaneMage',
     name: 'จอมเวทย์มนตร์',
     description: 'ผ้าคลุมมีฮู้ด แขนเสื้อกว้าง รองเท้าโผล่ใต้ชายผ้า ตำราลอย และไม้เท้า',
-    slots: {
+    slots: (rig) => ({
       shadow: groundShadow(),
       back_gear: cape(),
       back_arm: backArm({ sleeve: PRIMARY, skin: SKIN, wide: true }, spellbook()),
       legs_feet: robedLegs({ boot: ACCENT, trouser: SECONDARY, skin: SKIN }),
       torso_body: torsoRobe(),
-      head_neck: headNeck({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT }),
-      hair_headwear: brimHat(),
+      head_neck: headShape({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, rig }),
+      face: faceFeatures({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, rig }),
+      headwear: brimHat(),
       front_arm_weapon: frontArm({ sleeve: PRIMARY, skin: SKIN, wide: true }, staff()),
       overlay_fx: <g>{spellAura()}{flameOrbs()}</g>
-    }
+    })
   },
   demon: {
     id: 'demon',
     name: 'ปีศาจ',
     description: 'เขาแหลม หูแหลม หางปีศาจ และเท้ากีบ',
-    slots: {
+    slots: (rig) => ({
       shadow: groundShadow(),
       back_gear: demonTail(),
       back_arm: backArm({ sleeve: PRIMARY, skin: SKIN }),
       legs_feet: legsStanding({ boot: SECONDARY, trouser: PRIMARY, skin: SKIN }, true),
       torso_body: torsoPlate(),
-      head_neck: headNeck({ eye: MAGIC, ears: 'pointed' }),
-      hair_headwear: demonHorns(),
+      head_neck: headShape({ eye: MAGIC, ears: 'pointed', rig }),
+      face: faceFeatures({ eye: MAGIC, ears: 'pointed', rig }),
+      headwear: demonHorns(),
       front_arm_weapon: frontArm({ sleeve: PRIMARY, skin: SKIN })
-    }
+    })
   },
   student: {
     id: 'student',
     name: 'นักเรียน',
     description: 'เสื้อคอปก กางเกงนักเรียน และรองเท้าผ้าใบ',
-    slots: {
+    slots: (rig) => ({
       shadow: groundShadow(),
       back_arm: backArm({ sleeve: PRIMARY, skin: SKIN }),
       legs_feet: legsStanding({ boot: WHITE, trouser: SECONDARY, skin: SKIN }),
       torso_body: torsoShirt(),
-      head_neck: headNeck({ eye: OUTLINE }),
+      head_neck: headShape({ eye: OUTLINE, rig }),
+      face: faceFeatures({ eye: OUTLINE, rig }),
       hair_headwear: shortHair(),
       front_arm_weapon: frontArm({ sleeve: PRIMARY, skin: SKIN })
-    }
+    })
   },
   athlete: {
     id: 'athlete',
     name: 'นักกีฬา',
     description: 'ชุดกีฬา รองเท้าวิ่ง และท่ายืนพร้อมออกตัว',
-    slots: {
+    slots: (rig) => ({
       shadow: groundShadow(),
       back_arm: backArm({ sleeve: ACCENT, skin: SKIN }),
       legs_feet: legsSneakers({ boot: ACCENT, trouser: PRIMARY, skin: SKIN }),
       torso_body: torsoShirt(),
-      head_neck: headNeck({ eye: OUTLINE, mouth: 'smile' }),
+      head_neck: headShape({ eye: OUTLINE, mouth: 'smile', rig }),
+      face: faceFeatures({ eye: OUTLINE, mouth: 'smile', rig }),
       hair_headwear: shortHair(),
       front_arm_weapon: frontArm({ sleeve: ACCENT, skin: SKIN })
-    }
+    })
   },
 
   /*
@@ -1139,76 +1259,81 @@ export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> 
     id: 'cat',
     name: 'น้องแมว',
     description: 'หูแมวมีวุ้นสีชมพู แก้มแดง หนวด และหางแกว่ง',
-    slots: {
+    slots: (rig) => ({
       shadow: groundShadow(),
       back_gear: catTail(),
       back_arm: backArm({ sleeve: PRIMARY, skin: SKIN }),
       legs_feet: legsStanding({ boot: SECONDARY, trouser: PRIMARY, skin: SKIN }),
       torso_body: torsoHoodie(),
-      head_neck: headNeck({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, ears: 'cat', blush: true, whiskers: true }),
+      head_neck: headShape({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, ears: 'cat', blush: true, whiskers: true, rig }),
+      face: faceFeatures({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, ears: 'cat', blush: true, whiskers: true, rig }),
       hair_headwear: furTuft(),
       front_arm_weapon: frontArm({ sleeve: PRIMARY, skin: SKIN })
-    }
+    })
   },
   fox: {
     id: 'fox',
     name: 'น้องจิ้งจอก',
     description: 'หูแหลมปลายเข้ม ปากยื่น และหางฟูปลายขาว',
-    slots: {
+    slots: (rig) => ({
       shadow: groundShadow(),
       back_gear: bushyTail(),
       back_arm: backArm({ sleeve: SECONDARY, skin: SKIN }),
       legs_feet: legsStanding({ boot: SECONDARY, trouser: PRIMARY, skin: SKIN }, true),
       torso_body: torsoShirt(),
-      head_neck: headNeck({ eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT, ears: 'fox', snout: 'muzzle', whiskers: true }),
+      head_neck: headShape({ eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT, ears: 'fox', snout: 'muzzle', whiskers: true, rig }),
+      face: faceFeatures({ eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT, ears: 'fox', snout: 'muzzle', whiskers: true, rig }),
       hair_headwear: furTuft(),
       front_arm_weapon: frontArm({ sleeve: SECONDARY, skin: SKIN })
-    }
+    })
   },
   rabbit: {
     id: 'rabbit',
     name: 'น้องกระต่าย',
     description: 'หูยาวตั้ง หางปุย แก้มแดง และรองเท้าผ้าใบ',
-    slots: {
+    slots: (rig) => ({
       shadow: groundShadow(),
       back_gear: puffTail(),
       back_arm: backArm({ sleeve: PRIMARY, skin: SKIN }),
       legs_feet: legsSneakers({ boot: WHITE, trouser: SECONDARY, skin: SKIN }),
       torso_body: torsoHoodie(),
-      head_neck: headNeck({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, ears: 'rabbit', blush: true, mouth: 'fang' }),
+      head_neck: headShape({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, ears: 'rabbit', blush: true, mouth: 'fang', rig }),
+      face: faceFeatures({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, ears: 'rabbit', blush: true, mouth: 'fang', rig }),
       hair_headwear: furTuft(),
       front_arm_weapon: frontArm({ sleeve: PRIMARY, skin: SKIN })
-    }
+    })
   },
   penguin: {
     id: 'penguin',
     name: 'น้องเพนกวิน',
     description: 'ตัวกลมนุ่ม ปีกเป็นครีบ จมูกปาก และเท้าพังผืน',
-    slots: {
+    slots: (rig) => ({
       shadow: groundShadow(),
       back_arm: flipperArm('back'),
       legs_feet: legsWebbed(),
       torso_body: torsoRound(),
-      head_neck: headNeck({ eye: OUTLINE, eyeLight: SECONDARY, snout: 'beak', blush: true }),
+      head_neck: headShape({ eye: OUTLINE, eyeLight: SECONDARY, snout: 'beak', blush: true, rig }),
+      face: faceFeatures({ eye: OUTLINE, eyeLight: SECONDARY, snout: 'beak', blush: true, rig }),
       hair_headwear: furTuft(),
       front_arm_weapon: flipperArm('front')
-    }
+    })
   },
   techwear: {
     id: 'techwear',
     name: 'สตรีทเทคแวร์',
     description: 'ฮู้ดตัวโคร่ง วิเซอร์เรืองแสง หูฟัง และสนีกเกอร์',
-    slots: {
+    slots: (rig) => ({
       shadow: groundShadow(),
       back_arm: backArm({ sleeve: PRIMARY, skin: SKIN }),
       legs_feet: legsSneakers({ boot: SECONDARY, trouser: SECONDARY, skin: SKIN }),
       torso_body: torsoHoodie(),
       // No neon glow behind the eyes here: the visor is already the tech, and two lit things
       // on one small face is one too many.
-      head_neck: headNeck({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, mouth: 'none' }),
-      hair_headwear: techVisor(),
+      head_neck: headShape({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, mouth: 'none', rig }),
+      face: faceFeatures({ eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, mouth: 'none', rig }),
+      headwear: techVisor(),
       front_arm_weapon: frontArm({ sleeve: PRIMARY, skin: SKIN })
-    }
+    })
   }
 };
 

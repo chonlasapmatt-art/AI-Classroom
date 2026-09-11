@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FullBodyAvatar } from '../../src/features/avatars/FullBodyAvatar';
+import { directionRig } from '../../src/features/avatars/avatarDirection';
 import {
   bodyForCategory, bodySlotOrder, fullBodyArchetypeList, fullBodyArchetypes, overlayForPose, FULL_BODY_GRID
 } from '../../src/features/avatars/avatarFullBody';
@@ -11,6 +12,7 @@ import {
 afterEach(cleanup);
 
 const here = dirname(fileURLToPath(import.meta.url));
+const front = directionRig('front');
 const poseStyles = readFileSync(
   resolve(here, '../../src/features/avatars/FullBodyAvatar.module.css'), 'utf8'
 );
@@ -27,18 +29,19 @@ const poseStyles = readFileSync(
 describe('the full-body figure', () => {
   it('draws its slots back to front, and never in another order', () => {
     /*
-     * A wing behind the body, a hat in front of hair, a staff in front of both, shadow underneath —
-     * and hair on both sides of the figure, which is the slot this list gained.
+     * Fourteen steps, and each one exists because something was wrong without it.
      *
-     * While there were nine, a hairstyle was one group drawn after the face, so length and volume
-     * had nowhere to go but over the eyes: an afro covered the whole face and a plait came over the
-     * chin. `hair_back` is where a style's length hangs, behind the torso and behind the arms, and
-     * it is before `back_arm` rather than after it because a plait goes behind a shoulder.
+     * Hair has a back, a side and a front, and they go in three different places: length behind the
+     * torso, the ear wrap over the face's edge, the fringe over the brow. The face is its own step
+     * because the back view has none of it. Headwear is its own step because a hat over a fringe and
+     * a fringe over a hat are different drawings. Every one of those was a shared step once, and a
+     * shared step means one of the two is in the wrong place.
      */
     expect(bodySlotOrder).toEqual([
-      'shadow', 'back_gear', 'hair_back', 'back_arm', 'legs_feet', 'torso_body',
-      'head_neck', 'hair_headwear', 'front_arm_weapon', 'overlay_fx'
+      'aura_back', 'shadow', 'back_gear', 'hair_back', 'back_arm', 'legs_feet', 'torso_body',
+      'head_neck', 'face', 'hair_side', 'hair_headwear', 'headwear', 'front_arm_weapon', 'overlay_fx'
     ]);
+    expect(bodySlotOrder.length, 'the pipeline is fourteen steps').toBe(14);
 
     const { container } = render(<FullBodyAvatar archetype="dragonKnight" label="เทส" />);
     const drawn = [...container.querySelectorAll('g[data-slot]')]
@@ -72,7 +75,7 @@ describe('the full-body figure', () => {
 
   it('stands the figure on a shadow, so it is on the floor rather than in the air', () => {
     for (const archetype of fullBodyArchetypeList) {
-      expect(archetype.slots.shadow, `${archetype.id} has no ground shadow`).toBeTruthy();
+      expect(archetype.slots(front).shadow, `${archetype.id} has no ground shadow`).toBeTruthy();
     }
   });
 
@@ -81,18 +84,18 @@ describe('the full-body figure', () => {
     expect(knight.name).toBe('นักรบมังกร');
     // Horns and a snouted head, a segmented tail and wings behind, clawed legs, a sword in the
     // front hand and a shield in the back one.
-    expect(knight.slots.hair_headwear).toBeTruthy();
-    expect(knight.slots.back_gear).toBeTruthy();
-    expect(knight.slots.front_arm_weapon).toBeTruthy();
-    expect(knight.slots.back_arm).toBeTruthy();
+    expect(knight.slots(front).headwear, 'the horned helm is worn, not grown').toBeTruthy();
+    expect(knight.slots(front).back_gear).toBeTruthy();
+    expect(knight.slots(front).front_arm_weapon).toBeTruthy();
+    expect(knight.slots(front).back_arm).toBeTruthy();
 
     const mage = fullBodyArchetypes.arcaneMage;
     expect(mage.name).toBe('จอมเวทย์มนตร์');
     // Hood, robe with boots below it, a floating spellbook in the back hand, a staff in the front,
     // and the standing aura that is the mage's own overlay rather than a pose's.
-    expect(mage.slots.hair_headwear).toBeTruthy();
-    expect(mage.slots.legs_feet).toBeTruthy();
-    expect(mage.slots.overlay_fx).toBeTruthy();
+    expect(mage.slots(front).headwear, 'the brimmed hat is worn, not grown').toBeTruthy();
+    expect(mage.slots(front).legs_feet).toBeTruthy();
+    expect(mage.slots(front).overlay_fx).toBeTruthy();
   });
 
   it('takes every colour from the six tints, so recolouring never means redrawing', () => {

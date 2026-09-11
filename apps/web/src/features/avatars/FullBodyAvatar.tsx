@@ -2,6 +2,7 @@ import { cloneElement, type CSSProperties, type ReactElement } from 'react';
 import type { AvatarAnimation } from '../../domain/types';
 import { defaultTints, tintVariables, type AvatarTints } from './avatarSchema';
 import { cropViewBox, type AvatarCropMode } from './avatarGeometry';
+import { directionRig, type AvatarDirection } from './avatarDirection';
 import {
   bodySlotOrder, fullBodyArchetypes, overlayForPose,
   type BodySlot, type FullBodyArchetype
@@ -69,6 +70,14 @@ export interface FullBodyAvatarProps {
   paused?: boolean;
   facing?: FullBodyFacing;
   /**
+   * Which way the figure is turned.
+   *
+   * Six states, and every one of them is a re-composition rather than a mirror: the face moves the
+   * width of the turn, the ears slide behind the skull, the near limb changes which side it is, and
+   * the back view has no face at all. `front` is the default everywhere, and nothing animates it.
+   */
+  direction?: AvatarDirection;
+  /**
    * Lets a pose's effect paint outside the frame.
    *
    * Off by default, and that default is the fix for the avatar escaping its container: an SVG with
@@ -115,10 +124,20 @@ function isElement(value: unknown): value is ReactElement {
 
 export function FullBodyAvatar({
   archetype, slots, animation = 'idle', tints, size = 176, label, backdrop, paused,
-  framing = 'full', facing = 'default', allowOverflowEffect = false
+  framing = 'full', facing = 'default', direction = 'front', allowOverflowEffect = false
 }: FullBodyAvatarProps) {
   const definition = fullBodyArchetypes[archetype] ?? fullBodyArchetypes.student;
-  const drawn: Partial<Record<BodySlot, ReactElement>> = { ...definition.slots, ...(slots ?? {}) };
+  /*
+   * The direction, resolved once and handed to whatever draws.
+   *
+   * It is a prop with a default and no keyframe touches it — that is the run cycle no longer
+   * turning the character round twice a second. The costume is built *for* this direction rather
+   * than mirrored into it: a head that has turned is a different arrangement of the same parts, not
+   * the same arrangement flipped, and a flip would swap the parting in the hair and put the near
+   * hand behind the chest.
+   */
+  const rig = directionRig(direction);
+  const drawn: Partial<Record<BodySlot, ReactElement>> = { ...definition.slots(rig), ...(slots ?? {}) };
   const pose = posed.includes(animation) ? animation : 'idle';
   const style = tintVariables({ ...defaultTints, ...(tints ?? {}) }) as CSSProperties;
 
@@ -141,6 +160,7 @@ export function FullBodyAvatar({
       height={size}
       viewBox={cropViewBox[framing]}
       data-facing={facing}
+      data-direction={direction}
       style={style}
       role="img"
       aria-label={label ? `อวตาร ${label}` : `อวตาร${definition.name}`}

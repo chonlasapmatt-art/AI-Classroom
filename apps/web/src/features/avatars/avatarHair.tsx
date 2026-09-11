@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { px, ACCENT, HAIR, HAIR_HIGHLIGHT, HAIR_SHADOW } from './avatarSprites';
 import { clampCrown, SKULL, type HairAnchors } from './avatarGeometry';
+import { yawShift, type DirectionRig } from './avatarDirection';
 import type { AvatarRace } from './avatarSchema';
 
 /**
@@ -422,9 +423,37 @@ const raceFallbackStyle: Record<AvatarRace, string> = {
   robot: 'buzz'
 };
 
-/** What the compositor gets: one drawing for behind the figure and one for over the face. */
+/**
+ * The wrap round the ear and the jaw — the layer a turned head cannot do without.
+ *
+ * Straight on it is a sliver at each edge of the skull, which is what hair looks like framing a face
+ * and is nearly invisible. Turned, it is the whole point: the cap ends at the hairline, the skull
+ * carries on past it, and without something following the side of the head a profile shows a band of
+ * bare scalp between the hair and the jaw. That is the bald spot, and no amount of widening the cap
+ * fixes it — a cap wide enough to cover a profile is a cap over the face when seen from the front.
+ *
+ * It slides with the turn rather than being redrawn per direction: the near panel comes across the
+ * cheek, the far one tucks behind the skull, and both keep their own length.
+ */
+function sideWrap(fit: HairFit, length: number, rig?: DirectionRig): ReactElement {
+  const slide = rig ? yawShift(rig, 3.5) : 0;
+  const top = fit.capTop + fit.capHeight - 1;
+  const drop = Math.max(3, Math.min(length, SKULL.chin - top));
+  return (
+    <g data-part="hairSide" transform={slide === 0 ? undefined : `translate(${slide} 0)`}>
+      {px(SKULL.left - 0.5, top, 3, drop, HAIR)}
+      {px(SKULL.right - 2.5, top, 3, drop, HAIR_SHADOW)}
+      {/* The ear notch: the wrap tucks behind where an ear sits rather than running flat over it. */}
+      {px(SKULL.left - 0.5, top, 0.75, drop, HAIR_HIGHLIGHT)}
+    </g>
+  );
+}
+
+/** What the compositor gets: three drawings, for the three places hair goes. */
 export interface HairDrawing {
   back: ReactElement | null;
+  /** The wrap round the ear and jaw. Drawn over the face's edge and under the fringe. */
+  side: ReactElement;
   front: ReactElement;
 }
 
@@ -438,13 +467,21 @@ export const hairStyleIds: string[] = [...Object.keys(hairStyleDefinitions), 'fu
  * dropped still belongs to a child, and the safe answer is the cut everybody starts with. The same
  * holds for a record with no hair layer at all, which is most of them.
  */
-export function hairFor(styleId: string | undefined | null, race: AvatarRace | undefined): HairDrawing {
+export function hairFor(
+  styleId: string | undefined | null, race: AvatarRace | undefined, rig?: DirectionRig
+): HairDrawing {
   const fit = hairFitFor(race);
   const requested = styleId ?? raceFallbackStyle[race ?? 'human'] ?? 'short';
   const id = requested === 'fur' || hairStyleDefinitions[requested] ? requested : 'short';
 
   if (id === 'fur') {
-    return { back: null, front: <g data-part="hair">{furTuftFront(fit)}</g> };
+    return {
+      back: null,
+      // Fur wraps the jaw as much as hair does, and an animal head in profile is the case where a
+      // missing wrap is most obvious: the cheek is the widest part of the silhouette.
+      side: sideWrap(fit, 4, rig),
+      front: <g data-part="hair">{furTuftFront(fit)}</g>
+    };
   }
 
   const style = hairStyleDefinitions[id]!;
@@ -455,6 +492,11 @@ export function hairFor(styleId: string | undefined | null, race: AvatarRace | u
   const back = style.back?.(fitted) ?? null;
   return {
     back: back ? <g data-part="hairBack">{back}</g> : null,
+    /*
+     * How far the wrap reaches is the style's own length where it has one, and a short frame where
+     * it does not. A buzz cut still has hair beside the ear; what it does not have is length.
+     */
+    side: sideWrap(fitted, style.locks ?? (style.shallow ? 3 : 5), rig),
     front: (
       <g data-part="hair">
         {style.locks ? faceLocks(fitted, style.locks, style.curlyLocks ?? false) : null}

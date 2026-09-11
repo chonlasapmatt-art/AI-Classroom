@@ -374,6 +374,19 @@ export function AppShell({ children }: { children: ReactNode }) {
     return wanted[membership.role].map((to) => available.get(to)).filter((item): item is NavItem => Boolean(item));
   }, [membership.role]);
 
+  /*
+   * The one screen with no bar along the bottom.
+   *
+   * The profile is a page somebody scrolls to the end of — an avatar, a card of details, the picker
+   * — and a fixed bar over the last of it is a bar over the thing they came to press. Everywhere
+   * else the bar is the navigation on a phone and stays exactly as it was.
+   *
+   * Matched as the route rather than as a prefix plus anything: `/profile` and `/profile/…` are the
+   * profile, and a future `/profiles` is not.
+   */
+  const onProfileRoute = location.pathname === '/profile' || location.pathname.startsWith('/profile/');
+  const showBottomNav = quickNav.length > 0 && !onProfileRoute;
+
   function toggleGroup(key: string) {
     setExpandedGroups((current) => {
       const next = { ...current, [key]: !current[key] };
@@ -390,7 +403,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className={`app-frame ${collapsed ? 'rail' : ''}`.trim()}>
+    <div className={['app-frame', collapsed ? 'rail' : '', showBottomNav ? '' : 'no-bottom-nav'].filter(Boolean).join(' ')}>
       {open && (
         <div
           className="sidebar-overlay"
@@ -750,8 +763,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
         {/* Shown only under the drawer breakpoint, by CSS. Rendering it at every width and hiding
             it in the stylesheet keeps one DOM for every screen size — a bar that mounted on resize
-            would move focus and lose a half-typed field on a tablet being rotated. */}
-        {quickNav.length > 0 && (
+            would move focus and lose a half-typed field on a tablet being rotated.
+
+            The route is the one exception, and it is a mount rather than a `display: none`: a hidden
+            landmark is still a landmark to a screen reader, which would announce a second navigation
+            on a screen that has none. Resizing does not change the route, so nothing remounts on a
+            rotation. */}
+        {showBottomNav && (
           <nav className="bottom-nav" aria-label="เมนูลัด">
             {quickNav.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.to === '/'} data-icon={item.icon}>

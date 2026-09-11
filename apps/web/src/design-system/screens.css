@@ -4,7 +4,15 @@
  */
 
 /* ---------- Shell ---------- */
-.app-frame { min-height: 100vh; display: grid; grid-template-columns: 268px 1fr; background: var(--canvas); }
+/*
+ * `100dvh`, with `100vh` under it for a browser that has never heard of the first.
+ *
+ * On iOS Safari and Android Chrome `100vh` is the viewport with the address bar *hidden*, which is
+ * taller than the viewport actually is while the bar is showing — so a shell sized to it is a shell
+ * with a strip of nothing below the fold, which is the blank gap under the page on a phone. `dvh`
+ * is the height the viewport has right now, and it follows the bar as it comes and goes.
+ */
+.app-frame { min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: 268px 1fr; background: var(--canvas); }
 /*
  * Two planes, not one sheet.
  *
@@ -4817,3 +4825,65 @@ tr.row-warning td { background: var(--warning-soft); }
 
 .menu-arrange-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .menu-arrange-note { margin: 0; color: var(--ink-500); font-size: var(--text-xs); }
+
+/* --------------------------------------------------------------------------
+ * The phone's shortcut bar
+ *
+ * It had no container styles at all. The markup has been there since the shell was written and the
+ * comment beside it says "shown only under the drawer breakpoint, by CSS" — the rule that did that
+ * went missing at some point, so the bar had been rendering as five plain links at the foot of every
+ * page at every width, desktop included, with nothing positioning it and nothing reserving room for
+ * it. That is most of the "blank space at the bottom" this pass is about.
+ * -------------------------------------------------------------------------- */
+:root {
+  /* The bar's own height, before the phone's home indicator is added to it. */
+  --bottom-nav-height: 60px;
+}
+
+.bottom-nav { display: none; }
+
+@media (max-width: 1080px) {
+  .bottom-nav {
+    position: fixed; inset: auto 0 0 0; z-index: 24;
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+    /* The home indicator on an iPhone sits over the bottom of the viewport. Padding rather than
+       height, so the row of targets stays 60px wherever the inset happens to be zero. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-top: 1px solid var(--line);
+    background: var(--topbar-surface, var(--surface));
+    backdrop-filter: blur(12px);
+  }
+  .bottom-nav a {
+    min-height: var(--bottom-nav-height);
+    display: grid; place-items: center; gap: 2px;
+    padding: var(--space-1) 0;
+    color: var(--ink-500); text-decoration: none; font-size: var(--text-xs);
+  }
+  .bottom-nav a.active { color: var(--brand-700); }
+  .bottom-nav-icon { position: relative; display: grid; place-items: center; }
+  .bottom-nav-badge {
+    position: absolute; top: -1px; right: -1px; width: 7px; height: 7px;
+    border-radius: var(--radius-pill); background: var(--danger);
+    box-shadow: 0 0 0 2px var(--surface);
+  }
+  .bottom-nav-label { line-height: 1; }
+
+  /*
+   * The room the bar takes, given back to the page.
+   *
+   * A fixed bar is out of flow, so without this the last card on every screen sits underneath it —
+   * and on a screen that ends in a button, the button is the part that cannot be pressed.
+   */
+  .app-frame:not(.no-bottom-nav) .page-content {
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + var(--space-4));
+  }
+}
+
+/*
+ * And the route that has no bar.
+ *
+ * The compensating padding is keyed off the same class that removes the bar rather than off the
+ * route, so the two can never disagree: there is one fact — "this screen has a bottom bar" — and
+ * both the element and the space it needs are read from it.
+ */
+.app-frame.no-bottom-nav .page-content { padding-bottom: var(--space-6); }

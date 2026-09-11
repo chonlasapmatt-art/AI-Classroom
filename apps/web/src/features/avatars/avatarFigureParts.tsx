@@ -7,12 +7,13 @@ import {
 } from './avatarSprites';
 import {
   backArm, batWings, bodySlotOrder, brimHat, bushyTail, cape, catTail, demonHorns, demonTail,
-  earShape, flameOrbs, flipperArm, frontArm, groundShadow, headNeck, hornedHelm, legsSneakers,
+  earShape, faceFeatures, flameOrbs, flipperArm, frontArm, groundShadow, headShape, hornedHelm, legsSneakers,
   legsStanding, legsWebbed, robedLegs, scaledTail, shield, spellAura,
   staff, sword, torsoRound, torsoShirt,
   type BodySlot, type EarStyle, type SnoutStyle
 } from './avatarFullBody';
 import { hairFor, hairStyleDefinitions } from './avatarHair';
+import { directionRig, type DirectionRig } from './avatarDirection';
 import type { AvatarConfigV2, AvatarRace, LayerType } from './avatarSchema';
 
 /**
@@ -826,7 +827,9 @@ function layerOf(config: AvatarConfigV2, layer: LayerType): string | undefined {
  * the returned map does not matter — the compositor draws by `bodySlotOrder` and nothing else
  * decides it.
  */
-export function figureSlotsFor(config: AvatarConfigV2): Partial<Record<BodySlot, ReactElement>> {
+export function figureSlotsFor(
+  config: AvatarConfigV2, rig: DirectionRig = directionRig('front')
+): Partial<Record<BodySlot, ReactElement>> {
   const race = races[config.race ?? 'human'] ?? races.human;
 
   const topId = layerOf(config, 'top_clothing');
@@ -850,7 +853,7 @@ export function figureSlotsFor(config: AvatarConfigV2): Partial<Record<BodySlot,
    * this drawer existed — which is most of them — gets the cut its race falls back to rather than a
    * bare skull, and a build that later drops a style does not blank out the children wearing it.
    */
-  const hair = hairFor(hairId ? baseOf(hairId) : undefined, config.race);
+  const hair = hairFor(hairId ? baseOf(hairId) : undefined, config.race, rig);
   const worn = hairId ? wornOf(hairId) : undefined;
   const headpiece = worn ? headpieces[worn] : undefined;
 
@@ -887,14 +890,9 @@ export function figureSlotsFor(config: AvatarConfigV2): Partial<Record<BodySlot,
         ? bottom()
         : legsStanding({ boot: SECONDARY, trouser: PRIMARY, skin: SKIN }, race.claw),
     torso_body: race.round ? torsoRound() : top ? topFrom(top) : torsoShirt(),
-    head_neck: headNeck({
-      eye: face?.eye ?? OUTLINE,
-      ...(face?.eyeLight === undefined ? {} : { eyeLight: face.eyeLight }),
-      ...(face?.sharp === undefined ? {} : { sharp: face.sharp }),
-      ...(face?.blush === undefined ? {} : { blush: face.blush }),
-      ...(face?.mouth === undefined ? {} : { mouth: face.mouth }),
+    head_neck: headShape({
       /*
-       * The ears are drawn after the hair instead, a few lines below.
+       * The ears are drawn after the hair instead, in the headwear step.
        *
        * A costume's hair is cut to leave its own ears room; a figure a child assembled has any of
        * twelve cuts over any of six races, and there is no cap that clears a rabbit's ears and
@@ -902,19 +900,28 @@ export function figureSlotsFor(config: AvatarConfigV2): Partial<Record<BodySlot,
        */
       ears: 'none',
       snout: race.snout,
-      ...(race.whiskers === undefined ? {} : { whiskers: race.whiskers })
+      rig
     }),
-    /*
-     * Front hair, then ears and horns, then what is worn over the eyes.
-     *
-     * That is the order the brief asks for and the order the drawing needs: a fringe under a hat, a
-     * hat under nothing, and a pair of glasses over all of it. Length and volume are not here at
-     * all — they went into `hair_back`, behind the body.
-     */
-    hair_headwear: (
+    face: faceFeatures({
+      eye: face?.eye ?? OUTLINE,
+      ...(face?.eyeLight === undefined ? {} : { eyeLight: face.eyeLight }),
+      ...(face?.sharp === undefined ? {} : { sharp: face.sharp }),
+      ...(face?.blush === undefined ? {} : { blush: face.blush }),
+      ...(face?.mouth === undefined ? {} : { mouth: face.mouth }),
+      snout: race.snout,
+      ...(race.whiskers === undefined ? {} : { whiskers: race.whiskers }),
+      rig
+    }),
+    /* The wrap round the ear and the jaw: over the edge of the face, under the fringe. Without it a
+       turned head shows a band of bare scalp between the cap and the jaw. */
+    hair_side: hair.side,
+    /* The cap and the fringe. Length and volume are not here — they went into `hair_back`. */
+    hair_headwear: hair.front,
+    /* Worn rather than grown, and last over the head: ears and horns first, then a hat, then what
+       is over the eyes. A fringe under a hat and a hat under a fringe are different drawings. */
+    headwear: (
       <g>
-        {hair.front}
-        {race.ears === 'none' ? null : earShape(race.ears)}
+        {race.ears === 'none' ? null : earShape(race.ears, rig)}
         {headpiece ? headpiece() : null}
         {glasses ? glasses() : null}
       </g>

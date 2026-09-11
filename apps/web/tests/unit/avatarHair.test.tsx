@@ -182,12 +182,15 @@ describe('the hair system', () => {
      */
     for (const id of hairStyleIds) {
       const slots = figureSlotsFor(configWith('beastfolk', id));
-      const { container } = render(<svg>{slots.hair_headwear}</svg>);
+      const { container } = render(<svg>{slots.hair_headwear}{slots.headwear}</svg>);
       const parts = [...container.querySelectorAll('[data-part]')]
         .map((node) => node.getAttribute('data-part'));
       expect(parts, `${id} loses the ears`).toContain('ears');
+      // Worn and grown are two steps of the pipeline now, and the worn one is later: ears and horns
+      // go over the fringe, because a fringe over a horn is a fringe hanging in mid-air.
       expect(parts.indexOf('hair'), `${id} draws ears under the hair`)
         .toBeLessThan(parts.indexOf('ears'));
+      expect(bodySlotOrder.indexOf('hair_headwear')).toBeLessThan(bodySlotOrder.indexOf('headwear'));
       cleanup();
     }
   });
