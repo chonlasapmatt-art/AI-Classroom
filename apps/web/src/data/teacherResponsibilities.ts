@@ -173,3 +173,34 @@ export function canOpenClassMarks(
 export function teacherIsAdvisorAnywhere(snapshot: SchoolSnapshot, profileId: string): boolean {
   return teacherLinksForProfile(snapshot, profileId).some(isRoomWide);
 }
+
+/**
+ * The teacher a subject is already assigned to, for filling in a timetable slot.
+ *
+ * Somebody has already answered "who takes this subject with this class" on the class screen, and
+ * the timetable made them answer it again from a list of every member of staff — twice a period,
+ * forty periods a week, with a picker that does not say which of those teachers has anything to do
+ * with the subject just chosen. Mismatches followed: the register a teacher is offered comes from
+ * the timetable entry, so a slip here hands the lesson to somebody who cannot mark it.
+ *
+ * The room's own assignment wins over a school-wide one, because a subject taught in six rooms
+ * usually has six different people taking it and only this room's answer is about this lesson. The
+ * owner of the subject wins over somebody co-teaching it. Ambiguity returns nothing rather than
+ * guessing: two owners in one room is a question for a person, and a wrong name filled in
+ * confidently is worse than an empty field that has to be answered.
+ */
+export function assignedTeacherForSubject(
+  snapshot: SchoolSnapshot, classId: string, subjectId: string | null
+): string | null {
+  if (!subjectId) return null;
+  const links = snapshot.classTeachers.filter((link) => active(link) && link.subjectId === subjectId);
+  const here = links.filter((link) => link.classId === classId);
+  for (const candidates of [here, links]) {
+    for (const role of ['primary', 'assistant'] as const) {
+      const named = new Set(candidates.filter((link) => link.role === role).map((link) => link.teacherId));
+      if (named.size === 1) return [...named][0]!;
+      if (named.size > 1) return null;
+    }
+  }
+  return null;
+}

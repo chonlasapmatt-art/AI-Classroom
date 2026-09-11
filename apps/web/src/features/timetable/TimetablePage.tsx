@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState, type DragEvent, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../app/SessionContext';
 import { useRememberedClass } from '../../app/useRememberedClass';
 import { useRepository, useSchoolSnapshot } from '../../data/RepositoryContext';
+import { activeTeachers } from '../../data/selectors';
+import { subjectColor } from '../../data/subjectCatalog';
 import type { TimetableEntry } from '../../domain/types';
-import { teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
+import { assignedTeacherForSubject, teacherOwnedSubjectIds } from '../../data/teacherResponsibilities';
 import { Button, Card, CardHeader, EmptyState, Field, FieldGroup, Modal, PageHeader, Segmented, Stat } from '../../ui/components';
 import { Icon } from '../../ui/Icon';
 import { useToast } from '../../ui/toastContext';
@@ -54,6 +56,17 @@ export function TimetablePage() {
    * arms the same move, every slot then answers as a destination, and Escape puts it down.
    */
   const [moving, setMoving] = useState<TimetableEntry | null>(null);
+  /*
+   * The two fields of the slot form that answer each other.
+   *
+   * They are held here rather than left to the form because choosing a subject has to be able to
+   * fill in the teacher, and `teacherChosen` is what stops it overwriting a deliberate answer: a
+   * person who picks a teacher and then changes the subject keeps the teacher they picked.
+   */
+  const [slotSubjectId, setSlotSubjectId] = useState('');
+  const [slotTeacherId, setSlotTeacherId] = useState('');
+  const [teacherChosen, setTeacherChosen] = useState(false);
+  const [autofilledTeacher, setAutofilledTeacher] = useState(false);
 
   useEffect(() => {
     if (!moving) return;
@@ -130,6 +143,28 @@ export function TimetablePage() {
     for (const entry of plannedSlots) counts.set(entry.dayOfWeek, (counts.get(entry.dayOfWeek) ?? 0) + 1);
     return counts;
   }, [plannedSlots]);
+
+  /** Opens the slot form on what the slot already holds, and on what the subject already implies. */
+  function openSlot(dayOfWeek: number, period: number, entry: TimetableEntry | null) {
+    const subjectId = entry?.subjectId ?? '';
+    const existingTeacher = entry?.teacherId ?? '';
+    const assigned = assignedTeacherForSubject(snapshot, selectedClassId, subjectId || null) ?? '';
+    // An entry that already names a teacher keeps them; an empty one starts from the assignment.
+    setSlotSubjectId(subjectId);
+    setSlotTeacherId(existingTeacher || assigned);
+    setTeacherChosen(Boolean(existingTeacher));
+    setAutofilledTeacher(!existingTeacher && assigned !== '');
+    setDraft({ dayOfWeek, period, entry });
+  }
+
+  /** Choosing the subject answers the teacher field too, until somebody answers it themselves. */
+  function pickSubject(subjectId: string) {
+    setSlotSubjectId(subjectId);
+    if (teacherChosen) return;
+    const assigned = assignedTeacherForSubject(snapshot, selectedClassId, subjectId || null) ?? '';
+    setSlotTeacherId(assigned);
+    setAutofilledTeacher(assigned !== '');
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -282,12 +317,35 @@ export function TimetablePage() {
         onDragEnd={() => setMoving(null)}
         onClick={() => {
           if (moving && moving.id !== entry?.id) void moveEntry(moving, day, period);
-          else setDraft({ dayOfWeek: day, period, entry });
+          else openSlot(day, period, entry);
         }}
       >
         {content}
       </button>
     );
+  }
+
+  /**
+   * A lesson wears the colour its subject was given.
+   *
+   * Every filled slot was painted the same brand blue, so a week of thirty lessons was thirty
+   * identical cards and the only way to find Thursday's maths was to read all of them. The colour a
+   * subject carries everywhere else — its chip on the dashboard, its column in the gradebook, its
+   * card on the scores screen — is exactly the thing a timetable is scanned by, and the timetable was
+   * the one place it did not reach.
+   *
+   * One custom property rather than a background, and the same `--subject-color` the scores cards
+   * and the subject chips already set: the stylesheet keeps ownership of how a slot is built — the
+   * tint, the spine down its left edge, the hover — and this says only which hue to build it from.
+   * That is also what keeps the dark theme working, because the tint is mixed against `--surface`
+   * at paint time rather than baked into a light hex here. A slot with no subject, or one whose
+   * subject has since been deleted, sets nothing and the brand default stands.
+   */
+  function slotPalette(entry: TimetableEntry | null): CSSProperties | undefined {
+    if (!entry) return undefined;
+    const subject = snapshot.subjects.find((row) => row.id === entry.subjectId);
+    if (!subject) return undefined;
+    return { '--subject-color': subjectColor(subject.colorIndex).solid } as CSSProperties;
   }
 
   function slotClassName(entry: TimetableEntry | null, base: string) {
@@ -447,6 +505,7 @@ export function TimetablePage() {
                           <td
                             key={period}
                             className={slotClassName(entry, 'slot')}
+                            style={slotPalette(entry)}
                             data-day={dayNames[day - 1]}
                             data-period={period}
                             onDragOver={canEdit ? (event) => event.preventDefault() : undefined}
@@ -500,6 +559,7 @@ export function TimetablePage() {
                     <li
                       key={period}
                       className={slotClassName(entry, 'timetable-dayrow')}
+                      style={slotPalette(entry)}
                       data-day={dayNames[selectedDay - 1]}
                       data-period={period}
                       onDragOver={canEdit ? (event) => event.preventDefault() : undefined}
@@ -534,16 +594,36 @@ export function TimetablePage() {
           <form onSubmit={(event) => void save(event)}>
             <FieldGroup>
               <Field label="รายวิชา">
-                <select name="subjectId" defaultValue={draft.entry?.subjectId ?? ''}>
+                <select
+                  name="subjectId"
+                  value={slotSubjectId}
+                  onChange={(event) => pickSubject(event.target.value)}
+                >
                   <option value="">ไม่ระบุ</option>
                   {snapshot.subjects.filter((row) => row.status === 'active')
                     .map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
                 </select>
               </Field>
-              <Field label="ครูผู้สอน">
-                <select name="teacherId" defaultValue={draft.entry?.teacherId ?? ''}>
+              {/*
+                The teacher this subject is already assigned to, filled in by the subject.
+
+                Who takes which subject in which room is answered once on the class screen, and this
+                form used to ask it again from a list of every member of staff — forty times a week,
+                with no indication which of those names has anything to do with the subject just
+                chosen. The register a teacher is offered comes from the timetable entry, so a slip
+                here hands the lesson to somebody who cannot mark it.
+              */}
+              <Field
+                label="ครูผู้สอน"
+                hint={autofilledTeacher ? 'ระบบเติมจากครูที่ดูแลรายวิชานี้ให้แล้ว · เปลี่ยนได้' : undefined}
+              >
+                <select
+                  name="teacherId"
+                  value={slotTeacherId}
+                  onChange={(event) => { setSlotTeacherId(event.target.value); setTeacherChosen(true); }}
+                >
                   <option value="">ไม่ระบุ</option>
-                  {snapshot.teachers.map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}
+                  {activeTeachers(snapshot).map((row) => <option key={row.id} value={row.id}>{row.displayName}</option>)}
                 </select>
               </Field>
               <Field label="เวลาเริ่ม">

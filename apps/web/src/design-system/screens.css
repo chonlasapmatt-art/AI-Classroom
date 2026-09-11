@@ -1504,8 +1504,21 @@
   vertical-align: top;
   transition: background var(--duration-normal) var(--ease-out), border-color var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out);
 }
-.slot.filled { background: linear-gradient(145deg, var(--brand-50), color-mix(in srgb, var(--surface) 78%, var(--brand-50))); border-color: color-mix(in srgb, var(--brand-500) 18%, var(--line)); }
-.slot.filled::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; border-radius: var(--radius-md) 0 0 var(--radius-md); background: var(--brand-500); }
+/* A lesson is tinted with its own subject's colour, which the cell passes down as `--subject-color`
+   — the same property the scores cards and the subject chips carry, so one subject looks the same
+   wherever it appears. Mixed against `--surface` rather than written as a fixed tint, because the
+   dark theme has to darken the ground under it; a slot whose subject is gone falls back to brand. */
+.slot.filled {
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--subject-color, var(--brand-500)) 14%, var(--surface)),
+    color-mix(in srgb, var(--subject-color, var(--brand-500)) 5%, var(--surface)));
+  border-color: color-mix(in srgb, var(--subject-color, var(--brand-500)) 24%, var(--line));
+}
+.slot.filled::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; border-radius: var(--radius-md) 0 0 var(--radius-md); background: var(--subject-color, var(--brand-500)); }
+/* The dot means "there is a lesson here", and it takes the lesson's colour so the row reads as one
+   thing rather than as a green mark sitting on an unrelated tint. */
+.slot.filled .slot-status { background: var(--subject-color, var(--success)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--subject-color, var(--success)) 22%, transparent); }
+.slot.filled .slot-button:hover { background: color-mix(in srgb, var(--subject-color, var(--brand-500)) 12%, transparent); }
 /* The box a lesson is drawn in. It belongs to the pressable button when there is one and to the
    plain wrapper when there is not -- never to the individual lines, which is what turned a reader's
    lesson into three stacked cards. */
@@ -1617,11 +1630,17 @@
 .timetable-dayrow-when span { color: var(--ink-400); font-size: 10px; font-weight: var(--weight-regular); white-space: nowrap; }
 .timetable-dayrow-body { min-width: 0; }
 /* The row carries the slot's own skin, so a lesson looks the same in a list as it does in the grid. */
-.timetable-dayrow.filled .timetable-dayrow-when { background: var(--brand-100); color: var(--brand-700); }
+.timetable-dayrow.filled .timetable-dayrow-when { background: color-mix(in srgb, var(--subject-color, var(--brand-500)) 18%, var(--surface)); color: color-mix(in srgb, var(--subject-color, var(--brand-700)) 78%, var(--ink-900)); }
 .timetable-dayrow .slot-button, .timetable-dayrow .slot-static { min-height: 72px; }
 .timetable-dayrow-body { position: relative; overflow: hidden; background: var(--surface-sunken); border: 1px solid transparent; border-radius: var(--radius-md); }
-.timetable-dayrow.filled .timetable-dayrow-body { background: linear-gradient(145deg, var(--brand-50), color-mix(in srgb, var(--surface) 78%, var(--brand-50))); border-color: color-mix(in srgb, var(--brand-500) 18%, var(--line)); }
-.timetable-dayrow.filled .timetable-dayrow-body::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; border-radius: var(--radius-md) 0 0 var(--radius-md); background: var(--brand-500); }
+.timetable-dayrow.filled .timetable-dayrow-body {
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--subject-color, var(--brand-500)) 14%, var(--surface)),
+    color-mix(in srgb, var(--subject-color, var(--brand-500)) 5%, var(--surface)));
+  border-color: color-mix(in srgb, var(--subject-color, var(--brand-500)) 24%, var(--line));
+}
+.timetable-dayrow.filled .timetable-dayrow-body::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; border-radius: var(--radius-md) 0 0 var(--radius-md); background: var(--subject-color, var(--brand-500)); }
+.timetable-dayrow.filled .slot-status { background: var(--subject-color, var(--success)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--subject-color, var(--success)) 22%, transparent); }
 .timetable-dayrow.slot-lifted { opacity: .55; }
 .timetable-dayrow.slot-target .timetable-dayrow-body { border-color: color-mix(in srgb, var(--brand-500) 45%, var(--line)); border-style: dashed; }
 /* In a list a lesson has the width for its subject to be read in full, so it wraps rather than
