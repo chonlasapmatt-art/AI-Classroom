@@ -584,6 +584,78 @@ const headpieces: Record<string, () => ReactElement> = {
       <ellipse cx="24" cy="2" rx="7" ry="1.75" fill="none" stroke={MAGIC} strokeWidth="1.25" />
       <ellipse cx="24" cy="2" rx="7" ry="1.75" fill="none" stroke={MAGIC_HIGHLIGHT} strokeWidth="0.5" />
     </g>
+  ),
+
+  /* ── the six added to the head ──
+   * Drawn on the 48-grid against the same skull every hairstyle is fitted to, so a visor sits on the
+   * brow of a cut it has never met and a crown sits on the crown of one. Each stays inside y 0–12,
+   * which is the band headwear owns; what leaves it is sheared off in every list in the product. */
+  cybervisor: () => (
+    <g data-part="headwear">
+      {px(14, 7.5, 20, 2.5, SECONDARY)}
+      {px(14, 7.5, 20, 0.75, SECONDARY_SHADOW)}
+      {px(16, 10, 16, 3, MAGIC)}
+      {px(16, 10, 16, 1, MAGIC_HIGHLIGHT)}
+      {px(14, 10, 1.5, 3, SECONDARY_SHADOW)}
+      {px(32.5, 10, 1.5, 3, SECONDARY_SHADOW)}
+    </g>
+  ),
+  catbeanie: () => (
+    <g data-part="headwear">
+      {px(14, 2.5, 20, 6, SECONDARY)}
+      {px(14, 7, 20, 1.5, ACCENT)}
+      {px(14, 2.5, 20, 1, 'var(--av-primary-highlight)')}
+      <polygon points="16,2.5 19,0 22,2.5" fill={SECONDARY} />
+      <polygon points="32,2.5 29,0 26,2.5" fill={SECONDARY} />
+      <polygon points="17.5,2.2 19,0.8 20.5,2.2" fill={'var(--av-blush, #ff97ae)'} />
+      <polygon points="30.5,2.2 29,0.8 27.5,2.2" fill={'var(--av-blush, #ff97ae)'} />
+    </g>
+  ),
+  headset: () => (
+    <g data-part="headwear">
+      {px(15, 1.5, 18, 2, SECONDARY_SHADOW)}
+      {px(15, 1.5, 18, 0.75, 'var(--av-primary-highlight)')}
+      {px(11.5, 3.5, 4, 7, SECONDARY)}
+      {px(32.5, 3.5, 4, 7, SECONDARY)}
+      {px(12.5, 5.5, 2, 3, MAGIC)}
+      {px(33.5, 5.5, 2, 3, MAGIC)}
+      {/* The boom, which is the half that says "headset" rather than "earmuffs". */}
+      {px(15.5, 10, 4, 0.75, SECONDARY_SHADOW)}
+    </g>
+  ),
+  crown: () => (
+    <g data-part="headwear">
+      <polygon points="15,5.5 15,0.5 19,3.5 24,0 29,3.5 33,0.5 33,5.5" fill={ACCENT} />
+      {px(15, 5.5, 18, 2, SECONDARY)}
+      {px(15, 5.5, 18, 0.5, 'var(--av-primary-highlight)')}
+      {px(23.25, 3, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+      {px(17, 6, 1.25, 1.25, MAGIC)}
+      {px(29.75, 6, 1.25, 1.25, MAGIC)}
+    </g>
+  ),
+  gasmask: () => (
+    <g data-part="headwear">
+      {px(14.5, 3.5, 19, 2.5, SECONDARY_SHADOW)}
+      {/* Over the face on purpose, which is the one style allowed to be: a mask that leaves the eyes
+          showing is a headband. The filter below the jaw is what stops it reading as goggles. */}
+      {px(16.5, 8.5, 15, 8, SECONDARY)}
+      {px(16.5, 8.5, 15, 1, 'var(--av-primary-highlight)')}
+      {px(18.5, 10, 4, 3.5, MAGIC)}
+      {px(25.5, 10, 4, 3.5, MAGIC)}
+      {px(21.5, 15, 5, 3, SECONDARY_SHADOW)}
+      {px(22.5, 17, 3, 1, OUTLINE)}
+    </g>
+  ),
+  antlers: () => (
+    <g data-part="headwear">
+      {px(17, 2.5, 1.5, 5, SECONDARY)}
+      {px(13.5, 0.5, 1.5, 4, SECONDARY)}
+      {px(19.5, 0, 1.5, 4.5, SECONDARY_SHADOW)}
+      {px(29.5, 2.5, 1.5, 5, SECONDARY)}
+      {px(33, 0.5, 1.5, 4, SECONDARY)}
+      {px(27, 0, 1.5, 4.5, SECONDARY_SHADOW)}
+      {px(14.5, 4, 19, 2, HAIR)}
+    </g>
   )
 };
 
@@ -674,6 +746,41 @@ const eyewear: Record<string, () => ReactElement | null> = {
     <g data-part="eyewear">
       <circle cx="20.25" cy="12" r="3.25" fill="none" stroke={ACCENT} strokeWidth="0.75" />
       {px(17, 15, 0.75, 4, ACCENT)}
+    </g>
+  ),
+
+  /* Three more, drawn against the same pair of sockets every face has: x 18.25–22.25 and
+     25.75–29.75. A lens authored against one eye shape and not the sockets lands on the cheek of
+     every other one. */
+  readingglasses: () => (
+    <g data-part="eyewear">
+      <rect x="17.75" y="9.5" width="5" height="5" fill={WHITE} opacity="0.35" />
+      <rect x="25.25" y="9.5" width="5" height="5" fill={WHITE} opacity="0.35" />
+      <rect x="17.75" y="9.5" width="5" height="5" fill="none" stroke={OUTLINE} strokeWidth="0.6" />
+      <rect x="25.25" y="9.5" width="5" height="5" fill="none" stroke={OUTLINE} strokeWidth="0.6" />
+      {px(22.75, 11.5, 2.5, 0.6, OUTLINE)}
+    </g>
+  ),
+  starshades: () => (
+    <g data-part="eyewear">
+      {px(17, 9.5, 14, 4.5, SECONDARY_SHADOW)}
+      {px(17, 9.5, 14, 0.75, SECONDARY)}
+      <polygon
+        points="20.25,9.75 21.1,11.4 22.9,11.4 21.5,12.5 22,14.2 20.25,13.2 18.5,14.2 19,12.5 17.6,11.4 19.4,11.4"
+        fill={MAGIC_HIGHLIGHT}
+      />
+      {px(26, 11, 3.5, 1.25, MAGIC)}
+    </g>
+  ),
+  scouter: () => (
+    <g data-part="eyewear">
+      {/* One eye, not both. Two covered eyes leave a chibi face with no expression at all, which is
+          the one thing it cannot spare. */}
+      {px(24.75, 9.25, 8, 5, SECONDARY)}
+      {px(25.5, 10, 6.5, 3.5, MAGIC)}
+      {px(25.5, 10, 6.5, 1, MAGIC_HIGHLIGHT)}
+      {px(32, 10.5, 1.5, 5, SECONDARY_SHADOW)}
+      {px(23.5, 11, 1.5, 1.25, SECONDARY_SHADOW)}
     </g>
   )
 };

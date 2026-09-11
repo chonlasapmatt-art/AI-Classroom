@@ -4887,3 +4887,15 @@ tr.row-warning td { background: var(--warning-soft); }
  * both the element and the space it needs are read from it.
  */
 .app-frame.no-bottom-nav .page-content { padding-bottom: var(--space-6); }
+
+/*
+ * The direction row on the customiser's stage.
+ *
+ * Its own row under the poses rather than more chips in the same one: a pose and a direction are two
+ * different questions — "what is it doing" and "where is it standing" — and one row of chips makes a
+ * child choose between running and facing left. Quieter than the poses, because a direction holds
+ * while a pose plays, and the thing that is playing should be the louder of the two.
+ */
+.designer-directions { margin-top: var(--space-1); }
+.designer-directions .designer-pose { font-size: var(--text-xs); opacity: 0.85; }
+.designer-directions .designer-pose.active { opacity: 1; }

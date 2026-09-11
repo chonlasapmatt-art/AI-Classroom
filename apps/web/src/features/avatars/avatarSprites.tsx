@@ -173,6 +173,131 @@ export const hairShapes: Sprite[] = [
       {px(4, 4.5, 1.5, 3.5, HAIR)}
       {px(18.5, 4.5, 1.5, 3.5, HAIR)}
     </g>)
+  },
+
+  /* ── the second dozen ──
+   * Twelve cuts over six things worn on the head is seventy-two hairstyles, and seventy-two is what
+   * the drawer showed a child who had already seen all of them. Each of these is a silhouette the
+   * first twelve does not have — a shaved side, a spike, a locked length, a cord — rather than one of
+   * them with the parting moved, which would be a recolour with extra steps.
+   */
+  {
+    id: 'undercut', name: 'ผมรองทรง', tags: ['undercut', 'รองทรง', 'short'],
+    draw: () => (<g>
+      {px(6.5, 3.5, 11, 3, HAIR)}
+      {px(6.5, 3.5, 11, 1, HAIR_HIGHLIGHT)}
+      {px(6.5, 6.5, 11, 1, HAIR_SHADOW)}
+    </g>)
+  },
+  {
+    id: 'spiky', name: 'ผมตั้งแหลม', tags: ['spiky', 'แหลม', 'punk'],
+    draw: () => (<g>
+      {px(6.5, 5, 11, 3, HAIR)}
+      <polygon points="8,5 9,1.5 10.5,5" fill={HAIR} />
+      <polygon points="11,5 12,1 13.5,5" fill={HAIR} />
+      <polygon points="14,5 15,2 16.5,5" fill={HAIR_SHADOW} />
+      {px(11.5, 2.5, 1, 2, HAIR_HIGHLIGHT)}
+    </g>)
+  },
+  {
+    id: 'pixie', name: 'ผมพิกซี่', tags: ['pixie', 'สั้นซอย'],
+    draw: () => (<g>
+      {px(6, 4, 12, 3.5, HAIR)}
+      {px(6, 4, 12, 1, HAIR_HIGHLIGHT)}
+      {px(5.5, 6.5, 1.5, 3, HAIR)}
+      {px(17, 6.5, 1.5, 3, HAIR_SHADOW)}
+    </g>)
+  },
+  {
+    id: 'dreadlocks', name: 'ผมเดรด', tags: ['dread', 'เดรด', 'locks'], price: 60,
+    draw: () => (<g>
+      {px(6, 4, 12, 3.5, HAIR)}
+      {px(6, 7, 2, 8, HAIR)}
+      {px(9, 7, 2, 10, HAIR_SHADOW)}
+      {px(13, 7, 2, 9, HAIR)}
+      {px(16, 7, 2, 7, HAIR_SHADOW)}
+      {px(6, 14.5, 2, 1, ACCENT)}
+      {px(9, 16.5, 2, 1, ACCENT)}
+    </g>)
+  },
+  {
+    id: 'topknot', name: 'ผมมัดจุก', tags: ['topknot', 'จุก', 'bun'],
+    draw: () => (<g>
+      {px(9.5, 1, 5, 3, HAIR)}
+      {px(9.5, 1, 5, 1, HAIR_HIGHLIGHT)}
+      {px(9.5, 3.5, 5, 1, ACCENT)}
+      {px(6, 4.5, 12, 3.5, HAIR)}
+    </g>)
+  },
+  {
+    id: 'sidepart', name: 'ผมแสกข้าง', tags: ['sidepart', 'แสกข้าง', 'neat'],
+    draw: () => (<g>
+      {px(6, 4, 12, 4, HAIR)}
+      {px(6, 4, 5, 1, HAIR_HIGHLIGHT)}
+      {px(11, 4, 1, 4, HAIR_SHADOW)}
+      {px(6, 7.5, 1.5, 2.5, HAIR)}
+    </g>)
+  },
+  {
+    id: 'cybercords', name: 'สายเคเบิล', tags: ['cyber', 'สายไฟ', 'tech'], price: 90,
+    draw: () => (<g>
+      {px(6, 4, 12, 3.5, SECONDARY)}
+      {px(6, 4, 12, 1, MAGIC)}
+      {px(16.5, 7, 1.5, 8, SECONDARY_SHADOW)}
+      {px(18, 8, 1.5, 6, SECONDARY)}
+      {px(16.5, 14, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+    </g>)
+  },
+  {
+    id: 'flame', name: 'ผมเปลวไฟ', tags: ['flame', 'เปลวไฟ', 'fire'], price: 120,
+    draw: () => (<g>
+      {px(6.5, 5, 11, 2.5, HAIR)}
+      <polygon points="7.5,5 9,0.5 10.5,5" fill={HAIR} />
+      <polygon points="10.5,5 12,0 13.5,5" fill={HAIR} />
+      <polygon points="13.5,5 15,1.5 16.5,5" fill={HAIR_SHADOW} />
+      <polygon points="11.5,5 12,1.5 12.5,5" fill={MAGIC_HIGHLIGHT} />
+    </g>)
+  },
+  {
+    id: 'crystal', name: 'ผมคริสตัล', tags: ['crystal', 'คริสตัล', 'gem'], price: 140,
+    draw: () => (<g>
+      {px(6.5, 4.5, 11, 3, HAIR)}
+      <polygon points="8,4.5 9.5,1 11,4.5" fill={MAGIC} />
+      <polygon points="11,4.5 12.5,0.5 14,4.5" fill={MAGIC_HIGHLIGHT} />
+      <polygon points="14,4.5 15.5,2 16.5,4.5" fill={MAGIC} />
+    </g>)
+  },
+  {
+    id: 'pigtails', name: 'ผมมัดสองข้าง', tags: ['pigtails', 'มัดสองข้าง', 'cute'],
+    draw: () => (<g>
+      {px(6, 4, 12, 3.5, HAIR)}
+      {px(6, 4, 12, 1, HAIR_HIGHLIGHT)}
+      {px(4, 7.5, 2.5, 3, HAIR)}
+      {px(17.5, 7.5, 2.5, 3, HAIR_SHADOW)}
+      {px(4, 7, 2.5, 1, ACCENT)}
+      {px(17.5, 7, 2.5, 1, ACCENT)}
+    </g>)
+  },
+  {
+    id: 'hime', name: 'ผมฮิเมะ', tags: ['hime', 'ฮิเมะ', 'long'], price: 50,
+    draw: () => (<g>
+      {px(6, 4, 12, 3, HAIR)}
+      {px(6, 4, 12, 1, HAIR_HIGHLIGHT)}
+      {px(5, 6.5, 2, 6, HAIR)}
+      {px(17, 6.5, 2, 6, HAIR_SHADOW)}
+      {px(6, 12.5, 12, 5, HAIR_SHADOW)}
+    </g>)
+  },
+  {
+    id: 'shaggy', name: 'ผมฟูซอย', tags: ['shaggy', 'ซอย', 'messy'],
+    draw: () => (<g>
+      {px(6, 4, 12, 4, HAIR)}
+      {px(6.5, 3, 4, 1.5, HAIR)}
+      {px(12, 2.5, 5, 2, HAIR)}
+      {px(6, 4, 12, 1, HAIR_HIGHLIGHT)}
+      {px(5.5, 7.5, 2, 4, HAIR)}
+      {px(16.5, 7.5, 2, 4, HAIR_SHADOW)}
+    </g>)
   }
 ];
 
@@ -228,6 +353,70 @@ export const headpieces: Sprite[] = [
       {px(8, 1, 8, 1, ACCENT)}
       {px(7.5, 1.5, 1, 1, ACCENT)}
       {px(15.5, 1.5, 1, 1, ACCENT)}
+    </g>)
+  },
+
+  /* ── six more things to wear on a head ──
+   * Every one of these multiplies the hair table rather than adding to it: twenty-four cuts by
+   * twelve things worn is two hundred and eighty-eight hairstyles, each with its own id and its own
+   * drawing. The rule they all obey is the one the band already had — nothing above y 0, because
+   * what leaves the frame is sheared off in every list in the product.
+   */
+  {
+    id: 'cybervisor', name: 'ไวเซอร์ไซเบอร์', tags: ['cyber', 'visor', 'ไวเซอร์', 'tech'], price: 110,
+    draw: () => (<g>
+      {px(6, 3.5, 12, 2, SECONDARY)}
+      {px(6, 3.5, 12, 1, SECONDARY_SHADOW)}
+      {px(7, 5.5, 10, 2, MAGIC)}
+      {px(7, 5.5, 10, 1, MAGIC_HIGHLIGHT)}
+    </g>)
+  },
+  {
+    id: 'catbeanie', name: 'หมวกหูแมว', tags: ['beanie', 'หมวกไหมพรม', 'cat', 'cute'], price: 60,
+    draw: () => (<g>
+      {px(6, 2.5, 12, 4, SECONDARY)}
+      {px(6, 2.5, 12, 1, ACCENT)}
+      <polygon points="7,2.5 8.5,0 10,2.5" fill={SECONDARY} />
+      <polygon points="14,2.5 15.5,0 17,2.5" fill={SECONDARY} />
+    </g>)
+  },
+  {
+    id: 'headset', name: 'หูฟังเกม', tags: ['headset', 'หูฟัง', 'gamer'], price: 70,
+    draw: () => (<g>
+      {px(6.5, 2, 11, 1.5, SECONDARY_SHADOW)}
+      {px(4.5, 3.5, 2.5, 4, SECONDARY)}
+      {px(17, 3.5, 2.5, 4, SECONDARY)}
+      {px(5, 4.5, 1.5, 2, MAGIC)}
+      {px(17.5, 4.5, 1.5, 2, MAGIC)}
+    </g>)
+  },
+  {
+    id: 'crown', name: 'มงกุฎ', tags: ['crown', 'มงกุฎ', 'royal'], price: 220,
+    draw: () => (<g>
+      <polygon points="6.5,4 6.5,1 9,3 12,0.5 15,3 17.5,1 17.5,4" fill={ACCENT} />
+      {px(6.5, 4, 11, 1.5, SECONDARY)}
+      {px(11.5, 2.5, 1, 1, MAGIC_HIGHLIGHT)}
+    </g>)
+  },
+  {
+    id: 'gasmask', name: 'หน้ากากกันแก๊ส', tags: ['gasmask', 'หน้ากาก', 'apocalypse'], price: 150,
+    draw: () => (<g>
+      {px(6.5, 3, 11, 2, SECONDARY_SHADOW)}
+      {px(8, 9, 8, 5, SECONDARY)}
+      {px(9, 10, 2, 2, MAGIC)}
+      {px(13, 10, 2, 2, MAGIC)}
+      {px(10.5, 13, 3, 2, SECONDARY_SHADOW)}
+    </g>)
+  },
+  {
+    id: 'antlers', name: 'เขากวาง', tags: ['antler', 'เขากวาง', 'deer', 'forest'], price: 130,
+    draw: () => (<g>
+      {px(7, 3.5, 1.5, 3, SECONDARY)}
+      {px(5.5, 1.5, 1.5, 2.5, SECONDARY)}
+      {px(8.5, 1, 1.5, 3, SECONDARY_SHADOW)}
+      {px(15.5, 3.5, 1.5, 3, SECONDARY)}
+      {px(17, 1.5, 1.5, 2.5, SECONDARY)}
+      {px(14, 1, 1.5, 3, SECONDARY_SHADOW)}
     </g>)
   }
 ];
@@ -388,6 +577,36 @@ export const eyewear: Sprite[] = [
       {px(12.5, 9.5, 3, 0.5, ACCENT)}{px(12.5, 12, 3, 0.5, ACCENT)}
       {px(12, 10, 0.5, 2, ACCENT)}{px(15.5, 10, 0.5, 2, ACCENT)}
       {px(15.5, 12.5, 0.5, 2, ACCENT)}
+    </g>)
+  },
+
+  /* Three more over the eyes. Each multiplies the face table — twelve pairs of eyes by twelve things
+     worn over them is a hundred and forty-four faces — and each keeps to the band y 9–13 so it lands
+     on the sockets of every pair rather than on the one it was drawn against. */
+  {
+    id: 'readingglasses', name: 'แว่นอ่านหนังสือ', tags: ['glasses', 'แว่น', 'study'],
+    draw: () => (<g>
+      {px(7.5, 10, 4, 3, WHITE)}{px(12.5, 10, 4, 3, WHITE)}
+      {px(7.5, 10, 4, 0.5, OUTLINE)}{px(12.5, 10, 4, 0.5, OUTLINE)}
+      {px(7.5, 12.5, 4, 0.5, OUTLINE)}{px(12.5, 12.5, 4, 0.5, OUTLINE)}
+      {px(11.5, 11, 1, 0.5, OUTLINE)}
+    </g>)
+  },
+  {
+    id: 'starshades', name: 'แว่นดาว', tags: ['shades', 'ดาว', 'star'], price: 80,
+    draw: () => (<g>
+      {px(7, 9.5, 10, 3, SECONDARY_SHADOW)}
+      <polygon points="9.5,9.5 10.5,11 12,11 11,12 11.5,13 9.5,12 8,13 8.5,12 7.5,11 9,11" fill={MAGIC_HIGHLIGHT} />
+      {px(13, 10.5, 3, 1, MAGIC)}
+    </g>)
+  },
+  {
+    id: 'scouter', name: 'สเกาเตอร์', tags: ['scouter', 'ไซไฟ', 'tech'], price: 100,
+    draw: () => (<g>
+      {px(11.5, 9.5, 6, 3, SECONDARY)}
+      {px(12, 10, 5, 2, MAGIC)}
+      {px(12, 10, 5, 0.5, MAGIC_HIGHLIGHT)}
+      {px(17, 10.5, 1, 4, SECONDARY_SHADOW)}
     </g>)
   }
 ];

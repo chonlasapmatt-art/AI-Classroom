@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { traits } from '../../src/features/avatars/avatarTraits';
 
@@ -12,14 +12,34 @@ import { traits } from '../../src/features/avatars/avatarTraits';
  * and the disagreement would be silent in the direction that matters: a trait priced in the app and
  * free in SQL is a trait anybody can wear without earning it.
  *
- * So this reads the migration, rebuilds its arithmetic, and walks every trait the app has.
+ * ── Which migration is read ──
+ * Whichever one defines the function last. Migrations are immutable here, so a change to the
+ * wardrobe's prices is a new file replacing the function rather than an edit to the old one; a test
+ * pinned to the file that happened to introduce it would pass against a definition the database
+ * stopped using several releases ago — which is the failure this test exists to catch, with the
+ * check itself as the thing that is wrong.
+ *
+ * The two functions are read separately because they move separately: the price list is replaced
+ * whenever the wardrobe grows, and the guard that validates a saved config is not.
  */
-const sqlPath = ['supabase/migrations/202609090011_a_student_assembles_their_own_avatar.sql',
-  '../../supabase/migrations/202609090011_a_student_assembles_their_own_avatar.sql']
+const migrationsDirectory = ['supabase/migrations', '../../supabase/migrations']
   .map((candidate) => resolve(candidate))
   .find((candidate) => existsSync(candidate))!;
 
-const sql = readFileSync(sqlPath, 'utf8');
+function latestDefining(fragment: string): string {
+  const path = readdirSync(migrationsDirectory)
+    .filter((name) => name.endsWith('.sql'))
+    .sort()
+    .map((name) => join(migrationsDirectory, name))
+    .filter((candidate) => readFileSync(candidate, 'utf8').includes(fragment))
+    .pop();
+  expect(path, `nothing defines ${fragment}`).toBeTruthy();
+  return readFileSync(path!, 'utf8');
+}
+
+const sql = latestDefining('function public.avatar_trait_price');
+/** The guard that validates a saved configuration — a different function in a different file. */
+const guardSql = latestDefining('function public.set_own_avatar_config');
 
 /** `when 'top:magerobe' then 80` and `when 'wizardhat' then 80`, read straight out of the file. */
 function casesBetween(startMarker: string, endMarker: string): Map<string, number> {
@@ -75,15 +95,22 @@ describe('what a trait costs', () => {
   });
 
   it('refuses a trait id that is not shaped like one', () => {
-    // The pattern the migration checks against, kept here so a change to either is noticed.
-    expect(sql).toContain("entry.value !~ '^[a-z][a-z0-9_]{0,47}$'");
-    expect(sql).toContain("'^(skin|hair|primary|secondary|accent|magic)$'");
+    /*
+     * The pattern the live guard checks against, kept here so a change to either is noticed.
+     *
+     * It allows the `__` half now — a composed id is a haircut and a hat, and the first version of
+     * this pattern predated composition and would have refused every one of them. Reading the newest
+     * migration rather than the first is what surfaced that this assertion had gone stale: it was
+     * passing against a definition the database had replaced two releases earlier.
+     */
+    expect(guardSql).toContain("entry.value !~ '^[a-z][a-z0-9_]{0,47}(__[a-z][a-z0-9_]{0,47})?$'");
+    expect(guardSql).toContain("'^(skin|hair|primary|secondary|accent|magic)$'");
   });
 
   it('builds the stored object rather than merging what arrived', () => {
     // `unlockedOutfits` and `spentPoints` are the purse. A merge would let a crafted request grant
     // itself a wardrobe.
-    expect(sql).toContain('clean := jsonb_strip_nulls(jsonb_build_object(');
-    expect(sql).not.toMatch(/avatar_config \|\| p_config/);
+    expect(guardSql).toContain('clean := jsonb_strip_nulls(jsonb_build_object(');
+    expect(guardSql).not.toMatch(/avatar_config \|\| p_config/);
   });
 });

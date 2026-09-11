@@ -16,6 +16,7 @@ import {
 import { avatarOutfits, canWearOutfit, defaultOutfit, outfitPrice } from './avatarOutfits';
 import { avatarPalettes, skinTones } from './avatarThemes';
 import { FullBodyAvatar } from './FullBodyAvatar';
+import { avatarDirections, directionLabels, directionRig, type AvatarDirection } from './avatarDirection';
 import { archetypeForRace, bodyForCategory, fullBodyArchetypeList } from './avatarFullBody';
 import { figureSlotsFor } from './avatarFigureParts';
 import {
@@ -166,6 +167,7 @@ export function AvatarDesigner({
   const [category, setCategory] = useState<AvatarCategory | 'all'>('all');
   const [figureCategory, setFigureCategory] = useState<FigureCategory | 'all'>('all');
   const [pose, setPose] = useState<AvatarAnimation>('idle');
+  const [direction, setDirection] = useState<AvatarDirection>('front');
   /*
    * Which of the two bodies the stage is showing.
    *
@@ -346,7 +348,8 @@ export function AvatarDesigner({
             <div className="designer-stage">
               <FullBodyAvatar
                 archetype={body}
-                slots={figureSlotsFor(draft)}
+                slots={figureSlotsFor(draft, directionRig(direction))}
+                direction={direction}
                 animation={pose}
                 tints={draft.tints}
                 size={176}
@@ -507,6 +510,29 @@ export function AvatarDesigner({
                   onClick={() => { setPose(option.value); setPlaying(true); }}
                 >
                   {option.label}
+                </button>
+              ))}
+            </div>
+            {/*
+              * Which way the figure is turned, and it is a separate row on purpose.
+              *
+              * A pose and a direction are two different questions — "what is it doing" and "where is
+              * it standing" — and putting them in one row of chips makes a child choose between
+              * running and facing left. They also behave differently: a pose plays, a direction
+              * holds. Nothing about the run cycle may change this, which is the whole reason it is a
+              * state somebody sets rather than something a keyframe decides.
+              */}
+            <div className="designer-poses designer-directions" role="group" aria-label="ทิศทางที่หัน">
+              {avatarDirections.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`designer-pose ${direction === option ? 'active' : ''}`}
+                  aria-pressed={direction === option}
+                  title={directionLabels[option]}
+                  onClick={() => setDirection(option)}
+                >
+                  {directionLabels[option]}
                 </button>
               ))}
             </div>

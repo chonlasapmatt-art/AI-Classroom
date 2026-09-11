@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { px, ACCENT, HAIR, HAIR_HIGHLIGHT, HAIR_SHADOW } from './avatarSprites';
+import { px, ACCENT, HAIR, HAIR_HIGHLIGHT, HAIR_SHADOW, MAGIC, MAGIC_HIGHLIGHT } from './avatarSprites';
 import { clampCrown, SKULL, type HairAnchors } from './avatarGeometry';
 import { yawShift, type DirectionRig } from './avatarDirection';
 import type { AvatarRace } from './avatarSchema';
@@ -371,6 +371,181 @@ export const hairStyleDefinitions: Record<string, HairStyleDefinition> = {
     ),
     fringe: 'blunt',
     shallow: true
+  },
+
+  /* ── The second dozen ──
+   * Added because twelve cuts over six things worn on the head is seventy-two hairstyles, and
+   * seventy-two is what the drawer showed a child who had already seen all of them. Every one of
+   * these is a different silhouette rather than a different colour: a shaved side, a spike, a locked
+   * length, a cord. What none of them is, is one of the twelve above with the parting moved. */
+
+  undercut: {
+    /* Shaved at the sides, weight on top. The whole read is the step between the two. */
+    crown: (fit) => (
+      <>
+        {px(fit.capLeft + 1, clampCrown(fit.capTop - 1.5), fit.capWidth - 2, 2.5, HAIR)}
+        {px(fit.capLeft + 1, clampCrown(fit.capTop - 1.5), fit.capWidth - 2, 1, HAIR_HIGHLIGHT)}
+      </>
+    ),
+    fringe: 'swept',
+    shallow: true
+  },
+
+  spiky: {
+    crown: (fit) => {
+      const base = fit.capTop + 0.5;
+      const peak = clampCrown(base - 3.5);
+      const spike = (x: number, lean: number) =>
+        <polygon key={x} points={`${x - 2},${base} ${x + lean},${peak} ${x + 2},${base}`} fill={HAIR} />;
+      return (
+        <>
+          {[SKULL.left + 3, SKULL.centre - 2, SKULL.centre + 2, SKULL.right - 3]
+            .map((x, index) => spike(x, index % 2 === 0 ? -1 : 1))}
+          {px(SKULL.centre - 1, peak + 1, 1, 2, HAIR_HIGHLIGHT)}
+        </>
+      );
+    },
+    fringe: 'spiky'
+  },
+
+  pixie: {
+    back: () => px(15, 7, 18, 5, HAIR_SHADOW),
+    fringe: 'parted',
+    locks: 5
+  },
+
+  dreadlocks: {
+    back: (fit) => {
+      const root = fit.capTop + fit.capHeight;
+      return (
+        <>
+          {[12, 16.5, 21, 25.5, 30, 34].map((x, index) => (
+            <g key={x}>
+              {px(x, root, 3, 11 + (index % 3) * 2, index % 2 ? HAIR_SHADOW : HAIR)}
+              {px(x, root + 11 + (index % 3) * 2 - 1.5, 3, 1.5, ACCENT)}
+            </g>
+          ))}
+        </>
+      );
+    },
+    fringe: 'blunt',
+    locks: 6
+  },
+
+  topknot: {
+    crown: (fit) => {
+      const top = clampCrown(fit.capTop - 3);
+      return (
+        <>
+          {px(SKULL.centre - 2, top, 4, 3.5, HAIR)}
+          {px(SKULL.centre - 2, top, 4, 1, HAIR_HIGHLIGHT)}
+          {tie(SKULL.centre - 2, top + 3.5)}
+        </>
+      );
+    },
+    fringe: 'strands',
+    locks: 4
+  },
+
+  sidepart: {
+    /* The parting is off-centre and stays off-centre through a turn, which is exactly what a mirror
+       would have got wrong: a child parted on the left is not the same child parted on the right. */
+    crown: (fit) => px(SKULL.left + 2, fit.capTop - 0.5, 7, 2, HAIR_HIGHLIGHT),
+    fringe: 'swept',
+    locks: 6
+  },
+
+  cybercords: {
+    back: (fit) => {
+      const root = fit.capTop + fit.capHeight;
+      return (
+        <>
+          {px(31, root, 2.5, 14, HAIR_SHADOW)}
+          {px(34, root + 2, 2, 11, HAIR)}
+          {px(31, root + 13, 2.5, 1.5, MAGIC)}
+          {px(34, root + 12, 2, 1.5, MAGIC_HIGHLIGHT)}
+        </>
+      );
+    },
+    crown: (fit) => px(SKULL.centre - 4, clampCrown(fit.capTop - 1), 8, 1.25, MAGIC),
+    fringe: 'blunt',
+    shallow: true
+  },
+
+  flame: {
+    /* Fire reads as a silhouette rather than as a colour, so the shape is three tongues of different
+       heights: three of the same height is a crown, and a crown is a different character. */
+    crown: (fit) => {
+      const base = fit.capTop + 0.5;
+      return (
+        <>
+          <polygon points={`${SKULL.left + 2},${base} ${SKULL.left + 5},${clampCrown(base - 4)} ${SKULL.left + 7},${base}`} fill={HAIR} />
+          <polygon points={`${SKULL.centre - 3},${base} ${SKULL.centre},${clampCrown(base - 5)} ${SKULL.centre + 3},${base}`} fill={HAIR} />
+          <polygon points={`${SKULL.right - 7},${base} ${SKULL.right - 4},${clampCrown(base - 3)} ${SKULL.right - 2},${base}`} fill={HAIR_SHADOW} />
+          <polygon points={`${SKULL.centre - 1},${base} ${SKULL.centre},${clampCrown(base - 3)} ${SKULL.centre + 1},${base}`} fill={MAGIC_HIGHLIGHT} />
+        </>
+      );
+    },
+    fringe: 'spiky',
+    shallow: true
+  },
+
+  crystal: {
+    crown: (fit) => {
+      const base = fit.capTop + 1;
+      return (
+        <>
+          <polygon points={`${SKULL.centre - 5},${base} ${SKULL.centre - 3},${clampCrown(base - 4)} ${SKULL.centre - 1},${base}`} fill={MAGIC} />
+          <polygon points={`${SKULL.centre - 1},${base} ${SKULL.centre + 1},${clampCrown(base - 5)} ${SKULL.centre + 3},${base}`} fill={MAGIC_HIGHLIGHT} />
+          <polygon points={`${SKULL.centre + 3},${base} ${SKULL.centre + 5},${clampCrown(base - 3)} ${SKULL.centre + 6},${base}`} fill={MAGIC} />
+        </>
+      );
+    },
+    fringe: 'strands',
+    locks: 5
+  },
+
+  pigtails: {
+    back: (fit) => {
+      const root = fit.capTop + fit.capHeight + 2;
+      return (
+        <>
+          <circle cx="12" cy={root + 4} r="3.5" fill={HAIR} />
+          <circle cx="36" cy={root + 4} r="3.5" fill={HAIR_SHADOW} />
+          {px(11.5, root, 3, 4, HAIR)}
+          {px(33.5, root, 3, 4, HAIR_SHADOW)}
+          {tie(11.5, root)}
+          {tie(33.5, root)}
+        </>
+      );
+    },
+    fringe: 'blunt',
+    locks: 4
+  },
+
+  hime: {
+    /* Blunt fringe, two straight temple lengths, and the rest down the back — the cut whose whole
+       identity is three straight edges, which is why its locks are longer than its fringe is low. */
+    back: () => (
+      <>
+        {px(14, 7, 20, 20, HAIR_SHADOW)}
+        {px(14, 25, 20, 2, HAIR)}
+      </>
+    ),
+    fringe: 'blunt',
+    locks: 12
+  },
+
+  shaggy: {
+    back: () => px(14.5, 7, 19, 10, HAIR_SHADOW),
+    crown: (fit) => (
+      <>
+        {px(SKULL.left + 1, clampCrown(fit.capTop - 1), 5, 2, HAIR)}
+        {px(SKULL.centre + 1, clampCrown(fit.capTop - 1.5), 6, 2.5, HAIR)}
+      </>
+    ),
+    fringe: 'strands',
+    locks: 7
   },
 
   mohawk: {
