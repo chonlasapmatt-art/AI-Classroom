@@ -1,4 +1,6 @@
-.avatar { display: block; overflow: visible; shape-rendering: crispEdges; }
+/* Clipped, for the same reason the full-body figure is: a drawing that paints outside its own box
+   paints onto the row beside it, and no caller of this can know that in advance. */
+.avatar { display: block; overflow: hidden; shape-rendering: crispEdges; }
 
 .figure { transform-origin: 12px 22px; }
 .arm { transform-origin: 7px 17px; }

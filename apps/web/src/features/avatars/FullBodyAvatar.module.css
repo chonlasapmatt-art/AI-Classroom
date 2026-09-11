@@ -20,12 +20,24 @@
 
 .avatar {
   display: block;
-  overflow: visible;
+  /*
+   * The figure stays inside its own box.
+   *
+   * This was `visible`, and that one word is where "avatar หลุดกรอบ" came from: an SVG that does not
+   * clip paints every shape authored outside its viewBox onto whatever is beside it, so a raised
+   * arm, a wizard's hat and a cheer's stars landed in the next row of a class list — and a pose that
+   * translates by ten units, which the jump does, moved the whole figure out of the frame. Anything
+   * that genuinely needs to spill asks for `.spill` and takes responsibility for the room.
+   */
+  overflow: hidden;
   /* Both, because they are read by different things: SVG shapes snap through shape-rendering, and
      any raster the browser makes of this — a drag image, a print preview — snaps through the other. */
   shape-rendering: crispEdges;
   image-rendering: pixelated;
 }
+
+/* A stage with room around it: the customiser, where a spell is meant to reach past the figure. */
+.spill { overflow: visible; }
 
 /* ── Pivots ──
    A limb turns where it joins the body, and each limb joins it in a different place. Both arms
@@ -43,6 +55,9 @@
 /* The hand, so a held thing can be turned back against an arm that has gone past the horizontal. */
 .held   { transform-origin: 15px 29px; }
 .tail   { transform-origin: 31px 34px; }   /* the root of the tail */
+/* Back hair hangs from the crown, so it swings from there rather than from the middle of its own
+   length — a plait pivoting about its midpoint swings its root away from the head it grows out of. */
+.hairBack { transform-origin: 24px 8px; }
 .wing   { transform-origin: 24px 24px; }   /* the shoulder blades */
 .shadow { transform-origin: 24px 46px; }
 .fx     { transform-origin: 24px 30px; }
@@ -107,6 +122,9 @@
 .idle .backArm { animation: armDangleBack 1.2s steps(4) infinite; }
 .idle .tail { animation: tailSway 1.6s steps(4) infinite; }
 .idle .wing { animation: wingSway 1.6s steps(4) infinite; }
+/* Length moves in the air, and it is the thing that separates standing from being a cut-out. One
+   degree either side: hair that swings further than a tail is hair in a wind nobody else is in. */
+.idle .hairBack { animation: hairSway 1.6s steps(4) infinite; }
 
 @keyframes bodyBreathe {
   0%   { transform: translateY(0); }
@@ -143,6 +161,28 @@
   75%  { transform: scaleX(1.02) translateY(0.5px); }
   100% { transform: scaleX(1) translateY(0); }
 }
+@keyframes hairSway {
+  0%   { transform: rotate(-1deg); }
+  25%  { transform: rotate(0deg); }
+  50%  { transform: rotate(1deg); }
+  75%  { transform: rotate(0deg); }
+  100% { transform: rotate(-1deg); }
+}
+/* Under a stride, hair lags the head: it lifts on the passing frames and settles on the contacts. */
+@keyframes hairBounce {
+  0%   { transform: rotate(1.5deg) translateY(0); }
+  25%  { transform: rotate(0deg) translateY(-0.5px); }
+  50%  { transform: rotate(-1.5deg) translateY(0); }
+  75%  { transform: rotate(0deg) translateY(-0.5px); }
+  100% { transform: rotate(1.5deg) translateY(0); }
+}
+/* At a run it streams behind, and stays behind: no frame brings it back past vertical. */
+@keyframes hairStream {
+  0%   { transform: rotate(6deg); }
+  33%  { transform: rotate(9deg); }
+  66%  { transform: rotate(7deg); }
+  100% { transform: rotate(6deg); }
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
  * เดิน · walk — 4 frames, 0.6s
@@ -155,6 +195,36 @@
 .walk .frontArm { animation: swingFront 0.6s steps(4) infinite; }
 .walk .backArm { animation: swingBack 0.6s steps(4) infinite; }
 .walk .tail { animation: tailSway 1.2s steps(4) infinite; }
+.walk .hairBack { animation: hairBounce 0.6s steps(4) infinite; }
+/*
+ * The ground the figure is walking on.
+ *
+ * A walk cycle with a fixed shadow reads as a person sliding along on a puddle — there is nothing in
+ * the picture that says a foot arrived. The shadow tightening on the two contact frames and
+ * spreading on the two passing frames is the cheapest possible ground contact, and it is what the
+ * eye actually uses to decide whether feet are touching anything.
+ */
+.walk .shadow { animation: shadowStep 0.6s steps(4) infinite; }
+.run .shadow { animation: shadowStride 0.4s steps(6) infinite; }
+
+@keyframes shadowStep {
+  0%   { transform: scale(1); opacity: 0.3; }
+  25%  { transform: scale(0.9); opacity: 0.22; }
+  50%  { transform: scale(1); opacity: 0.3; }
+  75%  { transform: scale(0.9); opacity: 0.22; }
+  100% { transform: scale(1); opacity: 0.3; }
+}
+/* A run has a frame with neither foot down: the shadow is at its smallest there, not merely
+   narrower — that airborne frame is the only thing separating a run from a fast walk. */
+@keyframes shadowStride {
+  0%   { transform: scale(1); opacity: 0.3; }
+  16%  { transform: scale(0.74); opacity: 0.18; }
+  33%  { transform: scale(0.88); opacity: 0.24; }
+  50%  { transform: scale(1); opacity: 0.3; }
+  66%  { transform: scale(0.74); opacity: 0.18; }
+  83%  { transform: scale(0.88); opacity: 0.24; }
+  100% { transform: scale(1); opacity: 0.3; }
+}
 
 @keyframes walkBob {
   0%   { transform: translateY(0); }
@@ -211,12 +281,21 @@
 /* What the hand holds is turned back upright, the same way the cheer does it. */
 .wave .frontArm .held { animation: heldUprightWave 0.8s steps(4) infinite; }
 
+/*
+ * Anticipation, the wave itself, and a settle.
+ *
+ * Four frames, and the first of them is the arm on its way up rather than already there. A cycle
+ * that starts at the top has no lift in it — the arm is simply *up*, every loop, with no frame that
+ * says it got there — and because the loop's last frame is its first, the arm also snapped from
+ * over the head back down to over the head with nothing in between. Starting and ending low is what
+ * gives the loop a beginning and lets it return to something near the resting pose.
+ */
 @keyframes waveArm {
-  0%   { transform: rotate(96deg); }
-  25%  { transform: rotate(118deg); }
-  50%  { transform: rotate(104deg); }
-  75%  { transform: rotate(124deg); }
-  100% { transform: rotate(96deg); }
+  0%   { transform: rotate(24deg); }
+  25%  { transform: rotate(96deg); }
+  50%  { transform: rotate(124deg); }
+  75%  { transform: rotate(100deg); }
+  100% { transform: rotate(24deg); }
 }
 @keyframes waveHeadTilt {
   0%, 100% { transform: rotate(-3deg); }
@@ -227,11 +306,11 @@
   50%      { transform: rotate(-3deg); }
 }
 @keyframes heldUprightWave {
-  0%   { transform: rotate(-96deg); }
-  25%  { transform: rotate(-118deg); }
-  50%  { transform: rotate(-104deg); }
-  75%  { transform: rotate(-124deg); }
-  100% { transform: rotate(-96deg); }
+  0%   { transform: rotate(-24deg); }
+  25%  { transform: rotate(-96deg); }
+  50%  { transform: rotate(-124deg); }
+  75%  { transform: rotate(-100deg); }
+  100% { transform: rotate(-24deg); }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -247,6 +326,7 @@
 .run .backArm { animation: runArmBack 0.4s steps(6) infinite; }
 .run .fx { animation: speedFlicker 0.4s steps(2) infinite; }
 .run .tail { animation: tailStream 0.4s steps(6) infinite; }
+.run .hairBack { animation: hairStream 0.4s steps(6) infinite; }
 
 @keyframes runBob {
   0%   { transform: translateY(0); }
@@ -363,15 +443,29 @@
  * magic colour rather than a second ring, so it costs one filter on one element and picks up
  * whatever colour the child chose.
  */
+/*
+ * Five phases, one per frame pair: anticipation, charge, release, impact, recovery.
+ *
+ * The old version was a ring that faded from nothing to full and back to nothing every second,
+ * which at six frames is a strobe rather than a spell — and the brief is explicit that an effect
+ * must not flash. The opacity floor is 0.25 rather than 0 and the peak is held across two frames,
+ * so what changes between frames is the *size* of the ring and the angle it has turned through: the
+ * eye reads growth and rotation as a spell being worked, and reads on-off as a fault.
+ *
+ * Nothing here exceeds scale 1.2, because the circle is authored at rx 14 on a 48 grid — a ring at
+ * 1.5 is a ring past the frame, and the figure it is supposed to be standing in is 18 units wide.
+ */
 @keyframes runeOpen {
-  0%   { transform: scale(0.2) rotate(0deg); opacity: 0; }
-  16%  { transform: scale(0.6) rotate(24deg); opacity: 0.6; }
-  33%  { transform: scale(0.9) rotate(48deg); opacity: 1; }
+  0%   { transform: scale(0.55) rotate(0deg); opacity: 0.25; }
+  16%  { transform: scale(0.72) rotate(24deg); opacity: 0.5; }
+  33%  { transform: scale(0.95) rotate(48deg); opacity: 0.85; }
   50%  { transform: scale(1.15) rotate(72deg); opacity: 1; }
-  66%  { transform: scale(1.05) rotate(96deg); opacity: 0.85; }
-  83%  { transform: scale(1.1) rotate(120deg); opacity: 0.4; }
-  100% { transform: scale(0.2) rotate(144deg); opacity: 0; }
+  66%  { transform: scale(1.15) rotate(96deg); opacity: 0.9; }
+  83%  { transform: scale(0.85) rotate(120deg); opacity: 0.5; }
+  100% { transform: scale(0.55) rotate(144deg); opacity: 0.25; }
 }
+/* One glow, at one and a half units, on one element. A thicker one washes out the figure it is
+   supposed to be lighting, which is the whole objection to the effect as it was. */
 .cast .fx { filter: drop-shadow(0 0 1.5px var(--av-magic)); }
 /* The orbs pull in towards the hands and brighten while the spell is going out. */
 .cast .orbs { animation: orbCharge 1s steps(6) infinite; }
@@ -381,6 +475,16 @@
   66%  { transform: translate(3px, -3px) scale(1.25); opacity: 1; }
   100% { transform: translate(0, 0) scale(1); opacity: 0.9; }
 }
+/* The head follows the hands up: a caster staring straight ahead while its arms go over its head is
+   a figure whose arms are doing something it is not paying attention to. */
+.cast .head { animation: castLook 1s steps(6) infinite; }
+@keyframes castLook {
+  0%   { transform: rotate(0deg); }
+  33%  { transform: rotate(-4deg); }
+  66%  { transform: rotate(-5deg); }
+  100% { transform: rotate(0deg); }
+}
+.cast .hairBack { animation: hairSway 2s steps(4) infinite; }
 
 /* ────────────────────────────────────────────────────────────────────────────
  * โจมตี · attack — 4 frames, 0.4s
@@ -431,6 +535,17 @@
 .jump .frontArm { animation: jumpArmFront 0.5s steps(4) infinite; }
 .jump .backArm { animation: jumpArmBack 0.5s steps(4) infinite; }
 .jump .shadow { animation: shadowFall 0.5s steps(4) infinite; }
+.jump .hairBack { animation: hairLift 0.5s steps(4) infinite; }
+
+/* Hair lags the body on the way up and overshoots on the way down, which is the one place a chibi
+   figure can show weight without the body itself changing shape. */
+@keyframes hairLift {
+  0%   { transform: rotate(0deg) translateY(0); }
+  25%  { transform: rotate(5deg) translateY(1px); }
+  50%  { transform: rotate(4deg) translateY(1px); }
+  75%  { transform: rotate(-3deg) translateY(-0.5px); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
 
 @keyframes leap {
   0%   { transform: translateY(0) scaleY(0.88) scaleX(1.08); }
@@ -486,6 +601,7 @@
 .cheer .backArm { animation: cheerArmBack 0.6s steps(4) infinite; }
 .cheer .fx { animation: starBurst 0.6s steps(4) infinite; }
 .cheer .tail { animation: tailSway 0.6s steps(4) infinite; }
+.cheer .hairBack { animation: hairLift 0.6s steps(4) infinite; }
 /* The arms go past the horizontal here, so what they carry is turned back to stay upright. */
 .cheer .frontArm .held { animation: heldUprightFront 0.6s steps(4) infinite; }
 .cheer .backArm .held { animation: heldUprightBack 0.6s steps(4) infinite; }

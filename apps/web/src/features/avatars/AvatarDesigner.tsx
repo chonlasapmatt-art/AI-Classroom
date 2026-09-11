@@ -352,6 +352,9 @@ export function AvatarDesigner({
                 size={176}
                 label={displayName}
                 paused={!playing}
+                /* The stage is the one place with room around the figure, so it is the one place a
+                   spell may reach past it. Everywhere else the frame clips. */
+                allowOverflowEffect
               />
             </div>
 

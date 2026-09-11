@@ -26,9 +26,17 @@ const poseStyles = readFileSync(
  */
 describe('the full-body figure', () => {
   it('draws its slots back to front, and never in another order', () => {
-    // A wing behind the body, a hat in front of hair, a staff in front of both, shadow underneath.
+    /*
+     * A wing behind the body, a hat in front of hair, a staff in front of both, shadow underneath —
+     * and hair on both sides of the figure, which is the slot this list gained.
+     *
+     * While there were nine, a hairstyle was one group drawn after the face, so length and volume
+     * had nowhere to go but over the eyes: an afro covered the whole face and a plait came over the
+     * chin. `hair_back` is where a style's length hangs, behind the torso and behind the arms, and
+     * it is before `back_arm` rather than after it because a plait goes behind a shoulder.
+     */
     expect(bodySlotOrder).toEqual([
-      'shadow', 'back_gear', 'back_arm', 'legs_feet', 'torso_body',
+      'shadow', 'back_gear', 'hair_back', 'back_arm', 'legs_feet', 'torso_body',
       'head_neck', 'hair_headwear', 'front_arm_weapon', 'overlay_fx'
     ]);
 
@@ -341,7 +349,25 @@ describe('the figure everywhere it appears', () => {
     // The crop is the head and upper torso, centred on the figure's own centre line: at 36 pixels
     // the legs are two dark pixels and the face is what anybody is looking for.
     const { container: bust } = render(<FullBodyAvatar archetype="student" framing="bust" />);
-    expect(bust.querySelector('svg')?.getAttribute('viewBox')).toBe('9 1 30 30');
+    expect(bust.querySelector('svg')?.getAttribute('viewBox')).toBe('9 0 30 30');
+  });
+
+  it('starts every crop at the frame ceiling, so nothing shears the top of a hat', () => {
+    /*
+     * The bust crop used to start at y 1. Hair and headwear are authored from y 0 — that is the
+     * band they are given — so one unit of every crown, every raised ear and the tip of the wizard
+     * hat was cut off in every list row in the product while looking correct on the customiser's
+     * stage, which is exactly the kind of fault that survives a review.
+     */
+    for (const framing of ['full', 'half', 'bust', 'portrait'] as const) {
+      const { container } = render(<FullBodyAvatar archetype="arcaneMage" framing={framing} />);
+      const [, top, width, height] = container.querySelector('svg')!.getAttribute('viewBox')!
+        .split(' ').map(Number);
+      expect(top, `${framing} starts below the ceiling`).toBe(0);
+      // Square, because every frame that holds one is; a rectangle letterboxes the figure.
+      expect(width, framing).toBe(height);
+      cleanup();
+    }
   });
 
   it('choreographs the wave, and does not mistake it for the cheer', () => {

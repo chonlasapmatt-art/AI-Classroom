@@ -1,6 +1,7 @@
 import { cloneElement, type CSSProperties, type ReactElement } from 'react';
 import type { AvatarAnimation } from '../../domain/types';
 import { defaultTints, tintVariables, type AvatarTints } from './avatarSchema';
+import { cropViewBox, type AvatarCropMode } from './avatarGeometry';
 import {
   bodySlotOrder, fullBodyArchetypes, overlayForPose,
   type BodySlot, type FullBodyArchetype
@@ -36,13 +37,17 @@ import styles from './FullBodyAvatar.module.css';
  * Nothing is redrawn and nothing is a second sprite: below a certain size the legs are noise, so the
  * frame excludes them.
  */
-export type FullBodyFraming = 'full' | 'bust';
+/** The crop names, kept on this module because every caller already imports them from here. */
+export type FullBodyFraming = AvatarCropMode;
 
-/** The bust crop: head and upper torso, centred on the figure's own centre line. */
-const framingViewBox: Record<FullBodyFraming, string> = {
-  full: '0 0 48 48',
-  bust: '9 1 30 30'
-};
+/**
+ * Which way the figure faces.
+ *
+ * Stated rather than derived, and never animated. A run cycle that flips its own subject reads as
+ * the character turning round twice a second, which is the complaint; the mirror belongs to a state
+ * somebody set, so it is a prop with one default and no keyframe anywhere may touch it.
+ */
+export type FullBodyFacing = 'default' | 'left' | 'right';
 
 export interface FullBodyAvatarProps {
   archetype: FullBodyArchetype;
@@ -62,6 +67,16 @@ export interface FullBodyAvatarProps {
   backdrop?: string | undefined;
   /** Held on its first frame — for a picker grid, where forty looping figures is a fairground. */
   paused?: boolean;
+  facing?: FullBodyFacing;
+  /**
+   * Lets a pose's effect paint outside the frame.
+   *
+   * Off by default, and that default is the fix for the avatar escaping its container: an SVG with
+   * `overflow: visible` paints everything authored outside its viewBox onto whatever is beside it,
+   * so a raised arm landed in the next row of a class list. A stage that has room for a spell can
+   * turn it back on for itself.
+   */
+  allowOverflowEffect?: boolean;
 }
 
 /** Poses this body is choreographed for. Anything else is drawn standing. */
@@ -99,7 +114,8 @@ function isElement(value: unknown): value is ReactElement {
 }
 
 export function FullBodyAvatar({
-  archetype, slots, animation = 'idle', tints, size = 176, label, backdrop, paused, framing = 'full'
+  archetype, slots, animation = 'idle', tints, size = 176, label, backdrop, paused,
+  framing = 'full', facing = 'default', allowOverflowEffect = false
 }: FullBodyAvatarProps) {
   const definition = fullBodyArchetypes[archetype] ?? fullBodyArchetypes.student;
   const drawn: Partial<Record<BodySlot, ReactElement>> = { ...definition.slots, ...(slots ?? {}) };
@@ -115,16 +131,30 @@ export function FullBodyAvatar({
 
   return (
     <svg
-      className={[styles.avatar, styles[pose], paused ? styles.paused : ''].filter(Boolean).join(' ')}
+      className={[
+        styles.avatar,
+        styles[pose],
+        paused ? styles.paused : '',
+        allowOverflowEffect ? styles.spill : ''
+      ].filter(Boolean).join(' ')}
       width={size}
       height={size}
-      viewBox={framingViewBox[framing]}
+      viewBox={cropViewBox[framing]}
+      data-facing={facing}
       style={style}
       role="img"
       aria-label={label ? `อวตาร ${label}` : `อวตาร${definition.name}`}
     >
       <title>{label ?? definition.name}</title>
       {backdrop ? <rect x="0" y="0" width="48" height="48" rx="8" fill={backdrop} /> : null}
+      {/*
+        * The mirror, applied once and outside every keyframe.
+        *
+        * Around x 24, which is the figure's own centre line rather than the viewBox's — the crops
+        * are off-centre and mirroring about the frame would walk the figure sideways as well as
+        * turn it.
+        */}
+      <g transform={facing === 'left' ? 'translate(48,0) scale(-1,1)' : undefined}>
       <g className={styles.figure}>
         {bodySlotOrder.map((slot: BodySlot) => {
           const drawing = drawn[slot];
@@ -136,6 +166,7 @@ export function FullBodyAvatar({
           );
         })}
         {poseOverlay ? <g data-slot="pose_fx">{withPartClasses(poseOverlay)}</g> : null}
+      </g>
       </g>
     </svg>
   );

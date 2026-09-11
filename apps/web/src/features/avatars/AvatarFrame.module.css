@@ -1,0 +1,114 @@
+/*
+ * The frame every avatar in the product sits in.
+ *
+ * Before this file, each screen framed its own: `.hero-card > svg` had a four-pixel white border,
+ * `.student-detail-profile > svg` had a different one, a class list had none, and the avatar itself
+ * was whatever size the caller passed with nothing clipping it. That is why the figure escaped its
+ * container in some places and sat flush against the edge in others — there was no container, only
+ * a collection of sibling selectors that had to be found and fixed one at a time.
+ */
+
+.frame {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  /*
+   * The clip, stated once.
+   *
+   * It is on the frame rather than on the drawing, because the drawing has to be allowed to reach
+   * its own edges — a figure inset by its own padding is a figure whose feet do not touch its
+   * shadow. The frame is what decides how much of the drawing the world sees.
+   */
+  overflow: hidden;
+  /* Not `transparent`: a frame with no ground of its own picks up whatever is behind it, which in a
+     dark card means a figure outlined for a light one. */
+  background: var(--surface-sunken);
+  color: inherit;
+  line-height: 0;
+}
+
+/* The one place a frame does not clip: a stage with room around it for a spell to reach into. */
+.spill { overflow: visible; }
+
+.circle { border-radius: var(--radius-pill); }
+.rounded { border-radius: var(--radius-sm); }
+.square { border-radius: 0; }
+/* A card frame is the one that is read as a piece of furniture rather than as a portrait. */
+.card { border-radius: var(--radius-md); }
+
+.plain { background: transparent; }
+.sunken { background: var(--surface-sunken); }
+.surface { background: var(--surface); }
+/* The brand tint, for a frame that is the subject of its screen rather than a row in a list. */
+.brand { background: var(--brand-100); }
+
+.bordered { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.elevated { box-shadow: var(--shadow-sm); }
+.bordered.elevated { box-shadow: inset 0 0 0 1px var(--line-strong), var(--shadow-sm); }
+
+/*
+ * The drawing inside the frame.
+ *
+ * Square, always, and sized to the frame rather than to the caller's number — the figure is drawn on
+ * a square grid and a frame that is not square would stretch it. `display: block` because an inline
+ * SVG sits on the text baseline, which leaves four pixels of descender space under every avatar in
+ * the product and is why some rows were taller than others.
+ */
+.figure {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.figure > svg { display: block; width: 100%; height: 100%; }
+
+/*
+ * The badge, and why it is allowed outside the clip.
+ *
+ * It is not part of the drawing: it says something about the person rather than about the picture,
+ * so it hangs off the corner of the frame in a layer of its own. Anything inside `.frame` is
+ * clipped; the badge is a sibling of it.
+ */
+.badged { position: relative; display: inline-grid; }
+
+.badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  min-width: 40%;
+  min-height: 40%;
+  padding: 0 2px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--surface);
+  font-size: var(--text-xs);
+  line-height: 1;
+}
+
+.initials {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: var(--brand-100);
+  color: var(--brand-700);
+  font-weight: var(--weight-heavy);
+  line-height: 1;
+}
+
+.photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /*
+   * A photograph is cropped to its top half rather than to its middle.
+   *
+   * `center` is the browser's default and it is wrong for a portrait: a phone photograph of a child
+   * has the face in the upper third, so centring it crops the forehead and keeps the shirt.
+   */
+  object-fit: cover;
+  object-position: 50% 25%;
+}

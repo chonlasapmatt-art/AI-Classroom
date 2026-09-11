@@ -1,17 +1,18 @@
 import type { ReactElement } from 'react';
 import {
   px,
-  ACCENT, HAIR, HAIR_HIGHLIGHT, HAIR_SHADOW, MAGIC, MAGIC_HIGHLIGHT, OUTLINE,
+  ACCENT, HAIR, MAGIC, MAGIC_HIGHLIGHT, OUTLINE,
   PRIMARY, PRIMARY_HIGHLIGHT, PRIMARY_SHADOW, SECONDARY, SECONDARY_SHADOW,
   SKIN, WHITE
 } from './avatarSprites';
 import {
   backArm, batWings, bodySlotOrder, brimHat, bushyTail, cape, catTail, demonHorns, demonTail,
-  flameOrbs, flipperArm, frontArm, furTuft, groundShadow, headNeck, hornedHelm, legsSneakers,
-  legsStanding, legsWebbed, robedLegs, scaledTail, shield, shortHair, spellAura,
+  earShape, flameOrbs, flipperArm, frontArm, groundShadow, headNeck, hornedHelm, legsSneakers,
+  legsStanding, legsWebbed, robedLegs, scaledTail, shield, spellAura,
   staff, sword, torsoRound, torsoShirt,
   type BodySlot, type EarStyle, type SnoutStyle
 } from './avatarFullBody';
+import { hairFor, hairStyleDefinitions } from './avatarHair';
 import type { AvatarConfigV2, AvatarRace, LayerType } from './avatarSchema';
 
 /**
@@ -557,84 +558,16 @@ const heldItems: Record<string, () => ReactElement> = {
  * Hair, headwear, and what is worn on top of it — y 0 to 12
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/**
- * A hairstyle is a cap plus a silhouette.
+/*
+ * Hair moved out.
  *
- * The cap is the same on all of them — the hair that sits on the skull — and the silhouette is what
- * makes a bob a bob: length down the sides, a bun behind, a fringe over the brow. Twelve of these
- * beside forty-eight units of head is why the styles read at all.
+ * It used to be twelve one-line entries here, each a silhouette handed to a shared cap and drawn in
+ * a single group after the face. That arrangement is what put an afro over a pair of eyes and a bun
+ * a unit above the frame, and no amount of editing those twelve lines fixes it — the fault is that
+ * there was one group where there needed to be two. `avatarHair.tsx` holds the whole system now:
+ * geometry, anchors, per-race fit, a back drawing and a front one. This file asks it for a style
+ * and puts each half in its own slot.
  */
-function hairFrom(silhouette: ReactElement | null, fringe = true): ReactElement {
-  return (
-    <g data-part="hair">
-      {silhouette}
-      {px(14.5, 3.5, 19, 5.5, HAIR)}
-      {px(14.5, 3.5, 19, 1.5, HAIR_HIGHLIGHT)}
-      {px(14.5, 8.5, 19, 0.5, HAIR_SHADOW)}
-      {fringe ? (
-        <>
-          <polygon points="17,8.5 21,8.5 18.5,12.5" fill={HAIR} />
-          <polygon points="27,8.5 31,8.5 29.5,12" fill={HAIR_SHADOW} />
-        </>
-      ) : null}
-    </g>
-  );
-}
-
-const sideLocks = (length: number): ReactElement => (
-  <>
-    {px(13.5, 6, 3.5, length, HAIR)}
-    {px(31, 6, 3.5, length, HAIR_SHADOW)}
-  </>
-);
-
-const hairStyles: Record<string, () => ReactElement> = {
-  short: () => shortHair(),
-  bob: () => hairFrom(sideLocks(11)),
-  long: () => hairFrom(<>{sideLocks(17)}{px(15, 18, 18, 4, HAIR_SHADOW)}</>),
-  bun: () => hairFrom(<><circle cx="24" cy="2.5" r="3.5" fill={HAIR} /><circle cx="22.75" cy="1.75" r="1.5" fill={HAIR_HIGHLIGHT} /></>),
-  curly: () => hairFrom(
-    <>
-      <circle cx="15.5" cy="6" r="3" fill={HAIR} />
-      <circle cx="32.5" cy="6" r="3" fill={HAIR} />
-      <circle cx="19" cy="2.5" r="3.5" fill={HAIR} />
-      <circle cx="29" cy="2.5" r="3.5" fill={HAIR} />
-      <circle cx="24" cy="1.75" r="3.5" fill={HAIR} />
-    </>
-  ),
-  ponytail: () => hairFrom(<>{px(33, 8, 4, 12, HAIR)}{px(33, 8, 1.25, 12, HAIR_HIGHLIGHT)}</>),
-  twintail: () => hairFrom(<>{px(11, 8, 3.5, 11, HAIR)}{px(33.5, 8, 3.5, 11, HAIR_SHADOW)}</>),
-  mohawk: () => hairFrom(<><polygon points="20,4 24,-3 28,4" fill={HAIR} /><polygon points="22,3 24,-2 25,3" fill={HAIR_HIGHLIGHT} /></>, false),
-  buzz: () => (
-    <g data-part="hair">
-      {px(15, 4, 18, 3.5, HAIR)}
-      {px(15, 4, 18, 1, HAIR_HIGHLIGHT)}
-      {px(15, 7, 18, 0.5, HAIR_SHADOW)}
-    </g>
-  ),
-  wavy: () => hairFrom(
-    <>
-      {px(13.5, 6, 3.5, 13, HAIR)}
-      {px(31, 6, 3.5, 13, HAIR_SHADOW)}
-      <circle cx="15" cy="19" r="2" fill={HAIR} />
-      <circle cx="33" cy="19" r="2" fill={HAIR_SHADOW} />
-    </>
-  ),
-  braid: () => hairFrom(
-    <>
-      {px(32.5, 8, 3.5, 6, HAIR)}
-      {px(32.5, 14, 3.5, 3, HAIR_SHADOW)}
-      {px(32.5, 17, 3.5, 3, HAIR)}
-    </>
-  ),
-  afro: () => hairFrom(
-    <>
-      <circle cx="24" cy="4" r="10" fill={HAIR} />
-      <circle cx="19" cy="1" r="3.5" fill={HAIR_HIGHLIGHT} opacity="0.5" />
-    </>,
-    false
-  )
-};
 
 /** Worn on top of the hair. The plain one draws nothing, which is what "no hat" means. */
 const headpieces: Record<string, () => ReactElement> = {
@@ -644,9 +577,11 @@ const headpieces: Record<string, () => ReactElement> = {
   beastears: () => <g data-part="ears"><polygon points="16,6.5 18.5,0.5 23,6" fill={HAIR} /><polygon points="32,6.5 29.5,0.5 25,6" fill={HAIR} /><polygon points="18,5.5 18.8,2.5 21,5.5" fill={'var(--av-blush, #ff97ae)'} /><polygon points="30,5.5 29.2,2.5 27,5.5" fill={'var(--av-blush, #ff97ae)'} /></g>,
   wizardhat: () => brimHat(),
   halo: () => (
+    /* Centred at y 2 rather than 1.5: a ring of stroke width 1.25 drawn on ry 2 reaches half a
+       stroke past its own top edge, so at 1.5 the ring's lit edge was outside the frame. */
     <g data-part="hair">
-      <ellipse cx="24" cy="1.5" rx="7" ry="2" fill="none" stroke={MAGIC} strokeWidth="1.25" />
-      <ellipse cx="24" cy="1.5" rx="7" ry="2" fill="none" stroke={MAGIC_HIGHLIGHT} strokeWidth="0.5" />
+      <ellipse cx="24" cy="2" rx="7" ry="1.75" fill="none" stroke={MAGIC} strokeWidth="1.25" />
+      <ellipse cx="24" cy="2" rx="7" ry="1.75" fill="none" stroke={MAGIC_HIGHLIGHT} strokeWidth="0.5" />
     </g>
   )
 };
@@ -845,8 +780,6 @@ const effects: Record<string, () => ReactElement> = {
 interface RaceShape {
   ears: EarStyle;
   snout: SnoutStyle;
-  /** The hair a race falls back to when the child has not chosen a style of their own. */
-  hair?: () => ReactElement;
   whiskers?: boolean;
   /** Drawn when the child has chosen no back accessory of their own. */
   tail?: () => ReactElement;
@@ -857,9 +790,9 @@ interface RaceShape {
 
 const races: Record<AvatarRace, RaceShape> = {
   human: { ears: 'none', snout: 'none' },
-  dragonkin: { ears: 'none', snout: 'muzzle', tail: scaledTail, claw: true, hair: furTuft },
+  dragonkin: { ears: 'none', snout: 'muzzle', tail: scaledTail, claw: true },
   demon: { ears: 'pointed', snout: 'none', tail: demonTail, claw: true },
-  beastfolk: { ears: 'cat', snout: 'none', whiskers: true, tail: catTail, hair: furTuft },
+  beastfolk: { ears: 'cat', snout: 'none', whiskers: true, tail: catTail },
   spirit: { ears: 'pointed', snout: 'none' },
   robot: { ears: 'round', snout: 'none' }
 };
@@ -910,7 +843,14 @@ export function figureSlotsFor(config: AvatarConfigV2): Partial<Record<BodySlot,
   const held = frontId ? heldItems[baseOf(frontId)] : undefined;
 
   const hairId = layerOf(config, 'hair_headpiece');
-  const hair = hairId ? hairStyles[baseOf(hairId)] : undefined;
+  /*
+   * The style, fitted to this race, as two drawings.
+   *
+   * `hairFor` answers for an id it does not know and for no id at all, so an avatar saved before
+   * this drawer existed — which is most of them — gets the cut its race falls back to rather than a
+   * bare skull, and a build that later drops a style does not blank out the children wearing it.
+   */
+  const hair = hairFor(hairId ? baseOf(hairId) : undefined, config.race);
   const worn = hairId ? wornOf(hairId) : undefined;
   const headpiece = worn ? headpieces[worn] : undefined;
 
@@ -953,13 +893,28 @@ export function figureSlotsFor(config: AvatarConfigV2): Partial<Record<BodySlot,
       ...(face?.sharp === undefined ? {} : { sharp: face.sharp }),
       ...(face?.blush === undefined ? {} : { blush: face.blush }),
       ...(face?.mouth === undefined ? {} : { mouth: face.mouth }),
-      ears: race.ears,
+      /*
+       * The ears are drawn after the hair instead, a few lines below.
+       *
+       * A costume's hair is cut to leave its own ears room; a figure a child assembled has any of
+       * twelve cuts over any of six races, and there is no cap that clears a rabbit's ears and
+       * still reads as hair. So the one race whose whole silhouette is its ears keeps them.
+       */
+      ears: 'none',
       snout: race.snout,
       ...(race.whiskers === undefined ? {} : { whiskers: race.whiskers })
     }),
+    /*
+     * Front hair, then ears and horns, then what is worn over the eyes.
+     *
+     * That is the order the brief asks for and the order the drawing needs: a fringe under a hat, a
+     * hat under nothing, and a pair of glasses over all of it. Length and volume are not here at
+     * all — they went into `hair_back`, behind the body.
+     */
     hair_headwear: (
       <g>
-        {hair ? hair() : race.hair ? race.hair() : shortHair()}
+        {hair.front}
+        {race.ears === 'none' ? null : earShape(race.ears)}
         {headpiece ? headpiece() : null}
         {glasses ? glasses() : null}
       </g>
@@ -970,6 +925,7 @@ export function figureSlotsFor(config: AvatarConfigV2): Partial<Record<BodySlot,
   };
 
   if (backDrawing) slots.back_gear = backDrawing;
+  if (hair.back) slots.hair_back = hair.back;
 
   const overlay = [
     aura && baseOf(auraId ?? '') !== 'none' ? aura() : null,
@@ -990,8 +946,8 @@ export function hasFigureChoices(config: AvatarConfigV2 | null | undefined): boo
 
 /** Exposed for the tests that check every id in the trait tables has somewhere to be drawn. */
 export const figurePartTables = {
-  tops, legStyles, backGear, heldItems, hairStyles, headpieces, faceStyles, eyewear, auras, effects,
-  races
+  tops, legStyles, backGear, heldItems, hairStyles: hairStyleDefinitions, headpieces, faceStyles,
+  eyewear, auras, effects, races
 };
 
 /** Re-exported so a caller composing a figure does not have to import from two places. */

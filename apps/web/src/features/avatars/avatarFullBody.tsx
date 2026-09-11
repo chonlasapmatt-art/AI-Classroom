@@ -41,6 +41,7 @@ import {
 export type BodySlot =
   | 'shadow'
   | 'back_gear'
+  | 'hair_back'
   | 'back_arm'
   | 'legs_feet'
   | 'torso_body'
@@ -49,8 +50,16 @@ export type BodySlot =
   | 'front_arm_weapon'
   | 'overlay_fx';
 
+/*
+ * Ten, because hair has a back.
+ *
+ * While there were nine, every hairstyle was drawn after the face — so an afro covered the eyes, a
+ * plait came over the chin, and the only way to have length was to have it in front of the person
+ * wearing it. `hair_back` is the missing half: volume and length hang there, behind the torso and
+ * behind the arms, and only the cap and the fringe are drawn over the face in `hair_headwear`.
+ */
 export const bodySlotOrder: BodySlot[] = [
-  'shadow', 'back_gear', 'back_arm', 'legs_feet', 'torso_body',
+  'shadow', 'back_gear', 'hair_back', 'back_arm', 'legs_feet', 'torso_body',
   'head_neck', 'hair_headwear', 'front_arm_weapon', 'overlay_fx'
 ];
 
@@ -58,6 +67,7 @@ export const bodySlotOrder: BodySlot[] = [
 export const bodySlotLabels: Record<BodySlot, string> = {
   shadow: 'เงาใต้เท้า',
   back_gear: 'ปีก/หาง/ผ้าคลุม',
+  hair_back: 'ผมด้านหลัง',
   back_arm: 'แขนหลัง',
   legs_feet: 'ขาและรองเท้า',
   torso_body: 'ลำตัว',
@@ -452,19 +462,20 @@ function eyeAt(x: number, { eye, eyeLight, sharp }: EyeOptions, mirrored = false
   );
 }
 
-export function headNeck({
-  eye, eyeLight, snout = 'none', ears = 'none', blush, whiskers, sharp, mouth = 'smile'
-}: FaceOptions): ReactElement {
+/**
+ * What is rooted in the top of the skull, drawn on its own so it can be placed twice.
+ *
+ * A costume draws its ears here, under its own hair, because the ten costumes are hand-fitted and
+ * their hair is cut to leave the ears room. A figure a child assembled cannot promise that — any of
+ * twelve cuts may be worn over any of six races — so the compositor draws the same group again
+ * *after* the hair instead, which is the only arrangement in which a cat keeps its ears whatever it
+ * has on its head. One drawing, two positions in the stack; the alternative was two drawings that
+ * drift.
+ */
+export function earShape(ears: EarStyle): ReactElement {
   const fur = 'var(--av-hair)';
   return (
-    <g data-part="head">
-      {/* The neck, which is what stops a chibi head sitting straight on the collarbone. */}
-      {px(22, 19.5, 4, 2, SKIN_SHADOW)}
-      {/*
-        * Ears go behind the skull so their base is hidden, and in their own group so they can
-        * twitch: an animal head that never moves its ears is a hat.
-        */}
-      <g data-part="ears">
+    <g data-part="ears">
         {ears === 'pointed' ? (
           <>
             <polygon points="15,9 11,6 14.5,13" fill={SKIN} />
@@ -510,20 +521,41 @@ export function headNeck({
           * the lean is what tells the pair apart from a headband with antennae on it.
           */}
         {ears === 'rabbit' ? (
+          /*
+           * Rooted at y 0.75 rather than y 0. Leaning ears rotate their own top corner further up
+           * than the rectangle they are drawn from, so a pair authored flush with the ceiling ends
+           * up outside it once the lean is applied — and what leaves the frame is either clipped or
+           * painted onto whatever sits beside the avatar.
+           */
           <>
-            <g transform="rotate(-10 19.5 7)">
-              {px(17, 0, 5, 7.5, fur)}
-              {px(18.25, 1.25, 2.5, 5, BLUSH)}
-              {px(17, 0, 1.25, 7.5, HAIR_HIGHLIGHT)}
+            <g transform="rotate(-10 19.5 7.75)">
+              {px(17, 0.75, 5, 7.5, fur)}
+              {px(18.25, 2, 2.5, 5, BLUSH)}
+              {px(17, 0.75, 1.25, 7.5, HAIR_HIGHLIGHT)}
             </g>
-            <g transform="rotate(10 28.5 7)">
-              {px(26, 0, 5, 7.5, fur)}
-              {px(27.25, 1.25, 2.5, 5, BLUSH)}
-              {px(29.75, 0, 1.25, 7.5, HAIR_SHADOW)}
+            <g transform="rotate(10 28.5 7.75)">
+              {px(26, 0.75, 5, 7.5, fur)}
+              {px(27.25, 2, 2.5, 5, BLUSH)}
+              {px(29.75, 0.75, 1.25, 7.5, HAIR_SHADOW)}
             </g>
           </>
         ) : null}
-      </g>
+    </g>
+  );
+}
+
+export function headNeck({
+  eye, eyeLight, snout = 'none', ears = 'none', blush, whiskers, sharp, mouth = 'smile'
+}: FaceOptions): ReactElement {
+  return (
+    <g data-part="head">
+      {/* The neck, which is what stops a chibi head sitting straight on the collarbone. */}
+      {px(22, 19.5, 4, 2, SKIN_SHADOW)}
+      {/*
+        * Ears go behind the skull so their base is hidden, and in their own group so they can
+        * twitch: an animal head that never moves its ears is a hat.
+        */}
+      {ears === 'none' ? null : earShape(ears)}
       {/* Skull, then a jaw narrowing to a chin — the line that makes a head read as a face. */}
       {px(15, 4, 18, 13, SKIN)}
       {px(16.5, 17, 15, 2, SKIN)}
@@ -613,9 +645,10 @@ export function hornedHelm(): ReactElement {
 export function mageHood(): ReactElement {
   return (
     <g data-part="hair">
-      {/* A cone with a brim, and the brim is what casts the shadow across the eyes. */}
-      <polygon points="24,-2 36,10 12,10" fill={PRIMARY} />
-      <polygon points="24,-2 30,10 12,10" fill={PRIMARY_HIGHLIGHT} opacity="0.5" />
+      {/* A cone with a brim, and the brim is what casts the shadow across the eyes. The apex is at
+          y 0 rather than y −2: two units above the frame is two units nobody ever saw. */}
+      <polygon points="24,0 36,10 12,10" fill={PRIMARY} />
+      <polygon points="24,0 30,10 12,10" fill={PRIMARY_HIGHLIGHT} opacity="0.5" />
       {px(12, 9, 24, 2.5, SECONDARY)}
       {px(12, 11, 24, 1, SECONDARY_SHADOW)}
       {/* Hair escaping the hood: without it a hood is a bag, and the hair colour never shows. */}
@@ -631,8 +664,11 @@ export function demonHorns(): ReactElement {
     <g data-part="hair">
       {px(14.5, 3.5, 19, 5.5, HAIR)}
       {px(14.5, 3.5, 19, 1.5, HAIR_HIGHLIGHT)}
-      <polygon points="17,4 15,-1 21,3" fill={SECONDARY} />
-      <polygon points="31,4 33,-1 27,3" fill={SECONDARY} />
+      {/* Horn tips at y 0, which is the ceiling. At −1 they were sheared off by every crop. */}
+      <polygon points="17,4.5 15,0 21,3.5" fill={SECONDARY} />
+      <polygon points="31,4.5 33,0 27,3.5" fill={SECONDARY} />
+      <polygon points="17,4.5 15.8,1.4 18.4,3.4" fill={SECONDARY_SHADOW} />
+      <polygon points="31,4.5 32.2,1.4 29.6,3.4" fill={SECONDARY_SHADOW} />
     </g>
   );
 }
@@ -645,9 +681,13 @@ export function shortHair(): ReactElement {
       {px(14.5, 8, 3, 4, HAIR)}
       {px(30.5, 8, 3, 4, HAIR)}
       {px(14.5, 8.5, 19, 0.5, HAIR_SHADOW)}
-      {/* Two strands falling over the brow. A fringe drawn as one bar is a helmet. */}
-      <polygon points="17,8.5 21,8.5 18.5,12.5" fill={HAIR} />
-      <polygon points="27,8.5 31,8.5 29.5,12" fill={HAIR_SHADOW} />
+      {/*
+        * Two strands at the temples. A fringe drawn as one bar is a helmet — and one drawn at x 17
+        * and x 27, which is where this was, is a fringe through both eyes: the sockets are x 18.25
+        * to 22.25 and x 25.75 to 29.75, and a strand reaching y 12.5 crosses them both.
+        */}
+      <polygon points="15,8.5 18.5,8.5 16.5,12.5" fill={HAIR} />
+      <polygon points="29.5,8.5 33,8.5 31.5,12" fill={HAIR_SHADOW} />
     </g>
   );
 }
@@ -664,9 +704,11 @@ export function furTuft(): ReactElement {
       {px(16, 4.5, 16, 3.5, HAIR)}
       {px(16, 4.5, 16, 1.25, HAIR_HIGHLIGHT)}
       {px(16, 7.5, 16, 0.5, HAIR_SHADOW)}
-      <polygon points="18,8 21.5,8 19.5,11.5" fill={HAIR} />
-      <polygon points="22,8 25.5,8 23.5,11" fill={HAIR} />
-      <polygon points="26,8 29.5,8 28,11" fill={HAIR_SHADOW} />
+      {/* Three tufts, and the middle one stops at the brow: the outer two hang at the temples,
+          clear of the sockets, and a tuft down the centre of the face is a fringe in the eyes. */}
+      <polygon points="16,8 19.5,8 17.5,11.5" fill={HAIR} />
+      <polygon points="22.25,8 25.75,8 24,9.5" fill={HAIR} />
+      <polygon points="28.5,8 32,8 30.5,11" fill={HAIR_SHADOW} />
     </g>
   );
 }
@@ -689,10 +731,12 @@ export function brimHat(): ReactElement {
         * of this file — a part never draws outside its own band — is not decoration.
         */}
       {/* Crown, leaning, and the folded tip with its own shadow. */}
-      <polygon points="17,7 29,7 26,1 21.5,1" fill={PRIMARY} />
-      <polygon points="17,7 20.5,7 21.5,1 21.5,1" fill={'var(--av-primary-highlight)'} opacity="0.55" />
-      <polygon points="26,1 21.5,1 15.5,0 19,-0.5" fill={PRIMARY} />
-      <polygon points="26,1 21.5,1 18,0.4 21,0" fill={PRIMARY_SHADOW} />
+      <polygon points="17,7 29,7 26,1.5 21.5,1.5" fill={PRIMARY} />
+      <polygon points="17,7 20.5,7 21.5,1.5 21.5,1.5" fill={'var(--av-primary-highlight)'} opacity="0.55" />
+      {/* The folded tip. Its far corner used to sit at y −0.5, half a unit outside the frame — which
+          is invisible on the stage and a cropped hat in every list row in the product. */}
+      <polygon points="26,1.5 21.5,1.5 15.5,0.5 19,0" fill={PRIMARY} />
+      <polygon points="26,1.5 21.5,1.5 18,0.9 21,0.5" fill={PRIMARY_SHADOW} />
       {/* Brim: wider than the head by three units each side, with a lit top edge. */}
       <polygon points="10,8 38,8 34,6 14,6" fill={SECONDARY} />
       <polygon points="10,8 38,8 38,9.5 10,9.5" fill={SECONDARY_SHADOW} />
