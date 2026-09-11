@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { SKULL } from './avatarGeometry';
-import { directionRig, faceCentre, yawShift, type DirectionRig } from './avatarDirection';
+import { directionRig, faceCentre, faceSqueeze, yawShift, type DirectionRig } from './avatarDirection';
 import {
   px,
   ACCENT, HAIR, HAIR_HIGHLIGHT, HAIR_SHADOW, MAGIC, MAGIC_HIGHLIGHT, OUTLINE,
@@ -690,9 +690,20 @@ export function faceFeatures({
    * eyes restarts from nothing every time somebody turns the figure round and back.
    */
   if (turn.faceHidden) return <g data-part="face" />;
-  const shift = faceCentre(turn) - SKULL.centre;
+  /*
+   * Moved and narrowed, about the face's own centre line.
+   *
+   * The order matters and is read right to left: the pair is squeezed towards x 24 first, then the
+   * whole thing is carried to where the turn puts it. Squeezing after the move would compress it
+   * towards the skull's centre instead of its own, which pulls the near eye back the way it came.
+   */
+  const centre = faceCentre(turn);
+  const squeeze = faceSqueeze(turn);
+  const transform = turn.yaw === 0
+    ? undefined
+    : `translate(${centre - SKULL.centre} 0) translate(${SKULL.centre} 0) scale(${squeeze} 1) translate(${-SKULL.centre} 0)`;
   return (
-    <g data-part="face" transform={shift === 0 ? undefined : `translate(${shift} 0)`}>
+    <g data-part="face" transform={transform}>
       {snout === 'muzzle' ? (
         <>
           {px(19, 13, 10, 1, SKIN)}

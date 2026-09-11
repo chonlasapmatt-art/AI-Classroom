@@ -624,6 +624,31 @@ function sideWrap(fit: HairFit, length: number, rig?: DirectionRig): ReactElemen
   );
 }
 
+/**
+ * The back of the head, which is hair all the way down.
+ *
+ * Seen from behind there is no face, and what replaces it is not bare skin — it is the rest of the
+ * head of hair. Without this the back view was a skull-shaped patch of skin with a cap on top: the
+ * cap ends at the hairline because from the front that is where a face begins, and from behind
+ * there is no face for it to begin at.
+ *
+ * Drawn to the jaw rather than to the chin, because the neck is below that and a neck is skin.
+ */
+function backOfHead(fit: HairFit): ReactElement {
+  const top = fit.capTop + fit.capHeight - 0.5;
+  return (
+    <>
+      {px(SKULL.left - 0.5, top, SKULL.width + 1, SKULL.jaw - top + 1.5, HAIR)}
+      {px(SKULL.left - 0.5, top, SKULL.width + 1, 0.75, HAIR_SHADOW)}
+      {/* A crown whorl, which is the one mark that says this is the back of a head rather than a
+          block of colour the same size as one. */}
+      {px(SKULL.centre - 2, top + 2, 4, 3, HAIR_SHADOW)}
+      {px(SKULL.centre - 1, top + 3, 2, 1, HAIR_HIGHLIGHT)}
+      {px(SKULL.right - 3, top, 3, SKULL.jaw - top + 1.5, HAIR_SHADOW)}
+    </>
+  );
+}
+
 /** What the compositor gets: three drawings, for the three places hair goes. */
 export interface HairDrawing {
   back: ReactElement | null;
@@ -655,7 +680,12 @@ export function hairFor(
       // Fur wraps the jaw as much as hair does, and an animal head in profile is the case where a
       // missing wrap is most obvious: the cheek is the widest part of the silhouette.
       side: sideWrap(fit, 4, rig),
-      front: <g data-part="hair">{furTuftFront(fit)}</g>
+      front: (
+        <g data-part="hair">
+          {rig?.faceHidden ? backOfHead(fit) : null}
+          {furTuftFront(fit)}
+        </g>
+      )
     };
   }
 
@@ -675,6 +705,9 @@ export function hairFor(
     front: (
       <g data-part="hair">
         {style.locks ? faceLocks(fitted, style.locks, style.curlyLocks ?? false) : null}
+        {/* From behind there is no face, and what replaces it is the rest of the hair rather than
+            bare skin. Drawn before the cap so the cap's own shading stays on top of it. */}
+        {rig?.faceHidden ? backOfHead(fitted) : null}
         {cap(fitted)}
         {style.crown?.(fitted) ?? null}
         {fringe(style.fringe, fitted)}

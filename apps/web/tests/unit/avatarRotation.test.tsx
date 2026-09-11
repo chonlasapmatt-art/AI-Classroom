@@ -7,7 +7,9 @@ import { FullBodyAvatar } from '../../src/features/avatars/FullBodyAvatar';
 import { figureSlotsFor } from '../../src/features/avatars/avatarFigureParts';
 import { hairFor, hairStyleIds } from '../../src/features/avatars/avatarHair';
 import { bodySlotOrder, fullBodyArchetypeList } from '../../src/features/avatars/avatarFullBody';
-import { avatarDirections, directionRig, faceCentre } from '../../src/features/avatars/avatarDirection';
+import {
+  avatarDirections, directionRig, faceCentre, faceSqueeze
+} from '../../src/features/avatars/avatarDirection';
 import { SKULL } from '../../src/features/avatars/avatarGeometry';
 import {
   changedAnchorGroups, distinctFrom, DUPLICATE_THRESHOLD, isAcceptableReroll, isTooSimilar,
@@ -64,16 +66,41 @@ describe('which way the figure is facing', () => {
     }
   });
 
-  it('moves the features across the skull rather than off it', () => {
-    for (const direction of avatarDirections) {
-      const centre = faceCentre(directionRig(direction));
-      // Inside the skull at every angle: a face that leaves it is a face slid sideways, which is
-      // what a mirror looks like when it is applied to one layer instead of the whole drawing.
-      expect(centre, direction).toBeGreaterThanOrEqual(SKULL.left + 2);
-      expect(centre, direction).toBeLessThanOrEqual(SKULL.right - 2);
+  it('keeps both eyes on the skull at every angle', () => {
+    /*
+     * The measurement that matters, and the one an earlier version of this test got wrong.
+     *
+     * It checked the face's *centre line*, which stayed inside the skull at a shift that put the far
+     * eye at x 12.3 against a skull starting at 15 — a whole eye hanging in the air beside the head,
+     * passing a green test. A chibi head is mostly eyes, so the room a face has to move is the
+     * skull's width less the width of the pair, and the only honest check is where the eyes land.
+     */
+    for (const direction of avatarDirections.filter((item) => item !== 'back')) {
+      const rig = directionRig(direction);
+      const { container } = render(<FullBodyAvatar archetype="student" direction={direction} />);
+      const eyes = container.querySelector('[data-part="eyes"]')!;
+      /*
+       * jsdom lays out no SVG, so the rule the drawing applies is applied here to the authored
+       * positions: the pair is squeezed about the face's own centre line and then carried to where
+       * the turn puts it. Reading the two exported helpers rather than re-parsing the transform
+       * string means this checks the rule rather than checking a spelling of it.
+       */
+      const place = (x: number) => faceCentre(rig) + faceSqueeze(rig) * (x - SKULL.centre);
+      for (const eye of eyes.querySelectorAll('rect')) {
+        const left = place(Number(eye.getAttribute('x')));
+        const right = place(Number(eye.getAttribute('x')) + Number(eye.getAttribute('width')));
+        expect(left, `${direction} puts an eye edge at ${left}`).toBeGreaterThanOrEqual(SKULL.left);
+        expect(right, `${direction} puts an eye edge at ${right}`).toBeLessThanOrEqual(SKULL.right);
+      }
+      cleanup();
     }
-    // And the turn is a real displacement rather than a rounding error.
-    expect(Math.abs(faceCentre(directionRig('left')) - SKULL.centre)).toBeGreaterThan(3);
+  });
+
+  it('moves the features at all, so a turn is not a still frame', () => {
+    // The other half: a shift small enough to be safe is also a shift small enough to be invisible.
+    expect(Math.abs(faceCentre(directionRig('left')) - SKULL.centre)).toBeGreaterThan(2);
+    expect(faceCentre(directionRig('front'))).toBe(SKULL.centre);
+    expect(faceCentre(directionRig('three_quarter_right'))).toBeGreaterThan(SKULL.centre);
   });
 
   it('draws no face on the back of a head, and keeps the group so nothing restarts', () => {

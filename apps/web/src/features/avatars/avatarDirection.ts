@@ -107,11 +107,30 @@ export function yawShift(rig: DirectionRig, distanceFromAxis: number): number {
   return rig.yaw * distanceFromAxis;
 }
 
-/** The centre line of the face after the turn — where the eyes, nose and mouth sit. */
+/**
+ * The centre line of the face after the turn — where the eyes, nose and mouth sit.
+ *
+ * A third of half the skull, and no more. The first version used two thirds, which on a full side
+ * view moved the pair of eyes to x 12.3–23.8 against a skull that starts at 15: the far eye was
+ * hanging in the air beside the head. A face has to stay on the face, and the room it has is the
+ * skull's width less the width of the pair — which is small, because a chibi head is mostly eyes.
+ */
 export function faceCentre(rig: DirectionRig): number {
-  // Two-thirds of half the skull: the features crowd towards the turned side without leaving it,
-  // which is what separates a turned head from a head with its face slid off the edge.
-  return SKULL.centre + yawShift(rig, (SKULL.width / 2) * 0.66);
+  return SKULL.centre + yawShift(rig, (SKULL.width / 2) * 0.33);
+}
+
+/**
+ * How much the features narrow as the head turns away.
+ *
+ * The other half of the same problem, and the half that makes it read as a turn rather than as a
+ * slide. Seen from an angle, the far side of a face is foreshortened: the two eyes are no longer the
+ * same distance apart on the page, and the far one crowds towards the edge of the skull. Squeezing
+ * the pair towards its own centre is the cheapest true version of that, and it is what keeps both
+ * eyes on the head at a full profile — translation alone cannot, at any offset that still reads as
+ * turned.
+ */
+export function faceSqueeze(rig: DirectionRig): number {
+  return 1 - Math.abs(rig.yaw) * 0.45;
 }
 
 /** Whether this direction shows the back of the head rather than the front of it. */
