@@ -339,6 +339,20 @@ export interface SchoolRepository {
 
   setAttendance(input: AttendanceInput): Promise<void>;
   setAttendanceForStudents(classId: string, attendanceDate: string, status: AttendanceStatus, studentIds: string[], session?: Omit<AttendanceInput, 'classId' | 'studentId' | 'attendanceDate' | 'status' | 'note'>): Promise<void>;
+  /**
+   * Takes a mark back off, which a register has to be able to do.
+   *
+   * A tick is a statement about a child's morning, and the commonest way to get one wrong is to tap
+   * the row above the one you meant. Until this there was no way back: every mark could be *changed*
+   * to another mark, and none could be returned to "not checked yet" — so a mis-tap became a
+   * permanent present for somebody who was not there.
+   *
+   * A delete rather than a status, because "unmarked" is the absence of a row and always has been:
+   * every count in the product distinguishes a sheet of forty rows from a sheet of thirty-nine, and
+   * an `unmarked` status would make that distinction impossible to see. The row is soft-deleted, so
+   * the audit trail keeps what was there.
+   */
+  clearAttendance(classId: string, attendanceDate: string, studentIds: string[], sessionKey?: string): Promise<void>;
 
   /**
    * Opens or edits an academic year/term. Making one active closes the previous active term, so
@@ -353,6 +367,17 @@ export interface SchoolRepository {
   deleteClass(classId: string): Promise<void>;
   saveSubject(input: SubjectInput): Promise<void>;
   archiveSubject(subjectId: string): Promise<void>;
+  /**
+   * Takes a subject off the catalogue entirely, which archiving does not.
+   *
+   * Archiving is for the subject a school taught and has records for; this is for the one created
+   * by mistake, which previously could not be got rid of at all. The server refuses while any
+   * academic record names it — work, activities, tests, awarded points, registers — because the
+   * subject is the label on those records and deleting it would leave marks attached to a name
+   * nobody can read. It does clear the subject's timetable periods and its staff assignment, which
+   * are statements about a subject rather than records of anything that happened.
+   */
+  deleteSubject(subjectId: string): Promise<void>;
   saveTeacher(input: TeacherInput): Promise<void>;
   /**
    * Moves a teacher to `verified_teacher`. The server decides whether the caller may do this —

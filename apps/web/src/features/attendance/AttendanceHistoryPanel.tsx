@@ -123,9 +123,21 @@ export function AttendanceHistoryPanel({ canEditEveryRoom }: Props) {
   const presentRate = rows.length === 0 ? 0 : Math.round(((counts.present + counts.late) / rows.length) * 100);
   const coverage = expected === 0 ? 0 : Math.min(100, Math.round((rows.length / expected) * 100));
 
+  /**
+   * A correction, including the correction that the mark should never have been there.
+   *
+   * Pressing the mark a row already carries takes the row off the sheet, the same gesture as on the
+   * register itself — a mark entered against the wrong child or the wrong day is exactly what somebody
+   * reading the history is here to fix, and changing it to a different wrong mark was the only move
+   * available.
+   */
   async function correct(row: Attendance, next: AttendanceStatus) {
     setBusyId(row.id);
     try {
+      if (row.status === next) {
+        await repository.clearAttendance(row.classId, row.attendanceDate, [row.studentId], row.sessionKey ?? 'daily');
+        return;
+      }
       await repository.setAttendance({
         classId: row.classId, studentId: row.studentId, attendanceDate: row.attendanceDate, status: next,
         note: row.note,

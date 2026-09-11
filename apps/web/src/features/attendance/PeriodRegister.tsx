@@ -47,6 +47,7 @@ export function PeriodRegister({ classId }: { classId: string }) {
   const [date] = useState(() => new Date().toISOString().slice(0, 10));
   const [chosenKey, setChosenKey] = useState('');
   const [closing, setClosing] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const roster = useMemo(() => rosterFor(snapshot, classId), [snapshot, classId]);
@@ -112,9 +113,25 @@ export function PeriodRegister({ classId }: { classId: string }) {
     }
     : null;
 
+  /**
+   * A mark goes on, and the same press takes it off again.
+   *
+   * The commonest mistake at a register is a press on the row above the one you meant, and until now
+   * there was no way back from it: a mark could be changed to a different mark, never returned to
+   * "not checked yet". So a mis-tap left somebody marked present who was never asked, and the sheet
+   * read as finished when it was not.
+   *
+   * Pressing the mark that is already set is the gesture, because it is the one press that currently
+   * does nothing at all — the button is already `aria-pressed`, and a toggle is what a pressed button
+   * is expected to do.
+   */
   async function mark(studentId: string, status: AttendanceStatus) {
     if (!sessionFields) return;
     try {
+      if (statusOf(studentId) === status) {
+        await repository.clearAttendance(classId, date, [studentId], sessionFields.sessionKey);
+        return;
+      }
       await repository.setAttendance({ classId, studentId, attendanceDate: date, status, ...sessionFields });
     } catch (reason) {
       toast(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ', { tone: 'error' });
@@ -138,6 +155,27 @@ export function PeriodRegister({ classId }: { classId: string }) {
       toast(reason instanceof Error ? reason.message : 'บันทึกไม่สำเร็จ', { tone: 'error' });
     } finally {
       setBusy(false);
+    }
+  }
+
+  /**
+   * The whole sheet back to blank, for the register that was taken on the wrong one.
+   *
+   * A teacher who marks forty children against yesterday's period, or against the lesson before
+   * theirs, has forty presses of undoing to do one at a time. It asks first, because unlike a single
+   * toggle this throws away work that was correct as well as work that was not.
+   */
+  async function clearAll() {
+    if (!sessionFields || marked === 0) return;
+    setBusy(true);
+    try {
+      await repository.clearAttendance(classId, date, roster.map((student) => student.id), sessionFields.sessionKey);
+      toast(`ล้างการเช็กชื่อ ${marked} คนแล้ว`);
+    } catch (reason) {
+      toast(reason instanceof Error ? reason.message : 'ล้างไม่สำเร็จ', { tone: 'error' });
+    } finally {
+      setBusy(false);
+      setClearing(false);
     }
   }
 
@@ -258,6 +296,16 @@ export function PeriodRegister({ classId }: { classId: string }) {
         >
           ปิดคาบ · ที่เหลือ {unmarked.length} คนเป็นขาดเรียน
         </Button>
+        {/* Last, and quiet: undoing a whole sheet is a rare thing to want and an easy thing to hit
+            by accident, so it sits away from the two buttons a teacher presses every lesson. */}
+        <Button
+          variant="ghost"
+          icon={<Icon name="close" size={16} />}
+          disabled={marked === 0 || busy}
+          onClick={() => setClearing(true)}
+        >
+          ล้างทั้งห้อง
+        </Button>
       </div>
 
       {closing && (
@@ -267,6 +315,17 @@ export function PeriodRegister({ classId }: { classId: string }) {
           confirmLabel="ปิดคาบ"
           onCancel={() => setClosing(false)}
           onConfirm={() => void closePeriod()}
+        />
+      )}
+
+      {clearing && (
+        <ConfirmDialog
+          title="ล้างการเช็กชื่อคาบนี้?"
+          description={`การเช็กชื่อของคาบนี้ ${marked} คนจะถูกลบทั้งหมด และแผ่นนี้จะกลับไปเป็นยังไม่เช็ก · คาบอื่นและวันอื่นไม่กระทบ`}
+          confirmLabel="ล้างทั้งห้อง"
+          tone="danger"
+          onCancel={() => setClearing(false)}
+          onConfirm={() => void clearAll()}
         />
       )}
     </Card>

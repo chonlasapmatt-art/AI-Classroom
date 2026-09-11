@@ -89,6 +89,46 @@ describe('the register', () => {
     await waitFor(() => expect(roster().length).toBe(before));
   });
 
+  it('takes a mark back off when the same mark is pressed again', async () => {
+    // The commonest mistake at a register is a press on the row above the one you meant, and there
+    // was no way back from it: a mark could be changed into another mark, never returned to "not
+    // checked yet". So a mis-tap left a child recorded present who was never asked.
+    renderAttendance();
+    await waitFor(() => expect(roster().length).toBeGreaterThan(0));
+    const marks = within(roster()[0] as HTMLElement);
+
+    fireEvent.click(marks.getByRole('button', { name: 'มาเรียน' }));
+    await waitFor(() => expect(marks.getByRole('button', { name: 'มาเรียน' })).toHaveAttribute('aria-pressed', 'true'));
+
+    fireEvent.click(marks.getByRole('button', { name: 'มาเรียน' }));
+    await waitFor(() => expect(marks.getByRole('button', { name: 'มาเรียน' })).toHaveAttribute('aria-pressed', 'false'));
+    // Back to unmarked rather than to some other mark: no button on the row is pressed.
+    for (const label of ['มาเรียน', 'มาสาย', 'ขาดเรียน', 'ลาป่วย', 'ลากิจ']) {
+      expect(marks.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'false');
+    }
+  });
+
+  it('clears the whole period after asking, and only after asking', async () => {
+    renderAttendance();
+    await waitFor(() => expect(roster().length).toBeGreaterThan(0));
+    const marks = within(roster()[0] as HTMLElement);
+    fireEvent.click(marks.getByRole('button', { name: 'มาสาย' }));
+    await waitFor(() => expect(marks.getByRole('button', { name: 'มาสาย' })).toHaveAttribute('aria-pressed', 'true'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'ล้างการเช็กคาบนี้' }));
+    const dialog = await screen.findByRole('dialog');
+    // What it will not touch is worth saying: the fear is that this empties the whole term.
+    expect(within(dialog).getByText(/คาบอื่นและวันอื่นไม่กระทบ/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'ยกเลิก' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(within(roster()[0] as HTMLElement).getByRole('button', { name: 'มาสาย' })).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'ล้างการเช็กคาบนี้' }));
+    const confirm = await screen.findByRole('dialog');
+    fireEvent.click(within(confirm).getByRole('button', { name: 'ล้างการเช็กคาบนี้' }));
+    await waitFor(() => expect(within(roster()[0] as HTMLElement).getByRole('button', { name: 'มาสาย' })).toHaveAttribute('aria-pressed', 'false'));
+  });
+
   it('closing the period spells out that the rest are recorded absent', async () => {
     renderAttendance();
     await waitFor(() => expect(roster().length).toBeGreaterThan(0));

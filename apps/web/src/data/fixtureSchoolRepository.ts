@@ -196,6 +196,17 @@ export class FixtureSchoolRepository implements SchoolRepository {
     this.emit();
   }
 
+  async clearAttendance(classId: string, attendanceDate: string, studentIds: string[], sessionKey = 'daily'): Promise<void> {
+    const wanted = new Set(studentIds);
+    this.data.attendance = this.data.attendance.filter((item) => !(
+      item.classId === classId
+      && item.attendanceDate === attendanceDate
+      && wanted.has(item.studentId)
+      && (item.sessionKey ?? 'daily') === sessionKey
+    ));
+    this.emit();
+  }
+
   async saveClass(input: ClassInput): Promise<void> {
     const existing = this.data.classes.find((item) => item.id === input.id);
     const next: Classroom = {
@@ -247,6 +258,23 @@ export class FixtureSchoolRepository implements SchoolRepository {
     const existing = this.data.subjects.find((item) => item.id === subjectId);
     if (!existing) return;
     this.data.subjects = this.upsert(this.data.subjects, { ...existing, status: 'archived', updatedAt: nowIso() });
+    this.emit();
+  }
+
+  async deleteSubject(subjectId: string): Promise<void> {
+    const existing = this.data.subjects.find((item) => item.id === subjectId);
+    if (!existing) return;
+    // The same refusal the server makes: a subject is the label on every mark recorded under it.
+    const records = this.data.assignments.filter((item) => item.subjectId === subjectId).length
+      + this.data.activities.filter((item) => item.subjectId === subjectId).length
+      + this.data.tests.filter((item) => item.subjectId === subjectId).length
+      + this.data.scoreEvents.filter((item) => item.subjectId === subjectId).length
+      + this.data.attendance.filter((item) => item.subjectId === subjectId).length;
+    if (records > 0) {
+      throw new Error(`วิชานี้มีข้อมูลการเรียนอยู่ ${records} รายการ · ใช้ "เก็บถาวร" แทนการลบ เพื่อไม่ให้คะแนนของนักเรียนเสียชื่อวิชาไป`);
+    }
+    this.data.timetable = this.data.timetable.filter((item) => item.subjectId !== subjectId);
+    this.data.subjects = this.data.subjects.filter((item) => item.id !== subjectId);
     this.emit();
   }
 

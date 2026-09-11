@@ -227,6 +227,12 @@ export class DexieSchoolRepository implements SchoolRepository {
       ...(existing ?? base(this.schoolId, attendanceRecordId(this.schoolId, input.classId, input.studentId, input.attendanceDate, sessionKey))),
       classId: input.classId, studentId: input.studentId, attendanceDate: input.attendanceDate,
       status: input.status, note: input.note ?? existing?.note ?? '', updatedAt: nowIso(),
+      // A row that was cleared comes back to life when it is marked again. The id is derived from the
+      // class, child, date and lesson, so a second mark lands on the same row the clear soft-deleted;
+      // without this the record would be written with its gravestone still attached and the snapshot,
+      // which reads only living rows, would show the press as having done nothing. The server's
+      // upsert already sets `deleted_at = null` on conflict — this is the local half of that.
+      deletedAt: null,
       sessionKey, sessionType: input.sessionType ?? existing?.sessionType ?? 'daily',
       period: input.period ?? existing?.period ?? null,
       subjectId: input.subjectId ?? existing?.subjectId ?? null,
@@ -237,6 +243,18 @@ export class DexieSchoolRepository implements SchoolRepository {
 
   async setAttendanceForStudents(classId: string, attendanceDate: string, status: AttendanceInput['status'], studentIds: string[], session?: Omit<AttendanceInput, 'classId' | 'studentId' | 'attendanceDate' | 'status' | 'note'>): Promise<void> {
     for (const studentId of studentIds) await this.setAttendance({ classId, studentId, attendanceDate, status, ...session });
+  }
+
+  async clearAttendance(classId: string, attendanceDate: string, studentIds: string[], sessionKey = 'daily'): Promise<void> {
+    if (studentIds.length === 0) return;
+    const wanted = new Set(studentIds);
+    // One index read for the whole class rather than one per child: a clear-all on a register of forty
+    // is a single gesture, and forty round trips through Dexie is what makes a single gesture feel slow.
+    const rows = await db.attendance
+      .where({ classId, attendanceDate })
+      .filter((row) => wanted.has(row.studentId) && (row.sessionKey ?? 'daily') === sessionKey && !row.deletedAt)
+      .toArray();
+    for (const row of rows) await softDeleteLocal('attendance', row);
   }
 
   async saveAcademicTerm(input: AcademicTermInput): Promise<void> {
@@ -329,6 +347,40 @@ export class DexieSchoolRepository implements SchoolRepository {
     await this.rpc('archive_subject', { p_school_id: this.schoolId, p_subject_id: subjectId });
     const existing = await db.subjects.get(subjectId);
     if (existing) await db.subjects.put({ ...existing, status: 'archived', updatedAt: nowIso() });
+  }
+
+  async deleteSubject(subjectId: string): Promise<void> {
+    /*
+     * The same count the server makes, made here first so the refusal arrives in words.
+     *
+     * Without it the only signal is a raised `VALIDATION_ERROR` from Postgres, which reaches a
+     * teacher as English and a row count. The check is not the authority — the server's is, and it
+     * runs again there against rows this device may not have pulled yet — it is the sentence a
+     * person can act on.
+     */
+    const [assignments, activities, tests, points, registers] = await Promise.all([
+      db.assignments.filter((row) => row.subjectId === subjectId && !row.deletedAt && row.schoolId === this.schoolId).count(),
+      db.activities.filter((row) => row.subjectId === subjectId && !row.deletedAt && row.schoolId === this.schoolId).count(),
+      db.tests.filter((row) => row.subjectId === subjectId && !row.deletedAt && row.schoolId === this.schoolId).count(),
+      db.scoreEvents.filter((row) => row.subjectId === subjectId && !row.deletedAt && row.schoolId === this.schoolId).count(),
+      db.attendance.filter((row) => row.subjectId === subjectId && !row.deletedAt && row.schoolId === this.schoolId).count()
+    ]);
+    const records = assignments + activities + tests + points + registers;
+    if (records > 0) {
+      throw new Error(`วิชานี้มีข้อมูลการเรียนอยู่ ${records} รายการ · ใช้ "เก็บถาวร" แทนการลบ เพื่อไม่ให้คะแนนของนักเรียนเสียชื่อวิชาไป`);
+    }
+    await this.rpc('delete_subject', { p_school_id: this.schoolId, p_subject_id: subjectId });
+    /*
+     * Mirror what the server just did, so the catalogue and the week both answer before the next pull.
+     *
+     * Written straight to the table rather than through `softDeleteLocal`, which would queue a second
+     * delete for rows the server has already deleted — and queue it carrying a version the server has
+     * since moved past, so it would come back as a conflict rather than as a no-op.
+     */
+    const slots = await db.timetable.filter((row) => row.subjectId === subjectId && !row.deletedAt && row.schoolId === this.schoolId).toArray();
+    for (const slot of slots) await db.timetable.put({ ...slot, deletedAt: nowIso(), updatedAt: nowIso() });
+    const existing = await db.subjects.get(subjectId);
+    if (existing) await db.subjects.put({ ...existing, status: 'archived', deletedAt: nowIso(), updatedAt: nowIso() });
   }
 
   async saveTeacher(input: TeacherInput): Promise<void> {

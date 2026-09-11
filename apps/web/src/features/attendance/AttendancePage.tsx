@@ -76,7 +76,7 @@ function StaffAttendancePage() {
   const [sessionKey, setSessionKey] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [confirming, setConfirming] = useState<'present-all' | 'close' | null>(null);
+  const [confirming, setConfirming] = useState<'present-all' | 'close' | 'clear' | null>(null);
   const [busy, setBusy] = useState(false);
 
   // The link's room wins over the remembered one: somebody who followed "go and register this room"
@@ -122,12 +122,48 @@ function StaffAttendancePage() {
     }
     : null;
 
+  /**
+   * Pressing the mark that is already set takes it off again.
+   *
+   * Every mark could be changed into another mark and none could be taken back to "not checked yet",
+   * so the ordinary mis-tap — the row above the one you meant — left a child recorded present who was
+   * never asked, and left the sheet reading as finished. The press that already does nothing is the
+   * natural place for the undo, and a pressed button is where a reader looks for one.
+   */
   async function mark(studentId: string, status: AttendanceStatus) {
     if (!sessionFields) return;
     try {
+      if (statusOf(studentId) === status) {
+        await repository.clearAttendance(selectedClassId, date, [studentId], sessionFields.sessionKey);
+        return;
+      }
       await repository.setAttendance({ classId: selectedClassId, studentId, attendanceDate: date, status, ...sessionFields });
     } catch (reason) {
       toast('บันทึกไม่สำเร็จ', { tone: 'error', message: failureText(reason) });
+    }
+  }
+
+  /**
+   * The whole period back to blank, for a register taken against the wrong one.
+   *
+   * Picking yesterday's date or the lesson before yours and marking forty children is a single wrong
+   * choice followed by a great deal of correct-looking work, and undoing it one press at a time is
+   * how people give up and leave it wrong. Scoped to the period on screen: other periods and other
+   * days are other sheets.
+   */
+  async function clearSession() {
+    if (!sessionFields) return;
+    const ids = roster.filter((student) => statusOf(student.id) !== null).map((student) => student.id);
+    if (ids.length === 0) { toast('คาบนี้ยังไม่มีการเช็กชื่อ', { tone: 'info' }); return; }
+    setBusy(true);
+    try {
+      await repository.clearAttendance(selectedClassId, date, ids, sessionFields.sessionKey);
+      toast(`ล้างการเช็กชื่อ ${ids.length} คน`, { tone: 'success', message: `${sessionName} · ${date}` });
+    } catch (reason) {
+      toast('ล้างไม่สำเร็จ', { tone: 'error', message: failureText(reason) });
+    } finally {
+      setBusy(false);
+      setConfirming(null);
     }
   }
 
@@ -171,6 +207,15 @@ function StaffAttendancePage() {
               onClick={() => setConfirming('close')}
             >
               ปิดคาบนี้
+            </Button>
+            {/* Quiet, and last: an undo of the whole sheet is wanted rarely and hit by accident
+                easily, so it does not sit beside the two buttons pressed every lesson. */}
+            <Button
+              variant="ghost" icon={<Icon name="close" size={16} />}
+              disabled={busy || unmarked.length === roster.length}
+              onClick={() => setConfirming('clear')}
+            >
+              ล้างการเช็กคาบนี้
             </Button>
           </>
         ) : undefined}
@@ -365,6 +410,16 @@ function StaffAttendancePage() {
           confirmLabel={unmarked.length > 0 ? 'ปิดคาบและบันทึกขาด' : 'เข้าใจแล้ว'}
           onCancel={() => setConfirming(null)}
           onConfirm={() => unmarked.length > 0 ? void markRemaining('absent') : setConfirming(null)}
+        />
+      )}
+      {confirming === 'clear' && (
+        <ConfirmDialog
+          tone="danger"
+          title={`ล้างการเช็กชื่อ ${roster.length - unmarked.length} คนของคาบนี้?`}
+          description={`${sessionName} · ${date} · แผ่นนี้จะกลับไปเป็น "ยังไม่เช็ก" ทั้งหมด · คาบอื่นและวันอื่นไม่กระทบ`}
+          confirmLabel="ล้างการเช็กคาบนี้"
+          onCancel={() => setConfirming(null)}
+          onConfirm={() => void clearSession()}
         />
       )}
     </>
