@@ -46,7 +46,7 @@ export function UpdateMark({ kind, size = 40 }: { kind: UpdateKind; size?: numbe
       focusable="false"
     >
       {kind === 'patch' ? (
-        <g transform="rotate(-38 20 20)">
+        <g transform="rotate(-38 20 20)" data-update-part="lift">
           {/* The plaster: one rounded strip, with the pad picked out darker and three holes in it
               punched in the card's own colour so they read as holes rather than as dots. */}
           <rect x="5.6" y="15.4" width="28.8" height="9.2" rx="4.6" fill={light} />
@@ -64,15 +64,26 @@ export function UpdateMark({ kind, size = 40 }: { kind: UpdateKind; size?: numbe
           <rect x="9.2" y="28.6" width="21.6" height="5" rx="2.5" fill={light} />
           {/* The arrow: a chunky head over the shaft, drawn as two shapes so the head keeps its
               weight at 40px instead of tapering into a stroke. */}
-          <path
-            d="M20 5.6a2.4 2.4 0 0 1 1.83.85l6.6 7.74A1.8 1.8 0 0 1 27.06 17.1h-14.12a1.8 1.8 0 0 1-1.37-2.95l6.6-7.74A2.4 2.4 0 0 1 20 5.6z"
-            fill={accent}
-          />
-          <rect x="16.7" y="15.8" width="6.6" height="11" rx="2.6" fill={accent} />
-          <rect x="18.15" y="9.2" width="1.9" height="5.4" rx=".95" fill={gloss} />
-          {/* Two sparks, unequal and off-axis, because a symmetrical pair reads as a mistake. */}
-          <circle cx="31.4" cy="9.6" r="2.4" fill={spark} />
-          <circle cx="8.8" cy="13" r="1.6" fill={spark} />
+          {/*
+            * The arrow is one group so it can move as one thing.
+            *
+            * The card animates it up through the plate as it arrives — an update is something
+            * arriving, and an arrow that lifts says that in the half second nobody is reading yet.
+            * The stylesheet finds it by the part name; a caller that renders this mark somewhere
+            * still gets a perfectly correct static drawing.
+            */}
+          <g data-update-part="lift">
+            <path
+              d="M20 5.6a2.4 2.4 0 0 1 1.83.85l6.6 7.74A1.8 1.8 0 0 1 27.06 17.1h-14.12a1.8 1.8 0 0 1-1.37-2.95l6.6-7.74A2.4 2.4 0 0 1 20 5.6z"
+              fill={accent}
+            />
+            <rect x="16.7" y="15.8" width="6.6" height="11" rx="2.6" fill={accent} />
+            <rect x="18.15" y="9.2" width="1.9" height="5.4" rx=".95" fill={gloss} />
+          </g>
+          {/* Two sparks, unequal and off-axis, because a symmetrical pair reads as a mistake. They
+              pop in after the arrow has landed, each about its own centre. */}
+          <circle data-update-part="spark" style={{ transformOrigin: '31.4px 9.6px' }} cx="31.4" cy="9.6" r="2.4" fill={spark} />
+          <circle data-update-part="spark" style={{ transformOrigin: '8.8px 13px' }} cx="8.8" cy="13" r="1.6" fill={spark} />
         </>
       )}
     </svg>

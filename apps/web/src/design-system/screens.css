@@ -4045,7 +4045,15 @@ tr.row-warning td { background: var(--warning-soft); }
   color: var(--color-text-primary);
   background: var(--color-surface);
   box-shadow: var(--shadow-lg);
-  animation: update-banner-in .42s var(--motion-ease-emphasized) both;
+  /*
+   * The card arrives on the overlay curve rather than the general one.
+   *
+   * It comes from off the bottom of the screen, which is a sheet's movement, and the sheet curve is
+   * the one that decelerates hard at the end — the thing that reads as landing rather than as
+   * sliding to a stop. 280 ms, not 420: this is a prompt, and a prompt that takes half a second to
+   * arrive has already interrupted twice.
+   */
+  animation: update-banner-in .28s var(--ease-overlay) both;
 }
 .update-banner[data-kind="patch"] { --update-accent: var(--color-success); }
 .update-banner::before {
@@ -4057,7 +4065,16 @@ tr.row-warning td { background: var(--warning-soft); }
    The tile grew with the drawing inside it, the corner softened to match the card's own radius, and
    the tint now runs as a short diagonal rather than flat — enough for the emblem to sit on a surface
    instead of on a swatch, and still only one colour so every brand theme carries it. */
-.update-mark {
+/*
+ * Qualified, and for the same reason the eyebrow below it is.
+ *
+ * `.update-banner span` is a class and an element, which outranks a bare class — so this frame was
+ * being turned back into a block, `place-items` stopped meaning anything, and the emblem sat in the
+ * top-left corner of its own tile with ten pixels of empty tint below and to the right of it. It
+ * looked like a drawing that had been pasted in slightly wrong, because that is exactly what the
+ * cascade had done to it.
+ */
+.update-banner .update-mark {
   inline-size: 60px; block-size: 60px; flex: none;
   display: grid; place-items: center; border-radius: 18px;
   color: var(--update-accent);
@@ -4071,7 +4088,30 @@ tr.row-warning td { background: var(--warning-soft); }
 }
 /* The emblem breathes once when the card arrives and then holds still. A prompt that keeps moving
    at the foot of the screen is read as an alarm; one that moves once is read as having arrived. */
-.update-glyph { animation: update-mark-in .5s var(--motion-ease-emphasized) .12s both; }
+/*
+ * The emblem lands, and the parts of it land in order.
+ *
+ * It is the only drawn thing on the card and the one element a person looks at first, so it gets
+ * the most movement: the tile settles, the arrow lifts through it a beat later, and the sparks
+ * appear last. Each is a transform on its own group, all of it over in under half a second, and
+ * then the card holds perfectly still — a prompt at the foot of the screen that keeps moving is an
+ * alarm, and this is an offer.
+ */
+.update-glyph { animation: update-mark-in .42s var(--ease-overlay) .08s both; transform-origin: 50% 55%; }
+[data-update-part='lift'] { animation: update-arrow-lift .5s var(--ease-overlay) .2s both; }
+[data-update-part='spark'] { animation: update-spark-in .34s var(--ease-spring) .34s both; }
+[data-update-part='spark']:nth-of-type(2) { animation-delay: .42s; }
+
+@keyframes update-arrow-lift {
+  from { transform: translateY(5px); opacity: .2; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes update-spark-in {
+  from { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
 @keyframes update-mark-in {
   from { opacity: 0; transform: scale(.72) translateY(4px); }
   60% { transform: scale(1.06) translateY(0); }
@@ -4096,8 +4136,35 @@ tr.row-warning td { background: var(--warning-soft); }
 .update-banner.offline { --update-accent: var(--color-info); grid-template-columns: minmax(0, 1fr) auto; }
 
 @keyframes update-banner-in {
-  from { opacity: 0; transform: translate(-50%, 16px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+  from { opacity: 0; transform: translate(-50%, 22px) scale(.97); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+/*
+ * And then the card fills itself in, top to bottom.
+ *
+ * Everything arriving at once is one event, and one event at this size reads as a slab appearing.
+ * Four short offsets — the band drawing across, the emblem landing, the words, the buttons — read as
+ * the card assembling, which is the same information delivered in an order somebody can follow.
+ * Nothing here waits longer than a third of a second in total.
+ */
+.update-banner::before {
+  transform: scaleX(0); transform-origin: left center;
+  animation: update-band-draw .36s var(--ease-move) .06s both;
+}
+.update-banner .update-copy > * {
+  animation: update-line-in .26s var(--ease-out) both;
+}
+.update-banner .update-copy > *:nth-child(1) { animation-delay: .1s; }
+.update-banner .update-copy > *:nth-child(2) { animation-delay: .14s; }
+.update-banner .update-copy > *:nth-child(3) { animation-delay: .18s; }
+.update-banner .update-copy > *:nth-child(n+4) { animation-delay: .22s; }
+.update-banner .update-actions { animation: update-line-in .26s var(--ease-out) .26s both; }
+
+@keyframes update-band-draw { to { transform: scaleX(1); } }
+@keyframes update-line-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
 /* What the waiting version changed, listed in the banner that offers it.
