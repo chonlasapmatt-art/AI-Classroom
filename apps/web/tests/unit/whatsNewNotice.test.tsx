@@ -71,6 +71,15 @@ describe('the notice after an update', () => {
   it('tells a fix from a new thing in words, not only in colour', () => {
     window.localStorage.setItem('smart-classroom-seen-version', '0.0.1');
     render(<WhatsNewNotice />);
+    /*
+     * Opened first, because the notice shows four lines under a ten-second clock and keeps the rest
+     * one press away. Which four those are is a fact about the release being shipped — a version
+     * whose first four changes are all new work has no "แก้ไข" on screen until the list is open, and
+     * asserting against the closed list made this test fail on the contents of the changelog rather
+     * than on the thing it is checking, which is that the two kinds are told apart in words.
+     */
+    const more = screen.queryByRole('button', { name: /ดูอีก \d+ รายการ/ });
+    if (more) fireEvent.click(more);
     const kinds = new Set(releaseNotes[0]!.changes.map((change) => change.kind));
     if (kinds.has('feature')) expect(screen.getAllByText('ของใหม่').length).toBeGreaterThan(0);
     if (kinds.has('fix')) expect(screen.getAllByText('แก้ไข').length).toBeGreaterThan(0);
