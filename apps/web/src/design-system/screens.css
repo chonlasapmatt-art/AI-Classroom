@@ -4668,6 +4668,23 @@ tr.row-warning td { background: var(--warning-soft); }
   background: color-mix(in srgb, var(--color-primary) 14%, transparent);
   text-align: center;
 }
+/*
+ * What the figure is carrying, and one press to put it down.
+ *
+ * Under the stage rather than in a drawer: these are the things a child can see on the figure, so
+ * the control that removes them belongs where they can see them. Each chip names the slot and what
+ * is in it, because "ถอด" on its own is a question rather than an instruction.
+ */
+.designer-equipped { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.designer-equipped-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--text-xs); font-weight: var(--weight-medium);
+  padding: 2px var(--space-2); border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+  background: var(--color-surface); color: var(--color-text-secondary); cursor: pointer;
+}
+.designer-equipped-chip:hover { border-color: var(--color-danger); color: var(--color-danger); }
+.designer-equipped-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 /* The figure is drawn at eight times its grid and must stay a pixel drawing all the way up. */
 .designer-stage { display: grid; place-items: center; }
 .designer-stage svg { image-rendering: pixelated; }

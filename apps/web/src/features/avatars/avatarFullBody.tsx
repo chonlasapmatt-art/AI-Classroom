@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { SKULL } from './avatarGeometry';
 import type { AvatarRace } from './avatarSchema';
 import { directionRig, faceCentre, faceSqueeze, yawShift, type DirectionRig } from './avatarDirection';
+import { creatureSlots } from './avatarCreatures';
 import {
   px,
   ACCENT, HAIR, HAIR_HIGHLIGHT, HAIR_SHADOW, MAGIC, MAGIC_HIGHLIGHT, OUTLINE,
@@ -831,13 +832,44 @@ export function earShape(ears: EarStyle, rig?: DirectionRig): ReactElement {
  * The ears belong here rather than with the face: they are on the sides of the volume, so they are
  * what a turn hides first.
  */
-export function headShape({ snout = 'none', ears = 'none', rig }:
-Partial<FaceOptions> & { rig?: DirectionRig }): ReactElement {
+/**
+ * The five skulls, and why a set of characters needs more than one.
+ *
+ * Every figure in this product was drawn on the same 18×13 head. Two characters with the same skull,
+ * the same jaw and the same chin are the same person however differently they are dressed — which is
+ * exactly the complaint the set kept getting: the robots all look alike, and only the colours
+ * change. A skull is the first thing read at forty pixels and the last thing a costume can disguise.
+ *
+ * 'human' is the head every saved avatar already has and it is unchanged. The rest are departures:
+ * a dome curves in at the temples, a boxy skull is square with a heavy jaw, a tapered one narrows to
+ * a point, and a wide one is short and broad across the cheeks.
+ */
+export type SkullShape = 'human' | 'dome' | 'boxy' | 'tapered' | 'wide';
+
+/*
+ * The widths stay inside the hair.
+ *
+ * Every hairstyle in the product is authored against an 18-unit skull, and a 23-unit one leaves a
+ * band of bare forehead sticking out past the cut — which is what the first version of this table
+ * did to every broad-headed character. The difference between these five is therefore mostly in
+ * height, in the jaw and at the temples, where a cap does not reach: a domed head is tall and
+ * narrow, a boxy one is square with a wide jaw, a tapered one comes to a chin, and a wide one is
+ * short and heavy. Two units either side of the plain skull is all a cut can cover.
+ */
+const skullPlan: Record<SkullShape, { x: number; width: number; height: number; jawInset: number; jawHeight: number }> = {
+  human: { x: 15, width: 18, height: 13, jawInset: 1.5, jawHeight: 2 },
+  dome: { x: 15.5, width: 17, height: 15, jawInset: 0.5, jawHeight: 2 },
+  boxy: { x: 14.5, width: 19, height: 13, jawInset: 0, jawHeight: 3.5 },
+  tapered: { x: 15, width: 18, height: 12, jawInset: 4, jawHeight: 3.5 },
+  wide: { x: 14, width: 20, height: 11, jawInset: 3, jawHeight: 2 }
+};
+
+export function headShape({ snout = 'none', ears = 'none', skull = 'human', rig }:
+Partial<FaceOptions> & { skull?: SkullShape; rig?: DirectionRig }): ReactElement {
   const turn = rig ?? directionRig('front');
-  // The lit side follows the turn: a head turned to the reader's right is lit down its left. The
-  // band is the third tone the whole figure is lit by and it is the only part of the skull that
-  // moves, which is what stops a turn reading as the head being slid sideways.
-  const shadeLeft = turn.yaw > 0.2 ? 15 : 31;
+  const plan = skullPlan[skull];
+  /* The lit side follows the turn: a head turned to the reader's right is lit down its left, and
+     which column that is depends on the skull, so the shading is chosen from the plan below. */
   return (
     <g data-part="head">
       {/* The neck, which is what stops a chibi head sitting straight on the collarbone. */}
@@ -852,11 +884,11 @@ Partial<FaceOptions> & { rig?: DirectionRig }): ReactElement {
         */}
       {ears === 'none' ? null : earShape(ears, turn)}
       {/* Skull, then a jaw narrowing to a chin — the line that makes a head read as a face. */}
-      {px(15, 4, 18, 13, SKIN)}
-      {px(16.5, 17, 15, 2, SKIN)}
-      {px(18.5, 19, 11, 1.5, SKIN_SHADOW)}
-      {px(15, 4, 18, 1.5, 'var(--av-skin-highlight)')}
-      {px(shadeLeft, 5.5, 2, 11.5, SKIN_SHADOW)}
+      {px(plan.x, 4, plan.width, plan.height, SKIN)}
+      {px(plan.x + plan.jawInset, 4 + plan.height, plan.width - plan.jawInset * 2, plan.jawHeight, SKIN)}
+      {px(plan.x + plan.jawInset + 2, 4 + plan.height + plan.jawHeight, plan.width - plan.jawInset * 2 - 4, 1.5, SKIN_SHADOW)}
+      {px(plan.x, 4, plan.width, 1.5, 'var(--av-skin-highlight)')}
+      {px(turn.yaw > 0.2 ? plan.x : plan.x + plan.width - 2, 5.5, 2, plan.height - 1.5, SKIN_SHADOW)}
       {/* A muzzle is the shape of the skull rather than a feature on it, so it turns with the head
           and stays drawn on the back view — a fox seen from behind still has a snout in profile. */}
       {snout === 'muzzle' ? px(19 + yawShift(turn, 3), 13, 10, 5, SKIN_SHADOW) : null}
@@ -1887,7 +1919,18 @@ export type FullBodyArchetype =
   // Fantasy.
   | 'iceDragon' | 'elf' | 'fairy' | 'vampire' | 'warrior' | 'paladin' | 'celestial' | 'voidStalker'
   // Machines.
-  | 'robotChassis' | 'cyborg' | 'astronaut' | 'androidAI' | 'netrunner' | 'drone';
+  | 'robotChassis' | 'cyborg' | 'astronaut' | 'androidAI' | 'netrunner' | 'drone'
+  /*
+   * The animals that are animals.
+   *
+   * Everything above with a paw in its name is a person wearing that animal — a child with cat ears,
+   * a child with a wolf tail — which is what the school looked at and called "one figure in nine
+   * hats". These nine are four-legged bodies with an animal's skull on them and nothing human in the
+   * outline at all. The suffix keeps them apart from the beastfolk ids that are already saved in a
+   * thousand records and must never change meaning.
+   */
+  | 'catBeast' | 'dogBeast' | 'dragonBeast' | 'pigBeast' | 'cowBeast'
+  | 'lionBeast' | 'tigerBeast' | 'bearBeast' | 'penguinBeast';
 
 /**
  * The species facts of a costume, stated rather than left inside its drawing.
@@ -1908,6 +1951,15 @@ export type FullBodyArchetype =
 export interface ArchetypeBody {
   ears: EarStyle;
   snout: SnoutStyle;
+  /**
+   * Four legs and no waist, which is a different body rather than a costume.
+   *
+   * The wardrobe dresses a person: a shirt has sleeves, trousers have two legs, a shoe goes on a
+   * foot. None of those exist on an animal, so a creature refuses the garment drawers and keeps
+   * everything that goes on a head, a neck, a back or a mouth — which is most of the wardrobe, and
+   * the reason a creature is dressable without a second wardrobe having to exist.
+   */
+  quadruped?: boolean;
   whiskers: boolean;
   /** Claws rather than boots, which changes the foot and nothing else. */
   claw: boolean;
@@ -2051,7 +2103,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
     id: 'cat',
     body: { ...plainBody, ears: 'cat', whiskers: true, hairRace: 'beastfolk' },
     group: 'beast',
-    name: 'น้องแมว',
+    name: 'เด็กหูแมว',
     description: 'หูแมวมีวุ้นสีชมพู แก้มแดง หนวด และหางแกว่ง',
     slots: (rig) => ({
       shadow: groundShadow(),
@@ -2069,7 +2121,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
     id: 'fox',
     body: { ...plainBody, ears: 'fox', snout: 'muzzle', whiskers: true, claw: true, hairRace: 'beastfolk' },
     group: 'beast',
-    name: 'น้องจิ้งจอก',
+    name: 'เด็กหูจิ้งจอก',
     description: 'หูแหลมปลายเข้ม ปากยื่น และหางฟูปลายขาว',
     slots: (rig) => ({
       shadow: groundShadow(),
@@ -2087,7 +2139,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
     id: 'rabbit',
     body: { ...plainBody, ears: 'rabbit', hairRace: 'beastfolk' },
     group: 'beast',
-    name: 'น้องกระต่าย',
+    name: 'เด็กหูกระต่าย',
     description: 'หูยาวตั้ง หางปุย แก้มแดง และรองเท้าผ้าใบ',
     slots: (rig) => ({
       shadow: groundShadow(),
@@ -2105,7 +2157,7 @@ const handDrawnArchetypes: Partial<Record<FullBodyArchetype, ArchetypeDefinition
     id: 'penguin',
     body: { ...plainBody, snout: 'beak', round: true, hairRace: 'beastfolk' },
     group: 'beast',
-    name: 'น้องเพนกวิน',
+    name: 'เด็กชุดเพนกวิน',
     description: 'ตัวกลมนุ่ม ปีกเป็นครีบ จมูกปาก และเท้าพังผืน',
     slots: (rig) => ({
       shadow: groundShadow(),
@@ -2166,7 +2218,26 @@ interface ArchetypeSpec {
   eyeLight?: string;
   sharp?: boolean;
   blush?: boolean;
-  mouth?: 'smile' | 'fang' | 'none';
+  mouth?: MouthShape;
+  /** The cut of the eye and the brow over it, which is most of an expression at this size. */
+  eyeShape?: EyeShape;
+  brow?: BrowShape;
+  /**
+   * The skull under the costume.
+   *
+   * Left out means the plain human head every saved figure already wears. Stating one is how two
+   * characters in the same family stop being the same person: a boxy-skulled robot and a domed one
+   * read apart at forty pixels, where a different chest plate does not.
+   */
+  skull?: SkullShape;
+  /**
+   * How broad the figure is built, as a scale about its own centre line.
+   *
+   * Not a costume and not a pose: a heavy character is wider through the body at rest and stays
+   * wider through every keyframe, which is what separates a paladin from a netrunner before either
+   * of them has moved. 1 is the plain frame; the set uses 0.88 to 1.14.
+   */
+  frame?: number;
   torso: () => ReactElement;
   legs: 'standing' | 'sneakers' | 'webbed' | 'robed' | 'hooves' | 'mechanical' | 'hovering';
   /** What is worn on the head. Absent leaves the hair the child chose showing. */
@@ -2221,6 +2292,18 @@ function hairRaceFor(spec: ArchetypeSpec): AvatarRace {
 }
 
 /** One spec, turned into the same nine slots everything else fills. */
+/**
+ * Widens or narrows a drawing about the figure's own centre line and its own floor.
+ *
+ * A scale about the viewBox centre would lift a heavy character off the ground and sink a light one
+ * into it; about (24, 46) — the middle of the figure, at the floor — a wider character keeps its
+ * feet and grows outwards, which is what "built heavier" means.
+ */
+function framed(frame: number | undefined, drawing: ReactElement): ReactElement {
+  if (!frame || frame === 1) return drawing;
+  return <g transform={`translate(24 46) scale(${frame} 1) translate(-24 -46)`}>{drawing}</g>;
+}
+
 function buildArchetype(spec: ArchetypeSpec): ArchetypeDefinition {
   const sleeve = spec.sleeve ?? PRIMARY;
   return {
@@ -2241,11 +2324,12 @@ function buildArchetype(spec: ArchetypeSpec): ArchetypeDefinition {
       const slots: Partial<Record<BodySlot, ReactElement>> = {
         shadow: groundShadow(),
         back_arm: backArm({ sleeve, skin: SKIN }, spec.backHand?.()),
-        legs_feet: legsFor(spec.legs, spec.claw ?? false),
-        torso_body: spec.torso(),
+        legs_feet: framed(spec.frame, legsFor(spec.legs, spec.claw ?? false)),
+        torso_body: framed(spec.frame, spec.torso()),
         head_neck: headShape({
           ...(spec.snout === undefined ? {} : { snout: spec.snout }),
           ...(spec.ears === undefined ? {} : { ears: spec.ears }),
+          ...(spec.skull === undefined ? {} : { skull: spec.skull }),
           rig
         }),
         face: faceFeatures({
@@ -2254,6 +2338,8 @@ function buildArchetype(spec: ArchetypeSpec): ArchetypeDefinition {
           ...(spec.sharp === undefined ? {} : { sharp: spec.sharp }),
           ...(spec.blush === undefined ? {} : { blush: spec.blush }),
           ...(spec.mouth === undefined ? {} : { mouth: spec.mouth }),
+          ...(spec.eyeShape === undefined ? {} : { eyeShape: spec.eyeShape }),
+          ...(spec.brow === undefined ? {} : { brow: spec.brow }),
           ...(spec.snout === undefined ? {} : { snout: spec.snout }),
           ...(spec.whiskers === undefined ? {} : { whiskers: spec.whiskers }),
           rig
@@ -2279,116 +2365,151 @@ function buildArchetype(spec: ArchetypeSpec): ArchetypeDefinition {
  */
 const archetypeSpecs: ArchetypeSpec[] = [
   /* ── people ── */
-  { id: 'scientist', name: 'นักวิทยาศาสตร์', description: 'เสื้อกาวน์ แว่นตา และหลอดทดลองในมือ', group: 'humanoid',
+  { id: 'scientist', skull: 'dome', frame: 0.94, eyeShape: 'wide', brow: 'raised', name: 'นักวิทยาศาสตร์', description: 'เสื้อกาวน์ แว่นตา และหลอดทดลองในมือ', group: 'humanoid',
     torso: torsoLabcoat, legs: 'standing', sleeve: WHITE, hair: shortHair, headwear: goggleBand,
     frontHand: flask, eyeLight: 'var(--av-magic-highlight)' },
-  { id: 'developer', name: 'นักเขียนโปรแกรม', description: 'เสื้อฮู้ด หูฟัง และแท็บเล็ตในมือ', group: 'humanoid',
+  { id: 'developer', skull: 'tapered', frame: 0.92, eyeShape: 'sleepy', brow: 'flat', name: 'นักเขียนโปรแกรม', description: 'เสื้อฮู้ด หูฟัง และแท็บเล็ตในมือ', group: 'humanoid',
     torso: torsoHoodie, legs: 'sneakers', hair: shortHair, headwear: hoodUp, frontHand: tabletSlab },
-  { id: 'scholar', name: 'นักวิชาการ', description: 'สูทเรียบ แว่นตา และตำราเปิดอยู่', group: 'humanoid',
+  { id: 'scholar', skull: 'human', frame: 0.9, eyeShape: 'soft', brow: 'raised', name: 'นักวิชาการ', description: 'สูทเรียบ แว่นตา และตำราเปิดอยู่', group: 'humanoid',
     torso: torsoSuit, legs: 'standing', sleeve: SECONDARY, hair: shortHair, headwear: circlet,
     frontHand: openBook, backHand: spellbook },
-  { id: 'explorer', name: 'นักสำรวจ', description: 'ฮู้ดกันลม เป้สะพายหลัง และคบเพลิง', group: 'humanoid',
+  { id: 'explorer', skull: 'wide', frame: 1.06, eyeShape: 'sharp', brow: 'angled', name: 'นักสำรวจ', description: 'ฮู้ดกันลม เป้สะพายหลัง และคบเพลิง', group: 'humanoid',
     torso: torsoShirt, legs: 'standing', hair: shortHair, headwear: hoodUp, back: backpack, frontHand: torch },
-  { id: 'artist', name: 'ศิลปิน', description: 'หมวกเบเรต์ ผ้ากันเปื้อน และพู่กัน', group: 'humanoid',
+  { id: 'artist', skull: 'tapered', frame: 0.96, eyeShape: 'star', brow: 'raised', name: 'ศิลปิน', description: 'หมวกเบเรต์ ผ้ากันเปื้อน และพู่กัน', group: 'humanoid',
     torso: torsoShirt, legs: 'sneakers', hair: shortHair, headwear: beret, frontHand: paintBrush,
     backHand: palette, blush: true },
-  { id: 'musician', name: 'นักดนตรี', description: 'หมวกเบเรต์ กีตาร์ และท่ายืนเล่น', group: 'humanoid',
+  { id: 'musician', skull: 'human', frame: 0.98, eyeShape: 'wide', brow: 'flat', name: 'นักดนตรี', description: 'หมวกเบเรต์ กีตาร์ และท่ายืนเล่น', group: 'humanoid',
     torso: torsoSuit, legs: 'sneakers', sleeve: SECONDARY, hair: shortHair, headwear: beret,
     frontHand: guitar, mouth: 'smile' },
-  { id: 'inventor', name: 'นักประดิษฐ์', description: 'เสื้อกาวน์ แว่นตานิรภัย และประแจ', group: 'humanoid',
+  { id: 'inventor', skull: 'boxy', frame: 1.08, eyeShape: 'sharp', brow: 'angled', name: 'นักประดิษฐ์', description: 'เสื้อกาวน์ แว่นตานิรภัย และประแจ', group: 'humanoid',
     torso: torsoLabcoat, legs: 'mechanical', sleeve: WHITE, hair: shortHair, headwear: goggleBand,
     frontHand: wrench, backHand: lantern },
-  { id: 'adventurer', name: 'นักผจญภัย', description: 'เกราะเบา ผ้าคลุม ดาบ และโล่', group: 'humanoid',
+  { id: 'adventurer', skull: 'wide', frame: 1.1, eyeShape: 'sharp', brow: 'angled', name: 'นักผจญภัย', description: 'เกราะเบา ผ้าคลุม ดาบ และโล่', group: 'humanoid',
     torso: torsoPlate, legs: 'standing', sleeve: SECONDARY, hair: shortHair, back: cape,
     frontHand: sword, backHand: shield },
 
   /* ── animals ── */
-  { id: 'dog', name: 'น้องหมา', description: 'หูตก ปากยื่น หางกระดิก และแก้มแดง', group: 'beast',
+  { id: 'dog', skull: 'wide', frame: 1.04, eyeShape: 'soft', brow: 'raised', name: 'เด็กหูหมา', description: 'หูตก ปากยื่น หางกระดิก และแก้มแดง', group: 'beast',
     ears: 'small', snout: 'muzzle', whiskers: true, blush: true, torso: torsoHoodie, legs: 'standing',
     hair: furTuft, back: wolfTail, mouth: 'fang' },
-  { id: 'panda', name: 'น้องแพนด้า', description: 'หูกลม ตาขอบดำ ตัวกลม และหางสั้น', group: 'beast',
+  { id: 'panda', skull: 'boxy', frame: 1.12, eyeShape: 'wide', brow: 'flat', name: 'เด็กหูแพนด้า', description: 'หูกลม ตาขอบดำ ตัวกลม และหางสั้น', group: 'beast',
     ears: 'bear', blush: true, torso: torsoRound, legs: 'standing', hair: furTuft, back: stubTail,
     eye: OUTLINE, eyeLight: WHITE },
-  { id: 'bear', name: 'น้องหมี', description: 'หูกลมต่ำ ตัวใหญ่ อุ้งเท้าหนา', group: 'beast',
+  { id: 'bear', skull: 'boxy', frame: 1.14, eyeShape: 'sleepy', brow: 'angled', name: 'เด็กหูหมี', description: 'หูกลมต่ำ ตัวใหญ่ อุ้งเท้าหนา', group: 'beast',
     ears: 'bear', snout: 'muzzle', torso: torsoRound, legs: 'standing', claw: true, hair: furTuft,
     back: stubTail },
-  { id: 'owl', name: 'น้องนกฮูก', description: 'พู่ขนบนหัว ปากงุ้ม และปีกขนนก', group: 'beast',
+  { id: 'owl', skull: 'dome', frame: 0.96, eyeShape: 'wide', brow: 'none', name: 'เด็กชุดนกฮูก', description: 'พู่ขนบนหัว ปากงุ้ม และปีกขนนก', group: 'beast',
     ears: 'owl', snout: 'beak', torso: torsoRound, legs: 'webbed', hair: furTuft, back: featherWings,
     eye: ACCENT, eyeLight: WHITE, sharp: true },
-  { id: 'raccoon', name: 'น้องแรคคูน', description: 'หน้ากากรอบตา หางลายปล้อง และมือคล่อง', group: 'beast',
+  { id: 'raccoon', skull: 'tapered', frame: 0.94, eyeShape: 'sharp', brow: 'angled', name: 'เด็กหูแรคคูน', description: 'หน้ากากรอบตา หางลายปล้อง และมือคล่อง', group: 'beast',
     ears: 'small', snout: 'muzzle', whiskers: true, torso: torsoShirt, legs: 'standing', hair: furTuft,
     back: ringTail, eye: OUTLINE, eyeLight: WHITE },
-  { id: 'wolf', name: 'น้องหมาป่า', description: 'หูแหลมสูง ตาคม และหางยาวตรง', group: 'beast',
+  { id: 'wolf', skull: 'tapered', frame: 1.02, eyeShape: 'sharp', brow: 'angled', name: 'เด็กหูหมาป่า', description: 'หูแหลมสูง ตาคม และหางยาวตรง', group: 'beast',
     ears: 'wolf', snout: 'muzzle', whiskers: true, sharp: true, torso: torsoPlate, legs: 'standing',
     claw: true, hair: furTuft, back: wolfTail, mouth: 'fang', eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
-  { id: 'tiger', name: 'น้องเสือ', description: 'หูกลม ลายพาดกลอน เขี้ยว และกรงเล็บ', group: 'beast',
+  { id: 'tiger', skull: 'wide', frame: 1.06, eyeShape: 'sharp', brow: 'angled', name: 'เด็กลายเสือ', description: 'หูกลม ลายพาดกลอน เขี้ยว และกรงเล็บ', group: 'beast',
     ears: 'cat', snout: 'muzzle', whiskers: true, sharp: true, torso: torsoPlate, legs: 'standing',
     claw: true, hair: furTuft, back: catTail, mouth: 'fang', eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT },
-  { id: 'deer', name: 'น้องกวาง', description: 'หูเล็ก กีบเท้า และเขากวาง', group: 'beast',
+  { id: 'deer', skull: 'dome', frame: 0.9, eyeShape: 'soft', brow: 'raised', name: 'เด็กเขากวาง', description: 'หูเล็ก กีบเท้า และเขากวาง', group: 'beast',
     ears: 'small', snout: 'muzzle', blush: true, torso: torsoShirt, legs: 'hooves', hair: furTuft,
     back: stubTail },
-  { id: 'fantasyBeast', name: 'สัตว์ในตำนาน', description: 'เขาโค้ง ปีกค้างคาว หางปล้อง และออร่า', group: 'beast',
+  { id: 'fantasyBeast', skull: 'boxy', frame: 1.08, eyeShape: 'star', brow: 'angled', name: 'สัตว์ในตำนาน', description: 'เขาโค้ง ปีกค้างคาว หางปล้อง และออร่า', group: 'beast',
     ears: 'wolf', snout: 'muzzle', sharp: true, torso: torsoPlate, legs: 'standing', claw: true,
     headwear: hornedHelm, back: batWings, overlay: spellAura, mouth: 'fang',
     eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
 
   /* ── fantasy ── */
-  { id: 'iceDragon', name: 'มังกรน้ำแข็ง', description: 'เขาน้ำแข็งตรง เกล็ดเย็น หางปล้อง และคทา', group: 'fantasy',
+  { id: 'iceDragon', skull: 'tapered', frame: 1.04, eyeShape: 'sharp', brow: 'angled', name: 'มังกรน้ำแข็ง', description: 'เขาน้ำแข็งตรง เกล็ดเย็น หางปล้อง และคทา', group: 'fantasy',
     snout: 'muzzle', sharp: true, torso: torsoPlate, legs: 'standing', claw: true, sleeve: SECONDARY,
     headwear: iceHorns, back: scaledTail, frontHand: staff, overlay: spellAura,
     eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
-  { id: 'elf', name: 'เอลฟ์', description: 'หูแหลม มงกุฎบาง และธนูแห่งป่า', group: 'fantasy',
+  { id: 'elf', skull: 'tapered', frame: 0.9, eyeShape: 'soft', brow: 'flat', name: 'เอลฟ์', description: 'หูแหลม มงกุฎบาง และธนูแห่งป่า', group: 'fantasy',
     ears: 'pointed', torso: torsoShirt, legs: 'standing', hair: shortHair, headwear: circlet,
     back: cape, frontHand: staff, eye: SECONDARY, eyeLight: 'var(--av-magic-highlight)' },
-  { id: 'fairy', name: 'นางฟ้า', description: 'ปีกใส ตัวเล็ก และผงแสง', group: 'fantasy',
+  { id: 'fairy', skull: 'dome', frame: 0.86, eyeShape: 'star', brow: 'raised', name: 'นางฟ้า', description: 'ปีกใส ตัวเล็ก และผงแสง', group: 'fantasy',
     ears: 'pointed', blush: true, torso: torsoShirt, legs: 'hovering', hair: shortHair,
     headwear: circlet, back: fairyWings, overlay: flameOrbs, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
-  { id: 'vampire', name: 'แวมไพร์', description: 'หูแหลม เขี้ยว ผ้าคลุมยาว และตาแดง', group: 'fantasy',
+  { id: 'vampire', skull: 'human', frame: 0.92, eyeShape: 'sharp', brow: 'angled', name: 'แวมไพร์', description: 'หูแหลม เขี้ยว ผ้าคลุมยาว และตาแดง', group: 'fantasy',
     ears: 'pointed', sharp: true, mouth: 'fang', torso: torsoSuit, legs: 'standing', sleeve: SECONDARY,
     hair: shortHair, back: cape, eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT },
-  { id: 'warrior', name: 'นักรบ', description: 'เกราะอก ดาบ โล่ และท่ายืนมั่น', group: 'fantasy',
+  { id: 'warrior', skull: 'boxy', frame: 1.1, eyeShape: 'sharp', brow: 'angled', name: 'นักรบ', description: 'เกราะอก ดาบ โล่ และท่ายืนมั่น', group: 'fantasy',
     torso: torsoHeavyPlate, legs: 'standing', sleeve: SECONDARY, headwear: hornedHelm,
     frontHand: sword, backHand: shield, sharp: true },
-  { id: 'paladin', name: 'อัศวินศักดิ์สิทธิ์', description: 'เกราะหนัก ปีกขนนก และแสงศักดิ์สิทธิ์', group: 'fantasy',
+  { id: 'paladin', skull: 'wide', frame: 1.14, eyeShape: 'soft', brow: 'flat', name: 'อัศวินศักดิ์สิทธิ์', description: 'เกราะหนัก ปีกขนนก และแสงศักดิ์สิทธิ์', group: 'fantasy',
     torso: torsoHeavyPlate, legs: 'standing', sleeve: SECONDARY, headwear: circlet,
     back: featherWings, frontHand: sword, overlay: spellAura, eye: ACCENT, eyeLight: WHITE },
-  { id: 'celestial', name: 'เทพสวรรค์', description: 'ลอยเหนือพื้น ปีกขนนก และวงแสง', group: 'fantasy',
+  { id: 'celestial', skull: 'dome', frame: 0.94, eyeShape: 'star', brow: 'none', name: 'เทพสวรรค์', description: 'ลอยเหนือพื้น ปีกขนนก และวงแสง', group: 'fantasy',
     torso: torsoRobe, legs: 'hovering', sleeve: WHITE, headwear: circlet, back: featherWings,
     overlay: flameOrbs, eye: MAGIC, eyeLight: WHITE },
-  { id: 'voidStalker', name: 'ผู้เดินในเงา', description: 'ฮู้ดคลุม เงาดำ และตาเรืองแสง', group: 'fantasy',
+  { id: 'voidStalker', skull: 'tapered', frame: 0.96, eyeShape: 'sharp', brow: 'angled', name: 'ผู้เดินในเงา', description: 'ฮู้ดคลุม เงาดำ และตาเรืองแสง', group: 'fantasy',
     sharp: true, mouth: 'none', torso: torsoRobe, legs: 'hovering', sleeve: SECONDARY,
     headwear: hoodUp, back: cape, overlay: spellAura, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
 
   /* ── machines ── */
-  { id: 'robotChassis', name: 'หุ่นยนต์', description: 'โครงเหล็ก แกนพลังงาน และเสาอากาศ', group: 'scifi',
+  { id: 'robotChassis', skull: 'boxy', frame: 1.12, eyeShape: 'sharp', brow: 'none', name: 'หุ่นยนต์', description: 'โครงเหล็ก แกนพลังงาน และเสาอากาศ', group: 'scifi',
     ears: 'round', mouth: 'none', torso: torsoChassis, legs: 'mechanical', sleeve: SECONDARY,
     headwear: antennaCap, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, sharp: true },
-  { id: 'cyborg', name: 'ไซบอร์ก', description: 'ครึ่งคนครึ่งจักรกล ตาเรืองแสง และแขนกล', group: 'scifi',
+  { id: 'cyborg', skull: 'human', frame: 1.02, eyeShape: 'sharp', brow: 'angled', name: 'ไซบอร์ก', description: 'ครึ่งคนครึ่งจักรกล ตาเรืองแสง และแขนกล', group: 'scifi',
     ears: 'round', sharp: true, torso: torsoChassis, legs: 'standing', sleeve: SECONDARY,
     headwear: techVisor, frontHand: blaster, eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT },
-  { id: 'astronaut', name: 'นักบินอวกาศ', description: 'ชุดอวกาศ หมวกกระจก และเจ็ตแพ็ก', group: 'scifi',
+  { id: 'astronaut', skull: 'dome', frame: 1.08, eyeShape: 'wide', brow: 'raised', name: 'นักบินอวกาศ', description: 'ชุดอวกาศ หมวกกระจก และเจ็ตแพ็ก', group: 'scifi',
     torso: torsoSpacesuit, legs: 'mechanical', sleeve: WHITE, headwear: spaceHelmet, back: jetpack,
     eye: OUTLINE, eyeLight: 'var(--av-magic-highlight)' },
-  { id: 'androidAI', name: 'แอนดรอยด์', description: 'ผิวเรียบ รอยต่อเรืองแสง และเสาอากาศคู่', group: 'scifi',
+  { id: 'androidAI', skull: 'tapered', frame: 0.92, eyeShape: 'soft', brow: 'none', name: 'แอนดรอยด์', description: 'ผิวเรียบ รอยต่อเรืองแสง และเสาอากาศคู่', group: 'scifi',
     mouth: 'none', sharp: true, torso: torsoSuit, legs: 'standing', sleeve: SECONDARY,
     headwear: faceplate, overlay: flameOrbs, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
-  { id: 'netrunner', name: 'เน็ตรันเนอร์', description: 'ฮู้ดไซเบอร์ แว่นเรืองแสง และแท็บเล็ต', group: 'scifi',
+  { id: 'netrunner', skull: 'human', frame: 0.88, eyeShape: 'sleepy', brow: 'flat', name: 'เน็ตรันเนอร์', description: 'ฮู้ดไซเบอร์ แว่นเรืองแสง และแท็บเล็ต', group: 'scifi',
     sharp: true, mouth: 'none', torso: torsoHoodie, legs: 'mechanical', headwear: hoodUp,
     back: backpack, frontHand: tabletSlab, overlay: spellAura, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
-  { id: 'drone', name: 'โดรนลอยฟ้า', description: 'ไม่มีขา ลอยด้วยแกนพลังงาน และเสาอากาศ', group: 'scifi',
+  { id: 'drone', skull: 'dome', frame: 0.9, eyeShape: 'star', brow: 'none', name: 'โดรนลอยฟ้า', description: 'ไม่มีขา ลอยด้วยแกนพลังงาน และเสาอากาศ', group: 'scifi',
     mouth: 'none', sharp: true, torso: torsoChassis, legs: 'hovering', sleeve: SECONDARY,
     headwear: antennaCap, back: jetpack, overlay: flameOrbs, eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT }
 ];
 
+/*
+ * The nine animals, which are not costumes and so are not built from a costume spec.
+ *
+ * Everything above is a person: a spec names a torso, a pair of legs, a sleeve colour. A creature
+ * has none of those — no sleeve, no trouser, no waist — so it comes from its own drawing module and
+ * arrives here as a finished body. `quadruped` is the one thing the rest of the app reads off it,
+ * and it means "do not try to put a shirt on this".
+ */
+const creatureArchetypes: Record<string, ArchetypeDefinition> = Object.fromEntries(
+  ([
+    ['catBeast', 'cat', 'น้องแมว', 'แมวสี่ขา หูสามเหลี่ยม หางยาว และอุ้งเท้าสีชมพู'],
+    ['dogBeast', 'dog', 'น้องหมา', 'หมาหูตก จมูกยาว ตัวหนา และหางม้วน'],
+    ['dragonBeast', 'dragon', 'มังกรน้อย', 'มังกรสี่ขา เขาคู่ ปีกกาง และหางปลายหนาม'],
+    ['pigBeast', 'pig', 'น้องหมู', 'ตัวกลม จมูกแบน หูตก และหางขดเป็นก้นหอย'],
+    ['cowBeast', 'cow', 'น้องวัว', 'ลายด่าง เขาโค้ง จมูกใหญ่ และหางพู่'],
+    ['lionBeast', 'lion', 'น้องสิงโต', 'แผงคอรอบหน้า ตัวล่ำ และหางพู่ปลายเข้ม'],
+    ['tigerBeast', 'tiger', 'น้องเสือ', 'ลายทางทั้งตัว ตัวเพรียว และตาสีเหลืองอำพัน'],
+    ['bearBeast', 'bear', 'น้องหมี', 'หัวเหลี่ยม ตัวกลมหนา เขี้ยวเล็ก และหางสั้น'],
+    ['penguinBeast', 'penguin', 'น้องเพนกวิน', 'ตัวตั้งตรง ปากสามเหลี่ยม ท้องขาว และหางพัด']
+  ] as const).map(([id, creature, name, description]) => [id, {
+    id: id as FullBodyArchetype,
+    name,
+    description,
+    group: 'beast' as ArchetypeGroup,
+    body: {
+      ...plainBody,
+      quadruped: true,
+      hairRace: 'beastfolk' as AvatarRace,
+      ears: 'none' as EarStyle
+    },
+    slots: (rig: DirectionRig) => creatureSlots(creature, rig)
+  }])
+);
+
 /**
- * The ten and the thirty-one, as one table.
+ * The ten, the thirty-one and the nine, as one table.
  *
  * Spread in this order so a hand-written costume always wins: if a spec ever reuses an id that is
  * already drawn by hand, the drawing a thousand children are wearing is the one that survives.
  */
 export const fullBodyArchetypes: Record<FullBodyArchetype, ArchetypeDefinition> = {
   ...Object.fromEntries(archetypeSpecs.map((spec) => [spec.id, buildArchetype(spec)])),
-  ...handDrawnArchetypes
+  ...handDrawnArchetypes,
+  ...creatureArchetypes
 } as Record<FullBodyArchetype, ArchetypeDefinition>;
 
 export const fullBodyArchetypeList: ArchetypeDefinition[] = Object.values(fullBodyArchetypes);

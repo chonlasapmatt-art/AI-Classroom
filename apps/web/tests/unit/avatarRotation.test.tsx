@@ -162,7 +162,7 @@ describe('which way the figure is facing', () => {
     expect(bodySlotOrder.indexOf('hair_side')).toBeLessThan(bodySlotOrder.indexOf('hair_headwear'));
   });
 
-  it('gives every one of the forty-one a whole figure in every direction', () => {
+  it('gives every one of the fifty a whole figure in every direction', () => {
     /*
      * A spec that forgets a slot is a figure with no legs, and it would show only in the one
      * direction somebody happened to look at while writing it. Every costume, every direction, the

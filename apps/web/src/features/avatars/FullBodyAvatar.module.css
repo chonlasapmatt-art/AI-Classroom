@@ -970,6 +970,68 @@
   90%, 100% { opacity: 1; }
 }
 
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Four legs, which do not move the way two do
+ *
+ * The pose keyframes are written for a person: a stride is one hip forward and the opposite shoulder
+ * back. On an animal the same four groups are its four legs, and that pairing — near foreleg with
+ * far hind leg — is a trot, which is the correct gait and comes out of the rig for free.
+ *
+ * What does not come out for free is everything else about how an animal holds itself. A barrel
+ * breathes visibly where a chest does not; a head on a neck dips rather than drifts; a tail wags
+ * faster and further than a tail hanging off a person; and the whole body rises on the diagonal beat
+ * rather than staying level. Those are here, and they are what stops a creature reading as a piece
+ * of furniture with legs.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.quadruped.idle .torso { animation: barrelBreathe 3.2s var(--ease-drift) infinite; }
+.quadruped.idle .headRig { animation: muzzleDip 5.6s var(--ease-drift) infinite; }
+/* A wagging tail is the single clearest sign a drawn animal is alive, so it is faster and wider than
+   the tail of a person and it never stops. */
+.quadruped .tail { animation: tailWag 1.4s var(--ease-drift) infinite !important; }
+.quadruped.walk .figure { animation: trotBounce 0.8s var(--ease-limb) infinite; }
+
+@keyframes barrelBreathe {
+  0%   { transform: scaleY(1) translateY(0); }
+  45%  { transform: scaleY(1.035) translateY(-0.4px); }
+  100% { transform: scaleY(1) translateY(0); }
+}
+@keyframes muzzleDip {
+  0%   { transform: rotate(0deg) translateY(0); }
+  35%  { transform: rotate(-1.5deg) translateY(0.5px); }
+  70%  { transform: rotate(1deg) translateY(-0.3px); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
+@keyframes tailWag {
+  0%   { transform: rotate(-9deg); }
+  50%  { transform: rotate(11deg); }
+  100% { transform: rotate(-9deg); }
+}
+/* The body rises on each diagonal beat: two rises per stride, which is what a trot is. */
+@keyframes trotBounce {
+  0%   { transform: translateY(0); }
+  25%  { transform: translateY(-1px); }
+  50%  { transform: translateY(0); }
+  75%  { transform: translateY(-1px); }
+  100% { transform: translateY(0); }
+}
+
+/*
+ * What is in the hand, half a beat behind the hand.
+ *
+ * A held thing was welded to the wrist: the arm swung and the staff swung with it exactly, which
+ * reads as a painted-on prop. Lagging it and letting it overshoot slightly is the difference between
+ * carrying something and being drawn holding it.
+ */
+.idle .held { animation: heldLag 4s var(--ease-drift) -0.4s infinite; }
+@keyframes heldLag {
+  0%   { transform: rotate(0deg) translateY(0); }
+  40%  { transform: rotate(-2.5deg) translateY(-0.4px); }
+  70%  { transform: rotate(1.2deg) translateY(0.2px); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
  * The still frame, and the people who need one
  *

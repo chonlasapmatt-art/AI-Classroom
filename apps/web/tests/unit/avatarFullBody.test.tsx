@@ -312,20 +312,22 @@ describe('the poses', () => {
  * face with light in it — and the small motions that stop a still figure reading as a mannequin.
  */
 describe('the figures a child chooses between', () => {
-  it('offers forty-one figures in four families, and gives each of them its own silhouette', () => {
+  it('offers fifty figures in four families, and gives each of them its own silhouette', () => {
     /*
      * Ten was the whole set for as long as every costume was drawn by hand. Four families is what a
      * child actually browses by — a person, an animal, something magic, something mechanical — and
-     * the count is checked per family because a set of forty-one that is thirty animals and two
+     * the count is checked per family because a set of fifty that is thirty animals and two
      * robots is not the set anybody asked for.
      */
-    expect(fullBodyArchetypeList.length).toBe(41);
+    expect(fullBodyArchetypeList.length).toBe(50);
     expect(archetypesInGroup('humanoid').length, 'people').toBe(10);
-    expect(archetypesInGroup('beast').length, 'animals').toBe(13);
+    /* Twenty-two animals, of which nine are animals rather than people wearing one: the creature
+       bodies added when the school said the set read as one figure in nine hats. */
+    expect(archetypesInGroup('beast').length, 'animals').toBe(22);
     expect(archetypesInGroup('fantasy').length, 'fantasy').toBe(11);
     expect(archetypesInGroup('scifi').length, 'machines').toBe(7);
     // And nothing is filed in two families or in none.
-    expect(new Set(fullBodyArchetypeList.map((archetype) => archetype.id)).size).toBe(41);
+    expect(new Set(fullBodyArchetypeList.map((archetype) => archetype.id)).size).toBe(50);
     for (const archetype of fullBodyArchetypeList) {
       expect(archetypeGroupLabels[archetype.group], archetype.id).toBeTruthy();
     }

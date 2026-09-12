@@ -221,7 +221,10 @@ export function FullBodyAvatar({
         styles[pose],
         paused ? styles.paused : '',
         allowOverflowEffect ? styles.spill : '',
-        level === 'compact' ? styles.compact : ''
+        level === 'compact' ? styles.compact : '',
+        /* A four-legged body breathes, bobs and wags differently from a person, and the stylesheet
+           cannot tell them apart from the drawings alone. */
+        fullBodyArchetypes[archetype].body.quadruped ? styles.quadruped : ''
       ].filter(Boolean).join(' ')}
       width={size}
       height={size}

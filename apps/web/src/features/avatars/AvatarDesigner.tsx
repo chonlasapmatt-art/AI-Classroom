@@ -11,7 +11,8 @@ import {
   type AvatarConfigV2, type AvatarRace, type AvatarTints, type LayerType
 } from './avatarSchema';
 import {
-  defaultBodyFor, missingPieces, traitCounts, traitPiecePrice, traitsForLayer, type Trait
+  defaultBodyFor, missingPieces, traitCounts, traitPiecePrice, traits, traitsForLayer,
+  wardrobeCombinationsLabel, type Trait
 } from './avatarTraits';
 import { avatarOutfits, canWearOutfit, defaultOutfit, outfitPrice } from './avatarOutfits';
 import { avatarPalettes, skinTones } from './avatarThemes';
@@ -263,6 +264,35 @@ export function AvatarDesigner({
     setError(null);
   }
 
+  /**
+   * The slots a thing can be taken off, and what "off" is called in each of them.
+   *
+   * Every drawer has a "none" row at the top, which means a child *can* already unequip — by opening
+   * the right drawer, scrolling to the top and choosing the empty tile. That is three actions and a
+   * piece of knowledge for something that should be one press, and it is why the school asked for a
+   * way to take the thing out of a figure's hand: the way existed and nobody could find it.
+   */
+  const removable: Array<{ layer: LayerType; label: string; empty: string }> = [
+    { layer: 'front_accessory', label: 'ของถือ', empty: 'front_none' },
+    { layer: 'back_accessory', label: 'หลัง', empty: 'back_none' },
+    { layer: 'outerwear', label: 'เสื้อคลุม', empty: 'outer_none' },
+    { layer: 'neckwear', label: 'คอ', empty: 'neck_none' },
+    { layer: 'handwear', label: 'ถุงมือ', empty: 'hand_none' },
+    { layer: 'footwear', label: 'รองเท้า', empty: 'foot_none' },
+    { layer: 'back_aura', label: 'ออร่า', empty: 'aura_none' },
+    { layer: 'front_fx', label: 'เอฟเฟกต์', empty: 'fx_none' }
+  ];
+
+  /** What is currently worn in each of those, named, so a chip can say what it is taking off. */
+  const equipped = removable
+    .map((slot) => {
+      const worn = draft.layers?.[slot.layer];
+      if (!worn || worn === slot.empty) return null;
+      const trait = traits.find((item) => item.id === worn);
+      return { ...slot, worn, name: trait?.name ?? worn };
+    })
+    .filter((row): row is { layer: LayerType; label: string; empty: string; worn: string; name: string } => row !== null);
+
   function editTint(key: keyof AvatarTints, value: string) {
     setDraft((current) => ({ ...current, v: 2, tints: { ...(current.tints ?? {}), [key]: value } }));
     setSelectedId(null);
@@ -350,7 +380,7 @@ export function AvatarDesigner({
     <Modal
       wide
       title="เลือก Avatar ขั้นสูง"
-      description={`เลือกได้ ${AVATAR_CATALOG_SIZE} แบบ · แก้ไขได้ละเอียด`}
+      description={`เลือกได้ ${AVATAR_CATALOG_SIZE} แบบ · ผสมเองได้${wardrobeCombinationsLabel()}`}
       onClose={onClose}
       actions={
         <>
@@ -378,6 +408,31 @@ export function AvatarDesigner({
                 allowOverflowEffect
               />
             </div>
+
+            {/*
+              * What this figure is carrying, and one press to put it down.
+              *
+              * A child who likes their character but wants the sword out of its hand had to find the
+              * right drawer and choose an empty tile in it. The chips say what is on the figure and
+              * take it off where it is visible — which is also the answer to "I only want to change
+              * one thing": nothing else in the build is touched.
+              */}
+            {equipped.length > 0 && (
+              <div className="designer-equipped" role="group" aria-label="ของที่สวมอยู่">
+                {equipped.map((item) => (
+                  <button
+                    key={item.layer}
+                    type="button"
+                    className="designer-equipped-chip"
+                    onClick={() => editLayer(item.layer, item.empty)}
+                    title={`ถอด ${item.name} ออก`}
+                  >
+                    <span>{item.label} · {item.name}</span>
+                    <Icon name="close" size={12} />
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/*
               * One body, and it is the one that gets saved.

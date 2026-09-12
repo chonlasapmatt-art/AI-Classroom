@@ -352,3 +352,35 @@ export function resolveLayers(config: AvatarConfigV2): Array<[LayerType, string]
   }
   return resolved;
 }
+
+/**
+ * How many different figures the wardrobe can actually make.
+ *
+ * Not a marketing number: it is the product of the drawers, computed from the tables themselves, so
+ * it is right the moment a drawer grows and cannot drift from what is on screen. Layers with nothing
+ * in them are skipped rather than multiplying by zero — a drawer that has not been filled yet should
+ * not make the whole wardrobe impossible.
+ *
+ * The count is of *combinations of worn things*: characters, colours and poses are on top of it and
+ * are deliberately not multiplied in. A number with the palette folded in would be true and useless,
+ * because two figures in different shades of the same outfit are not two looks to a child.
+ */
+export function wardrobeCombinations(): number {
+  const counts = traitCounts();
+  return layerOrder.reduce((total, layer) => {
+    const options = counts[layer];
+    return options > 0 ? total * options : total;
+  }, 1);
+}
+
+/** The same number, said the way a person says it: "กว่า 4 ล้านแบบ". */
+export function wardrobeCombinationsLabel(): string {
+  const total = wardrobeCombinations();
+  // Past a million million the number stops being information: a child reads it as "as many as
+  // I like", which is the true answer, and a seventeen-digit figure is not.
+  if (total >= 1_000_000_000_000) return 'มากกว่าล้านล้านแบบ';
+  if (total >= 1_000_000_000) return `กว่า ${Math.floor(total / 1_000_000_000)} พันล้านแบบ`;
+  if (total >= 1_000_000) return `กว่า ${Math.floor(total / 1_000_000)} ล้านแบบ`;
+  if (total >= 1_000) return `กว่า ${Math.floor(total / 1_000)} พันแบบ`;
+  return `${total} แบบ`;
+}

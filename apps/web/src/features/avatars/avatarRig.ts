@@ -245,6 +245,33 @@ const plainFootprint: SilhouetteFootprint = {
   shoulderWidth: 14, hipHeight: 10, headAspectRatio: 1.2, limbThickness: 3, hornSpan: 0
 };
 
+
+/**
+ * A four-legged animal's, which is not a person's with the numbers nudged.
+ *
+ * The shoulder and the hip are the two ends of a barrel rather than the corners of a torso, so they
+ * sit at the same height and far apart — that is what a stride swings between on an animal, and it
+ * is why a creature's walk reads as a trot rather than as a person marching. There is no waist to
+ * lean from, the neck meets the body at its front rather than on top of it, and the root is the
+ * floor under four feet.
+ */
+const creatureSkeleton: BoneAnchors = {
+  neck: [24, 21],
+  crown: [24, 6],
+  shoulderNear: [16, 30],
+  shoulderFar: [32, 30],
+  hipNear: [16, 34],
+  hipFar: [32, 34],
+  root: [24, 45],
+  tail: [35, 25],
+  wing: [24, 22],
+  horn: [24, 4],
+  /* A creature carries a thing in its mouth or on its back, so the grip is at the muzzle rather
+     than at a wrist it does not have. Both grips are the same point for the same reason. */
+  grip: [24, 18],
+  gripFar: [24, 18]
+};
+
 const rigSpecs: Record<FullBodyArchetype, RigSpec> = {
   /* ── people ──
    * Ten classes, and the posture is the class. A scholar reads: the neck carries forward over a
@@ -524,6 +551,65 @@ const rigSpecs: Record<FullBodyArchetype, RigSpec> = {
     posture: { rootLift: 4, shoulderSpan: 0.84 },
     anchors: { hipNear: [22, 34], hipFar: [26, 34], wing: [24, 28], crown: [24, 6] },
     footprint: { shoulderWidth: 10.2, hipHeight: 14.4, headAspectRatio: 1.62, limbThickness: 2, hornSpan: 7.8 }
+  },
+  /* ── the animals that are animals ──
+   * Nine four-legged bodies, and the footprint is doing real work here: a lion and a tiger are the
+   * same animal to a hurried reader, so one is broad-shouldered with a mane and the other is narrow
+   * and long. Every pair in this block is further apart than the threshold the identity test
+   * enforces, measured rather than asserted. */
+  catBeast: {
+    base: creatureSkeleton,
+    posture: { shoulderSpan: 0.92 },
+    anchors: { tail: [34, 25] },
+    footprint: { shoulderWidth: 20, hipHeight: 10, headAspectRatio: 1.25, limbThickness: 5, hornSpan: 9 }
+  },
+  dogBeast: {
+    base: creatureSkeleton,
+    posture: { shoulderSpan: 1.06, torsoLean: 1.5 },
+    anchors: { neck: [24, 22], tail: [36, 24] },
+    footprint: { shoulderWidth: 26, hipHeight: 9, headAspectRatio: 1.06, limbThickness: 6, hornSpan: 12 }
+  },
+  dragonBeast: {
+    base: creatureSkeleton,
+    posture: { rootLift: -1, shoulderSpan: 0.96 },
+    anchors: { crown: [24, 3], horn: [24, 1], wing: [24, 20], tail: [33, 22] },
+    footprint: { shoulderWidth: 18, hipHeight: 12, headAspectRatio: 1.06, limbThickness: 5, hornSpan: 16 }
+  },
+  pigBeast: {
+    base: creatureSkeleton,
+    posture: { shoulderSpan: 1.12, kneeDrop: -1 },
+    anchors: { neck: [24, 20], tail: [35, 23] },
+    footprint: { shoulderWidth: 24, hipHeight: 8, headAspectRatio: 1.5, limbThickness: 5, hornSpan: 10 }
+  },
+  cowBeast: {
+    base: creatureSkeleton,
+    posture: { shoulderSpan: 1.14 },
+    anchors: { horn: [24, 4], tail: [36, 24] },
+    footprint: { shoulderWidth: 26, hipHeight: 9, headAspectRatio: 1.6, limbThickness: 6, hornSpan: 20 }
+  },
+  lionBeast: {
+    base: creatureSkeleton,
+    posture: { shoulderSpan: 1.1, torsoLean: -1 },
+    anchors: { crown: [24, 5], tail: [36, 24] },
+    footprint: { shoulderWidth: 26, hipHeight: 9, headAspectRatio: 1.25, limbThickness: 6, hornSpan: 26 }
+  },
+  tigerBeast: {
+    base: creatureSkeleton,
+    posture: { shoulderSpan: 0.94, torsoLean: 1 },
+    anchors: { tail: [34, 25] },
+    footprint: { shoulderWidth: 20, hipHeight: 10, headAspectRatio: 1.6, limbThickness: 5, hornSpan: 12 }
+  },
+  bearBeast: {
+    base: creatureSkeleton,
+    posture: { shoulderSpan: 1.16, kneeDrop: -1.5 },
+    anchors: { neck: [24, 20], tail: [35, 23] },
+    footprint: { shoulderWidth: 24, hipHeight: 8, headAspectRatio: 1.38, limbThickness: 6, hornSpan: 16 }
+  },
+  penguinBeast: {
+    base: creatureSkeleton,
+    posture: { shoulderSpan: 0.78, rootLift: -1 },
+    anchors: { neck: [24, 19], tail: [33, 23] },
+    footprint: { shoulderWidth: 18, hipHeight: 12, headAspectRatio: 1.25, limbThickness: 5, hornSpan: 2 }
   }
 };
 

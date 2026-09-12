@@ -96,7 +96,7 @@ describe('the skeleton under each figure', () => {
     const rigged = new Set(rigArchetypeIds);
     for (const id of drawn) expect(rigged.has(id), `${id} has no skeleton`).toBe(true);
     for (const id of rigged) expect(drawn.has(id), `${id} is a skeleton nothing draws`).toBe(true);
-    expect(drawn.size).toBe(41);
+    expect(drawn.size).toBe(50);
   });
 
   it('gives no two characters the same bone tree', () => {

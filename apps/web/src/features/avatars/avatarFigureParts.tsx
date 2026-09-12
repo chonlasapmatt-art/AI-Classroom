@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { creatureBackSlot, creatureHeldSlot, creatureIdOfArchetype } from './avatarCreatures';
 import {
   px,
   ACCENT, HAIR, MAGIC, MAGIC_HIGHLIGHT, OUTLINE,
@@ -2069,6 +2070,41 @@ export function figureSlotsFor(
    * to draw them; neither being present is a reason to leave the character's own arms alone.
    */
   const holding = held && baseOf(frontId ?? '') !== 'none' ? held() : undefined;
+
+  /*
+   * A four-legged animal takes what it can wear, and nothing it cannot.
+   *
+   * The wardrobe dresses a person — a shirt has sleeves, trousers have two legs, a shoe goes on a
+   * foot — and a creature has none of those. Handing it the garment drawers anyway is what produced
+   * the thing this whole feature exists to stop: a cat in a school shirt, standing on two legs,
+   * which is a child in a cat suit.
+   *
+   * What is left is most of the wardrobe: a hat, a headpiece, something over the eyes, a collar, a
+   * cape on its back, a thing in its mouth, an aura round it. Those are returned and the animal's
+   * own body — head, barrel, four legs, tail — is left exactly as its species drew it.
+   */
+  const creature = creatureIdOfArchetype(bodyArchetypeFor(config));
+  if (creature) {
+    const worn: Partial<Record<BodySlot, ReactElement>> = {
+      back_gear: creatureBackSlot(creature, backDrawing)
+    };
+    const onCreatureHead = [
+      headpiece ? headpiece() : null,
+      glasses ? glasses() : null
+    ].filter(Boolean);
+    if (onCreatureHead.length > 0) worn.headwear = <g>{onCreatureHead}</g>;
+    // A collar is neckwear on an animal, which is the one garment shape that fits one.
+    if (collar) worn.hair_side = <g data-part="collar">{collar()}</g>;
+    if (holding) worn.front_arm_weapon = creatureHeldSlot(holding);
+
+    const creatureOverlay = [
+      aura && baseOf(auraId ?? '') !== 'none' ? aura() : null,
+      fx && baseOf(fxId ?? '') !== 'none' ? fx() : null
+    ].filter(Boolean);
+    if (creatureOverlay.length > 0) worn.overlay_fx = <g>{creatureOverlay}</g>;
+    return worn;
+  }
+
   const slots: Partial<Record<BodySlot, ReactElement>> = {
     shadow: groundShadow(),
     head_neck: headShape({
