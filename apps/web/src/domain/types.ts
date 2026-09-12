@@ -413,7 +413,16 @@ export interface ImportRun {
 }
 
 export type ScoreCategory =
-  | 'bonus' | 'participation' | 'assignment' | 'activity' | 'project' | 'test' | 'exam' | 'manual' | 'other';
+  | 'bonus' | 'participation' | 'assignment' | 'activity' | 'project' | 'test' | 'exam' | 'manual' | 'other'
+  /*
+   * A star from the activity hub, which has to be a category rather than a wording.
+   *
+   * A star is worth a fixed amount and is capped per child, so both the ledger and the server have
+   * to be able to recognise one. Counting by points or by the reason a teacher typed breaks the
+   * first time somebody awards four points by hand, and `source_id` is a uuid column that cannot
+   * hold a marker. The category is the field that says what kind of award this is.
+   */
+  | 'star';
 
 /**
  * One award of points to one student.

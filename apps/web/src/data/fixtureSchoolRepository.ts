@@ -15,6 +15,7 @@ import { isValidAvatarId } from '../features/avatars/avatarCatalog';
 import { configToJson, type AvatarConfigV2 } from '../features/avatars/avatarSchema';
 import { traitById } from '../features/avatars/avatarTraits';
 import { isValidOutfitId, outfitPrice } from '../features/avatars/avatarOutfits';
+import { refuseStar } from '../features/classroom-tools/starRules';
 import { traitPiecePrice } from '../features/avatars/avatarTraits';
 import { pointsBalanceFor } from '../features/rewards/studentPoints';
 import { configFromIndex } from '../features/avatars/avatarThemes';
@@ -138,6 +139,10 @@ export class FixtureSchoolRepository implements SchoolRepository {
     if (!canManageAcademicItem(this.snapshot(), this.visibility.role, this.visibility.profileId, input.classId ?? '', input.subjectId ?? null)) {
       throw new Error('คุณไม่มีสิทธิ์แก้คะแนนวิชานี้ · ต้องเป็นครูเจ้าของวิชา');
     }
+    // A star is four points and a child may hold twenty. The database says the same through a
+    // trigger; this is the half that can answer in Thai without the round trip.
+    const starRefusal = refuseStar(this.data.scoreEvents, input.category, points, input.studentId);
+    if (starRefusal) throw new Error(starRefusal);
     this.data.scoreEvents = [...this.data.scoreEvents, {
       ...this.base(),
       studentId: input.studentId, classId: input.classId ?? null, subjectId: input.subjectId ?? null,

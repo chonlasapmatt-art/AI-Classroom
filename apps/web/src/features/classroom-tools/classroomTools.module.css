@@ -1,0 +1,218 @@
+/*
+ * The activity hub, and the tools it opens.
+ *
+ * Two rules run through all of it. Everything is sized for a room rather than for a desk — a name on
+ * the wheel has to be readable from the back row, which is why the type here is larger than anywhere
+ * else in the product. And every colour comes from the card's own row in the registry, so adding a
+ * game is adding data rather than adding a stylesheet.
+ */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--space-3);
+}
+
+.section + .section { margin-top: var(--space-5); }
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+.sectionHead h3 { margin: 0; font-size: 1rem; }
+.sectionHead p { margin: 0; color: var(--color-text-muted); font-size: 0.85rem; }
+
+/*
+ * One activity.
+ *
+ * A button rather than a card with a button in it: the whole tile is the target, because the hand
+ * pressing it belongs to somebody standing at the front of a class with thirty people waiting.
+ */
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--tile-ground, var(--color-surface-raised));
+  text-align: left;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  transition: transform 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+  box-shadow: var(--shadow-card);
+}
+.tile:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-card-hover); }
+/* `--focus-ring` is a whole box-shadow in this product rather than a colour, so it is used as one. */
+.tile:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tile:disabled { cursor: not-allowed; opacity: 0.62; }
+
+/*
+ * The dark theme does not get the pastel.
+ *
+ * Six soft grounds designed against white become six muddy grounds against black, and the icon
+ * circle — the saturated half — carries the identity on its own perfectly well. So the tile keeps
+ * the app's own surface and the colour stays where it reads.
+ */
+:global([data-theme='dark']) .tile { background: var(--color-surface-raised); }
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme='light'])) .tile { background: var(--color-surface-raised); }
+}
+
+.tileIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--tile-icon, var(--color-primary));
+}
+
+.tileTitle { font-weight: 700; font-size: 1rem; }
+.tileText { margin: 0; color: var(--color-text-muted); font-size: 0.85rem; line-height: 1.45; }
+
+.tileBadge {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--tile-icon, var(--color-primary));
+  color: #fff;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+/* ── The wheel ── */
+
+.wheelStage {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: center;
+}
+
+.wheelFrame { position: relative; width: min(340px, 80vw); aspect-ratio: 1; }
+
+/* The pointer, at the top, outside the disc so the disc may turn under it. */
+.wheelPointer {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-top: 18px solid var(--color-primary-strong);
+  z-index: 2;
+}
+
+/*
+ * The disc turns; nothing inside it is re-rendered while it does.
+ *
+ * The rotation is a single transform on one element with a transition on it, so a wheel of thirty
+ * names costs one composited layer rather than thirty animated ones — which is what a classroom
+ * projector on a school laptop can actually afford.
+ */
+.wheelDisc {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow: var(--shadow-card-hover);
+  transition: transform var(--spin-ms, 4200ms) cubic-bezier(0.16, 0.84, 0.24, 1);
+  transform: rotate(var(--spin-angle, 0deg));
+}
+
+.wheelName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  fill: #fff;
+  dominant-baseline: middle;
+}
+
+.wheelHub {
+  position: absolute;
+  inset: 38%;
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  border: 2px solid var(--color-border);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.winner {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: center;
+  text-align: center;
+  min-height: 76px;
+}
+.winnerName { font-size: clamp(1.4rem, 3.2vw, 2.1rem); font-weight: 800; }
+.winnerMeta { color: var(--color-text-muted); font-size: 0.85rem; }
+
+/* ── Groups ── */
+
+.groupGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--space-3);
+}
+
+.groupCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  background: var(--color-surface-raised);
+}
+.groupCard h4 { margin: 0 0 var(--space-2); font-size: 0.95rem; }
+.groupCard ol { margin: 0; padding-left: 1.1rem; display: grid; gap: 2px; }
+.groupCard li { font-size: 0.9rem; }
+
+/* ── Stars ── */
+
+.starRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.starRow:last-child { border-bottom: 0; }
+.starName { flex: 1; font-weight: 600; }
+.starCount { display: inline-flex; align-items: center; gap: 4px; color: #f59e0b; font-weight: 700; }
+.starFull { color: var(--color-text-muted); font-size: 0.8rem; }
+
+.starList {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-surface-raised);
+}
+
+/* ── The two doors of the question round ── */
+
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .grid { grid-template-columns: 1fr; }
+  .wheelFrame { width: min(280px, 86vw); }
+}

@@ -16,6 +16,7 @@ import {
 import { useToast } from '../../ui/toastContext';
 import { useSearchParams } from 'react-router-dom';
 import { useRememberedClass } from '../../app/useRememberedClass';
+import { ClassroomToolsHub } from '../classroom-tools/ClassroomToolsHub';
 
 type Tool = 'pick' | 'teams' | 'question' | 'timer';
 
@@ -79,6 +80,7 @@ export function ClassroomLivePage() {
   const [spinning, setSpinning] = useState(false);
   const [teams, setTeams] = useState<string[][]>([]);
   const [teamCount, setTeamCount] = useState(3);
+  const [hubOpen, setHubOpen] = useState(false);
 
   const [questions, setQuestions] = useState<BankQuestion[] | null>(null);
   const [questionError, setQuestionError] = useState<string | null>(null);
@@ -236,6 +238,11 @@ export function ClassroomLivePage() {
           </div>
         </fieldset>
         <div className="sync-pill online"><span />{roster.length} คนในห้อง</div>
+        {/* The hub, reached from the room it is used in: a teacher wanting a wheel, a group draw or
+            a star is already standing on this screen, and the class they are on comes with them. */}
+        <Button variant="secondary" icon={<Icon name="dice" size={16} />} onClick={() => setHubOpen(true)}>
+          เกมและกิจกรรมหน้าชั้นเรียน
+        </Button>
       </div>
 
       {/* Opening the room is taking the register. It is first because it is the first thing that
@@ -411,6 +418,10 @@ export function ClassroomLivePage() {
             <p>{celebration.detail}</p>
           </div>
         </div>
+      )}
+
+      {hubOpen && (
+        <ClassroomToolsHub onClose={() => setHubOpen(false)} initialClassId={selectedClassId} />
       )}
     </>
   );

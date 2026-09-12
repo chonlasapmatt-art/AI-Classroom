@@ -49,7 +49,7 @@ export const reachedElsewhere = (to: string, label: string, icon: IconName): Nav
  * Nothing became unreachable in the regrouping: every route a role could open before is still in
  * that role's menu, under a heading that says why they would want it.
  */
-/*
+      /*
  * "ประกาศรวม" is the school's own noticeboard and belongs to the administrator alone.
  *
  * It was on every role's menu, which put the whole school's announcements — every class, every
@@ -101,6 +101,15 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
        */
       reachedElsewhere('/classroom', 'เปิดคาบเรียน · เช็กชื่อ', 'attendance'),
       /*
+       * The one entry for everything run in front of a class.
+       *
+       * The activities behind it arrived one at a time and each took its own place in the menu — a
+       * picker on the board, a quiz screen two sections away, points typed on a third screen. A
+       * teacher standing in front of thirty people presses one thing; the grid behind this entry is
+       * where the choosing happens.
+       */
+      destination('/classroom-tools', 'เกมและกิจกรรมหน้าชั้นเรียน', 'dice'),
+      /*
        * Quiz Challenge is off the menu, and still reachable.
        *
        * The school asked for the row to go. The route is what the menu grants, so deleting the
@@ -150,6 +159,15 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
      */
     { key: 'activities', label: 'สอนวันนี้', items: [
       reachedElsewhere('/classroom', 'เปิดคาบเรียน · เช็กชื่อ', 'attendance'),
+      /*
+       * The one entry for everything run in front of a class.
+       *
+       * The activities behind it arrived one at a time and each took its own place in the menu — a
+       * picker on the board, a quiz screen two sections away, points typed on a third screen. A
+       * teacher standing in front of thirty people presses one thing; the grid behind this entry is
+       * where the choosing happens.
+       */
+      destination('/classroom-tools', 'เกมและกิจกรรมหน้าชั้นเรียน', 'dice'),
       // Off the menu for the teacher too, and kept reachable for the same reason as the administrator's.
       reachedElsewhere('/quiz', 'Quiz Challenge', 'quiz'),
       destination('/question-bank', 'คลังข้อสอบ', 'question-bank'),

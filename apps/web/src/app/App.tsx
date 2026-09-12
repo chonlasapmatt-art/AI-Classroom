@@ -35,6 +35,7 @@ import { QuestionBankPage } from '../features/questions/QuestionBankPage';
 import { ExamsPage } from '../features/exams/ExamsPage';
 import { StudentExamPage } from '../features/exams/StudentExamPage';
 import { QuizChallengePage } from '../features/quiz/QuizChallengePage';
+import { ClassroomToolsPage } from '../features/classroom-tools/ClassroomToolsPage';
 import { ParentsPage } from '../features/parents/ParentsPage';
 import { ChildDetailPage } from '../features/parents/ChildDetailPage';
 import { MyChildrenPage } from '../features/parents/MyChildrenPage';
@@ -90,6 +91,7 @@ const appRoutes: AppRoute[] = [
   { path: 'teachers', element: <TeachersPage /> },
   { path: 'attendance', element: <AttendancePage /> },
   { path: 'classroom', element: <ClassroomLivePage /> },
+  { path: 'classroom-tools', element: <ClassroomToolsPage /> },
   { path: 'assignments', element: <AssignmentsPage /> },
   { path: 'scores', element: <ScoresPage /> },
   { path: 'leaderboard', element: <LeaderboardPage /> },

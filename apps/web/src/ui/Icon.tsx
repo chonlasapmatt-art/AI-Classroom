@@ -24,7 +24,10 @@ type IconName =
   | 'send' | 'eye' | 'filter' | 'sort' | 'more'
   // Drawn for the badges, which used emoji until now: a picture the device chooses is a picture the
   // design does not control, and on a Thai system font half of them arrive as a box or as colour.
-  | 'clock' | 'trend-up' | 'book' | 'bulb' | 'flask' | 'palette';
+  | 'clock' | 'trend-up' | 'book' | 'bulb' | 'flask' | 'palette'
+  // The classroom activity hub: a die for the hub itself, a wheel for the name draw, a pair of
+  // groups for the team draw, and a buzzer for the live question round.
+  | 'dice' | 'wheel' | 'groups' | 'buzzer';
 
 const icons: Record<IconName, string> = {
   // Navigation
@@ -166,6 +169,16 @@ const icons: Record<IconName, string> = {
     '<path d="M9.5 3h5"/><path d="M11 3v6.3L5.7 18a2 2 0 0 0 1.7 3h9.2a2 2 0 0 0 1.7-3L13 9.3V3"/><line x1="8" y1="15" x2="16" y2="15"/>',
   palette:
     '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.5-1.9-.2-1 .5-1.9 1.5-1.9H17a4 4 0 0 0 4-4C21 7.7 17 3 12 3z"/><circle cx="8.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="15.5" cy="10.5" r="1"/>',
+
+  // The classroom activity hub
+  dice:
+    '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.2"/><circle cx="15.5" cy="8.5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="8.5" cy="15.5" r="1.2"/><circle cx="15.5" cy="15.5" r="1.2"/>',
+  wheel:
+    '<circle cx="12" cy="13" r="8"/><line x1="12" y1="5" x2="12" y2="21"/><line x1="4" y1="13" x2="20" y2="13"/><line x1="6.3" y1="7.3" x2="17.7" y2="18.7"/><line x1="17.7" y1="7.3" x2="6.3" y2="18.7"/><path d="M12 2.5 10.5 5.5h3z"/>',
+  groups:
+    '<circle cx="8" cy="9" r="2.5"/><circle cx="16" cy="9" r="2.5"/><path d="M3.5 18a4.5 4.5 0 0 1 9 0"/><path d="M11.5 18a4.5 4.5 0 0 1 9 0"/>',
+  buzzer:
+    '<path d="M4 16a8 8 0 0 1 16 0z"/><line x1="2.5" y1="19" x2="21.5" y2="19"/><line x1="12" y1="4" x2="12" y2="7.5"/><line x1="5.5" y1="6" x2="7.2" y2="8.4"/><line x1="18.5" y1="6" x2="16.8" y2="8.4"/>',
 };
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {

@@ -19,6 +19,7 @@ import { achievementNoticesFor } from '../academic/achievementNotices';
 import { isValidAvatarId } from '../features/avatars/avatarCatalog';
 import { configToJson, type AvatarConfigV2 } from '../features/avatars/avatarSchema';
 import { isValidOutfitId, outfitPrice } from '../features/avatars/avatarOutfits';
+import { refuseStar } from '../features/classroom-tools/starRules';
 import { traitPiecePrice } from '../features/avatars/avatarTraits';
 import { configFromIndex } from '../features/avatars/avatarThemes';
 import { scopeSchoolSnapshot, type VisibilityScope } from './visibility';
@@ -193,6 +194,17 @@ export class DexieSchoolRepository implements SchoolRepository {
     if (!Number.isFinite(points)) throw new Error('คะแนนต้องเป็นตัวเลข');
     if (Math.abs(points) > MAX_SCORE_EVENT_POINTS) throw new Error(`คะแนนต้องอยู่ระหว่าง -${MAX_SCORE_EVENT_POINTS} ถึง ${MAX_SCORE_EVENT_POINTS}`);
     if (points === 0) throw new Error('คะแนนต้องไม่เป็นศูนย์');
+    /*
+     * A star is four points and a child may hold twenty, checked here as well as on the server.
+     *
+     * This repository writes locally first and syncs afterwards, so a refusal that only exists in
+     * the database arrives minutes later as a failed mutation, long after the teacher has moved on
+     * and with the star apparently given. The stored events are the same ones the screen counts, so
+     * the answer here matches what the room was just shown.
+     */
+    const stored = await db.scoreEvents.where('schoolId').equals(this.schoolId).toArray();
+    const starRefusal = refuseStar(stored, input.category, points, input.studentId);
+    if (starRefusal) throw new Error(starRefusal);
     const record: ScoreEvent = {
       ...base(this.schoolId),
       studentId: input.studentId, classId: input.classId ?? null, subjectId: input.subjectId ?? null,

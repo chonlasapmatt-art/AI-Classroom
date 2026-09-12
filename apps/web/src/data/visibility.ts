@@ -115,6 +115,23 @@ export function scopeSchoolSnapshot(snapshot: SchoolSnapshot, scope: VisibilityS
     academicAudit: [],
     timetable: snapshot.timetable.filter((entry) => allowedClassIds.has(entry.classId)),
     achievements: snapshot.achievements.filter((achievement) => ownStudentIds.has(achievement.studentId)),
-    scoreEvents: snapshot.scoreEvents.filter((event) => ownStudentIds.has(event.studentId) && (!event.classId || allowedClassIds.has(event.classId))),
+    /*
+     * A teacher sees the participation ledger of the rooms they teach; everybody else sees their own.
+     *
+     * `ownStudentIds` for a teacher is the set of students who *are* that teacher, which is empty —
+     * so this filtered every award out of a teacher's snapshot, and three screens written against it
+     * quietly showed nothing: the board's list of today's awards, the star board's per-child count,
+     * and the ceiling that count is checked against. A teacher awarding a star could not see the
+     * star they had just given.
+     *
+     * The roster is the same boundary the register above uses and for the same reason: these are the
+     * children in front of this teacher, and points handed out in class are not private from the
+     * person handing them out. The server enforces the same rule and the twenty-star ceiling, so a
+     * wider local view grants nothing a crafted request could use.
+     */
+    scoreEvents: snapshot.scoreEvents.filter((event) => (
+      (scope.role === 'teacher' ? rosterStudentIds.has(event.studentId) : ownStudentIds.has(event.studentId))
+      && (!event.classId || allowedClassIds.has(event.classId))
+    )),
   };
 }

@@ -17,7 +17,8 @@ const quickAmounts = [-1, 1, 2, 5];
 
 const categoryLabels: Record<ScoreCategory, string> = {
   bonus: 'คะแนนพิเศษ', participation: 'การมีส่วนร่วม', assignment: 'ใบงาน', activity: 'กิจกรรม',
-  project: 'โครงงาน', test: 'แบบทดสอบ', exam: 'ข้อสอบ', manual: 'ให้เอง', other: 'อื่น ๆ'
+  project: 'โครงงาน', test: 'แบบทดสอบ', exam: 'ข้อสอบ', manual: 'ให้เอง', other: 'อื่น ๆ',
+  star: 'ดาวกิจกรรม'
 };
 
 /** The reasons a teacher reaches for most often, so the common case is one tap. */
