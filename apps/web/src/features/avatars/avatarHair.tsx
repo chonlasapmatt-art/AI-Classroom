@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { px, ACCENT, HAIR, HAIR_HIGHLIGHT, HAIR_SHADOW, MAGIC, MAGIC_HIGHLIGHT } from './avatarSprites';
 import { clampCrown, SKULL, type HairAnchors } from './avatarGeometry';
-import { yawShift, type DirectionRig } from './avatarDirection';
+import { faceCentre, yawShift, type DirectionRig } from './avatarDirection';
 import type { AvatarRace } from './avatarSchema';
 
 /**
@@ -74,7 +74,16 @@ export function hairAnchorsFor(fit: HairFit): HairAnchors {
     right: [fit.capLeft + fit.capWidth, SKULL.temple],
     back: [SKULL.centre, capBottom],
     front: [SKULL.centre, capBottom],
-    faceFrame: { left: SKULL.sideOuter, right: SKULL.right + 0.5, y: SKULL.temple },
+    /*
+     * The two x positions a face-framing lock hangs at.
+     *
+     * `right` is the skull's own edge rather than half a unit past it, which is where it used to be
+     * — and half a unit is visible: the left lock ran 12.5 to 15 and sat flush against the skull
+     * while the right ran 33.5 to 36 with a gap behind it, so every long style in the product was
+     * lopsided. Mirrored about the centre line, the left lock's outer edge at 12.5 puts the right
+     * lock's at 35.5, which is `SKULL.right` plus the same 2.5.
+     */
+    faceFrame: { left: SKULL.sideOuter, right: SKULL.right, y: SKULL.temple },
     crown: [SKULL.centre, fit.capTop],
     forehead_center: [SKULL.centre, capBottom],
     temple_L: [fit.capLeft, SKULL.temple],
@@ -106,15 +115,16 @@ export function crownShift(fit: HairFit, rig?: DirectionRig): number {
 }
 
 /**
- * The clip that takes the far temple behind the face.
+ * The window the temple on the face's own side is allowed to draw in.
  *
- * Turned to a profile, the temple on the far side of the head is *behind* the nose and the cheek —
- * it is still there, and some of it still shows above the brow, but the part of it that would cross
- * the face has to be hidden or the figure wears a stripe of hair down the middle of its own cheek.
+ * The features slide the width of the turn and the bone does not, so at three-quarters the face is
+ * sitting over ground that used to be temple. Whatever hair is beside it has to stay beside it — a
+ * band of hair down the middle of a cheek is the single most obviously wrong thing a turned head can
+ * do, and it is the fault this clip exists for.
  *
- * A clip rather than simply not drawing it, because how much is hidden depends on how far round the
- * head has turned: at three-quarters a sliver of the far temple should show past the nose, and a
- * rule that drew it or did not would jump between the two.
+ * A clip rather than simply not drawing the panel, because how much of it survives depends on how
+ * far round the head has gone: at three-quarters a sliver still shows past the nose, which is right,
+ * and a rule that drew it or did not would jump between the two.
  *
  * The id carries the yaw so two figures at different angles on one page do not share a clip — an
  * SVG clip path is addressed by id across the whole document, and two avatars in one list with the
@@ -125,16 +135,7 @@ function facialClipId(rig: DirectionRig): string {
 }
 
 /**
- * Where the far temple is cut off, which is the far edge of the face.
- *
- * The turn carries both temples the way the head went. The near one is meant to travel — that is
- * what brings the mass of the hair round the cheek. The far one is not: sliding it the same distance
- * walks it out from behind the skull and across the face, and a full profile ended up with a band of
- * hair down the middle of its own cheek.
- *
- * So the far temple is drawn inside a window that closes as the head turns: at three-quarters a
- * sliver of it still shows past the nose, which is correct, and at a full profile almost none of it
- * does, which is also correct — from the side, the other side of a head is behind the head.
+ * Where that window starts, which is the outer edge of the face.
  *
  * At yaw 0 there is no clip at all, so a front view is exactly the drawing it has always been.
  */
@@ -142,17 +143,22 @@ function facialClip(rig: DirectionRig): ReactElement | null {
   if (rig.yaw === 0) return null;
   const id = facialClipId(rig);
   /*
-   * The cut moves *against* the turn, because it is the edge the far temple is hiding behind.
-   * Turned to the reader's right the face is on the right of the skull and the far temple is on the
-   * left, so the window is everything left of the cut; turned the other way it is the mirror. Two
-   * rectangles rather than one signed width, because a negative width is not a rectangle in SVG.
+   * The cut is the outer edge of the face, wherever the turn has carried the face to.
+   *
+   * Read off `faceCentre` rather than off the skull's own middle, because those are two different
+   * points the moment the head turns — the features slide the width of the turn and the bone does
+   * not. Cutting at the skull's centre put the edge in the middle of a cheek at three-quarters.
+   *
+   * The window keeps the half *away* from the face, so the temple on the face's side can only ever
+   * draw outside it. Two rectangles rather than one signed width, because a negative width is not a
+   * rectangle in SVG.
    */
-  const cut = SKULL.centre - rig.yaw * (SKULL.width / 2) * 0.55;
+  const edge = faceCentre(rig) + Math.sign(rig.yaw) * (SKULL.width / 2) * 0.55;
   return (
     <clipPath id={id}>
       {rig.yaw > 0
-        ? <rect x={SKULL.left - 6} y="0" width={Math.max(0, cut - (SKULL.left - 6))} height={SKULL.chin} />
-        : <rect x={cut} y="0" width={Math.max(0, SKULL.right + 6 - cut)} height={SKULL.chin} />}
+        ? <rect x={edge} y="0" width={Math.max(0, SKULL.right + 6 - edge)} height={SKULL.chin} />
+        : <rect x={SKULL.left - 6} y="0" width={Math.max(0, edge - (SKULL.left - 6))} height={SKULL.chin} />}
     </clipPath>
   );
 }
@@ -192,13 +198,27 @@ function drapeTransform(rig: DirectionRig | undefined, root: number): string | u
  * The temples carry it down past the brow at the sides, so no gap opens where a skull is wider than
  * its cap; they stop short of the jaw, because hair that reaches the chin is a hood.
  */
-function cap(fit: HairFit): ReactElement {
+function cap(fit: HairFit, shift = 0): ReactElement {
   const bottom = fit.capTop + fit.capHeight;
+  /*
+   * A turned cap grows; it does not slide.
+   *
+   * The crown travels with the head — that is what stops a profile looking like a hat nobody turned
+   * — but translating the cap itself moves its trailing edge off the skull, and the skull is still
+   * there: a shift of 2.28 units left a 2.28-unit band of lit scalp down the far side of every
+   * turned head, which is precisely the bald patch this file was rebuilt to close.
+   *
+   * So the cap covers the union of where it was and where the turn takes it. Hair on a head that has
+   * turned genuinely does show more of itself on the near side while still covering all of the
+   * skull, so the wider rectangle is not a patch over the problem — it is the shape.
+   */
+  const left = fit.capLeft + Math.min(0, shift);
+  const width = fit.capWidth + Math.abs(shift);
   return (
     <>
-      {px(fit.capLeft, fit.capTop, fit.capWidth, fit.capHeight, HAIR)}
-      {px(fit.capLeft, fit.capTop, fit.capWidth, 1.5, HAIR_HIGHLIGHT)}
-      {px(fit.capLeft, bottom - 0.5, fit.capWidth, 0.5, HAIR_SHADOW)}
+      {px(left, fit.capTop, width, fit.capHeight, HAIR)}
+      {px(left, fit.capTop, width, 1.5, HAIR_HIGHLIGHT)}
+      {px(left, bottom - 0.5, width, 0.5, HAIR_SHADOW)}
       {/* The temples: what stops a gap opening where the skull is wider than the cap. */}
       {px(fit.capLeft, bottom, 2.5, 3, HAIR)}
       {px(fit.capLeft + fit.capWidth - 2.5, bottom, 2.5, 3, HAIR_SHADOW)}
@@ -282,20 +302,57 @@ function fringe(kind: Fringe, fit: HairFit): ReactElement | null {
  * Outside the skull rather than over it — x 12.5 and x 33.5 — because a lock drawn on the cheek is
  * a lock over an eye at every size the product actually shows an avatar at.
  */
-function faceLocks(fit: HairFit, length: number, curl: boolean): ReactElement {
+function faceLocks(fit: HairFit, length: number, curl: boolean, rig?: DirectionRig): ReactElement {
   const { left, right, y } = hairAnchorsFor(fit).faceFrame;
+  const foot = y + length;
+  /*
+   * A lock is beside a face, so it takes half the turn rather than all of it.
+   *
+   * Given the crown's full travel the far lock walked across the cheek and the near one left the
+   * head entirely — a dark stick hanging in the air beside a bald temple. Half is what keeps both
+   * of them attached: they hang off the skull, which barely moves, rather than off the crown, which
+   * moves the most.
+   *
+   * And past three-quarters the far lock is simply behind the head. Drawing it there is drawing hair
+   * on the far cheek of a profile, which is the thing the facial clip exists to prevent for the
+   * temple — this is the same rule, stated where the lock is decided rather than clipped after.
+   */
+  const turn = Math.abs(rig?.yaw ?? 0);
+  const slide = rig ? yawShift(rig, 1.75) : 0;
+  const farHidden = turn > 0.8;
+  const leftIsFar = (rig?.yaw ?? 0) > 0;
+  /*
+   * Tapered, not a slab.
+   *
+   * These were two flat rectangles 2.5 wide and up to thirteen long, which at any size the product
+   * shows an avatar at is a pair of dark bars with square corners bolted to the sides of a head. Hair
+   * is heavier at the root and lighter at the tip, and the one-unit narrowing over the length is
+   * enough to say so — it is the difference between a lock of hair and a plank.
+   *
+   * The taper is on the *outer* edge only. The inner edge has to stay flush against the skull or a
+   * line of lit skin opens between the lock and the face, which is the seam this whole file exists
+   * to close.
+   */
+  const taper = Math.min(1.25, length * 0.12);
+  const showLeft = !(farHidden && leftIsFar);
+  const showRight = !(farHidden && !leftIsFar);
   return (
-    <>
-      {px(left, y, 2.5, length, HAIR)}
-      {px(right, y, 2.5, length, HAIR_SHADOW)}
-      {px(left, y, 0.75, length, HAIR_HIGHLIGHT)}
-      {curl ? (
+    <g transform={slide === 0 ? undefined : `translate(${slide.toFixed(2)} 0)`}>
+      {showLeft ? (
         <>
-          <circle cx={left + 1.25} cy={y + length} r="1.75" fill={HAIR} />
-          <circle cx={right + 1.25} cy={y + length} r="1.75" fill={HAIR_SHADOW} />
+          <polygon points={`${left},${y} ${left + 2.5},${y} ${left + 2.5},${foot} ${left + taper},${foot}`} fill={HAIR} />
+          {/* The lit edge, tapering with the lock rather than running past the end of it. */}
+          <polygon points={`${left},${y} ${left + 0.75},${y} ${left + 0.75},${foot} ${left + taper},${foot}`} fill={HAIR_HIGHLIGHT} />
+          {curl ? <circle cx={left + 1.25} cy={foot} r="1.75" fill={HAIR} /> : null}
         </>
       ) : null}
-    </>
+      {showRight ? (
+        <>
+          <polygon points={`${right},${y} ${right + 2.5},${y} ${right + 2.5 - taper},${foot} ${right},${foot}`} fill={HAIR_SHADOW} />
+          {curl ? <circle cx={right + 1.25} cy={foot} r="1.75" fill={HAIR_SHADOW} /> : null}
+        </>
+      ) : null}
+    </g>
   );
 }
 
@@ -673,12 +730,16 @@ export const hairStyleDefinitions: Record<string, HairStyleDefinition> = {
  * top of the head and the eye reads neither — which is why this exists rather than an animal race
  * simply wearing `short`.
  */
-function furTuftFront(fit: HairFit): ReactElement {
+function furTuftFront(fit: HairFit, shift = 0): ReactElement {
   const brow = fit.capTop + fit.capHeight;
+  // The same rule the cap follows: the crest covers the union of where it was and where the turn
+  // takes it, rather than sliding off the skull it is growing out of.
+  const crestLeft = SKULL.left + 1 + Math.min(0, shift);
+  const crestWidth = SKULL.width - 2 + Math.abs(shift);
   return (
     <>
-      {px(SKULL.left + 1, fit.capTop + 0.5, SKULL.width - 2, 3.5, HAIR)}
-      {px(SKULL.left + 1, fit.capTop + 0.5, SKULL.width - 2, 1.25, HAIR_HIGHLIGHT)}
+      {px(crestLeft, fit.capTop + 0.5, crestWidth, 3.5, HAIR)}
+      {px(crestLeft, fit.capTop + 0.5, crestWidth, 1.25, HAIR_HIGHLIGHT)}
       {/* The outer two hang at the temples and the middle one stops at the brow: a tuft down the
           centre of the face is a fringe in the eyes, and the sockets start at x 18.25. */}
       <polygon points={`${SKULL.left},${brow - 1} ${SKULL.left + 3.5},${brow - 1} ${SKULL.left + 1.5},${brow + 2}`} fill={HAIR} />
@@ -713,54 +774,73 @@ const raceFallbackStyle: Record<AvatarRace, string> = {
 function sideWrap(fit: HairFit, length: number, rig?: DirectionRig): ReactElement {
   const yaw = rig?.yaw ?? 0;
   const turn = Math.abs(yaw);
-  const slide = rig ? yawShift(rig, 3.5) : 0;
   const top = fit.capTop + fit.capHeight - 1;
   const drop = Math.max(3, Math.min(length, SKULL.chin - top));
 
   /*
-   * The near panel is the one on the side the face turned towards, and it is the one that has to
-   * grow. Seen from the side a head is not a flat card: the hair comes round the temple, over the
-   * ear and forward along the jaw, and the further round the turn the more of it does. Half a unit
-   * of extra width and a unit of extra drop at a full profile is what blends the jawbone into the
-   * skull instead of leaving a step where the cap's edge was.
+   * Which side of the skull the face is on, and therefore which side is the back of the head.
+   *
+   * This is the fact the first version had backwards, and getting it backwards is visible in one
+   * glance: at a left profile the features sit on the *left* of the skull, so the right half of the
+   * bone is occiput and belongs under hair. Treating the face's own side as the one to thicken put
+   * the hair on the cheek and left a wedge of lit scalp over the ear behind it.
+   *
+   * So the occiput side grows from a sliver to wider than the wrap has ever been, and the cheek side
+   * shrinks towards nothing. That is also the only thing in the whole drawing that changes the
+   * figure's *outline* as it turns, which is what makes a profile read as a profile rather than as a
+   * face sliding sideways across a fixed head.
+   *
+   * Neither panel slides. They are the sides of a skull, and a skull's sides stay where the skull is;
+   * translating them was walking the whole wrap off the head by three and a half units at a profile.
+   * What changes is how much of each you can see.
    */
-  const nearGrow = turn * 1.5;
-  const nearDrop = drop + turn * 1.5;
+  const faceOnRight = yaw > 0;
+  const occiputWidth = 1.25 + turn * 3;
+  const cheekWidth = Math.max(0.5, 1.25 - turn * 0.75);
+  const occiputDrop = drop + turn * 1.5;
+
+  const leftWidth = faceOnRight ? occiputWidth : cheekWidth;
+  const rightWidth = faceOnRight ? cheekWidth : occiputWidth;
+  const leftDrop = faceOnRight ? occiputDrop : drop;
+  const rightDrop = faceOnRight ? drop : occiputDrop;
+
   const clip = rig ? facialClip(rig) : null;
   const clipRef = rig && clip ? `url(#${facialClipId(rig)})` : undefined;
 
   const leftPanel = (
     <>
-      {px(SKULL.left - 0.5, top, 3 + (yaw < 0 ? nearGrow : 0), yaw < 0 ? nearDrop : drop, HAIR)}
+      {px(SKULL.left - 0.5, top, leftWidth + 0.5, leftDrop, HAIR)}
       {/* The ear notch: the wrap tucks behind where an ear sits rather than running flat over it. */}
-      {px(SKULL.left - 0.5, top, 0.75, yaw < 0 ? nearDrop : drop, HAIR_HIGHLIGHT)}
+      {px(SKULL.left - 0.5, top, 0.5, leftDrop, HAIR_HIGHLIGHT)}
     </>
   );
-  const rightPanel = px(
-    SKULL.right - 2.5 - (yaw > 0 ? nearGrow : 0), top,
-    3 + (yaw > 0 ? nearGrow : 0), yaw > 0 ? nearDrop : drop, HAIR_SHADOW
-  );
+  const rightPanel = px(SKULL.right - rightWidth, top, rightWidth + 0.5, rightDrop, HAIR_SHADOW);
 
   /*
-   * Both panels slide with the turn, but only the near one slides freely: the far one is drawn
-   * inside the facial clip, which is the window it is hiding behind. Without that the far temple
-   * walks out from behind the skull and lands on the cheek — the stripe of hair down the middle of
-   * a profile's own face.
+   * The cheek panel is the one drawn inside the clip.
+   *
+   * It is the only one that can reach the face — the occiput panel is behind the head by
+   * construction — and the clip is the face's own outer edge, so however far the features slide the
+   * hair beside them cannot climb onto them. That is the stripe of hair down the middle of a
+   * profile's own cheek, prevented rather than tuned away.
    */
-  const near = yaw < 0 ? leftPanel : rightPanel;
-  const far = yaw < 0 ? rightPanel : leftPanel;
+  const cheek = faceOnRight ? rightPanel : leftPanel;
+  const occiput = faceOnRight ? leftPanel : rightPanel;
 
   return (
-    <g data-part="hairSide" transform={slide === 0 ? undefined : `translate(${slide} 0)`}>
+    <g data-part="hairSide">
       {clip}
-      {clipRef ? <g clipPath={clipRef}>{far}</g> : far}
-      {near}
+      {occiput}
+      {clipRef ? <g clipPath={clipRef}>{cheek}</g> : cheek}
       {/*
-        * The band over the ear line, which is what stops a gap opening between the cap's lower edge
-        * and the top of the wrap as the head turns. It is inside the skull's own width, so from the
-        * front it is hidden under the cap and costs nothing.
+        * The band over the ear line, and only when there is a turn to close a gap in.
+        *
+        * The cap's lower edge and the top of the wrap already overlap by a unit head-on, so drawn at
+        * every angle this was a dark bar across a forehead that nothing was wrong with — one more
+        * rectangle to paint, forty times over on a leaderboard, for no pixel anybody could see.
+        * Turned, the two slide apart, and then it earns its place.
         */}
-      {px(SKULL.left + 1, top - 0.5, SKULL.width - 2, 1.25, HAIR)}
+      {turn > 0 ? px(SKULL.left + 1, top - 0.5, SKULL.width - 2, 1.25, HAIR) : null}
     </g>
   );
 }
@@ -809,10 +889,17 @@ function backOfHead(fit: HairFit): ReactElement {
     <>
       {px(SKULL.left - 0.5, top, SKULL.width + 1, SKULL.jaw - top + 1.5, HAIR)}
       {px(SKULL.left - 0.5, top, SKULL.width + 1, 0.75, HAIR_SHADOW)}
-      {/* A crown whorl, which is the one mark that says this is the back of a head rather than a
-          block of colour the same size as one. */}
+      {/*
+        * A crown whorl, which is the one mark that says this is the back of a head rather than a
+        * block of colour the same size as one.
+        *
+        * Drawn in the shadow and the base rather than in the highlight. At full contrast it was a
+        * pale square floating in the middle of the back of every head in the school — the eye read
+        * it as a hole rather than as the place the hair grows from, which is the opposite of what a
+        * whorl is for.
+        */}
       {px(SKULL.centre - 2, top + 2, 4, 3, HAIR_SHADOW)}
-      {px(SKULL.centre - 1, top + 3, 2, 1, HAIR_HIGHLIGHT)}
+      {px(SKULL.centre - 1, top + 2.5, 2, 1.5, HAIR)}
       {px(SKULL.right - 3, top, 3, SKULL.jaw - top + 1.5, HAIR_SHADOW)}
     </>
   );
@@ -862,9 +949,9 @@ export function hairFor(
       // missing wrap is most obvious: the cheek is the widest part of the silhouette.
       side: sideWrap(fit, 4, rig),
       front: (
-        <g data-part="hair" transform={crownTransform(fit, rig)}>
+        <g data-part="hair">
           {rig?.faceHidden ? backOfHead(fit) : null}
-          {furTuftFront(fit)}
+          {furTuftFront(fit, crownShift(fit, rig))}
         </g>
       )
     };
@@ -898,27 +985,31 @@ export function hairFor(
      */
     side: sideWrap(fitted, style.locks ?? (style.shallow ? 3 : 5), rig),
     front: (
-      <g data-part="hair" transform={crownTransform(fitted, rig)}>
-        {style.locks ? faceLocks(fitted, style.locks, style.curlyLocks ?? false) : null}
+      <g data-part="hair">
+        {style.locks ? faceLocks(fitted, style.locks, style.curlyLocks ?? false, rig) : null}
         {/* From behind there is no face, and what replaces it is the rest of the hair rather than
             bare skin. Drawn before the cap so the cap's own shading stays on top of it. */}
         {rig?.faceHidden ? backOfHead(fitted) : null}
-        {cap(fitted)}
-        {style.crown?.(fitted) ?? null}
-        {fringe(style.fringe, fitted)}
+        {cap(fitted, crownShift(fitted, rig))}
+        {/*
+          * What rides on top of the cap, and the only part of the hair that takes the whole turn.
+          *
+          * A bun, a spike, a crest and a fringe all sit on the crown and all travel with it; the cap
+          * underneath widens instead of sliding, because it is the thing covering the skull and the
+          * skull has not gone anywhere. One transform on the group they share rather than twenty-four
+          * styles each remembering to apply it — the one that forgot would be a hat sliding off a
+          * head.
+          */}
+        <g data-part="hairCrown" transform={crownTransform(fitted, rig)}>
+          {style.crown?.(fitted) ?? null}
+          {fringe(style.fringe, fitted)}
+        </g>
       </g>
     )
   };
 }
 
-/**
- * The crown's own travel, as a transform rather than as a number every shape has to add.
- *
- * A cap, a bun, a spike and a fringe all belong to the same lump of hair and all move together when
- * the head turns; asking each of the twenty-four styles to apply the shift itself would be
- * twenty-four chances for one of them to forget, and the one that forgot would be a hat sliding off
- * a head. One transform on the group they share is the whole of it.
- */
+/** The crown's own travel, as a transform rather than as a number every shape has to add. */
 function crownTransform(fit: HairFit, rig?: DirectionRig): string | undefined {
   const shift = crownShift(fit, rig);
   return shift === 0 ? undefined : `translate(${shift.toFixed(2)} 0)`;

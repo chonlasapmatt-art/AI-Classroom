@@ -252,110 +252,128 @@ const knitMarks = (): ReactElement => (
  * extra steps, and the customiser already has enough of those.
  */
 
-/** Quilted bands, evenly spaced: the one thing that says "puffer" and not "jacket". */
+/* ── The three families the wardrobe was thin in ──
+ *
+ * ── The box these have to live in ──
+ * A torso is x 17–31, y 21–33, and marks are drawn inside the torso group — which is painted before
+ * both arms. Anything reaching past x 19 on the near side is behind the arm by the time the figure is
+ * composed, and a shoulder plate nobody can see is not a shoulder plate. The first cut of these went
+ * out to x 14 for its pauldrons and lost every one of them.
+ *
+ * The one strip that *is* free is above y 21: the arms start at 22, so a collar, a gorget or a hood
+ * roll drawn at 19–21 clears both of them and is the only way a garment can break the shoulder line.
+ * Three of the nine use it, and they are the three whose whole identity is what happens at the
+ * shoulder.
+ *
+ * ── And contrast ──
+ * Every mark below is in `SECONDARY`, `ACCENT`, `WHITE` or `MAGIC`, never in a shade of the cloth it
+ * sits on. The first cut used `PRIMARY_SHADOW` on `PRIMARY` — one step of lightness apart on a
+ * twenty-step ramp — and at the size a picker tile actually draws, that is one flat colour.
+ */
+
+/** Quilted bands and a zip: what says "puffer" rather than "jacket" at forty pixels. */
 const quiltMarks = (): ReactElement => (
   <>
-    {px(17, 22.5, 14, 1, PRIMARY_SHADOW)}
-    {px(17, 26, 14, 1, PRIMARY_SHADOW)}
-    {px(17, 29.5, 14, 1, PRIMARY_SHADOW)}
-    {px(16, 21, 2, 13, PRIMARY_HIGHLIGHT)}
-    {px(30, 21, 2, 13, PRIMARY_HIGHLIGHT)}
+    {px(17, 21, 14, 1.5, SECONDARY)}
+    {px(17, 24, 14, 1, SECONDARY_SHADOW)}
+    {px(17, 27.5, 14, 1, SECONDARY_SHADOW)}
+    {px(17, 31, 14, 1, SECONDARY_SHADOW)}
+    {px(23.5, 22.5, 1, 10, ACCENT)}
   </>
 );
 
-/** A hood that is down, drawn as a roll on the shoulders rather than a panel on the chest. */
+/** A hood that is down: a roll above the shoulder line, which is the one place it can be seen. */
 const drapeMarks = (): ReactElement => (
   <>
-    {px(18, 19.5, 12, 3, SECONDARY_SHADOW)}
-    {px(19, 18.5, 10, 2, PRIMARY)}
-    {px(19, 18.5, 10, 0.5, PRIMARY_HIGHLIGHT)}
-    {px(22, 23, 1, 7, PRIMARY_SHADOW)}
-    {px(25, 23, 1, 7, PRIMARY_SHADOW)}
+    {px(19, 19.5, 10, 2.5, SECONDARY)}
+    {px(19, 19.5, 10, 0.75, ACCENT)}
+    {px(21, 23, 1, 6, WHITE)}
+    {px(26, 23, 1, 6, WHITE)}
+    {px(18, 29, 12, 3, SECONDARY_SHADOW)}
   </>
 );
 
-/** Contrast sleeves and a chest patch: a varsity jacket is its two colours meeting at the shoulder. */
+/** Ribbed collar and hem, and a letter patch. The contrast sleeves come from `sleeve`. */
 const varsityMarks = (): ReactElement => (
   <>
-    {px(17, 21, 3, 13, WHITE)}
-    {px(28, 21, 3, 13, WHITE)}
-    {px(17, 30, 14, 1, ACCENT)}
-    {px(21, 24, 4, 4, ACCENT)}
+    {px(17, 21, 14, 1.5, WHITE)}
+    {px(17, 31, 14, 1.5, WHITE)}
+    {px(21, 24, 6, 5, ACCENT)}
+    {px(23, 25.5, 2, 2, SECONDARY)}
   </>
 );
 
 /**
- * Pauldrons, which are the point.
+ * Layered plate: a gorget that clears the shoulders, three overlapping bands, and a central ridge.
  *
- * They are drawn past x 17 and x 31 — outside the torso box every other garment keeps to — because
- * a shoulder plate that stays inside the shoulder is a shoulder plate nobody can see. This is the
- * one garment in the set allowed out there, and it stops at 14 and 34, inside the arms.
+ * The gorget at y 19.5 is the pauldron's replacement and it does the same job — it is the thing that
+ * breaks the shoulder line and says "armour" before any of the detail below it is legible.
  */
 const pauldronMarks = (): ReactElement => (
   <>
-    {px(17, 21, 14, 1, 'var(--av-secondary-highlight)')}
-    {px(17, 25, 14, 0.5, SECONDARY_SHADOW)}
-    {px(14, 20.5, 5, 4, SECONDARY)}
-    {px(29, 20.5, 5, 4, SECONDARY)}
-    {px(14, 20.5, 5, 1, ACCENT)}
-    {px(29, 20.5, 5, 1, ACCENT)}
-    {px(23, 24, 2, 8, ACCENT)}
+    {px(18, 19.5, 12, 2, SECONDARY)}
+    {px(18, 19.5, 12, 0.75, ACCENT)}
+    {px(17, 22, 14, 1, 'var(--av-secondary-highlight)')}
+    {px(17, 25, 14, 1, SECONDARY_SHADOW)}
+    {px(17, 28, 14, 1, SECONDARY_SHADOW)}
+    {px(23, 22, 2, 10, ACCENT)}
   </>
 );
 
-/** Vertical folds: what a robe has that a tunic does not, and the reason it reads as flowing. */
+/** Vertical folds and a clasped yoke: what a robe has that a tunic does not. */
 const foldMarks = (): ReactElement => (
   <>
-    {px(19, 22, 1, 12, 'var(--av-primary-shadow)')}
-    {px(23.5, 22, 1, 12, 'var(--av-primary-shadow)')}
-    {px(28, 22, 1, 12, 'var(--av-primary-shadow)')}
-    {px(20, 21, 8, 1.5, ACCENT)}
+    {px(19.5, 21, 1, 12, SECONDARY_SHADOW)}
+    {px(23.5, 21, 1, 12, SECONDARY_SHADOW)}
+    {px(27.5, 21, 1, 12, SECONDARY_SHADOW)}
+    {px(20, 21, 8, 2, MAGIC)}
+    {px(22.5, 24, 3, 3, MAGIC_HIGHLIGHT)}
   </>
 );
 
-/** A feathered collar, layered rather than solid, so it reads as plumage at 32 pixels. */
+/** A feathered collar, scalloped rather than solid, so it reads as plumage and not as a bib. */
 const plumeMarks = (): ReactElement => (
   <>
-    {px(15, 20.5, 18, 2, WHITE)}
-    {px(15, 22.5, 4, 4, WHITE)}
-    {px(29, 22.5, 4, 4, WHITE)}
-    {px(15, 26, 4, 0.5, ACCENT)}
-    {px(29, 26, 4, 0.5, ACCENT)}
+    {px(17, 20.5, 14, 2, WHITE)}
+    {px(17.5, 22.5, 3, 2, WHITE)}
+    {px(22.5, 22.5, 3, 2, WHITE)}
+    {px(27.5, 22.5, 3, 2, WHITE)}
+    {px(17, 22, 14, 0.5, ACCENT)}
   </>
 );
 
-/** An exoskeleton: two struts down the torso and a power cell between them. */
+/** An exoskeleton: two lit struts, a cross brace, and a power cell you can see the glow of. */
 const exoMarks = (): ReactElement => (
   <>
-    {px(19, 20.5, 2, 14, SECONDARY)}
-    {px(27, 20.5, 2, 14, SECONDARY)}
-    {px(17, 26, 14, 1, SECONDARY)}
-    {px(22, 25, 4, 4, ACCENT)}
-    {px(23, 26, 2, 2, MAGIC_HIGHLIGHT)}
+    {px(18.5, 21, 1.5, 12, ACCENT)}
+    {px(28, 21, 1.5, 12, ACCENT)}
+    {px(17, 26, 14, 1, ACCENT)}
+    {px(22, 24.5, 4, 4, SECONDARY)}
+    {px(23, 25.5, 2, 2, MAGIC_HIGHLIGHT)}
   </>
 );
 
-/** Circuit traces: one route, with corners, because a grid of lines is a grid rather than a circuit. */
+/** One circuit route with corners, not a grid: a grid of lines reads as a grid. */
 const circuitMarks = (): ReactElement => (
   <>
-    {px(19, 21, 1, 8, MAGIC)}
-    {px(19, 28, 6, 1, MAGIC)}
-    {px(24, 24, 1, 5, MAGIC_HIGHLIGHT)}
-    {px(24, 24, 5, 1, MAGIC)}
-    {px(28, 24, 1, 7, MAGIC)}
-    {px(26, 21, 2, 2, MAGIC_HIGHLIGHT)}
+    {px(19, 21, 1, 7, MAGIC)}
+    {px(19, 27, 6, 1, MAGIC)}
+    {px(24.5, 23, 1, 5, MAGIC_HIGHLIGHT)}
+    {px(24.5, 23, 5, 1, MAGIC)}
+    {px(28.5, 23, 1, 8, MAGIC)}
+    {px(21, 30, 8, 1, MAGIC_HIGHLIGHT)}
   </>
 );
 
-/** A collar that stands up past the jaw, and the hazard banding under it. */
+/** A collar that stands past the jaw, and the hazard banding under it. */
 const hazardMarks = (): ReactElement => (
   <>
-    {px(18, 17.5, 12, 4, ACCENT)}
-    {px(18, 17.5, 12, 0.5, 'var(--av-accent-highlight)')}
-    {px(17, 29, 14, 1.5, SECONDARY_SHADOW)}
-    {px(18, 29, 3, 1.5, WHITE)}
-    {px(23, 29, 3, 1.5, WHITE)}
-    {px(28, 29, 2.5, 1.5, WHITE)}
+    {px(19, 19, 10, 2.5, ACCENT)}
+    {px(19, 19, 10, 0.75, WHITE)}
+    {px(17, 29, 14, 2, SECONDARY_SHADOW)}
+    {px(18, 29, 2.5, 2, WHITE)}
+    {px(22, 29, 2.5, 2, WHITE)}
+    {px(26, 29, 2.5, 2, WHITE)}
   </>
 );
 
@@ -664,15 +682,24 @@ function crystalSpire(): ReactElement {
   );
 }
 
+/**
+ * A ribbon trailing behind one shoulder, not a plank through both of them.
+ *
+ * The first cut was three bars 36 units wide at chest height. Behind the figure or not, a
+ * full-width horizontal bar sticking out past both arms reads as a plank the character has been
+ * nailed to — and it crossed the one part of the silhouette a child actually looks at.
+ *
+ * Rooted at the far shoulder and falling away behind, it is the same colours doing the job they were
+ * meant to do: a light that moves with the figure rather than a bar that spans it.
+ */
 function auroraSash(): ReactElement {
   return (
     <g data-part="back" opacity="0.85">
       <g data-part="wing">
-        {px(6, 24, 36, 2, MAGIC)}
-        {px(6, 26, 36, 1.5, ACCENT)}
-        {px(6, 27.5, 36, 1, MAGIC_HIGHLIGHT)}
-        {px(4, 23, 2, 6, "var(--av-magic-shadow)")}
-        {px(42, 23, 2, 6, "var(--av-magic-shadow)")}
+        <polygon points="30,22 36,24 44,36 38,38" fill={MAGIC} />
+        <polygon points="31,24 35.5,25.5 42,35 38,36" fill={ACCENT} opacity="0.8" />
+        <polygon points="32,26 35,27 40,34 37.5,34.5" fill={MAGIC_HIGHLIGHT} opacity="0.7" />
+        {px(29, 21.5, 3, 3, "var(--av-magic-shadow)")}
       </g>
     </g>
   );
@@ -1197,12 +1224,21 @@ const auras: Record<string, () => ReactElement> = {
       <g opacity="0.3">{px(9, 25, 1.5, 1.5, WHITE)}{px(38, 22, 1.5, 1.5, WHITE)}</g>
     </g>
   ),
+  /*
+   * A rim rather than a disc.
+   *
+   * The first cut was two filled ellipses at 0.55 and 0.3 across the whole figure, and a filled
+   * shape behind a character does not read as light — it reads as the character standing in front of
+   * a large coloured blob, dimmed by it. An aura is the *edge* of something: a ring at the silhouette
+   * and a few motes leaving it. Same idea for `solar` below, and for the same reason.
+   */
   void: () => (
     <g data-part="fx" data-fx="aura">
-      <g opacity="0.55"><ellipse cx="24" cy="30" rx="18" ry="16" fill="var(--av-magic-outline)" /></g>
-      <g opacity="0.3"><ellipse cx="24" cy="30" rx="21" ry="18" fill={MAGIC} /></g>
-      {px(9, 24, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+      <ellipse cx="24" cy="29" rx="17" ry="16" fill="none" stroke="var(--av-magic-outline)" strokeWidth="3" opacity="0.45" />
+      <ellipse cx="24" cy="29" rx="19" ry="17.5" fill="none" stroke={MAGIC} strokeWidth="1.5" opacity="0.3" />
+      {px(8, 22, 1.5, 1.5, MAGIC_HIGHLIGHT)}
       {px(38, 34, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+      {px(11, 40, 1, 1, MAGIC)}
     </g>
   ),
   bloom: () => (
@@ -1214,11 +1250,19 @@ const auras: Record<string, () => ReactElement> = {
       <ellipse cx="37" cy="34" rx="2" ry="1.25" fill={SECONDARY} transform="rotate(-15 37 34)" />
     </g>
   ),
+  /*
+   * A curtain behind the figure, not a set of bands across it.
+   *
+   * Horizontal bands at y 10, 14 and 18 ran straight through the skull, which is y 4–17. Behind the
+   * head they still read as stripes across a face, because a stripe that starts and ends outside the
+   * silhouette is a stripe whichever layer it is on. Vertical columns hang behind the figure the way
+   * an aurora actually does, and they leave the face alone by construction.
+   */
   aurora: () => (
     <g data-part="fx" data-fx="aura">
-      <g opacity="0.45">{px(4, 10, 40, 3, MAGIC)}</g>
-      <g opacity="0.3">{px(6, 14, 36, 2.5, ACCENT)}</g>
-      <g opacity="0.18">{px(9, 18, 30, 2, MAGIC_HIGHLIGHT)}</g>
+      <g opacity="0.4">{px(7, 4, 3, 34, MAGIC)}{px(38, 6, 3, 30, MAGIC)}</g>
+      <g opacity="0.28">{px(11, 8, 2, 28, ACCENT)}{px(35, 3, 2, 33, ACCENT)}</g>
+      <g opacity="0.16">{px(4, 10, 1.5, 24, MAGIC_HIGHLIGHT)}{px(43, 12, 1.5, 22, MAGIC_HIGHLIGHT)}</g>
     </g>
   ),
   circuit: () => (
@@ -1239,11 +1283,12 @@ const auras: Record<string, () => ReactElement> = {
   ),
   solar: () => (
     <g data-part="fx" data-fx="aura">
-      <g opacity="0.4"><circle cx="24" cy="26" r="20" fill={ACCENT} /></g>
-      <g opacity="0.25"><circle cx="24" cy="26" r="23" fill={WHITE} /></g>
-      <polygon points="24,2 26,8 22,8" fill={ACCENT} />
-      <polygon points="6,12 11,15 8,18" fill={ACCENT} />
-      <polygon points="42,12 37,15 40,18" fill={ACCENT} />
+      <circle cx="24" cy="26" r="19" fill="none" stroke={ACCENT} strokeWidth="2" opacity="0.4" />
+      <circle cx="24" cy="26" r="21.5" fill="none" stroke={WHITE} strokeWidth="1" opacity="0.22" />
+      <polygon points="24,3 25.5,8 22.5,8" fill={ACCENT} opacity="0.8" />
+      <polygon points="5,14 10,16 7,19" fill={ACCENT} opacity="0.8" />
+      <polygon points="43,14 38,16 41,19" fill={ACCENT} opacity="0.8" />
+      <polygon points="24,47 22.5,42 25.5,42" fill={ACCENT} opacity="0.6" />
     </g>
   )
 };
@@ -1354,11 +1399,17 @@ const effects: Record<string, () => ReactElement> = {
       {px(36, 32, 1.5, 1.5, WHITE)}
     </g>
   ),
+  /*
+   * An effect is drawn in front of everything, so this one has to be light or it is a veil over a
+   * face. The first cut reached y 14 at a third opacity, which put a beige sheet over the hair and
+   * the brow of every figure wearing it — the most expensive item in the catalogue, making its owner
+   * harder to see.
+   */
   halolight: () => (
     <g data-part="fx">
-      <g opacity="0.35"><polygon points="18,0 30,0 34,14 14,14" fill={WHITE} /></g>
-      <g opacity="0.2"><polygon points="14,0 34,0 40,12 8,12" fill={ACCENT} /></g>
-      {px(19, 3, 10, 1, WHITE)}
+      <g opacity="0.22"><polygon points="19,0 29,0 32,8 16,8" fill={WHITE} /></g>
+      <g opacity="0.12"><polygon points="16,0 32,0 36,7 12,7" fill={ACCENT} /></g>
+      {px(19, 2.5, 10, 1, WHITE)}
     </g>
   )
 };

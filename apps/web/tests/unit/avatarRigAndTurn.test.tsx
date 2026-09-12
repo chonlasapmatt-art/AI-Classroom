@@ -210,8 +210,49 @@ describe('hair through a whole turn', () => {
     // Twenty-four styles applying the shift themselves is twenty-four chances for one to forget, and
     // the one that forgot would be a hat sliding off a head.
     const { container } = render(<svg>{hairFor('long', 'human', directionRig('right')).front}</svg>);
-    const crown = container.querySelector('[data-part="hair"]');
+    const crown = container.querySelector('[data-part="hairCrown"]');
     expect(crown?.getAttribute('transform')).toMatch(/^translate\(2\.28 0\)$/);
+  });
+
+  it('widens the cap rather than sliding it off the skull underneath', () => {
+    /*
+     * The bald patch, in its second and subtler form.
+     *
+     * Translating the cap with the crown moved its trailing edge 2.28 units off a skull that had not
+     * moved, so every turned head wore a band of lit scalp down its far side — the same fault as
+     * before, reintroduced by the fix for a different one. The cap covers the union of where it was
+     * and where the turn takes it, so the skull stays covered at every angle.
+     */
+    const fit = hairFitFor('human');
+    const skullWidth = SKULL.right - SKULL.left;
+    for (const direction of avatarDirections) {
+      const { container } = render(<svg>{hairFor('long', 'human', directionRig(direction)).front}</svg>);
+      const covering = [...container.querySelectorAll('rect')].filter((node) => {
+        const left = Number(node.getAttribute('x'));
+        return left <= SKULL.left && left + Number(node.getAttribute('width')) >= SKULL.right;
+      });
+      expect(covering.length, `${direction} leaves scalp beside the cap`).toBeGreaterThan(0);
+      expect(Number(covering[0]!.getAttribute('width')), direction).toBeGreaterThanOrEqual(skullWidth);
+      cleanup();
+    }
+    expect(fit.capWidth).toBeGreaterThan(skullWidth);
+  });
+
+  it('hangs a face lock off the skull rather than off the crown', () => {
+    // Given the crown's full travel the far lock walked across the cheek and the near one left the
+    // head entirely — a dark stick in the air beside a bald temple.
+    const { container } = render(<svg>{hairFor('long', 'human', directionRig('right')).front}</svg>);
+    const locks = container.querySelector('polygon')?.parentElement;
+    expect(locks?.getAttribute('transform')).toMatch(/^translate\(1\.75 0\)$/);
+  });
+
+  it('takes the far lock away once it is behind the head', () => {
+    // Past three-quarters it is on the far cheek of a profile, which is not a place hair shows.
+    const profile = render(<svg>{hairFor('long', 'human', directionRig('right')).front}</svg>);
+    const atProfile = profile.container.querySelectorAll('polygon').length;
+    cleanup();
+    const quarter = render(<svg>{hairFor('long', 'human', directionRig('three_quarter_right')).front}</svg>);
+    expect(quarter.container.querySelectorAll('polygon').length).toBeGreaterThan(atProfile);
   });
 
   it('tucks the far temple behind the face rather than letting it cross the cheek', () => {
