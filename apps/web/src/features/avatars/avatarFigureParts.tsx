@@ -12,7 +12,7 @@ import {
   hornedHelm, jetpack, lantern, legsSneakers, openBook, palette,
   legsStanding, legsWebbed, robedLegs, scaledTail, shield, spellAura,
   staff, sword, torsoRound,
-  type BodySlot, type EarStyle, type SnoutStyle
+  type BodySlot, type EarStyle, type FootwearShape, type HandwearShape, type SnoutStyle
 } from './avatarFullBody';
 import { hairFor, hairStyleDefinitions } from './avatarHair';
 import { directionRig, type DirectionRig } from './avatarDirection';
@@ -68,7 +68,22 @@ interface TopShape {
   skirt?: string;
 }
 
-function topFrom({ cloth, marks, wide, skirt }: TopShape): ReactElement {
+/**
+ * What else is on the torso, in the order it is put on.
+ *
+ * Both live inside the torso group rather than in compositing steps of their own, and that is not
+ * an optimisation. `.torso` is animated — it leans on a run, twists on a strike, compresses into a
+ * cast — so a coat drawn as its own layer stays bolt upright while the body under it leans away.
+ * Same fault as a shoe that does not walk, and the same fix: hand it to the thing that moves.
+ */
+interface TorsoLayers {
+  /** A coat, a poncho, a harness: over the shirt, under anything round the neck. */
+  over?: ReactElement | undefined;
+  /** A scarf, a collar, a pendant: last, because it sits on top of everything else. */
+  neck?: ReactElement | undefined;
+}
+
+function topFrom({ cloth, marks, wide, skirt }: TopShape, extra: TorsoLayers = {}): ReactElement {
   const x = wide ? 15.5 : 17;
   const width = wide ? 17 : 14;
   return (
@@ -84,8 +99,23 @@ function topFrom({ cloth, marks, wide, skirt }: TopShape): ReactElement {
         </>
       ) : null}
       {marks ?? null}
+      {extra.over ?? null}
+      {extra.neck ?? null}
     </g>
   );
+}
+
+/**
+ * A bare torso that still takes a coat and a scarf.
+ *
+ * A child who has chosen an overcoat but no shirt, or who is wearing a character whose own body is
+ * its costume, still has a neck and still has shoulders. Without this the two new drawers did
+ * nothing at all unless a shirt happened to be underneath them, which is not what "change every
+ * part" means.
+ */
+function torsoLayersOnly(extra: TorsoLayers): ReactElement | null {
+  if (!extra.over && !extra.neck) return null;
+  return <g data-part="torso">{extra.over ?? null}{extra.neck ?? null}</g>;
 }
 
 /** A collar in white, which is what makes a uniform a uniform. */
@@ -431,80 +461,80 @@ export function sleeveFor(topId: string | undefined): string {
  * Legs — y 35 to 46, feet on the floor at 46
  * ──────────────────────────────────────────────────────────────────────────── */
 
-const legStyles: Record<string, () => ReactElement> = {
-  trousers: () => legsStanding({ boot: SECONDARY, trouser: PRIMARY, skin: SKIN }),
-  skirt: () => (
+const legStyles: Record<string, (shoe?: FootwearShape) => ReactElement> = {
+  trousers: (shoe) => legsStanding({ boot: SECONDARY, trouser: PRIMARY, skin: SKIN, shoe }),
+  skirt: (shoe) => (
     <g data-part="legs">
-      <g data-part="backLeg">{px(25.5, 39, 4, 4, SKIN)}{px(25, 43, 5, 2.5, SECONDARY)}{px(25, 45.5, 5, 0.5, OUTLINE)}</g>
-      <g data-part="frontLeg">{px(18.5, 39, 4, 4, SKIN)}{px(18, 43, 5, 2.5, SECONDARY)}{px(18, 45.5, 5, 0.5, OUTLINE)}</g>
+      <g data-part="backLeg">{px(25.5, 39, 4, 4, SKIN)}{shoe ? shoe(25) : (<>{px(25, 43, 5, 2.5, SECONDARY)}{px(25, 45.5, 5, 0.5, OUTLINE)}</>)}</g>
+      <g data-part="frontLeg">{px(18.5, 39, 4, 4, SKIN)}{shoe ? shoe(18) : (<>{px(18, 43, 5, 2.5, SECONDARY)}{px(18, 45.5, 5, 0.5, OUTLINE)}</>)}</g>
       {/* The skirt itself, flaring from the waist and stopping above the knee. */}
       <polygon points="17,35 31,35 33,40 15,40" fill={PRIMARY} />
       <polygon points="17,35 24,35 24,40 15,40" fill={PRIMARY_HIGHLIGHT} opacity="0.35" />
       {px(15, 39.5, 18, 1, SECONDARY)}
     </g>
   ),
-  shorts: () => (
+  shorts: (shoe) => (
     <g data-part="legs">
-      <g data-part="backLeg">{px(25, 35, 5, 4, PRIMARY)}{px(25.5, 39, 4, 4, SKIN)}{px(25, 43, 5, 2.5, ACCENT)}{px(25, 45.5, 5, 0.5, OUTLINE)}</g>
-      <g data-part="frontLeg">{px(18, 35, 5, 4, PRIMARY)}{px(18.5, 39, 4, 4, SKIN)}{px(18, 43, 5, 2.5, ACCENT)}{px(18, 45.5, 5, 0.5, OUTLINE)}</g>
+      <g data-part="backLeg">{px(25, 35, 5, 4, PRIMARY)}{px(25.5, 39, 4, 4, SKIN)}{shoe ? shoe(25) : (<>{px(25, 43, 5, 2.5, ACCENT)}{px(25, 45.5, 5, 0.5, OUTLINE)}</>)}</g>
+      <g data-part="frontLeg">{px(18, 35, 5, 4, PRIMARY)}{px(18.5, 39, 4, 4, SKIN)}{shoe ? shoe(18) : (<>{px(18, 43, 5, 2.5, ACCENT)}{px(18, 45.5, 5, 0.5, OUTLINE)}</>)}</g>
     </g>
   ),
-  robehem: () => robedLegs({ boot: ACCENT, trouser: SECONDARY, skin: SKIN }),
-  greaves: () => (
+  robehem: (shoe) => robedLegs({ boot: ACCENT, trouser: SECONDARY, skin: SKIN, shoe }),
+  greaves: (shoe) => (
     <g data-part="legs">
-      <g data-part="backLeg">{px(25, 35, 5, 5, SECONDARY)}{px(25, 40, 5, 3, SECONDARY_SHADOW)}{px(24.5, 43, 6, 3, SECONDARY)}{px(24.5, 43, 6, 0.75, ACCENT)}{px(24, 45.5, 7, 0.5, OUTLINE)}</g>
-      <g data-part="frontLeg">{px(18, 35, 5, 5, SECONDARY)}{px(18, 40, 5, 3, SECONDARY_SHADOW)}{px(17.5, 43, 6, 3, SECONDARY)}{px(17.5, 43, 6, 0.75, ACCENT)}{px(17, 45.5, 7, 0.5, OUTLINE)}</g>
+      <g data-part="backLeg">{px(25, 35, 5, 5, SECONDARY)}{px(25, 40, 5, 3, SECONDARY_SHADOW)}{shoe ? shoe(25) : (<>{px(24.5, 43, 6, 3, SECONDARY)}{px(24.5, 43, 6, 0.75, ACCENT)}{px(24, 45.5, 7, 0.5, OUTLINE)}</>)}</g>
+      <g data-part="frontLeg">{px(18, 35, 5, 5, SECONDARY)}{px(18, 40, 5, 3, SECONDARY_SHADOW)}{shoe ? shoe(18) : (<>{px(17.5, 43, 6, 3, SECONDARY)}{px(17.5, 43, 6, 0.75, ACCENT)}{px(17, 45.5, 7, 0.5, OUTLINE)}</>)}</g>
     </g>
   ),
-  techpants: () => legsSneakers({ boot: SECONDARY, trouser: SECONDARY, skin: SKIN }),
+  techpants: (shoe) => legsSneakers({ boot: SECONDARY, trouser: SECONDARY, skin: SKIN, shoe }),
 
   /* ── Four more legs ──
    * Tops and bottoms multiply, so a bottom is worth as many outfits as there are tops — which made
    * six the number holding the whole wardrobe down. Each of these changes the outline of the leg
    * rather than its colour: a cargo pocket at the thigh, a plate skirt over the knee, a piston at
    * the calf, a hem in two layers. */
-  cargo: () => (
+  cargo: (shoe) => (
     <g data-part="legs">
       <g data-part="backLeg">
         {px(25, 35, 5, 8, SECONDARY)}{px(24.5, 37, 1.5, 3, SECONDARY_SHADOW)}
-        {px(25, 42.5, 5, 0.5, PRIMARY_SHADOW)}{px(24.5, 43, 6, 2.5, PRIMARY)}{px(24, 45.5, 7, 0.5, OUTLINE)}
+        {shoe ? shoe(25) : (<>{px(25, 42.5, 5, 0.5, PRIMARY_SHADOW)}{px(24.5, 43, 6, 2.5, PRIMARY)}{px(24, 45.5, 7, 0.5, OUTLINE)}</>)}
       </g>
       <g data-part="frontLeg">
         {px(18, 35, 5, 8, SECONDARY)}{px(22, 37, 1.5, 3, SECONDARY_SHADOW)}
-        {px(18, 42.5, 5, 0.5, PRIMARY_SHADOW)}{px(17.5, 43, 6, 2.5, PRIMARY)}{px(17, 45.5, 7, 0.5, OUTLINE)}
+        {shoe ? shoe(18) : (<>{px(18, 42.5, 5, 0.5, PRIMARY_SHADOW)}{px(17.5, 43, 6, 2.5, PRIMARY)}{px(17, 45.5, 7, 0.5, OUTLINE)}</>)}
       </g>
     </g>
   ),
-  platelegs: () => (
+  platelegs: (shoe) => (
     <g data-part="legs">
       <g data-part="backLeg">
         {px(25, 35, 5.5, 4, SECONDARY)}{px(25, 35, 5.5, 0.5, ACCENT)}
-        {px(25, 39.5, 5, 3.5, SECONDARY_SHADOW)}{px(24.5, 43, 6, 3, SECONDARY)}{px(24, 45.5, 7, 0.5, OUTLINE)}
+        {px(25, 39.5, 5, 3.5, SECONDARY_SHADOW)}{shoe ? shoe(25) : (<>{px(24.5, 43, 6, 3, SECONDARY)}{px(24, 45.5, 7, 0.5, OUTLINE)}</>)}
       </g>
       <g data-part="frontLeg">
         {px(17.5, 35, 5.5, 4, SECONDARY)}{px(17.5, 35, 5.5, 0.5, ACCENT)}
-        {px(18, 39.5, 5, 3.5, SECONDARY_SHADOW)}{px(17.5, 43, 6, 3, SECONDARY)}{px(17, 45.5, 7, 0.5, OUTLINE)}
+        {px(18, 39.5, 5, 3.5, SECONDARY_SHADOW)}{shoe ? shoe(18) : (<>{px(17.5, 43, 6, 3, SECONDARY)}{px(17, 45.5, 7, 0.5, OUTLINE)}</>)}
       </g>
     </g>
   ),
-  exogreaves: () => (
+  exogreaves: (shoe) => (
     <g data-part="legs">
       <g data-part="backLeg">
         {px(25.5, 35, 4, 5, SECONDARY_SHADOW)}{px(24.5, 36, 1, 4, SECONDARY)}
         {px(25.5, 40, 4, 3, SECONDARY_SHADOW)}{px(26, 40.5, 1, 2, MAGIC)}
-        {px(24.5, 43, 6, 2.5, SECONDARY)}{px(24, 45.5, 7, 0.5, OUTLINE)}
+        {shoe ? shoe(25) : (<>{px(24.5, 43, 6, 2.5, SECONDARY)}{px(24, 45.5, 7, 0.5, OUTLINE)}</>)}
       </g>
       <g data-part="frontLeg">
         {px(18.5, 35, 4, 5, SECONDARY_SHADOW)}{px(22.5, 36, 1, 4, SECONDARY)}
         {px(18.5, 40, 4, 3, SECONDARY_SHADOW)}{px(21, 40.5, 1, 2, MAGIC)}
-        {px(17.5, 43, 6, 2.5, SECONDARY)}{px(17, 45.5, 7, 0.5, OUTLINE)}
+        {shoe ? shoe(18) : (<>{px(17.5, 43, 6, 2.5, SECONDARY)}{px(17, 45.5, 7, 0.5, OUTLINE)}</>)}
       </g>
     </g>
   ),
-  layeredskirt: () => (
+  layeredskirt: (shoe) => (
     <g data-part="legs">
-      <g data-part="backLeg">{px(25.5, 39, 4, 4, SKIN)}{px(25, 43, 5, 2.5, SECONDARY)}{px(25, 45.5, 5, 0.5, OUTLINE)}</g>
-      <g data-part="frontLeg">{px(18.5, 39, 4, 4, SKIN)}{px(18, 43, 5, 2.5, SECONDARY)}{px(18, 45.5, 5, 0.5, OUTLINE)}</g>
+      <g data-part="backLeg">{px(25.5, 39, 4, 4, SKIN)}{shoe ? shoe(25) : (<>{px(25, 43, 5, 2.5, SECONDARY)}{px(25, 45.5, 5, 0.5, OUTLINE)}</>)}</g>
+      <g data-part="frontLeg">{px(18.5, 39, 4, 4, SKIN)}{shoe ? shoe(18) : (<>{px(18, 43, 5, 2.5, SECONDARY)}{px(18, 45.5, 5, 0.5, OUTLINE)}</>)}</g>
       {/* Two hems rather than one, the under-layer wider: that offset is the whole read, and it is
           what a single flared panel cannot say however it is shaded. */}
       <polygon points="17.5,35 30.5,35 32,39 16,39" fill={PRIMARY} />
@@ -512,6 +542,373 @@ const legStyles: Record<string, () => ReactElement> = {
       {px(14, 41.5, 20, 0.5, ACCENT)}
       <polygon points="17.5,35 24,35 24,39 16,39" fill={PRIMARY_HIGHLIGHT} opacity="0.3" />
     </g>
+  )
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Footwear — drawn inside a leg, at y 41 to 46
+ *
+ * Every shape here is authored against the leg's own left edge, so one drawing serves the near leg,
+ * the far leg, and every leg style under it. The floor is y 46 and nothing may cross it: a figure
+ * whose shoe reaches 46.5 is a figure standing half a unit underground, and the ground shadow is
+ * drawn at 46 for everybody.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const sole = (x: number, width = 8) => px(x - (width - 5) / 2, 45.5, width, 0.5, OUTLINE);
+
+const footwearStyles: Record<string, FootwearShape> = {
+  none: () => <g />,
+  /** The school shoe: flat, dark, a strap across the instep. Free, and the one everybody starts in. */
+  schoolshoe: (x) => (
+    <g>
+      {px(x - 0.5, 42.5, 6, 3, SECONDARY_SHADOW)}
+      {px(x - 0.5, 42.5, 6, 0.75, SECONDARY)}
+      {px(x + 1, 43.5, 3, 0.75, ACCENT)}
+      {sole(x, 7)}
+    </g>
+  ),
+  /** High-top trainer: a thick white sole is the whole read at this size. */
+  trainer: (x) => (
+    <g>
+      {px(x - 0.5, 41, 6, 3.5, PRIMARY)}
+      {px(x - 0.5, 41, 6, 1, PRIMARY_HIGHLIGHT)}
+      {px(x - 0.5, 42.5, 4, 0.75, ACCENT)}
+      {px(x - 1, 44, 7, 1.5, WHITE)}
+      {sole(x, 7)}
+    </g>
+  ),
+  /** Canvas plimsoll: low, soft, a rubber toe cap. */
+  plimsoll: (x) => (
+    <g>
+      {px(x - 0.5, 43, 6, 2.5, PRIMARY)}
+      {px(x + 3, 43, 2.5, 2.5, WHITE)}
+      {px(x - 0.5, 43, 6, 0.5, PRIMARY_HIGHLIGHT)}
+      {sole(x, 7)}
+    </g>
+  ),
+  /** Knee boot: the shaft is the silhouette, so it runs from the calf rather than the ankle. */
+  kneeboot: (x) => (
+    <g>
+      {px(x + 0.5, 38, 4, 6, SECONDARY)}
+      {px(x + 0.5, 38, 1, 6, 'var(--av-secondary-highlight)')}
+      {px(x - 0.5, 43.5, 6, 2, SECONDARY_SHADOW)}
+      {px(x + 0.5, 38, 4, 0.75, ACCENT)}
+      {sole(x, 7)}
+    </g>
+  ),
+  /** Buckled boot: two straps across a heavy shaft. */
+  buckleboot: (x) => (
+    <g>
+      {px(x, 40, 5, 4.5, SECONDARY_SHADOW)}
+      {px(x - 0.5, 43.5, 6, 2, SECONDARY)}
+      {px(x, 41, 5, 0.75, ACCENT)}
+      {px(x, 42.5, 5, 0.75, ACCENT)}
+      {sole(x, 7)}
+    </g>
+  ),
+  /** Steel sabaton: plate over the instep, a lit rim along the toe. */
+  sabaton: (x) => (
+    <g>
+      {px(x - 0.5, 41.5, 6, 2, SECONDARY)}
+      {px(x - 1, 43.5, 7, 2, SECONDARY)}
+      {px(x - 1, 43.5, 7, 0.75, 'var(--av-secondary-highlight)')}
+      {px(x + 3.5, 44, 2.5, 1.5, ACCENT)}
+      {sole(x, 8)}
+    </g>
+  ),
+  /** Sandal: straps and a bare foot, which is mostly what is *not* drawn. */
+  sandal: (x) => (
+    <g>
+      {px(x + 0.5, 42.5, 4, 0.75, SECONDARY)}
+      {px(x + 0.5, 44, 4, 0.75, SECONDARY)}
+      {px(x, 44.75, 5, 0.75, ACCENT)}
+      {sole(x, 6)}
+    </g>
+  ),
+  /** Hover plate: no contact at all, so it carries its own lit underside instead of a sole. */
+  hoverplate: (x) => (
+    <g>
+      {px(x - 0.5, 42.5, 6, 2, SECONDARY_SHADOW)}
+      {px(x - 0.5, 42.5, 6, 0.5, 'var(--av-secondary-highlight)')}
+      {px(x, 44.75, 5, 0.75, MAGIC)}
+      <g opacity="0.4">{px(x - 1, 45.5, 7, 0.5, MAGIC_HIGHLIGHT)}</g>
+    </g>
+  ),
+  /** Rune-stitched boot: a soft shaft with a lit glyph on the outside. */
+  runeboot: (x) => (
+    <g>
+      {px(x, 39.5, 5, 5, MAGIC)}
+      {px(x, 39.5, 5, 0.75, MAGIC_HIGHLIGHT)}
+      {px(x - 0.5, 43.5, 6, 2, 'var(--av-magic-shadow)')}
+      {px(x + 1.5, 41, 1, 2.5, MAGIC_HIGHLIGHT)}
+      {px(x + 0.5, 42, 3, 0.75, MAGIC_HIGHLIGHT)}
+      {sole(x, 7)}
+    </g>
+  ),
+  /** Skate: a blade under the sole, which is the only footwear here that changes the outline below it. */
+  skate: (x) => (
+    <g>
+      {px(x - 0.5, 41.5, 6, 3, WHITE)}
+      {px(x - 0.5, 41.5, 6, 0.75, ACCENT)}
+      {px(x - 1, 44.5, 7, 0.75, SECONDARY_SHADOW)}
+      {px(x - 1, 45.5, 7, 0.5, 'var(--av-accent-highlight)')}
+    </g>
+  ),
+  /** Talon guard: an open cage that leaves a clawed foot showing, for anything that has claws. */
+  talonguard: (x) => (
+    <g>
+      {px(x, 41.5, 5, 1.5, SECONDARY)}
+      {px(x - 0.5, 43, 6, 1, SECONDARY_SHADOW)}
+      {px(x - 0.5, 44, 1.5, 1.5, WHITE)}
+      {px(x + 1.75, 44, 1.5, 1.5, WHITE)}
+      {px(x + 4, 44, 1.5, 1.5, WHITE)}
+      {sole(x, 7)}
+    </g>
+  ),
+  /** Thruster boot: a vent at the heel and a lit ring, for the chassis families. */
+  thrusterboot: (x) => (
+    <g>
+      {px(x - 0.5, 41.5, 6, 3, SECONDARY_SHADOW)}
+      {px(x - 0.5, 41.5, 6, 0.75, ACCENT)}
+      {px(x - 1, 43.5, 2, 2, SECONDARY)}
+      {px(x - 1, 44.5, 2, 0.75, MAGIC_HIGHLIGHT)}
+      {sole(x, 8)}
+    </g>
+  )
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Handwear — drawn inside an arm, at the hand
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const handwearStyles: Record<string, HandwearShape> = {
+  none: () => <g />,
+  /** A plain knitted glove: the cuff is the tell, because the hand itself is three pixels. */
+  knitglove: (x, mirrored) => (
+    <g>
+      {px(x + 0.25, 27.5, 3, 1.25, SECONDARY)}
+      {px(x + 0.25, 28.75, 3, 3.75, SECONDARY_SHADOW)}
+      {px(mirrored ? x + 0.25 : x + 2.5, 28.75, 0.75, 3.75, 'var(--av-secondary-highlight)')}
+    </g>
+  ),
+  /** Fingerless: the cuff stops and the hand carries on, which is the whole silhouette. */
+  fingerless: (x) => (
+    <g>
+      {px(x + 0.25, 27.5, 3, 2.5, SECONDARY)}
+      {px(x + 0.25, 27.5, 3, 0.75, ACCENT)}
+    </g>
+  ),
+  /** A gauntlet: plate to the wrist with a lit knuckle band. */
+  gauntlet: (x) => (
+    <g>
+      {px(x - 0.25, 26.5, 3.5, 2, SECONDARY)}
+      {px(x + 0.25, 28.5, 3, 4, SECONDARY)}
+      {px(x + 0.25, 30, 3, 0.75, ACCENT)}
+      {px(x - 0.25, 26.5, 3.5, 0.75, 'var(--av-secondary-highlight)')}
+    </g>
+  ),
+  /** A long opera glove: the only one that reaches past the elbow. */
+  longglove: (x) => (
+    <g>
+      {px(x + 0.25, 24, 3, 8.5, WHITE)}
+      {px(x + 0.25, 24, 3, 0.75, ACCENT)}
+      {px(x + 0.25, 31, 3, 1.5, 'var(--av-accent-highlight)')}
+    </g>
+  ),
+  /** A wrapped hand: bandage over the knuckles, for the fighters. */
+  handwrap: (x) => (
+    <g>
+      {px(x + 0.25, 28, 3, 0.75, WHITE)}
+      {px(x + 0.25, 29.25, 3, 0.75, WHITE)}
+      {px(x + 0.25, 30.5, 3, 0.75, WHITE)}
+    </g>
+  ),
+  /** A cyber hand: a lit seam down the back of it. */
+  cyberhand: (x) => (
+    <g>
+      {px(x + 0.25, 27.5, 3, 5, SECONDARY_SHADOW)}
+      {px(x + 1.25, 28, 1, 4, MAGIC)}
+      {px(x + 0.25, 27.5, 3, 0.75, MAGIC_HIGHLIGHT)}
+    </g>
+  ),
+  /** A claw guard: three points past the fingers. */
+  clawguard: (x) => (
+    <g>
+      {px(x + 0.25, 27.5, 3, 3, SECONDARY)}
+      {px(x + 0.25, 30.5, 0.75, 2, WHITE)}
+      {px(x + 1.5, 30.5, 0.75, 2, WHITE)}
+      {px(x + 2.75, 30.5, 0.75, 2, WHITE)}
+    </g>
+  ),
+  /** A rune band: not a glove at all, which is why it reads differently from the rest. */
+  runeband: (x) => (
+    <g>
+      {px(x - 0.25, 27, 3.5, 1.5, MAGIC)}
+      {px(x - 0.25, 27, 3.5, 0.5, MAGIC_HIGHLIGHT)}
+      <g opacity="0.45">{px(x - 0.75, 26.5, 4.5, 2.5, MAGIC)}</g>
+    </g>
+  )
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Outerwear and neckwear — drawn inside the torso
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const outerwearStyles: Record<string, () => ReactElement> = {
+  none: () => <g />,
+  /** An open coat: two panels down the sides with the shirt showing between them. */
+  opencoat: () => (
+    <>
+      {px(15.5, 21, 4, 14, SECONDARY)}
+      {px(28.5, 21, 4, 14, SECONDARY)}
+      {px(15.5, 21, 4, 1, 'var(--av-secondary-highlight)')}
+      {px(28.5, 21, 4, 1, 'var(--av-secondary-highlight)')}
+      {px(15.5, 33.5, 4, 1, SECONDARY_SHADOW)}
+      {px(28.5, 33.5, 4, 1, SECONDARY_SHADOW)}
+    </>
+  ),
+  /** A gilet: cropped, quilted, no sleeves — so it stops at the waist and never past the shoulder. */
+  gilet: () => (
+    <>
+      {px(16, 21, 4, 11, PRIMARY)}
+      {px(28, 21, 4, 11, PRIMARY)}
+      {px(16, 24, 4, 0.75, PRIMARY_SHADOW)}
+      {px(28, 24, 4, 0.75, PRIMARY_SHADOW)}
+      {px(16, 27.5, 4, 0.75, PRIMARY_SHADOW)}
+      {px(28, 27.5, 4, 0.75, PRIMARY_SHADOW)}
+    </>
+  ),
+  /** A hooded cloak: shoulders and a hood roll above them. */
+  hoodedcloak: () => (
+    <>
+      {px(15, 20.5, 18, 3, SECONDARY_SHADOW)}
+      {px(18, 18.5, 12, 2.5, SECONDARY)}
+      {px(18, 18.5, 12, 0.75, 'var(--av-secondary-highlight)')}
+      {px(15, 23.5, 3.5, 12, SECONDARY_SHADOW)}
+      {px(29.5, 23.5, 3.5, 12, SECONDARY_SHADOW)}
+    </>
+  ),
+  /** A tabard: one panel front and centre, belted. The heraldry slot. */
+  tabard: () => (
+    <>
+      {px(20, 21, 8, 13, ACCENT)}
+      {px(20, 21, 8, 0.75, 'var(--av-accent-highlight)')}
+      {px(17, 27.5, 14, 1.5, SECONDARY_SHADOW)}
+      {px(22.5, 23.5, 3, 3, WHITE)}
+    </>
+  ),
+  /** A harness: straps rather than cloth, so the shirt under it is the visible half. */
+  harness: () => (
+    <>
+      {px(19, 21, 1.5, 13, SECONDARY_SHADOW)}
+      {px(27.5, 21, 1.5, 13, SECONDARY_SHADOW)}
+      {px(17, 26, 14, 1.5, SECONDARY_SHADOW)}
+      {px(22.5, 25.5, 3, 2.5, ACCENT)}
+    </>
+  ),
+  /** A lab overcoat: long, white, open, with the hem below the waist. */
+  overcoat: () => (
+    <>
+      {px(15.5, 21, 3.5, 15, WHITE)}
+      {px(29, 21, 3.5, 15, WHITE)}
+      {px(15.5, 21, 3.5, 1, 'var(--av-primary-highlight)')}
+      {px(29, 21, 3.5, 1, 'var(--av-primary-highlight)')}
+      {px(16.5, 29, 2, 2.5, SECONDARY_SHADOW)}
+    </>
+  ),
+  /** A circuit mantle: lit traces down two narrow panels. */
+  circuitmantle: () => (
+    <>
+      {px(16, 21, 3, 13, SECONDARY_SHADOW)}
+      {px(29, 21, 3, 13, SECONDARY_SHADOW)}
+      {px(17, 22, 1, 11, MAGIC)}
+      {px(30, 22, 1, 11, MAGIC)}
+      {px(16, 21, 3, 0.75, MAGIC_HIGHLIGHT)}
+      {px(29, 21, 3, 0.75, MAGIC_HIGHLIGHT)}
+    </>
+  ),
+  /** Feathered pauldrons over the shoulders and nothing below them. */
+  plumemantle: () => (
+    <>
+      {px(15, 20.5, 6, 4, WHITE)}
+      {px(27, 20.5, 6, 4, WHITE)}
+      {px(15, 24, 6, 0.75, ACCENT)}
+      {px(27, 24, 6, 0.75, ACCENT)}
+      {px(20, 20.5, 8, 1.5, WHITE)}
+    </>
+  )
+};
+
+const neckwearStyles: Record<string, () => ReactElement> = {
+  none: () => <g />,
+  /** A school tie, which is the one every uniform in the country already has. */
+  schooltie: () => (
+    <>
+      {px(21.5, 21, 5, 1.5, WHITE)}
+      {px(23.25, 22.5, 1.5, 5, ACCENT)}
+      {px(23.25, 22.5, 1.5, 1, 'var(--av-accent-highlight)')}
+    </>
+  ),
+  /** A long scarf: round the neck and hanging down one side. */
+  longscarf: () => (
+    <>
+      {px(19.5, 20.5, 9, 2.5, ACCENT)}
+      {px(19.5, 20.5, 9, 0.75, 'var(--av-accent-highlight)')}
+      {px(20, 23, 2.5, 8, ACCENT)}
+      {px(20, 30, 2.5, 1, 'var(--av-accent-shadow)')}
+    </>
+  ),
+  /** A bow, centred under the chin. */
+  ribbonbow: () => (
+    <>
+      {px(21, 21, 6, 1.25, ACCENT)}
+      {px(20.5, 21.5, 2.5, 2, ACCENT)}
+      {px(25, 21.5, 2.5, 2, ACCENT)}
+      {px(23, 21.5, 2, 2, 'var(--av-accent-shadow)')}
+    </>
+  ),
+  /** A fur collar: a soft ring that breaks the shoulder line. */
+  furcollar: () => (
+    <>
+      {px(18.5, 19.5, 11, 3, WHITE)}
+      {px(18.5, 19.5, 11, 0.75, 'var(--av-primary-highlight)')}
+      {px(19.5, 22.5, 9, 0.75, SECONDARY_SHADOW)}
+    </>
+  ),
+  /** A pendant on a cord: the smallest thing in the drawer, and readable because it is lit. */
+  pendant: () => (
+    <>
+      {px(21, 21, 6, 0.75, SECONDARY_SHADOW)}
+      {px(23.5, 21.75, 1, 2, SECONDARY_SHADOW)}
+      {px(22.5, 23.75, 3, 3, MAGIC)}
+      {px(23.25, 24.5, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+    </>
+  ),
+  /** A high gorget: metal, and the only one that covers the throat entirely. */
+  gorget: () => (
+    <>
+      {px(19, 19, 10, 3.5, SECONDARY)}
+      {px(19, 19, 10, 0.75, 'var(--av-secondary-highlight)')}
+      {px(19, 22, 10, 0.75, SECONDARY_SHADOW)}
+      {px(23, 20, 2, 1.5, ACCENT)}
+    </>
+  ),
+  /** A neon choker: a lit band and a drop. */
+  neonchoker: () => (
+    <>
+      {px(20.5, 20.75, 7, 1.25, MAGIC)}
+      {px(20.5, 20.75, 7, 0.5, MAGIC_HIGHLIGHT)}
+      {px(23.5, 22, 1, 1.5, MAGIC_HIGHLIGHT)}
+    </>
+  ),
+  /** A bell collar, for anything with ears. */
+  bellcollar: () => (
+    <>
+      {px(20, 20.75, 8, 1.5, ACCENT)}
+      {px(20, 20.75, 8, 0.5, 'var(--av-accent-highlight)')}
+      {px(23, 22.25, 2, 2, WHITE)}
+      {px(23.5, 23, 1, 1, OUTLINE)}
+    </>
   )
 };
 
@@ -1550,6 +1947,35 @@ export function figureSlotsFor(
   const fx = fxId ? effects[baseOf(fxId)] : undefined;
 
   /*
+   * The four that go inside something else.
+   *
+   * None of these is a compositing step. A shoe belongs to a foot and a foot swings; a glove belongs
+   * to a hand and a hand swings; a coat and a scarf belong to a torso that leans, twists and
+   * compresses. Drawn as layers of their own they would all stand perfectly still while the body
+   * moved out from under them — the fault that hair had until the head became one thing — so each is
+   * handed to the part that actually moves and drawn inside its group.
+   *
+   * `none` is a real row in each table and resolves to nothing, which is how a child takes a thing
+   * off rather than swapping it for something else.
+   */
+  const shoeId = layerOf(config, 'footwear');
+  const shoe = shoeId && baseOf(shoeId) !== 'none' ? footwearStyles[baseOf(shoeId)] : undefined;
+
+  const gloveId = layerOf(config, 'handwear');
+  const glove = gloveId && baseOf(gloveId) !== 'none' ? handwearStyles[baseOf(gloveId)] : undefined;
+
+  const coatId = layerOf(config, 'outerwear');
+  const coat = coatId && baseOf(coatId) !== 'none' ? outerwearStyles[baseOf(coatId)] : undefined;
+
+  const collarId = layerOf(config, 'neckwear');
+  const collar = collarId && baseOf(collarId) !== 'none' ? neckwearStyles[baseOf(collarId)] : undefined;
+
+  const torsoExtra = {
+    ...(coat ? { over: coat() } : {}),
+    ...(collar ? { neck: collar() } : {})
+  };
+
+  /*
    * A tail belongs to the race unless the child chose something else to wear on their back.
    *
    * Both live in the same slot, because a cape and a tail are the same z-position and drawing them
@@ -1624,11 +2050,25 @@ export function figureSlotsFor(
     slots.back_arm = flipperArm('back');
     slots.front_arm_weapon = flipperArm('front');
   } else {
-    if (top) slots.torso_body = topFrom(top);
-    if (bottom) slots.legs_feet = bottom();
-    if (top || holding) {
-      slots.back_arm = backArm({ sleeve, skin: SKIN });
-      slots.front_arm_weapon = frontArm({ sleeve, skin: SKIN }, holding);
+    /*
+     * A coat, a scarf, a shoe or a glove is reason enough to draw the part it goes on.
+     *
+     * Each of these used to be gated behind the garment under it: no shirt meant no torso group, so
+     * an overcoat drew nothing; no trousers meant no legs, so a pair of boots drew nothing; and the
+     * arms only existed when there was a sleeve or something in the hand, so gloves drew nothing.
+     * A child who put on only the new thing saw no change at all, which is the worst possible answer
+     * — it reads as the drawer being broken rather than as a choice not taken.
+     */
+    if (top) slots.torso_body = topFrom(top, torsoExtra);
+    else {
+      const bare = torsoLayersOnly(torsoExtra);
+      if (bare) slots.torso_body = bare;
+    }
+    if (bottom) slots.legs_feet = bottom(shoe);
+    else if (shoe) slots.legs_feet = legsStanding({ boot: SECONDARY, trouser: PRIMARY, skin: SKIN, shoe });
+    if (top || holding || glove) {
+      slots.back_arm = backArm({ sleeve, skin: SKIN, cuff: glove });
+      slots.front_arm_weapon = frontArm({ sleeve, skin: SKIN, cuff: glove }, holding);
     }
   }
 
@@ -1670,7 +2110,8 @@ export function hasFigureChoices(config: AvatarConfigV2 | null | undefined): boo
 /** Exposed for the tests that check every id in the trait tables has somewhere to be drawn. */
 export const figurePartTables = {
   tops, legStyles, backGear, heldItems, hairStyles: hairStyleDefinitions, headpieces, faceStyles,
-  eyewear, auras, effects, races
+  eyewear, auras, effects, races,
+  footwearStyles, handwearStyles, outerwearStyles, neckwearStyles
 };
 
 /** Re-exported so a caller composing a figure does not have to import from two places. */

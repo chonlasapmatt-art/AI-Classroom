@@ -693,6 +693,70 @@ export const bottoms: Sprite[] = [
   { id: 'layeredskirt', name: 'กระโปรงซ้อนชั้น', tags: ['skirt', 'fantasy', 'กระโปรง'], price: 70, draw: () => (<g>{px(6.5, 20.5, 11, 1.5, PRIMARY)}{px(5.5, 21.5, 13, 1.5, PRIMARY_SHADOW)}{px(5.5, 23, 13, 0.5, ACCENT)}{px(6.5, 20.5, 11, 0.5, PRIMARY_HIGHLIGHT)}</g>) }
 ];
 
+/* ────────────────────────────── the four new drawers ──────────────────────────────
+ *
+ * Shoes, gloves, a coat over the shirt, something round the neck. None of them existed, which is why
+ * "เปลี่ยนได้ทุกส่วน" was not true however many shirts the drawer held.
+ *
+ * These are the 24-grid drawings, and they are what the customiser's tiles show. The figure has its
+ * own set on the 48-grid — a tile is a thumbnail and a figure is a body, and a drawing that reads at
+ * one size does not automatically read at the other. Both are keyed by the same id, and the test
+ * beside them refuses a piece that has only one of the two.
+ *
+ * Bands: feet 21–23.5, hands 20–23, the coat 17–20.5, the neck 16.5–18.
+ */
+export const footwear: Sprite[] = [
+  { id: 'none', name: 'เท้าเปล่า', tags: ['none'], draw: () => <g /> },
+  { id: 'schoolshoe', name: 'รองเท้านักเรียน', tags: ['school', 'นักเรียน'], draw: () => (<g>{px(6, 21.5, 5, 2, SECONDARY_SHADOW)}{px(13, 21.5, 5, 2, SECONDARY_SHADOW)}{px(6, 21.5, 5, 0.5, SECONDARY)}{px(13, 21.5, 5, 0.5, SECONDARY)}</g>) },
+  { id: 'trainer', name: 'รองเท้าผ้าใบหุ้มข้อ', tags: ['sneaker', 'ผ้าใบ'], price: 40, draw: () => (<g>{px(6, 20.5, 5, 2, PRIMARY)}{px(13, 20.5, 5, 2, PRIMARY)}{px(6, 22.5, 5, 1, WHITE)}{px(13, 22.5, 5, 1, WHITE)}{px(6, 21, 3, 0.5, ACCENT)}{px(13, 21, 3, 0.5, ACCENT)}</g>) },
+  { id: 'plimsoll', name: 'รองเท้าผ้าใบพื้นเรียบ', tags: ['canvas', 'ผ้าใบ'], draw: () => (<g>{px(6, 21.5, 5, 2, PRIMARY)}{px(13, 21.5, 5, 2, PRIMARY)}{px(9.5, 21.5, 1.5, 2, WHITE)}{px(16.5, 21.5, 1.5, 2, WHITE)}</g>) },
+  { id: 'kneeboot', name: 'บูททรงสูง', tags: ['boot', 'บูท'], price: 70, draw: () => (<g>{px(6.5, 18.5, 4, 5, SECONDARY)}{px(13.5, 18.5, 4, 5, SECONDARY)}{px(6, 22, 5, 1.5, SECONDARY_SHADOW)}{px(13, 22, 5, 1.5, SECONDARY_SHADOW)}{px(6.5, 18.5, 4, 0.5, ACCENT)}{px(13.5, 18.5, 4, 0.5, ACCENT)}</g>) },
+  { id: 'buckleboot', name: 'บูทหัวเข็มขัด', tags: ['boot', 'buckle'], price: 60, draw: () => (<g>{px(6.5, 20, 4, 3.5, SECONDARY_SHADOW)}{px(13.5, 20, 4, 3.5, SECONDARY_SHADOW)}{px(6.5, 20.5, 4, 0.5, ACCENT)}{px(13.5, 20.5, 4, 0.5, ACCENT)}{px(6.5, 22, 4, 0.5, ACCENT)}{px(13.5, 22, 4, 0.5, ACCENT)}</g>) },
+  { id: 'sabaton', name: 'เกราะเท้าเหล็ก', tags: ['armor', 'เกราะ'], price: 110, draw: () => (<g>{px(6, 20.5, 5, 1.5, SECONDARY)}{px(13, 20.5, 5, 1.5, SECONDARY)}{px(5.5, 22, 6, 1.5, SECONDARY)}{px(12.5, 22, 6, 1.5, SECONDARY)}{px(5.5, 22, 6, 0.5, 'var(--av-secondary-highlight)')}{px(12.5, 22, 6, 0.5, 'var(--av-secondary-highlight)')}</g>) },
+  { id: 'sandal', name: 'รองเท้าแตะรัดส้น', tags: ['sandal', 'แตะ'], draw: () => (<g>{px(6, 21.5, 5, 0.5, SECONDARY)}{px(13, 21.5, 5, 0.5, SECONDARY)}{px(6, 22.5, 5, 0.5, SECONDARY)}{px(13, 22.5, 5, 0.5, SECONDARY)}{px(5.5, 23, 6, 0.5, ACCENT)}{px(12.5, 23, 6, 0.5, ACCENT)}</g>) },
+  { id: 'hoverplate', name: 'แผ่นลอยใต้เท้า', tags: ['tech', 'hover'], price: 130, draw: () => (<g>{px(6, 21, 5, 1.5, SECONDARY_SHADOW)}{px(13, 21, 5, 1.5, SECONDARY_SHADOW)}{px(6, 23, 5, 0.5, MAGIC)}{px(13, 23, 5, 0.5, MAGIC)}<g opacity="0.4">{px(5.5, 23.5, 6, 0.5, MAGIC_HIGHLIGHT)}{px(12.5, 23.5, 6, 0.5, MAGIC_HIGHLIGHT)}</g></g>) },
+  { id: 'runeboot', name: 'บูทอักขระ', tags: ['rune', 'mage'], price: 120, draw: () => (<g>{px(6.5, 19, 4, 4.5, MAGIC)}{px(13.5, 19, 4, 4.5, MAGIC)}{px(6.5, 19, 4, 0.5, MAGIC_HIGHLIGHT)}{px(13.5, 19, 4, 0.5, MAGIC_HIGHLIGHT)}{px(7.5, 20.5, 1, 2, MAGIC_HIGHLIGHT)}{px(14.5, 20.5, 1, 2, MAGIC_HIGHLIGHT)}</g>) },
+  { id: 'skate', name: 'รองเท้าสเก็ต', tags: ['skate', 'ice'], price: 90, draw: () => (<g>{px(6, 20.5, 5, 2, WHITE)}{px(13, 20.5, 5, 2, WHITE)}{px(6, 20.5, 5, 0.5, ACCENT)}{px(13, 20.5, 5, 0.5, ACCENT)}{px(5.5, 23, 6, 0.5, 'var(--av-accent-highlight)')}{px(12.5, 23, 6, 0.5, 'var(--av-accent-highlight)')}</g>) },
+  { id: 'talonguard', name: 'ปลอกกรงเล็บ', tags: ['claw', 'beast'], price: 80, draw: () => (<g>{px(6.5, 20.5, 4, 1, SECONDARY)}{px(13.5, 20.5, 4, 1, SECONDARY)}{px(6, 21.5, 5, 1, SECONDARY_SHADOW)}{px(13, 21.5, 5, 1, SECONDARY_SHADOW)}{px(6, 22.5, 1, 1, WHITE)}{px(8, 22.5, 1, 1, WHITE)}{px(10, 22.5, 1, 1, WHITE)}{px(13, 22.5, 1, 1, WHITE)}{px(15, 22.5, 1, 1, WHITE)}{px(17, 22.5, 1, 1, WHITE)}</g>) },
+  { id: 'thrusterboot', name: 'บูทไอพ่น', tags: ['tech', 'thruster'], price: 140, draw: () => (<g>{px(6, 20.5, 5, 2, SECONDARY_SHADOW)}{px(13, 20.5, 5, 2, SECONDARY_SHADOW)}{px(6, 20.5, 5, 0.5, ACCENT)}{px(13, 20.5, 5, 0.5, ACCENT)}{px(5.5, 22.5, 2, 1, MAGIC_HIGHLIGHT)}{px(12.5, 22.5, 2, 1, MAGIC_HIGHLIGHT)}</g>) }
+];
+
+export const handwear: Sprite[] = [
+  { id: 'none', name: 'มือเปล่า', tags: ['none'], draw: () => <g /> },
+  { id: 'knitglove', name: 'ถุงมือไหมพรม', tags: ['glove', 'ถุงมือ'], draw: () => (<g>{px(4.5, 20, 1.5, 1, SECONDARY)}{px(18, 20, 1.5, 1, SECONDARY)}{px(4.5, 21, 1.5, 2, SECONDARY_SHADOW)}{px(18, 21, 1.5, 2, SECONDARY_SHADOW)}</g>) },
+  { id: 'fingerless', name: 'ถุงมือไม่หุ้มนิ้ว', tags: ['glove', 'street'], price: 30, draw: () => (<g>{px(4.5, 20, 1.5, 1.5, SECONDARY)}{px(18, 20, 1.5, 1.5, SECONDARY)}{px(4.5, 20, 1.5, 0.5, ACCENT)}{px(18, 20, 1.5, 0.5, ACCENT)}</g>) },
+  { id: 'gauntlet', name: 'ถุงมือเกราะ', tags: ['armor', 'เกราะ'], price: 90, draw: () => (<g>{px(4, 19, 2, 1.5, SECONDARY)}{px(18, 19, 2, 1.5, SECONDARY)}{px(4.5, 20.5, 1.5, 2.5, SECONDARY)}{px(18, 20.5, 1.5, 2.5, SECONDARY)}{px(4.5, 21.5, 1.5, 0.5, ACCENT)}{px(18, 21.5, 1.5, 0.5, ACCENT)}</g>) },
+  { id: 'longglove', name: 'ถุงมือยาว', tags: ['glove', 'formal'], price: 70, draw: () => (<g>{px(4.5, 17, 1.5, 6, WHITE)}{px(18, 17, 1.5, 6, WHITE)}{px(4.5, 17, 1.5, 0.5, ACCENT)}{px(18, 17, 1.5, 0.5, ACCENT)}</g>) },
+  { id: 'handwrap', name: 'ผ้าพันมือ', tags: ['wrap', 'fighter'], price: 40, draw: () => (<g>{px(4.5, 20, 1.5, 0.5, WHITE)}{px(18, 20, 1.5, 0.5, WHITE)}{px(4.5, 21, 1.5, 0.5, WHITE)}{px(18, 21, 1.5, 0.5, WHITE)}{px(4.5, 22, 1.5, 0.5, WHITE)}{px(18, 22, 1.5, 0.5, WHITE)}</g>) },
+  { id: 'cyberhand', name: 'มือกล', tags: ['cyber', 'tech'], price: 110, draw: () => (<g>{px(4.5, 20, 1.5, 3, SECONDARY_SHADOW)}{px(18, 20, 1.5, 3, SECONDARY_SHADOW)}{px(5, 20.5, 0.5, 2, MAGIC)}{px(18.5, 20.5, 0.5, 2, MAGIC)}</g>) },
+  { id: 'clawguard', name: 'ปลอกเล็บมือ', tags: ['claw', 'beast'], price: 80, draw: () => (<g>{px(4.5, 20, 1.5, 1.5, SECONDARY)}{px(18, 20, 1.5, 1.5, SECONDARY)}{px(4.5, 21.5, 0.5, 1, WHITE)}{px(5.5, 21.5, 0.5, 1, WHITE)}{px(18, 21.5, 0.5, 1, WHITE)}{px(19, 21.5, 0.5, 1, WHITE)}</g>) },
+  { id: 'runeband', name: 'กำไลอาคม', tags: ['rune', 'mage'], price: 100, draw: () => (<g>{px(4, 19.5, 2, 1, MAGIC)}{px(18, 19.5, 2, 1, MAGIC)}{px(4, 19.5, 2, 0.5, MAGIC_HIGHLIGHT)}{px(18, 19.5, 2, 0.5, MAGIC_HIGHLIGHT)}</g>) }
+];
+
+export const outerwear: Sprite[] = [
+  { id: 'none', name: 'ไม่ใส่ทับ', tags: ['none'], draw: () => <g /> },
+  { id: 'opencoat', name: 'โค้ทเปิดหน้า', tags: ['coat', 'โค้ท'], price: 60, draw: () => (<g>{px(5.5, 17, 3, 6, SECONDARY)}{px(15.5, 17, 3, 6, SECONDARY)}{px(5.5, 17, 3, 0.5, 'var(--av-secondary-highlight)')}{px(15.5, 17, 3, 0.5, 'var(--av-secondary-highlight)')}</g>) },
+  { id: 'gilet', name: 'เสื้อกั๊กดาวน์', tags: ['vest', 'กั๊ก'], price: 50, draw: () => (<g>{px(6, 17, 3, 5, PRIMARY)}{px(15, 17, 3, 5, PRIMARY)}{px(6, 19, 3, 0.5, PRIMARY_SHADOW)}{px(15, 19, 3, 0.5, PRIMARY_SHADOW)}{px(6, 20.5, 3, 0.5, PRIMARY_SHADOW)}{px(15, 20.5, 3, 0.5, PRIMARY_SHADOW)}</g>) },
+  { id: 'hoodedcloak', name: 'ผ้าคลุมมีฮู้ด', tags: ['cloak', 'hood'], price: 90, draw: () => (<g>{px(5, 16.5, 14, 1.5, SECONDARY_SHADOW)}{px(8, 15, 8, 1.5, SECONDARY)}{px(8, 15, 8, 0.5, 'var(--av-secondary-highlight)')}{px(5, 18, 2.5, 5, SECONDARY_SHADOW)}{px(16.5, 18, 2.5, 5, SECONDARY_SHADOW)}</g>) },
+  { id: 'tabard', name: 'เสื้อคลุมตราประจำตัว', tags: ['tabard', 'heraldry'], price: 80, draw: () => (<g>{px(9, 17, 6, 6, ACCENT)}{px(9, 17, 6, 0.5, 'var(--av-accent-highlight)')}{px(6, 20, 12, 1, SECONDARY_SHADOW)}{px(10.5, 18, 3, 1.5, WHITE)}</g>) },
+  { id: 'harness', name: 'สายรัดอก', tags: ['harness', 'strap'], price: 50, draw: () => (<g>{px(8.5, 17, 1, 6, SECONDARY_SHADOW)}{px(14.5, 17, 1, 6, SECONDARY_SHADOW)}{px(6, 19.5, 12, 1, SECONDARY_SHADOW)}{px(10.5, 19, 3, 1.5, ACCENT)}</g>) },
+  { id: 'overcoat', name: 'โค้ทยาว', tags: ['coat', 'long'], price: 100, draw: () => (<g>{px(5.5, 17, 2.5, 6.5, WHITE)}{px(16, 17, 2.5, 6.5, WHITE)}{px(5.5, 17, 2.5, 0.5, 'var(--av-primary-highlight)')}{px(16, 17, 2.5, 0.5, 'var(--av-primary-highlight)')}{px(6, 21, 1.5, 1, SECONDARY_SHADOW)}</g>) },
+  { id: 'circuitmantle', name: 'ผ้าคลุมวงจร', tags: ['cyber', 'neon'], price: 130, draw: () => (<g>{px(6, 17, 2.5, 6, SECONDARY_SHADOW)}{px(15.5, 17, 2.5, 6, SECONDARY_SHADOW)}{px(7, 17.5, 0.5, 5, MAGIC)}{px(16.5, 17.5, 0.5, 5, MAGIC)}{px(6, 17, 2.5, 0.5, MAGIC_HIGHLIGHT)}{px(15.5, 17, 2.5, 0.5, MAGIC_HIGHLIGHT)}</g>) },
+  { id: 'plumemantle', name: 'ไหล่ขนนก', tags: ['feather', 'ขนนก'], price: 120, draw: () => (<g>{px(5, 16.5, 4, 2.5, WHITE)}{px(15, 16.5, 4, 2.5, WHITE)}{px(5, 18.5, 4, 0.5, ACCENT)}{px(15, 18.5, 4, 0.5, ACCENT)}{px(9, 16.5, 6, 1, WHITE)}</g>) }
+];
+
+export const neckwear: Sprite[] = [
+  { id: 'none', name: 'ไม่ใส่', tags: ['none'], draw: () => <g /> },
+  { id: 'schooltie', name: 'เนกไทนักเรียน', tags: ['tie', 'นักเรียน'], draw: () => (<g>{px(10, 17, 4, 1, WHITE)}{px(11.5, 18, 1, 3, ACCENT)}{px(11.5, 18, 1, 0.5, 'var(--av-accent-highlight)')}</g>) },
+  { id: 'longscarf', name: 'ผ้าพันคอยาว', tags: ['scarf', 'ผ้าพันคอ'], price: 50, draw: () => (<g>{px(8.5, 16.5, 7, 1.5, ACCENT)}{px(8.5, 16.5, 7, 0.5, 'var(--av-accent-highlight)')}{px(9, 18, 2, 4, ACCENT)}</g>) },
+  { id: 'ribbonbow', name: 'โบว์', tags: ['bow', 'โบว์'], price: 40, draw: () => (<g>{px(9.5, 17, 5, 1, ACCENT)}{px(9, 16.5, 2, 2, ACCENT)}{px(13, 16.5, 2, 2, ACCENT)}{px(11, 16.5, 2, 2, 'var(--av-accent-shadow)')}</g>) },
+  { id: 'furcollar', name: 'ปลอกคอขนสัตว์', tags: ['fur', 'ขน'], price: 70, draw: () => (<g>{px(7.5, 15.5, 9, 2, WHITE)}{px(7.5, 15.5, 9, 0.5, 'var(--av-primary-highlight)')}{px(8.5, 17.5, 7, 0.5, SECONDARY_SHADOW)}</g>) },
+  { id: 'pendant', name: 'จี้ห้อยคอ', tags: ['pendant', 'จี้'], price: 60, draw: () => (<g>{px(10, 17, 4, 0.5, SECONDARY_SHADOW)}{px(11.5, 17.5, 1, 1.5, SECONDARY_SHADOW)}{px(10.5, 19, 3, 2, MAGIC)}{px(11, 19.5, 1.5, 1, MAGIC_HIGHLIGHT)}</g>) },
+  { id: 'gorget', name: 'เกราะคอ', tags: ['armor', 'เกราะ'], price: 90, draw: () => (<g>{px(8, 15.5, 8, 2, SECONDARY)}{px(8, 15.5, 8, 0.5, 'var(--av-secondary-highlight)')}{px(8, 17, 8, 0.5, SECONDARY_SHADOW)}{px(11, 16, 2, 1, ACCENT)}</g>) },
+  { id: 'neonchoker', name: 'ปลอกคอนีออน', tags: ['neon', 'cyber'], price: 80, draw: () => (<g>{px(9, 16.5, 6, 1, MAGIC)}{px(9, 16.5, 6, 0.5, MAGIC_HIGHLIGHT)}{px(11.5, 17.5, 1, 1, MAGIC_HIGHLIGHT)}</g>) },
+  { id: 'bellcollar', name: 'ปลอกคอกระดิ่ง', tags: ['bell', 'beast'], price: 60, draw: () => (<g>{px(8.5, 16.5, 7, 1, ACCENT)}{px(8.5, 16.5, 7, 0.5, 'var(--av-accent-highlight)')}{px(11, 17.5, 2, 1.5, WHITE)}{px(11.5, 18, 1, 0.5, OUTLINE)}</g>) }
+];
+
 /* ────────────────────────────── worn, held and glowing ────────────────────────────── */
 export const backAccessories: Sprite[] = [
   { id: 'none', name: 'ไม่มี', tags: ['none'], draw: () => <g /> },

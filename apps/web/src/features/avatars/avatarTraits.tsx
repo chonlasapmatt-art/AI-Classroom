@@ -5,8 +5,8 @@ import {
   type LayerType, type TraitOption
 } from './avatarSchema';
 import {
-  auras, backAccessories, bottoms, effects, eyeShapes, eyewear, frontAccessories,
-  hairShapes, headpieces, px, tops, type Sprite,
+  auras, backAccessories, bottoms, effects, eyeShapes, eyewear, footwear, frontAccessories, handwear,
+  hairShapes, headpieces, neckwear, outerwear, px, tops, type Sprite,
   ACCENT, MAGIC, OUTLINE, PRIMARY, SECONDARY, SKIN, SKIN_SHADOW
 } from './avatarSprites';
 
@@ -228,6 +228,23 @@ const faces: Trait[] = eyeShapes.flatMap((eye) => eyewear.map(
 const topClothing: Trait[] = tops.map((top) => single('top', 'top_clothing', top, ['primary', 'secondary', 'accent', 'magic']));
 const bottomClothing: Trait[] = bottoms.map((bottom) => single('bottom', 'bottom_clothing', bottom, ['secondary', 'primary', 'magic']));
 
+/*
+ * The four drawers that did not exist.
+ *
+ * Shoes, gloves, a coat over the shirt, something round the neck. Single sprites rather than
+ * composed pairs: there is nothing to wear over a shoe, and inventing a second half for the sake of
+ * symmetry would double a count without adding a drawing anybody can see.
+ *
+ * The tintable list is what the colour drawer offers for each, and it is the garment's own palette
+ * rather than the whole six: a shoe reads as leather, canvas or plate, and offering to paint it in
+ * the magic colour is offering a choice nobody wants and one more way to end up with a figure that
+ * does not hold together.
+ */
+const footworn: Trait[] = footwear.map((item) => single('foot', 'footwear', item, ['secondary', 'accent', 'primary']));
+const handworn: Trait[] = handwear.map((item) => single('hand', 'handwear', item, ['secondary', 'accent', 'magic']));
+const outerworn: Trait[] = outerwear.map((item) => single('outer', 'outerwear', item, ['secondary', 'primary', 'accent', 'magic']));
+const neckworn: Trait[] = neckwear.map((item) => single('neck', 'neckwear', item, ['accent', 'secondary', 'magic']));
+
 const backWorn: Trait[] = backAccessories.map((item) => single('back', 'back_accessory', item, ['secondary', 'primary', 'accent']));
 const frontWorn: Trait[] = frontAccessories.map((item) => single('front', 'front_accessory', item, ['secondary', 'primary', 'accent', 'magic']));
 const auraTraits: Trait[] = auras.map((item) => single('aura', 'back_aura', item, ['magic', 'accent', 'secondary'], elementOf(item)));
@@ -235,6 +252,7 @@ const effectTraits: Trait[] = effects.map((item) => single('fx', 'front_fx', ite
 
 export const traits: Trait[] = [
   ...bodies, ...hair, ...faces, ...topClothing, ...bottomClothing,
+  ...footworn, ...handworn, ...outerworn, ...neckworn,
   ...backWorn, ...frontWorn, ...auraTraits, ...effectTraits
 ];
 
@@ -258,6 +276,10 @@ const pieceIndex = new Map<string, number>([
   ...eyeShapes.filter((sprite) => sprite.price).map((sprite) => [`face_${sprite.id}`, sprite.price!] as const),
   ...tops.filter((sprite) => sprite.price).map((sprite) => [`top_${sprite.id}`, sprite.price!] as const),
   ...bottoms.filter((sprite) => sprite.price).map((sprite) => [`bottom_${sprite.id}`, sprite.price!] as const),
+  ...footwear.filter((sprite) => sprite.price).map((sprite) => [`foot_${sprite.id}`, sprite.price!] as const),
+  ...handwear.filter((sprite) => sprite.price).map((sprite) => [`hand_${sprite.id}`, sprite.price!] as const),
+  ...outerwear.filter((sprite) => sprite.price).map((sprite) => [`outer_${sprite.id}`, sprite.price!] as const),
+  ...neckwear.filter((sprite) => sprite.price).map((sprite) => [`neck_${sprite.id}`, sprite.price!] as const),
   ...backAccessories.filter((sprite) => sprite.price).map((sprite) => [`back_${sprite.id}`, sprite.price!] as const),
   ...frontAccessories.filter((sprite) => sprite.price).map((sprite) => [`front_${sprite.id}`, sprite.price!] as const),
   ...auras.filter((sprite) => sprite.price).map((sprite) => [`aura_${sprite.id}`, sprite.price!] as const),

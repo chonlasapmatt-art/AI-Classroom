@@ -9,7 +9,7 @@ checked on the production URL after each release.
 
 | | |
 | --- | --- |
-| Migrations | 94 (last: `202609120002`) |
+| Migrations | 95 (last: `202609120003`) |
 | Edge Functions | 17 |
 | Test files | 136 |
 | Automated tests | 1124, all passing |

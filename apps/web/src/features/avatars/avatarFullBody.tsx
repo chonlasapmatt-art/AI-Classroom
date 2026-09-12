@@ -133,20 +133,37 @@ export function groundShadow(): ReactElement {
  * being dragged across the floor.
  * ──────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * A shoe, drawn at whichever leg is asking for it.
+ *
+ * ── Why a function and not a slot ──
+ * A leg swings. `frontLeg` and `backLeg` are separately animated groups, and a shoe painted as its
+ * own compositing step stands still on the floor while the leg walks out from under it — the same
+ * fault as hair that does not follow a head, and just as invisible in a still frame. So footwear is
+ * handed *into* the leg and drawn inside its group, which means it turns at the hip with everything
+ * else attached to that leg.
+ *
+ * `x` is the leg's own left edge, so one drawing serves both legs and every leg style: a shoe is
+ * authored once against that origin and lands correctly on a boot, a sneaker, a hoof or a piston.
+ */
+export type FootwearShape = (x: number) => ReactElement;
+
 interface LegOptions {
   /** Boot colour. The brief calls this the accent, and it is what a class is recognised by. */
   boot: string;
   trouser: string;
   skin: string;
+  /** What the child chose to put on the foot, drawn over whatever the leg style's own foot is. */
+  shoe?: FootwearShape | undefined;
 }
 
-function leg(x: number, { boot, trouser, skin }: LegOptions, claw = false): ReactElement {
+function leg(x: number, { boot, trouser, skin, shoe }: LegOptions, claw = false): ReactElement {
   return (
     <g>
       {px(x, 35, 5, 5, trouser)}
       {px(x, 39, 5, 1, PRIMARY_SHADOW)}
       {px(x + 0.5, 40, 4, 3, skin)}
-      {claw ? (
+      {shoe ? shoe(x) : claw ? (
         <>
           {px(x - 0.5, 43, 6, 2, boot)}
           {/* Three talons, which is the whole read of a digitigrade foot at this size. */}
@@ -312,17 +329,21 @@ export function torsoRound(): ReactElement {
  * silhouette goes back to being a school shoe.
  */
 export function legsSneakers(options: LegOptions): ReactElement {
-  const { trouser, skin } = options;
+  const { trouser, skin, shoe: chosen } = options;
   const shoe = (x: number) => (
     <g>
       {px(x, 35, 5.5, 6, trouser)}
       {px(x, 35, 1.5, 6, 'var(--av-primary-highlight)')}
       {px(x + 0.5, 41, 4.5, 1.5, skin)}
-      {/* Upper, swoosh, sole. */}
-      {px(x - 1, 42, 7.5, 2, SECONDARY)}
-      {px(x - 1, 42.5, 5, 0.75, ACCENT)}
-      {px(x - 1.5, 44, 8, 2, WHITE)}
-      {px(x - 1.5, 45.5, 8, 0.5, OUTLINE)}
+      {/* Upper, swoosh, sole — unless the child has chosen something else to put on the foot. */}
+      {chosen ? chosen(x) : (
+        <>
+          {px(x - 1, 42, 7.5, 2, SECONDARY)}
+          {px(x - 1, 42.5, 5, 0.75, ACCENT)}
+          {px(x - 1.5, 44, 8, 2, WHITE)}
+          {px(x - 1.5, 45.5, 8, 0.5, OUTLINE)}
+        </>
+      )}
     </g>
   );
   return (
@@ -372,9 +393,25 @@ export function legsWebbed(): ReactElement {
  * rectangle per arm can do neither.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-interface ArmOptions { sleeve: string; skin: string; wide?: boolean }
+/**
+ * A glove, drawn at whichever hand is asking for it.
+ *
+ * The same rule footwear follows and for the same reason: an arm swings, so a cuff painted as its
+ * own layer hangs in the air where the hand used to be. `x` is the arm's own left edge and
+ * `mirrored` says which arm it is, because a cuff's lit edge is on the side the light comes from
+ * and that is not the same side on both arms.
+ */
+export type HandwearShape = (x: number, mirrored: boolean) => ReactElement;
 
-function arm(x: number, { sleeve, skin, wide }: ArmOptions, held?: ReactElement, mirrored = false): ReactElement {
+interface ArmOptions {
+  sleeve: string;
+  skin: string;
+  wide?: boolean;
+  /** What the child chose to put on the hand, drawn over the bare one. */
+  cuff?: HandwearShape | undefined;
+}
+
+function arm(x: number, { sleeve, skin, wide, cuff }: ArmOptions, held?: ReactElement, mirrored = false): ReactElement {
   const width = wide ? 5 : 3.5;
   // An arm in the same cloth as the torso, drawn against the torso, is an arm nobody can see. The
   // seam is one unit of the sleeve's own shadow along the edge that meets the body, which is what
@@ -387,6 +424,8 @@ function arm(x: number, { sleeve, skin, wide }: ArmOptions, held?: ReactElement,
       {wide ? px(x - 0.5, 26, width + 1, 2.5, sleeve) : null}
       {px(x + 0.25, 27.5, width - 0.5, 4, skin)}
       {px(x + 0.25, 30.5, width - 0.5, 2, SKIN_SHADOW)}
+      {/* Over the bare hand, under whatever it is holding: a glove goes on before a sword. */}
+      {cuff ? cuff(x, mirrored) : null}
       {/*
         * What the hand is holding, in its own group.
         *
@@ -1335,16 +1374,20 @@ export function torsoChassis(): ReactElement {
 
 /* ── legs ── */
 
-interface HoofOptions { boot: string; trouser: string }
+interface HoofOptions { boot: string; trouser: string; shoe?: FootwearShape | undefined }
 
 /** Cloven, for a deer and a faun: the leg narrows where a boot would widen. */
-export function legsHooves({ boot, trouser }: HoofOptions): ReactElement {
+export function legsHooves({ boot, trouser, shoe }: HoofOptions): ReactElement {
   const leg = (x: number) => (
     <g>
       {px(x, 35, 5, 6, trouser)}
       {px(x + 1, 41, 3, 3, HAIR_SHADOW)}
-      {px(x + 0.5, 44, 4, 2, boot)}
-      {px(x + 2.25, 44, 0.5, 2, OUTLINE)}
+      {shoe ? shoe(x) : (
+        <>
+          {px(x + 0.5, 44, 4, 2, boot)}
+          {px(x + 2.25, 44, 0.5, 2, OUTLINE)}
+        </>
+      )}
     </g>
   );
   return (
@@ -1356,14 +1399,18 @@ export function legsHooves({ boot, trouser }: HoofOptions): ReactElement {
 }
 
 /** Jointed metal: a piston at the knee and a plate at the foot. */
-export function legsMechanical({ boot, trouser }: HoofOptions): ReactElement {
+export function legsMechanical({ boot, trouser, shoe }: HoofOptions): ReactElement {
   const leg = (x: number) => (
     <g>
       {px(x + 0.5, 35, 4, 4, trouser)}
       {px(x + 1.5, 39, 2, 3, OUTLINE)}
       {px(x + 0.5, 42, 4, 2, trouser)}
-      {px(x - 0.5, 44, 6, 2, boot)}
-      {px(x - 0.5, 44, 6, 0.5, ACCENT)}
+      {shoe ? shoe(x) : (
+        <>
+          {px(x - 0.5, 44, 6, 2, boot)}
+          {px(x - 0.5, 44, 6, 0.5, ACCENT)}
+        </>
+      )}
     </g>
   );
   return (

@@ -23,29 +23,58 @@ import { avatarPalettes, avatarThemes, hairStyles, skinTones } from './avatarThe
  * hair, and a held staff has to be in front of both. `hides` lets a trait suppress a layer it would
  * clash with — a full wizard hat covers the hair it would otherwise poke through.
  */
+/**
+ * The slots an avatar is assembled from.
+ *
+ * ── The four that were missing ──
+ * A child could choose a shirt, a pair of trousers, a haircut and something to carry, and that was
+ * the whole of getting dressed. No shoes: every figure in the school wore whatever boot its trousers
+ * happened to draw. No gloves, no coat over the shirt, nothing round the neck. "Change every part"
+ * was not true, and the gap was structural rather than a matter of adding more shirts.
+ *
+ * `footwear`, `handwear`, `outerwear` and `neckwear` close it. None of them is a new compositing
+ * step — see the note on `BodySlot` — because a shoe belongs to a foot and a foot swings through a
+ * stride. A shoe painted as its own layer stands still while the leg walks out from under it, which
+ * is the same fault as hair that does not follow a head.
+ */
 export type LayerType =
   | 'back_aura'
   | 'back_accessory'
   | 'body_base'
+  | 'footwear'
   | 'bottom_clothing'
   | 'top_clothing'
+  | 'outerwear'
+  | 'neckwear'
+  | 'handwear'
   | 'face_features'
   | 'hair_headpiece'
   | 'front_accessory'
   | 'front_fx';
 
-/** Back to front. The compositor draws in exactly this order and nothing else decides it. */
+/**
+ * Back to front. The compositor draws in exactly this order and nothing else decides it.
+ *
+ * The four new slots sit where the garment they belong with sits: a shoe under the trouser that
+ * covers its ankle, a coat over the shirt it is worn on top of, a scarf over the coat, and gloves
+ * last because a cuff is drawn over a sleeve and never under one.
+ */
 export const layerOrder: LayerType[] = [
-  'back_aura', 'back_accessory', 'body_base', 'bottom_clothing', 'top_clothing',
-  'face_features', 'hair_headpiece', 'front_accessory', 'front_fx'
+  'back_aura', 'back_accessory', 'body_base', 'footwear', 'bottom_clothing', 'top_clothing',
+  'outerwear', 'neckwear', 'handwear', 'face_features', 'hair_headpiece',
+  'front_accessory', 'front_fx'
 ];
 
 export const layerLabels: Record<LayerType, string> = {
   back_aura: 'ออร่า',
   back_accessory: 'ปีก/หาง/ผ้าคลุม',
   body_base: 'ร่างกาย',
+  footwear: 'รองเท้า',
   bottom_clothing: 'กางเกง/กระโปรง',
   top_clothing: 'เสื้อ',
+  outerwear: 'เสื้อคลุมนอก',
+  neckwear: 'ผ้าพันคอ/ปลอกคอ',
+  handwear: 'ถุงมือ',
   face_features: 'ตา/ปาก',
   hair_headpiece: 'ทรงผม/เขา',
   front_accessory: 'ของถือ/แว่น',
