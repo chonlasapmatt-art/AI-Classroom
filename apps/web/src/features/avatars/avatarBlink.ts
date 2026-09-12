@@ -21,9 +21,20 @@ type Listener = (closed: boolean) => void;
 const listeners = new Set<Listener>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 
-/** Closed for this long. Two frames at 8-bit speed, which is as long as an eye may be shut. */
-const CLOSED_MS = 140;
-const MIN_GAP_MS = 3000;
+/**
+ * Closed for this long, and open for this long between.
+ *
+ * 120 ms is about how long an eye is actually shut, and it is short enough that the closing has to
+ * be eased rather than cut: at this speed a two-state lid reads as a dropped frame, which is what it
+ * was being reported as. The eased lid itself lives in the stylesheet — `@keyframes blink` in
+ * `FullBodyAvatar.module.css`, a non-linear `scaleY: 1 → 0.05 → 1` — and this decides only *when*.
+ *
+ * The gap is three and a half to five seconds, which is a resting blink rate. It was three to five,
+ * and the short end of that came round often enough that a row of forty avatars read as forty things
+ * twitching rather than as a room of faces.
+ */
+const CLOSED_MS = 120;
+const MIN_GAP_MS = 3500;
 const MAX_GAP_MS = 5000;
 
 function announce(closed: boolean) {

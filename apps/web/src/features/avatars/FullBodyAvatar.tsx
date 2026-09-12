@@ -1,12 +1,13 @@
 import { cloneElement, type CSSProperties, type ReactElement } from 'react';
 import type { AvatarAnimation } from '../../domain/types';
 import { defaultTints, tintVariables, type AvatarTints } from './avatarSchema';
-import { cropViewBox, type AvatarCropMode } from './avatarGeometry';
+import { cropViewBox, detailForSize, type AvatarCropMode, type AvatarDetail } from './avatarGeometry';
 import { directionRig, type AvatarDirection } from './avatarDirection';
 import {
   bodySlotOrder, fullBodyArchetypes, overlayForPose,
   type BodySlot, type FullBodyArchetype
 } from './avatarFullBody';
+import { rigFor, rigVariables } from './avatarRig';
 import styles from './FullBodyAvatar.module.css';
 
 /**
@@ -86,6 +87,16 @@ export interface FullBodyAvatarProps {
    * turn it back on for itself.
    */
   allowOverflowEffect?: boolean;
+  /**
+   * How much of the drawing is worth paying for at this size.
+   *
+   * Derived from `size` unless it is stated, and the derivation is the point: a leaderboard puts
+   * forty avatars on a page at 32 pixels each, and at 32 pixels a trailing stardust effect is two
+   * translucent squares nobody can see that still cost a compositing layer and an animation frame
+   * apiece. `compact` drops the background particles, the auras and the drop-shadow filters, and
+   * keeps every part of the figure a child would recognise.
+   */
+  detail?: AvatarDetail;
 }
 
 /** Poses this body is choreographed for. Anything else is drawn standing. */
@@ -122,9 +133,31 @@ function isElement(value: unknown): value is ReactElement {
   return typeof value === 'object' && value !== null && 'props' in value && 'type' in value;
 }
 
+/**
+ * Which stance band a slot belongs to.
+ *
+ * The posture has to be *between* the costume and the pose: a scholar's forward neck is not part of
+ * the drawing (a keyframe would overwrite it) and not part of the pose (every pose would have to
+ * name every character). So each slot is wrapped in the group that carries its band's posture, and
+ * the pose animates the part inside it.
+ *
+ * The head band is five slots rather than one because a head is five slots — skull, face, side hair,
+ * fringe, hat — and a neck that carried only the skull forward would leave the face behind it.
+ */
+const stanceBand: Partial<Record<BodySlot, string>> = {
+  head_neck: 'stanceHead',
+  face: 'stanceHead',
+  hair_side: 'stanceHead',
+  hair_headwear: 'stanceHead',
+  headwear: 'stanceHead',
+  torso_body: 'stanceTorso',
+  back_arm: 'stanceArmFar',
+  front_arm_weapon: 'stanceArmNear'
+};
+
 export function FullBodyAvatar({
   archetype, slots, animation = 'idle', tints, size = 176, label, backdrop, paused,
-  framing = 'full', facing = 'default', direction = 'front', allowOverflowEffect = false
+  framing = 'full', facing = 'default', direction = 'front', allowOverflowEffect = false, detail
 }: FullBodyAvatarProps) {
   const definition = fullBodyArchetypes[archetype] ?? fullBodyArchetypes.student;
   /*
@@ -139,7 +172,19 @@ export function FullBodyAvatar({
   const rig = directionRig(direction);
   const drawn: Partial<Record<BodySlot, ReactElement>> = { ...definition.slots(rig), ...(slots ?? {}) };
   const pose = posed.includes(animation) ? animation : 'idle';
-  const style = tintVariables({ ...defaultTints, ...(tints ?? {}) }) as CSSProperties;
+  /*
+   * The six colours and the eleven bones, on one element.
+   *
+   * Both are custom properties for the same reason: a CSS module hashes its class names and a
+   * stylesheet cannot read a TypeScript record, so anything the rules need to know has to arrive as
+   * a value they can resolve. The bones go on before the tints so a tint can never be shadowed by a
+   * bone that happened to be spelled the same.
+   */
+  const style = {
+    ...rigVariables(rigFor(archetype)),
+    ...tintVariables({ ...defaultTints, ...(tints ?? {}) })
+  } as CSSProperties;
+  const level = detail ?? detailForSize(size);
 
   /*
    * The pose's own effect, drawn over whatever standing overlay the costume carries. A rune circle
@@ -154,13 +199,15 @@ export function FullBodyAvatar({
         styles.avatar,
         styles[pose],
         paused ? styles.paused : '',
-        allowOverflowEffect ? styles.spill : ''
+        allowOverflowEffect ? styles.spill : '',
+        level === 'compact' ? styles.compact : ''
       ].filter(Boolean).join(' ')}
       width={size}
       height={size}
       viewBox={cropViewBox[framing]}
       data-facing={facing}
       data-direction={direction}
+      data-detail={level}
       style={style}
       role="img"
       aria-label={label ? `อวตาร ${label}` : `อวตาร${definition.name}`}
@@ -175,17 +222,28 @@ export function FullBodyAvatar({
         * turn it.
         */}
       <g transform={facing === 'left' ? 'translate(48,0) scale(-1,1)' : undefined}>
+      {/*
+        * The stance, outside the pose.
+        *
+        * A figure that hovers floats whatever it is doing, so the lift belongs to a group the poses
+        * do not animate. Putting it on `.figure` itself would mean every keyframe that sets a
+        * transform — which is all of them — silently dropping it, and a fairy would walk on the
+        * floor for the length of a stride and then jump back into the air.
+        */}
+      <g className={styles.stance}>
       <g className={styles.figure}>
         {bodySlotOrder.map((slot: BodySlot) => {
           const drawing = drawn[slot];
           if (!drawing) return null;
+          const band = stanceBand[slot];
           return (
-            <g key={slot} data-slot={slot}>
+            <g key={slot} data-slot={slot} {...(band ? { className: styles[band] } : {})}>
               {withPartClasses(drawing)}
             </g>
           );
         })}
         {poseOverlay ? <g data-slot="pose_fx">{withPartClasses(poseOverlay)}</g> : null}
+      </g>
       </g>
       </g>
     </svg>

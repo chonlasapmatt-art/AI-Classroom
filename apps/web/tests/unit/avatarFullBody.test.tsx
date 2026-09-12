@@ -9,6 +9,7 @@ import {
   archetypeGroupLabels, archetypesInGroup, bodyForCategory, bodySlotOrder, fullBodyArchetypeList,
   fullBodyArchetypes, overlayForPose, FULL_BODY_GRID
 } from '../../src/features/avatars/avatarFullBody';
+import { rigFor, rigVariables } from '../../src/features/avatars/avatarRig';
 
 afterEach(cleanup);
 
@@ -120,9 +121,21 @@ describe('the full-body figure', () => {
 /**
  * The poses.
  *
- * Seven actions, each with the frame count and duration the brief specifies, each stepping rather
- * than easing. `steps(n)` is not a stylistic choice: an 8-bit figure that eases between frames puts
- * its limbs on half-pixels, and a half-pixel limb is a smear rather than a sprite.
+ * ── Why this file stopped asserting `steps()` ──
+ * It used to, and the reasoning was that an 8-bit figure easing between frames puts its limbs on
+ * half-pixels. That is true of the 24-grid bust in `ThemedAvatar.module.css`, which really is four
+ * hand-drawn frames, and the test beside it still holds it to stepping.
+ *
+ * This figure is not that. It is a rig, and what moves is the angle at a joint rather than which
+ * drawing is on screen — an angle has no grid to fall off. Holding a shoulder at four discrete
+ * angles does not make it more 8-bit; it makes it a hinge with four positions, which is the
+ * stiffness the rig was rebuilt to remove. The pixels are protected by `crispEdges` and
+ * `pixelated`, which snap every shape's edges however it has been rotated, and those two are still
+ * asserted below.
+ *
+ * So what is checked now is what a pose is actually made of: the duration it was specified at, a
+ * named curve rather than a raw number, a phase lag on anything that hangs, and the three
+ * frequencies an idle is built from.
  */
 /** One @keyframes block, braces and all. A [^}]* match stops at the first frame's closing brace. */
 function keyframes(name: string): string {
@@ -141,48 +154,104 @@ function keyframes(name: string): string {
 
 describe('the poses', () => {
   const expected = [
-    // Four frames still, but over 1.2s: a breath is slower than a footfall, and at 0.8s the
-    // figure read as panting rather than standing.
-    { pose: 'idle', frames: 4, seconds: '1.2s' },
-    { pose: 'walk', frames: 4, seconds: '0.6s' },
-    { pose: 'run', frames: 6, seconds: '0.4s' },
-    { pose: 'cast', frames: 6, seconds: '1s' },
-    { pose: 'attack', frames: 4, seconds: '0.4s' },
-    { pose: 'jump', frames: 4, seconds: '0.5s' },
-    { pose: 'cheer', frames: 4, seconds: '0.6s' }
+    // The chest breathes at 0.25 Hz, which is four seconds. It was 1.2s and read as panting; before
+    // that 0.8s, and it read as hyperventilating.
+    { pose: 'idle', seconds: '4s' },
+    { pose: 'walk', seconds: '0.6s' },
+    { pose: 'run', seconds: '0.4s' },
+    // 1.2s, which is 0.2 + 0.35 + 0.25 + 0.4: anticipation, surge, impact, recovery.
+    { pose: 'cast', seconds: '1.2s' },
+    { pose: 'attack', seconds: '0.4s' },
+    { pose: 'jump', seconds: '0.5s' },
+    { pose: 'cheer', seconds: '0.6s' }
   ] as const;
 
-  it('runs each action at the frame count and the length it was specified at', () => {
-    for (const { pose, frames, seconds } of expected) {
-      const rule = new RegExp(`\\.${pose} \\.figure \\{ animation: \\w+ ${seconds} steps\\(${frames}\\) infinite;`);
-      expect(poseStyles, `${pose} at ${frames} frames over ${seconds}`).toMatch(rule);
+  it('runs each action at the length it was specified at, on a named curve', () => {
+    for (const { pose, seconds } of expected) {
+      const rule = new RegExp(`\\.${pose} \\.figure \\{ animation: \\w+ ${seconds} var\\(--ease-[a-z]+\\) infinite;`);
+      expect(poseStyles, `${pose} over ${seconds}`).toMatch(rule);
     }
   });
 
-  it('steps every single animation, without exception', () => {
+  it('eases every single animation, and hinges none of them', () => {
+    /*
+     * The inverse of what this once asserted, and the reason is at the top of this block: a joint
+     * angle has no pixel grid to fall off, so stepping one buys nothing and costs the whole of the
+     * motion between two positions.
+     */
     const animations = (poseStyles.match(/animation: [^;]+;/g) ?? [])
       // The reduced-motion block turns animation off rather than running one, which is the point.
       .filter((declaration) => !declaration.includes('none'));
     expect(animations.length).toBeGreaterThan(20);
     for (const declaration of animations) {
-      expect(declaration, `not stepped: ${declaration}`).toContain('steps(');
+      expect(declaration, `hinged rather than eased: ${declaration}`).not.toContain('steps(');
+      expect(declaration, `no named curve: ${declaration}`).toMatch(/var\(--ease-[a-z]+\)/);
     }
   });
 
+  it('names its curves rather than repeating four numbers in thirty places', () => {
+    // A curve is a decision, and a decision repeated in thirty places is thirty decisions that
+    // drift. Each of these says what it is for rather than what its numbers are.
+    for (const curve of ['limb', 'settle', 'anticipate', 'impact', 'drift']) {
+      expect(poseStyles, curve).toMatch(new RegExp(`--ease-${curve}: cubic-bezier\\(`));
+    }
+  });
+
+  it('lags everything that hangs behind the body it hangs from', () => {
+    /*
+     * The quarter-cycle, which is the whole of what reads as weight. A negative delay starts the
+     * animation part-way through, which is how a phase offset is spelled in CSS — a positive one
+     * would hold the hair still on mount and then start it, a visible hitch on every avatar that
+     * scrolls into view.
+     */
+    for (const part of ['tail', 'hairBack']) {
+      const rule = new RegExp(`\\.idle \\.${part} \\{ animation: \\w+ 2s var\\(--ease-drift\\) -0\\.[0-9]+s infinite; \\}`);
+      expect(poseStyles, `${part} arrives in phase with the body`).toMatch(rule);
+    }
+  });
+
+  it('builds the idle out of three frequencies that do not line up', () => {
+    // 0.25 Hz, 0.12 Hz and 0.5 Hz: four seconds, eight and a third, and two. They come back into
+    // phase once every fifty seconds, which is why the idle stops reading as a loop.
+    expect(poseStyles).toMatch(/\.idle \.torso \{ animation: chestExpand 4s /);
+    expect(poseStyles).toMatch(/\.idle \.head \{ animation: headDrift 8\.333s /);
+    expect(poseStyles).toMatch(/\.idle \.hairBack \{ animation: hairSway 2s /);
+  });
+
   it('keeps the sprite on its own grid rather than letting the browser smooth it', () => {
+    // These two are what actually protect the pixels under a rotation, and they are the reason
+    // easing a joint does not smear it.
     expect(poseStyles).toContain('image-rendering: pixelated');
     expect(poseStyles).toContain('shape-rendering: crispEdges');
   });
 
-  it('turns each limb at the joint it actually hangs from', () => {
-    // Wrong pivots are invisible in a still frame and are what makes an arm look detached.
-    // Both arms once shared the body centre line. At a swing's small angles that looks fine; at
-    // the angle a cheer needs it sweeps the arm across the chest instead of raising it.
-    expect(poseStyles).toContain('.frontArm { transform-origin: 17px 23px; }');
-    expect(poseStyles).toContain('.backArm  { transform-origin: 31px 23px; }');
-    expect(poseStyles).toContain('.frontLeg { transform-origin: 20.5px 36px; }');
-    expect(poseStyles).toContain('.backLeg  { transform-origin: 27.5px 36px; }');
-    expect(poseStyles).toContain('.figure { transform-origin: 24px 46px; }');
+  it('turns each limb at the joint that figure actually hangs it from', () => {
+    /*
+     * Wrong pivots are invisible in a still frame and are what makes an arm look detached. Both arms
+     * once shared the body centre line; at a swing's small angles that looks fine, and at the angle
+     * a cheer needs it sweeps the arm across the chest instead of raising it.
+     *
+     * They are custom properties now rather than constants, because forty-one characters sharing one
+     * joint tree share one silhouette — see `avatarRig.ts`. The fallback in each rule is the plain
+     * human frame, which is exactly the number that used to be written there: a figure rendered
+     * without a rig moves precisely as it always did.
+     */
+    expect(poseStyles).toContain('.frontArm { transform-origin: var(--rig-shoulder-near-x, 17px) var(--rig-shoulder-near-y, 23px); }');
+    expect(poseStyles).toContain('.backArm  { transform-origin: var(--rig-shoulder-far-x, 31px) var(--rig-shoulder-far-y, 23px); }');
+    expect(poseStyles).toContain('.frontLeg { transform-origin: var(--rig-hip-near-x, 20.5px) var(--rig-hip-y, 36px); }');
+    expect(poseStyles).toContain('.backLeg  { transform-origin: var(--rig-hip-far-x, 27.5px) var(--rig-hip-y, 36px); }');
+    expect(poseStyles).toContain('.figure { transform-origin: var(--rig-root-x, 24px) var(--rig-root-y, 46px); }');
+  });
+
+  it('plants no foot on a figure that does not have one', () => {
+    // `--rig-planted` is 1 on anything that stands and 0 on anything that hovers. Before it, the
+    // drone bobbed: it has no legs, and a pair of thrusters rising and falling in time with a
+    // stride is the most obviously wrong thing the shared skeleton did.
+    expect(keyframes('walkBob')).toContain('var(--rig-planted, 1)');
+    expect(keyframes('runBob')).toContain('var(--rig-planted, 1)');
+    expect(rigFor('drone').posture.rootLift).toBeGreaterThan(0);
+    expect(rigVariables(rigFor('drone'))['--rig-planted']).toBe('0');
+    expect(rigVariables(rigFor('student'))['--rig-planted']).toBe('1');
   });
 
   it('gives run its forward pitch, inside the five to eight degrees a chibi torso can carry', () => {
@@ -332,17 +401,44 @@ describe('the figures a child chooses between', () => {
   });
 
   it('blinks and twitches in every pose, because neither is a pose', () => {
-    expect(poseStyles).toMatch(/\.avatar \.eyes \{ animation: blink [\d.]+s steps\(1, end\) infinite; \}/);
-    expect(poseStyles).toMatch(/\.avatar \.ears \{ animation: earTwitch [\d.]+s steps\(1, end\) infinite; \}/);
-    // Shut, then open — two drawings rather than a squashed one.
-    expect(keyframes('blink')).toContain('scaleY(0.12)');
+    expect(poseStyles).toMatch(/\.avatar \.eyes \{ animation: blink [\d.]+s var\(--ease-drift\) infinite; \}/);
+    expect(poseStyles).toMatch(/\.avatar \.ears \{ animation: earTwitch [\d.]+s var\(--ease-settle\) infinite; \}/);
+    /*
+     * A lid that closes almost completely, on a curve, inside 120 ms.
+     *
+     * It used to be two discrete states at scaleY 0.12, and at this speed that reads as a dropped
+     * frame rather than as a blink — which is what it was being reported as. A real eyelid
+     * accelerates shut and decelerates open, and 120 ms of a 4.25 s cycle is the 2.8 % below.
+     */
+    const blink = keyframes('blink');
+    expect(blink).toContain('scaleY(0.05)');
+    expect(blink).toMatch(/9[78]\.\d+%/);
   });
 
   it('turns the rune circle as well as opening it, and blooms it in the chosen colour', () => {
     const rune = keyframes('runeOpen');
     expect(rune).toContain('rotate(');
-    expect(rune).toContain('scale(1.15)');
+    // Past 1.15 now, on the impact phase, and still inside the 1.2 the frame has room for.
+    expect(rune).toContain('scale(1.18)');
     expect(poseStyles).toContain('.cast .fx { filter: drop-shadow(0 0 1.5px var(--av-magic)); }');
+  });
+
+  it('gives the cast the four phases it was specified as, at the boundaries they land on', () => {
+    /*
+     * 0.2s anticipation, 0.35s surge, 0.25s impact, 0.4s recovery, over 1.2s — so the boundaries are
+     * 16.7 %, 45.8 % and 66.7 %. Every part of the figure reads the same three numbers, which is
+     * what makes it a sequence rather than six things happening near each other.
+     */
+    for (const name of ['levitate', 'castCompress', 'castRaiseFront', 'runeOpen', 'castLook']) {
+      const frames = keyframes(name);
+      for (const boundary of ['16.7%', '45.8%', '66.7%']) {
+        expect(frames, `${name} misses the ${boundary} boundary`).toContain(boundary);
+      }
+    }
+    // Anticipation goes the wrong way first: the torso compresses and the arms pull inside their
+    // own resting angle before either goes out. Without it a cast is a figure being lifted.
+    expect(keyframes('castCompress')).toContain('scaleY(0.94)');
+    expect(keyframes('castRaiseFront')).toContain('rotate(-14deg)');
   });
 
   it('files a catalogue avatar under the figure its category already implies', () => {
@@ -401,13 +497,26 @@ describe('the figure everywhere it appears', () => {
     const { container } = render(<FullBodyAvatar archetype="student" animation="wave" />);
     expect(container.querySelector('svg')?.getAttribute('class')).toMatch(/wave/);
     // One arm, not two: the far arm keeps dangling while the near one waves from the elbow.
-    expect(poseStyles).toContain('.wave .frontArm { animation: waveArm 0.8s steps(4) infinite; }');
-    expect(poseStyles).toContain('.wave .backArm { animation: armDangleBack 1.2s steps(4) infinite; }');
+    expect(poseStyles).toContain('.wave .frontArm { animation: waveArm 0.8s var(--ease-limb) infinite; }');
+    expect(poseStyles).toContain('.wave .backArm { animation: armDangleBack 4s var(--ease-drift) infinite; }');
     // And no hop, which is what would make it read as celebrating instead of greeting.
     expect(poseStyles).not.toMatch(/\.wave \.figure \{ animation: hop/);
     const arm = keyframes('waveArm');
     expect(arm).toContain('rotate(96deg)');
     expect(arm).toContain('rotate(124deg)');
+
+    /*
+     * The chain the brief asks for: the shoulder leads, and the hand arrives late and settles.
+     *
+     * A hand that oscillates in phase with its own shoulder is a semaphore flag. The negative delay
+     * is the lag and `--ease-settle` is the damping, and the two together are the difference between
+     * a hand waving and an arm rotating.
+     */
+    expect(poseStyles).toContain('.wave .frontArm .held { animation: heldUprightWave 0.8s var(--ease-settle) -0.08s infinite; }');
+    const hand = keyframes('heldUprightWave');
+    // Damped: each swing smaller than the one before, which is what a hand does when it stops.
+    expect(hand).toContain('rotate(-118deg)');
+    expect(hand).toContain('rotate(-60deg)');
   });
 
   it('offers the four the brief names, in the customiser', () => {

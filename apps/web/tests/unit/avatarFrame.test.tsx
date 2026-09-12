@@ -139,8 +139,8 @@ describe('how much of the figure is in shot', () => {
   it('gives the ground contact a walk and a run need to stop reading as a treadmill', () => {
     // A cycle with a fixed shadow is a figure sliding along on a puddle: the shadow tightening on
     // the contact frames is what says a foot arrived.
-    expect(poseStyles).toContain('.walk .shadow { animation: shadowStep 0.6s steps(4) infinite; }');
-    expect(poseStyles).toContain('.run .shadow { animation: shadowStride 0.4s steps(6) infinite; }');
+    expect(poseStyles).toContain('.walk .shadow { animation: shadowStep 0.6s var(--ease-drift) infinite; }');
+    expect(poseStyles).toContain('.run .shadow { animation: shadowStride 0.4s var(--ease-drift) infinite; }');
   });
 
   it('starts the wave from below and lets it come back down', () => {

@@ -71,6 +71,24 @@ export interface HairAnchors {
   front: readonly [number, number];
   /** The pair of x positions a face-framing lock hangs at, and the y it starts from. */
   faceFrame: { left: number; right: number; y: number };
+  /**
+   * The same six points under the names a hairstyle actually thinks in.
+   *
+   * `top`, `left` and `back` are where these started, and they are too vague to hang a turn off:
+   * "left" is the reader's left on one direction and the figure's on another, and "back" was doing
+   * duty for both the nape and the occiput, which are four units apart and behave differently when
+   * the head turns. The anatomical names are unambiguous in a way the compass ones are not, and a
+   * style that says `temple_R` cannot be read as meaning the other side by somebody adding a
+   * direction later.
+   */
+  crown: readonly [number, number];
+  forehead_center: readonly [number, number];
+  temple_L: readonly [number, number];
+  temple_R: readonly [number, number];
+  /** The back of the skull, where volume and length are rooted. Not the nape. */
+  occipital_back: readonly [number, number];
+  /** Where the skull ends and the neck begins: the floor a back node may not draw past. */
+  neck_joint: readonly [number, number];
 }
 
 /** The bands a part is allowed to draw in. A part that leaves its band cannot compose with others. */
@@ -130,4 +148,36 @@ export function cropForSize(size: number): AvatarCropMode {
   if (size < 64) return 'bust';
   if (size < 112) return 'half';
   return 'full';
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Detail
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * How much of the drawing is worth paying for at a given size.
+ *
+ * Deliberately a separate question from the crop, because they are separate questions and running
+ * them together is how a 32-pixel row ends up cheap in the wrong way. The crop is *what is in
+ * frame*; this is *what is drawn inside it*. A profile header and a leaderboard row can want the
+ * same window onto the figure and very different amounts of work: one of them is on screen once,
+ * and the other is on screen forty times.
+ *
+ * Only two levels, because there are only two answers anybody needs. A third would be a judgement
+ * call at every call site and the call sites would disagree.
+ */
+export type AvatarDetail = 'full' | 'compact';
+
+/**
+ * Under this, the effects are noise that costs frames.
+ *
+ * 48 pixels, which is one grid unit per pixel: below it a `0.5`-unit micro-stroke is half a device
+ * pixel and a trailing particle is a square of colour two pixels across. Neither is visible and
+ * both are a composited layer and an animation ticking every frame — forty of those in a list is
+ * exactly where a mid-range classroom tablet drops below sixty.
+ */
+export const COMPACT_DETAIL_BELOW = 48;
+
+export function detailForSize(size: number): AvatarDetail {
+  return size < COMPACT_DETAIL_BELOW ? 'compact' : 'full';
 }

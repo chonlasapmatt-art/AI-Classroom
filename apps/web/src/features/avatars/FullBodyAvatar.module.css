@@ -1,22 +1,55 @@
 /*
  * The poses.
  *
- * ── Why steps() and not ease ──
- * An 8-bit figure that eases between frames stops reading as pixels and starts reading as a blurry
- * drawing: the in-between positions are off the grid the sprite was authored on, and a half-pixel
- * limb is a smear. `steps(n)` holds each frame and snaps to the next, which is what a sprite sheet
- * does and what makes four drawings read as a walk. It is not a stylistic preference here; it is
- * the only timing function that keeps the figure on its own grid.
+ * ── Why these ease, when the bust steps ──
+ * The 24-grid bust in `ThemedAvatar.module.css` still steps, and must: it is four hand-drawn frames
+ * and the whole of its motion is which frame is showing. This figure is not that. It is a rig — a
+ * neck, two shoulders, two hips, a tail root, a wing root — and what moves is the *angle at a joint*
+ * rather than which drawing is on screen. An angle has no grid to fall off. Holding a joint at four
+ * discrete angles and snapping between them does not make it more 8-bit; it makes it a puppet with
+ * four hinge positions, which is exactly the stiffness this was rebuilt to remove.
  *
- * ── Why the parts turn rather than the picture sliding ──
- * The bust could only translate, so "attack" was the whole avatar moving 1.5px sideways and back.
- * Here the arm turns at the shoulder, the leg at the hip, the tail at its root, and the figure as a
- * whole does the bob. Each pivot is stated once, in units of the 48-grid, beside the part it
- * belongs to.
+ * The pixels are still protected, by the two properties that actually protect them: `crispEdges`
+ * snaps every shape's edges to the device grid however it has been rotated, and `pixelated` does the
+ * same for any raster the browser makes of it. Those are what keep the figure sharp — `steps()`
+ * never was.
  *
- * Frame counts and durations come from the brief: idle 4/0.8s, walk 4/0.6s, run 6/0.4s,
- * cast 6/1.0s, attack 4/0.4s, jump 4/0.5s, cheer 4/0.6s.
+ * ── What a pose is made of ──
+ * Four things, and the first three are what separate this from a tween:
+ *
+ *   1. **Multiple joints**, each with its own curve. A wave is a shoulder leading, an elbow
+ *      following and a hand settling, not one arm rotating.
+ *   2. **Phase lag.** Anything hanging — hair, a tail, a hem, a held thing — runs the same
+ *      frequency as what it hangs from and arrives a quarter-cycle late. That lag is the whole of
+ *      what reads as weight.
+ *   3. **Different frequencies.** The chest breathes at 0.25 Hz, the head drifts at 0.12 Hz and the
+ *      hair sways at 0.5 Hz. Three cycles that never line up is why a figure standing still stops
+ *      looking like a loop.
+ *   4. **Curves rather than a straight line.** Limbs accelerate out of a rest and decelerate into
+ *      one; a recovery decays rather than arriving.
+ *
+ * ── And the skeleton it turns ──
+ * Every pivot below reads a `--rig-*` custom property from `avatarRig.ts`, with the plain human
+ * frame as its fallback. A wolf's hip really is lower than a person's, so its stride really does
+ * come from a lower hip; a drone has no hip to stride from, and `--rig-planted` is how every ground
+ * contact in this file knows that at once.
  */
+
+/* ── Curves ──
+   Named once, because a curve is a decision and a decision repeated in thirty places is thirty
+   decisions that drift. Each of these says what it is for rather than what its numbers are. */
+.avatar {
+  /* Out of rest and back into it: the default for anything a muscle drives. */
+  --ease-limb: cubic-bezier(0.37, 0, 0.32, 1);
+  /* Fast out, long settle: a recovery, a hand coming to rest, a pose decaying to neutral. */
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  /* A beat of the wrong way first: anticipation before a strike or a cast. */
+  --ease-anticipate: cubic-bezier(0.6, -0.28, 0.74, 0.05);
+  /* A snap with no ramp-in: impact, and the only curve in the file that is allowed to be abrupt. */
+  --ease-impact: cubic-bezier(0.16, 1.08, 0.3, 1);
+  /* Breathing, swaying, drifting — anything driven by nothing at all. */
+  --ease-drift: cubic-bezier(0.45, 0, 0.55, 1);
+}
 
 .avatar {
   display: block;
@@ -31,12 +64,13 @@
    */
   overflow: hidden;
   /* Both, because they are read by different things: SVG shapes snap through shape-rendering, and
-     any raster the browser makes of this — a drag image, a print preview — snaps through the other. */
+     any raster the browser makes of this — a drag image, a print preview — snaps through the other.
+     These are what keep the figure crisp under a rotation, and they are the reason easing a joint
+     does not smear it. */
   shape-rendering: crispEdges;
   image-rendering: pixelated;
 }
 
-/* A stage with room around it: the customiser, where a spell is meant to reach past the figure. */
 .spill { overflow: visible; }
 
 /* ── Pivots ──
@@ -44,51 +78,97 @@
    sharing the body's centre line was the first version of this file and it was wrong in a way no
    still frame shows: at small angles a swing looks fine, and at the angle a cheer needs — arms
    overhead — an arm pivoting from the far shoulder sweeps across the chest instead of going up.
-   So each limb states its own joint, in units of the 48-grid, beside the part it belongs to. */
-.figure { transform-origin: 24px 46px; }   /* the feet: the figure bobs and lands on the floor */
-.torso  { transform-origin: 24px 33px; }   /* the waist */
-.head   { transform-origin: 24px 20px; }   /* the neck */
-.frontArm { transform-origin: 17px 23px; } /* the near shoulder */
-.backArm  { transform-origin: 31px 23px; } /* the far shoulder */
-.frontLeg { transform-origin: 20.5px 36px; } /* the near hip */
-.backLeg  { transform-origin: 27.5px 36px; } /* the far hip */
+
+   Each joint now reads its position off the figure's own skeleton, and the fallback is the plain
+   human frame the numbers used to be written as. That fallback is not decoration: a figure rendered
+   without a rig, which is every figure in a test that mounts a bare drawing, moves exactly as it
+   always did. */
+.figure { transform-origin: var(--rig-root-x, 24px) var(--rig-root-y, 46px); }
+.torso  { transform-origin: var(--rig-neck-x, 24px) 33px; }   /* the waist */
+.head   { transform-origin: var(--rig-neck-x, 24px) var(--rig-neck-y, 20px); }
+.frontArm { transform-origin: var(--rig-shoulder-near-x, 17px) var(--rig-shoulder-near-y, 23px); }
+.backArm  { transform-origin: var(--rig-shoulder-far-x, 31px) var(--rig-shoulder-far-y, 23px); }
+.frontLeg { transform-origin: var(--rig-hip-near-x, 20.5px) var(--rig-hip-y, 36px); }
+.backLeg  { transform-origin: var(--rig-hip-far-x, 27.5px) var(--rig-hip-y, 36px); }
 /* The hand, so a held thing can be turned back against an arm that has gone past the horizontal. */
-.held   { transform-origin: 15px 29px; }
-.tail   { transform-origin: 31px 34px; }   /* the root of the tail */
+.held   { transform-origin: var(--rig-grip-x, 15px) var(--rig-grip-y, 29px); }
+.tail   { transform-origin: var(--rig-tail-x, 31px) var(--rig-tail-y, 34px); }
 /* Back hair hangs from the crown, so it swings from there rather than from the middle of its own
    length — a plait pivoting about its midpoint swings its root away from the head it grows out of. */
-.hairBack { transform-origin: 24px 8px; }
-.wing   { transform-origin: 24px 24px; }   /* the shoulder blades */
-.shadow { transform-origin: 24px 46px; }
+.hairBack { transform-origin: var(--rig-crown-x, 24px) var(--rig-crown-y, 8px); }
+.hairLength { transform-origin: var(--rig-crown-x, 24px) 12px; }
+.wing   { transform-origin: var(--rig-wing-x, 24px) var(--rig-wing-y, 24px); }
+.shadow { transform-origin: var(--rig-root-x, 24px) var(--rig-root-y, 46px); }
 .fx     { transform-origin: 24px 30px; }
 .eyes   { transform-origin: 24px 12.5px; } /* the eye line, so a blink closes onto it */
-.ears   { transform-origin: 24px 8px; }    /* the top of the skull, where an ear is rooted */
+.ears   { transform-origin: var(--rig-crown-x, 24px) var(--rig-crown-y, 8px); }
 .orbs   { transform-origin: 24px 14px; }   /* the head, which the orbs keep station around */
+
+/* ── Stance ──
+   The posture, which sits between the costume and the pose because it belongs to neither.
+
+   Drawn into the costume it would be overwritten by the first keyframe that set a transform, which
+   is every keyframe; written into the poses, each of the eight would have to name each of the
+   forty-one characters. So each band of slots is wrapped in a group that carries its own posture and
+   the pose animates the part inside it — a scholar stays stooped halfway through a stride, and a
+   fairy stays off the floor for the whole of one. */
+.stance { transform: translateY(var(--rig-root-lift, 0px)); }
+.stanceHead {
+  transform-origin: var(--rig-neck-x, 24px) var(--rig-neck-y, 20px);
+  transform: rotate(var(--rig-neck-tilt, 0deg));
+}
+.stanceTorso {
+  transform-origin: var(--rig-neck-x, 24px) var(--rig-hip-y, 36px);
+  transform: rotate(var(--rig-torso-lean, 0deg));
+}
+/* Shoulder span as a translation rather than a scale: scaling an arm makes a wide-shouldered figure
+   a figure with a fat arm, and the brief asks for a stance rather than a body-mass slider. Seven
+   units is half the plain frame's shoulder width, so a span of 1.2 puts each arm 1.4 units out. */
+.stanceArmNear { transform: translateX(calc((1 - var(--rig-shoulder-span, 1)) * 7px)); }
+.stanceArmFar  { transform: translateX(calc((var(--rig-shoulder-span, 1) - 1) * 7px)); }
+
+/* ── Compact ──
+   What a 32-pixel row gets. Not a different drawing: the same figure with everything nobody can see
+   at that size switched off. A trailing particle two device pixels across still costs a composited
+   layer and an animation ticking every frame, and forty of those in a leaderboard is exactly where a
+   classroom tablet drops below sixty. */
+.compact [data-slot='overlay_fx'],
+.compact [data-slot='pose_fx'],
+.compact [data-slot='aura_back'] { display: none; }
+/* Filters are the expensive half. One drop-shadow on one element is cheap; forty are not. */
+.compact .fx, .compact .orbs { filter: none !important; }
+/* The micro-strokes: highlights and seams authored at half a unit, which below 48 pixels is half a
+   device pixel — invisible, and still a paint. */
+.compact .orbs { display: none; }
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Alive while standing still
  *
- * These three run in every pose rather than in one, because they are not poses: a figure that never
- * blinks is a mannequin however well it walks, and the classroom sees the idle far more than the
- * rest put together. They are also the cheapest possible signals — two transforms and an opacity —
- * so they cost nothing on a leaderboard of forty figures, and `paused` still stops them dead for a
- * picker grid.
+ * These run in every pose rather than in one, because they are not poses: a figure that never blinks
+ * is a mannequin however well it walks, and the classroom sees the idle far more than the rest put
+ * together.
  * ──────────────────────────────────────────────────────────────────────────── */
-.avatar .eyes { animation: blink 4.2s steps(1, end) infinite; }
-.avatar .ears { animation: earTwitch 2.5s steps(1, end) infinite; }
-.avatar .orbs { animation: orbDrift 3s steps(6) infinite; }
 
 /*
- * A blink is two discrete states, not a squash.
+ * The blink.
  *
- * Interpolating the eyelid produces a half-closed eye at a scale the sprite was not drawn at, which
- * is the same smear this file rejects everywhere else. `steps(1, end)` holds each keyframe, so the
- * eye is open, then shut, then open — three drawings, which is how a sprite sheet blinks.
+ * 120 ms shut, once every four and a quarter seconds, on a curve rather than as two states. A real
+ * eyelid accelerates closed and decelerates open, and at 120 ms the difference between that and a
+ * hard cut is the difference between a blink and a glitch — a two-state blink at this speed reads as
+ * a dropped frame, which is what it was being reported as.
+ *
+ * 120 ms of a 4.25 s cycle is 2.82 %, so the shut frame is a hair under three percent of the loop and
+ * the eye is open for all the rest of it. The gap the whole page blinks on is `avatarBlink.ts`,
+ * which schedules between 3.5 and 5.0 s; this is the fallback for a figure that is not subscribed.
  */
+.avatar .eyes { animation: blink 4.25s var(--ease-drift) infinite; }
+.avatar .ears { animation: earTwitch 2.5s var(--ease-settle) infinite; }
+.avatar .orbs { animation: orbDrift 3s var(--ease-drift) infinite; }
+
 @keyframes blink {
-  0%, 92%   { transform: scaleY(1); }
-  94%, 97%  { transform: scaleY(0.12); }
-  98%, 100% { transform: scaleY(1); }
+  0%, 97.18%  { transform: scaleY(1); }
+  98.4%       { transform: scaleY(0.05); }
+  100%        { transform: scaleY(1); }
 }
 /* Ears and horns flick and settle. Twice, unevenly, because a metronome is not a twitch. */
 @keyframes earTwitch {
@@ -98,60 +178,83 @@
   92%       { transform: rotate(-2deg); }
   96%, 100% { transform: rotate(0deg); }
 }
-/* The mage's flames keep station: a small orbit, held frame by frame. */
+/* The mage's flames keep station: a small orbit, continuous, because an orbit that steps is a
+   circle of dots rather than something going round. */
 @keyframes orbDrift {
   0%   { transform: translate(0, 0); }
-  16%  { transform: translate(0.5px, -1px); }
-  33%  { transform: translate(1px, -1.5px); }
-  50%  { transform: translate(0.5px, -1px); }
-  66%  { transform: translate(-0.5px, 0.5px); }
-  83%  { transform: translate(-1px, 1px); }
+  25%  { transform: translate(0.75px, -1.25px); }
+  50%  { transform: translate(1px, -1.5px); }
+  75%  { transform: translate(-0.75px, 0.75px); }
   100% { transform: translate(0, 0); }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * ยืน · idle — 4 frames, 0.8s
- * A chest that breathes, arms that hang and drift, a tail and wings that sway. The one requirement
- * of an idle is that a still classroom screen never looks frozen.
+ * ยืน · idle — three frequencies that never line up
+ *
+ * A chest at 0.25 Hz, a head at 0.12 Hz, and everything that hangs at 0.5 Hz a quarter-cycle behind.
+ * Four seconds, eight and a third seconds, two seconds: the three come back into phase once every
+ * fifty seconds, which is long enough that nobody watching a classroom board ever sees the loop.
+ *
+ * That is the whole trick, and it is why an idle built out of one 1.2 s cycle looked mechanical
+ * however carefully the cycle was drawn — every part of the figure arrived home at the same instant,
+ * twice a second, and a living thing never does.
  * ──────────────────────────────────────────────────────────────────────────── */
-/* 1.2s rather than 0.8: a breath is slower than a footfall, and at 0.8 the figure read as panting.
-   Still stepped, for the reason at the top of this file — the position between two pixels is a
-   smear, not a slower breath. */
-.idle .figure { animation: bodyBreathe 1.2s steps(4) infinite; }
-.idle .frontArm { animation: armDangle 1.2s steps(4) infinite; }
-.idle .backArm { animation: armDangleBack 1.2s steps(4) infinite; }
-.idle .tail { animation: tailSway 1.6s steps(4) infinite; }
-.idle .wing { animation: wingSway 1.6s steps(4) infinite; }
-/* Length moves in the air, and it is the thing that separates standing from being a cut-out. One
-   degree either side: hair that swings further than a tail is hair in a wind nobody else is in. */
-.idle .hairBack { animation: hairSway 1.6s steps(4) infinite; }
+.idle .figure { animation: bodyBreathe 4s var(--ease-drift) infinite; }
+.idle .head { animation: headDrift 8.333s var(--ease-drift) infinite; }
+.idle .torso { animation: chestExpand 4s var(--ease-drift) infinite; }
+.idle .frontArm { animation: armDangle 4s var(--ease-drift) infinite; }
+.idle .backArm { animation: armDangleBack 4s var(--ease-drift) infinite; }
+/*
+ * The quarter-cycle lag.
+ *
+ * A negative delay starts the animation already part-way through, which is how a phase offset is
+ * spelled in CSS — a positive one would hold the hair still for half a second on mount and then
+ * start it, which is a visible hitch on every avatar that comes into view.
+ *
+ * 0.5 s of a 2 s cycle is 90 degrees. Hair, a tail, a cape hem and a wing all take the same lag,
+ * because they are all the same thing: mass hanging off a body that has already moved.
+ */
+.idle .tail { animation: tailSway 2s var(--ease-drift) -0.5s infinite; }
+.idle .wing { animation: wingSway 2s var(--ease-drift) -0.5s infinite; }
+.idle .hairBack { animation: hairSway 2s var(--ease-drift) -0.5s infinite; }
+.idle .hairLength { animation: hairSway 2s var(--ease-drift) -0.6s infinite; }
 
+/* The chest, at 0.25 Hz. A rise of one unit and a widening of two percent: a chibi torso that
+   expands further than that reads as inflating. */
 @keyframes bodyBreathe {
   0%   { transform: translateY(0); }
-  25%  { transform: translateY(-1px); }
-  50%  { transform: translateY(-1px); }
-  75%  { transform: translateY(0); }
+  40%  { transform: translateY(-1px); }
+  70%  { transform: translateY(-0.5px); }
   100% { transform: translateY(0); }
+}
+@keyframes chestExpand {
+  0%   { transform: scaleY(1) scaleX(1); }
+  40%  { transform: scaleY(1.02) scaleX(1.01); }
+  100% { transform: scaleY(1) scaleX(1); }
+}
+/* The head, at 0.12 Hz — slow enough that it is never caught moving, only ever found somewhere
+   slightly different from where it was. */
+@keyframes headDrift {
+  0%   { transform: rotate(0deg) translateY(0); }
+  30%  { transform: rotate(1.2deg) translateY(-0.25px); }
+  60%  { transform: rotate(-0.8deg) translateY(0); }
+  100% { transform: rotate(0deg) translateY(0); }
 }
 @keyframes armDangle {
   0%   { transform: rotate(0deg); }
-  25%  { transform: rotate(2deg); }
-  50%  { transform: rotate(3deg); }
-  75%  { transform: rotate(1deg); }
+  40%  { transform: rotate(2.5deg); }
+  70%  { transform: rotate(1deg); }
   100% { transform: rotate(0deg); }
 }
 @keyframes armDangleBack {
   0%   { transform: rotate(0deg); }
-  25%  { transform: rotate(-2deg); }
-  50%  { transform: rotate(-3deg); }
-  75%  { transform: rotate(-1deg); }
+  40%  { transform: rotate(-2.5deg); }
+  70%  { transform: rotate(-1deg); }
   100% { transform: rotate(0deg); }
 }
 @keyframes tailSway {
   0%   { transform: rotate(-4deg); }
-  25%  { transform: rotate(2deg); }
   50%  { transform: rotate(6deg); }
-  75%  { transform: rotate(1deg); }
   100% { transform: rotate(-4deg); }
 }
 @keyframes wingSway {
@@ -162,11 +265,9 @@
   100% { transform: scaleX(1) translateY(0); }
 }
 @keyframes hairSway {
-  0%   { transform: rotate(-1deg); }
-  25%  { transform: rotate(0deg); }
-  50%  { transform: rotate(1deg); }
-  75%  { transform: rotate(0deg); }
-  100% { transform: rotate(-1deg); }
+  0%   { transform: rotate(-1.5deg); }
+  50%  { transform: rotate(1.5deg); }
+  100% { transform: rotate(-1.5deg); }
 }
 /* Under a stride, hair lags the head: it lifts on the passing frames and settles on the contacts. */
 @keyframes hairBounce {
@@ -179,33 +280,39 @@
 /* At a run it streams behind, and stays behind: no frame brings it back past vertical. */
 @keyframes hairStream {
   0%   { transform: rotate(6deg); }
-  33%  { transform: rotate(9deg); }
-  66%  { transform: rotate(7deg); }
+  35%  { transform: rotate(9deg); }
+  70%  { transform: rotate(7deg); }
   100% { transform: rotate(6deg); }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * เดิน · walk — 4 frames, 0.6s
- * Alternating strides, a foot that lifts, and a torso that bobs with the contact frames. The legs
- * are counter-phased against each other, which is the whole cycle.
+ * เดิน · walk — 0.6s
+ *
+ * Alternating strides, a foot that lifts, a torso that bobs on the contacts, and arms countering the
+ * legs. The legs are counter-phased against each other, which is the cycle; the arms are
+ * counter-phased against the legs, which is what stops a walk reading as a march.
  * ──────────────────────────────────────────────────────────────────────────── */
-.walk .figure { animation: walkBob 0.6s steps(4) infinite; }
-.walk .frontLeg { animation: strideFront 0.6s steps(4) infinite; }
-.walk .backLeg { animation: strideBack 0.6s steps(4) infinite; }
-.walk .frontArm { animation: swingFront 0.6s steps(4) infinite; }
-.walk .backArm { animation: swingBack 0.6s steps(4) infinite; }
-.walk .tail { animation: tailSway 1.2s steps(4) infinite; }
-.walk .hairBack { animation: hairBounce 0.6s steps(4) infinite; }
+.walk .figure { animation: walkBob 0.6s var(--ease-drift) infinite; }
+.walk .frontLeg { animation: strideFront 0.6s var(--ease-limb) infinite; }
+.walk .backLeg { animation: strideBack 0.6s var(--ease-limb) infinite; }
+.walk .frontArm { animation: swingFront 0.6s var(--ease-limb) infinite; }
+.walk .backArm { animation: swingBack 0.6s var(--ease-limb) infinite; }
+/* The wrist arrives after the shoulder. 40 ms of a 600 ms cycle is a twenty-fourth of it — small,
+   and the only thing that stops a carried lantern looking welded to the hand. */
+.walk .frontArm .held { animation: heldFollow 0.6s var(--ease-settle) -0.04s infinite; }
+.walk .tail { animation: tailSway 1.2s var(--ease-drift) -0.3s infinite; }
+.walk .hairBack { animation: hairBounce 0.6s var(--ease-drift) -0.15s infinite; }
+.walk .hairLength { animation: hairBounce 0.6s var(--ease-drift) -0.2s infinite; }
 /*
  * The ground the figure is walking on.
  *
  * A walk cycle with a fixed shadow reads as a person sliding along on a puddle — there is nothing in
- * the picture that says a foot arrived. The shadow tightening on the two contact frames and
- * spreading on the two passing frames is the cheapest possible ground contact, and it is what the
- * eye actually uses to decide whether feet are touching anything.
+ * the picture that says a foot arrived. The shadow tightening on the contacts and spreading on the
+ * passing frames is the cheapest possible ground contact, and it is what the eye actually uses to
+ * decide whether feet are touching anything.
  */
-.walk .shadow { animation: shadowStep 0.6s steps(4) infinite; }
-.run .shadow { animation: shadowStride 0.4s steps(6) infinite; }
+.walk .shadow { animation: shadowStep 0.6s var(--ease-drift) infinite; }
+.run .shadow { animation: shadowStride 0.4s var(--ease-drift) infinite; }
 
 @keyframes shadowStep {
   0%   { transform: scale(1); opacity: 0.3; }
@@ -214,7 +321,7 @@
   75%  { transform: scale(0.9); opacity: 0.22; }
   100% { transform: scale(1); opacity: 0.3; }
 }
-/* A run has a frame with neither foot down: the shadow is at its smallest there, not merely
+/* A run has a moment with neither foot down: the shadow is at its smallest there, not merely
    narrower — that airborne frame is the only thing separating a run from a fast walk. */
 @keyframes shadowStride {
   0%   { transform: scale(1); opacity: 0.3; }
@@ -226,26 +333,42 @@
   100% { transform: scale(1); opacity: 0.3; }
 }
 
+/*
+ * The bob, and the figures that do not have one.
+ *
+ * `--rig-planted` is 1 on anything that stands and 0 on anything that hovers, so a fairy, a
+ * celestial, a shade and a drone take a bob of zero out of the same keyframe everything else uses.
+ * Before this the drone bobbed: it has no legs, and a pair of thrusters rising and falling in time
+ * with a stride is the single most obviously wrong thing the old rig did.
+ */
 @keyframes walkBob {
   0%   { transform: translateY(0); }
-  25%  { transform: translateY(-1px); }
+  25%  { transform: translateY(calc(var(--rig-planted, 1) * -1px)); }
   50%  { transform: translateY(0); }
-  75%  { transform: translateY(-1px); }
+  75%  { transform: translateY(calc(var(--rig-planted, 1) * -1px)); }
   100% { transform: translateY(0); }
 }
+/*
+ * The knee break.
+ *
+ * `--rig-knee-drop` is how far below the hip the joint sits: positive on a digitigrade animal, whose
+ * ankle is carried high, and negative on a hoofed one, whose knee is high and whose shin is long. It
+ * is applied as a translation on the thigh so the whole limb swings about a point further down,
+ * which is what makes a wolf's stride a push and a deer's a lift out of the same two keyframes.
+ */
 @keyframes strideFront {
-  0%   { transform: rotate(14deg); }
-  25%  { transform: rotate(0deg) translateY(-1px); }
-  50%  { transform: rotate(-14deg); }
-  75%  { transform: rotate(0deg); }
-  100% { transform: rotate(14deg); }
+  0%   { transform: translateY(var(--rig-knee-drop, 0px)) rotate(14deg); }
+  25%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(0deg) translateY(-1px); }
+  50%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(-14deg); }
+  75%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(0deg); }
+  100% { transform: translateY(var(--rig-knee-drop, 0px)) rotate(14deg); }
 }
 @keyframes strideBack {
-  0%   { transform: rotate(-14deg); }
-  25%  { transform: rotate(0deg); }
-  50%  { transform: rotate(14deg); }
-  75%  { transform: rotate(0deg) translateY(-1px); }
-  100% { transform: rotate(-14deg); }
+  0%   { transform: translateY(var(--rig-knee-drop, 0px)) rotate(-14deg); }
+  25%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(0deg); }
+  50%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(14deg); }
+  75%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(0deg) translateY(-1px); }
+  100% { transform: translateY(var(--rig-knee-drop, 0px)) rotate(-14deg); }
 }
 @keyframes swingFront {
   0%   { transform: rotate(-12deg); }
@@ -261,40 +384,57 @@
   75%  { transform: rotate(0deg); }
   100% { transform: rotate(12deg); }
 }
+/* What a hand carries lags what the arm does, and by less than the arm moves: a lantern swinging as
+   far as the shoulder is a lantern nailed to it. */
+@keyframes heldFollow {
+  0%   { transform: rotate(4deg); }
+  25%  { transform: rotate(0deg); }
+  50%  { transform: rotate(-4deg); }
+  75%  { transform: rotate(0deg); }
+  100% { transform: rotate(4deg); }
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
- * โบกมือ · wave — 4 frames, 0.8s
+ * โบกมือ · wave — 0.8s
  *
- * The one pose that is addressed to somebody. The near arm goes up and swings from the elbow while
- * the rest of the figure keeps breathing, the head tips towards the raised hand, and the weight
- * shifts onto the other foot — a wave with a rigid body is a signpost.
+ * The one pose that is addressed to somebody, and the one the brief asks for a chain in: the
+ * shoulder leads, the elbow articulates after it, and the hand oscillates with a damping that dies
+ * out rather than stopping. The rest of the figure keeps breathing, the head tips towards the raised
+ * hand, and the weight shifts — a wave with a rigid body is a signpost.
  *
  * It is deliberately not the cheer: one arm rather than two, no hop, and the arm stops short of
  * vertical so the hand is beside the head and not above it.
  * ──────────────────────────────────────────────────────────────────────────── */
-.wave .figure { animation: bodyBreathe 1.2s steps(4) infinite; }
-.wave .frontArm { animation: waveArm 0.8s steps(4) infinite; }
-.wave .backArm { animation: armDangleBack 1.2s steps(4) infinite; }
-.wave .head { animation: waveHeadTilt 0.8s steps(4) infinite; }
-.wave .torso { animation: waveLean 0.8s steps(4) infinite; }
-.wave .tail { animation: tailSway 0.8s steps(4) infinite; }
-/* What the hand holds is turned back upright, the same way the cheer does it. */
-.wave .frontArm .held { animation: heldUprightWave 0.8s steps(4) infinite; }
+.wave .figure { animation: bodyBreathe 4s var(--ease-drift) infinite; }
+.wave .frontArm { animation: waveArm 0.8s var(--ease-limb) infinite; }
+.wave .backArm { animation: armDangleBack 4s var(--ease-drift) infinite; }
+.wave .head { animation: waveHeadTilt 0.8s var(--ease-drift) infinite; }
+.wave .torso { animation: waveLean 0.8s var(--ease-drift) infinite; }
+.wave .tail { animation: tailSway 1.6s var(--ease-drift) -0.4s infinite; }
+/*
+ * The hand, a tenth of a cycle behind the shoulder and damping as it goes.
+ *
+ * This is the chain the brief names, and the lag is the whole of it: a hand that oscillates in phase
+ * with its own shoulder is a semaphore flag, while one that arrives late and settles is a hand
+ * waving. What it holds is turned back upright on top of that, the same way the cheer does it.
+ */
+.wave .frontArm .held { animation: heldUprightWave 0.8s var(--ease-settle) -0.08s infinite; }
 
 /*
  * Anticipation, the wave itself, and a settle.
  *
- * Four frames, and the first of them is the arm on its way up rather than already there. A cycle
- * that starts at the top has no lift in it — the arm is simply *up*, every loop, with no frame that
- * says it got there — and because the loop's last frame is its first, the arm also snapped from
- * over the head back down to over the head with nothing in between. Starting and ending low is what
- * gives the loop a beginning and lets it return to something near the resting pose.
+ * The first keyframe is the arm on its way up rather than already there. A cycle that starts at the
+ * top has no lift in it — the arm is simply *up*, every loop, with no moment that says it got there
+ * — and because a loop's last frame is its first, the arm also snapped from over the head back to
+ * over the head with nothing in between. Starting and ending low gives the loop a beginning and lets
+ * it return to something near the resting pose, which is what "interpolating back into idle without
+ * a pop frame" means in practice.
  */
 @keyframes waveArm {
   0%   { transform: rotate(24deg); }
-  25%  { transform: rotate(96deg); }
+  30%  { transform: rotate(96deg); }
   50%  { transform: rotate(124deg); }
-  75%  { transform: rotate(100deg); }
+  70%  { transform: rotate(100deg); }
   100% { transform: rotate(24deg); }
 }
 @keyframes waveHeadTilt {
@@ -305,73 +445,97 @@
   0%, 100% { transform: rotate(-2deg); }
   50%      { transform: rotate(-3deg); }
 }
+/* Damped: each swing is smaller than the one before it, which is what a hand actually does when it
+   stops waving — and the reason this is not simply the arm's own angle negated. */
 @keyframes heldUprightWave {
   0%   { transform: rotate(-24deg); }
-  25%  { transform: rotate(-96deg); }
-  50%  { transform: rotate(-124deg); }
-  75%  { transform: rotate(-100deg); }
+  30%  { transform: rotate(-90deg); }
+  50%  { transform: rotate(-118deg); }
+  70%  { transform: rotate(-98deg); }
+  85%  { transform: rotate(-60deg); }
   100% { transform: rotate(-24deg); }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * วิ่ง · run — 6 frames, 0.4s
- * The same cycle at a wider amplitude, plus the two things that separate a run from a fast walk:
- * the torso pitches forward, and there is a frame with neither foot down.
+ * วิ่ง · run — 0.4s
+ *
+ * The same cycle at a wider amplitude, plus the three things that separate a run from a fast walk:
+ * the torso pitches forward eight degrees, there is a moment with neither foot down, and the arms
+ * counter the legs hard enough that the wrists carry through past the shoulders.
+ *
+ * ── The flip ──
+ * Nothing here touches which way the figure faces. That is a prop on the component with one default,
+ * resolved once in `avatarDirection.ts`, and no keyframe in this file may contain a negative scale —
+ * which is what "the character turning round twice a second" was. There is a test on exactly that.
  * ──────────────────────────────────────────────────────────────────────────── */
-.run .figure { animation: runBob 0.4s steps(6) infinite; }
-.run .torso { animation: runLean 0.4s steps(6) infinite; }
-.run .frontLeg { animation: runFront 0.4s steps(6) infinite; }
-.run .backLeg { animation: runBack 0.4s steps(6) infinite; }
-.run .frontArm { animation: runArmFront 0.4s steps(6) infinite; }
-.run .backArm { animation: runArmBack 0.4s steps(6) infinite; }
-.run .fx { animation: speedFlicker 0.4s steps(2) infinite; }
-.run .tail { animation: tailStream 0.4s steps(6) infinite; }
-.run .hairBack { animation: hairStream 0.4s steps(6) infinite; }
+.run .figure { animation: runBob 0.4s var(--ease-drift) infinite; }
+.run .torso { animation: runLean 0.4s var(--ease-drift) infinite; }
+.run .frontLeg { animation: runFront 0.4s var(--ease-limb) infinite; }
+.run .backLeg { animation: runBack 0.4s var(--ease-limb) infinite; }
+.run .frontArm { animation: runArmFront 0.4s var(--ease-limb) infinite; }
+.run .backArm { animation: runArmBack 0.4s var(--ease-limb) infinite; }
+.run .frontArm .held { animation: heldFollow 0.4s var(--ease-settle) -0.05s infinite; }
+.run .fx { animation: speedFlicker 0.4s var(--ease-drift) infinite; }
+.run .tail { animation: tailStream 0.4s var(--ease-drift) -0.1s infinite; }
+.run .hairBack { animation: hairStream 0.4s var(--ease-drift) -0.1s infinite; }
+.run .hairLength { animation: hairStream 0.4s var(--ease-drift) -0.13s infinite; }
 
+/*
+ * The bounce, on a cosine rather than a triangle.
+ *
+ * Ground contact is the bottom of the curve and it is a *point*, not a plateau: a body falls fastest
+ * just before it lands and is slowest at the top of its arc. The four keyframes here sample that
+ * curve — down hard, up slow, hold near the peak, down hard again — and the easing between them does
+ * the rest. A linear bob has the figure travelling at the same speed through its landing as through
+ * its float, and that is what reads as bouncing on a spring.
+ *
+ * Multiplied by `--rig-planted`, so the four figures that hover do not bounce at all.
+ */
 @keyframes runBob {
   0%   { transform: translateY(0); }
-  16%  { transform: translateY(-2px); }
-  33%  { transform: translateY(-1px); }
+  20%  { transform: translateY(calc(var(--rig-planted, 1) * -2px)); }
+  40%  { transform: translateY(calc(var(--rig-planted, 1) * -1.5px)); }
   50%  { transform: translateY(0); }
-  66%  { transform: translateY(-2px); }
-  83%  { transform: translateY(-1px); }
+  70%  { transform: translateY(calc(var(--rig-planted, 1) * -2px)); }
+  90%  { transform: translateY(calc(var(--rig-planted, 1) * -1.5px)); }
   100% { transform: translateY(0); }
 }
-/* Six degrees: the brief asks for five to eight, and beyond that a chibi torso reads as falling. */
+/* Eight degrees, which is the figure the brief names and the top of what a chibi torso can carry:
+   beyond it the character reads as falling rather than as running. */
 @keyframes runLean {
-  0%, 100% { transform: rotate(6deg); }
+  0%, 100% { transform: rotate(8deg); }
   50%      { transform: rotate(7deg); }
 }
 @keyframes runFront {
-  0%   { transform: rotate(30deg); }
-  16%  { transform: rotate(10deg); }
-  33%  { transform: rotate(-14deg); }
-  50%  { transform: rotate(-28deg); }
-  66%  { transform: rotate(-8deg); }
-  83%  { transform: rotate(12deg); }
-  100% { transform: rotate(30deg); }
+  0%   { transform: translateY(var(--rig-knee-drop, 0px)) rotate(30deg); }
+  20%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(6deg); }
+  40%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(-18deg); }
+  50%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(-28deg); }
+  70%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(-4deg); }
+  90%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(16deg); }
+  100% { transform: translateY(var(--rig-knee-drop, 0px)) rotate(30deg); }
 }
 @keyframes runBack {
-  0%   { transform: rotate(-28deg); }
-  16%  { transform: rotate(-8deg); }
-  33%  { transform: rotate(12deg); }
-  50%  { transform: rotate(30deg); }
-  66%  { transform: rotate(10deg); }
-  83%  { transform: rotate(-14deg); }
-  100% { transform: rotate(-28deg); }
+  0%   { transform: translateY(var(--rig-knee-drop, 0px)) rotate(-28deg); }
+  20%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(-4deg); }
+  40%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(16deg); }
+  50%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(30deg); }
+  70%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(6deg); }
+  90%  { transform: translateY(var(--rig-knee-drop, 0px)) rotate(-18deg); }
+  100% { transform: translateY(var(--rig-knee-drop, 0px)) rotate(-28deg); }
 }
 @keyframes runArmFront {
   0%   { transform: rotate(-38deg); }
-  33%  { transform: rotate(0deg); }
+  35%  { transform: rotate(0deg); }
   50%  { transform: rotate(30deg); }
-  83%  { transform: rotate(0deg); }
+  85%  { transform: rotate(0deg); }
   100% { transform: rotate(-38deg); }
 }
 @keyframes runArmBack {
   0%   { transform: rotate(30deg); }
-  33%  { transform: rotate(0deg); }
+  35%  { transform: rotate(0deg); }
   50%  { transform: rotate(-38deg); }
-  83%  { transform: rotate(0deg); }
+  85%  { transform: rotate(0deg); }
   100% { transform: rotate(30deg); }
 }
 @keyframes speedFlicker {
@@ -385,55 +549,80 @@
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * ร่ายเวทย์ · cast — 6 frames, 1.0s
- * Hands lift, the figure leaves the ground by two pixels, and a runic circle opens under the feet.
- * The shadow shrinks as the figure rises, which is the cue that says levitating rather than jumping.
+ * ร่ายเวทย์ · cast — 1.2s in four phases
+ *
+ * The sequence the brief specifies, and the percentages are the durations rather than an even split:
+ *
+ *   anticipation  0.20s   0%    → 16.7%   the torso compresses, the arms pull in
+ *   surge         0.35s   16.7% → 45.8%   the arms go out and the runes light
+ *   impact        0.25s   45.8% → 66.7%   full extension, one flash, one shake
+ *   recovery      0.40s   66.7% → 100%    a cubic decay back to the resting pose
+ *
+ * Every part of the figure reads the same four boundaries, which is what makes it a sequence rather
+ * than six things happening near each other. The curve names carry the intent: `--ease-anticipate`
+ * pulls the wrong way first, `--ease-impact` arrives with no ramp-in, `--ease-settle` decays.
  * ──────────────────────────────────────────────────────────────────────────── */
-.cast .figure { animation: levitate 1s steps(6) infinite; }
-.cast .frontArm { animation: castRaiseFront 1s steps(6) infinite; }
-.cast .backArm { animation: castRaiseBack 1s steps(6) infinite; }
-.cast .shadow { animation: shadowShrink 1s steps(6) infinite; }
-.cast .fx { animation: runeOpen 1s steps(6) infinite; }
-.cast .tail { animation: tailSway 2s steps(4) infinite; }
+.cast .figure { animation: levitate 1.2s var(--ease-settle) infinite; }
+.cast .torso { animation: castCompress 1.2s var(--ease-anticipate) infinite; }
+.cast .frontArm { animation: castRaiseFront 1.2s var(--ease-impact) infinite; }
+.cast .backArm { animation: castRaiseBack 1.2s var(--ease-impact) infinite; }
+.cast .shadow { animation: shadowShrink 1.2s var(--ease-settle) infinite; }
+.cast .fx { animation: runeOpen 1.2s var(--ease-limb) infinite; }
+.cast .tail { animation: tailSway 2.4s var(--ease-drift) -0.6s infinite; }
 
+/*
+ * The lift, and the compression before it.
+ *
+ * Phase one goes *down*: a figure that rises straight off the floor has been picked up, while one
+ * that sinks a unit first has pushed. That single downward keyframe is the difference between a cast
+ * and a levitation, and it is the reason the anticipation phase exists at all.
+ */
 @keyframes levitate {
-  0%   { transform: translateY(0); }
-  16%  { transform: translateY(-1px); }
-  33%  { transform: translateY(-2px); }
-  50%  { transform: translateY(-2px); }
-  66%  { transform: translateY(-2px); }
-  83%  { transform: translateY(-1px); }
-  100% { transform: translateY(0); }
+  0%    { transform: translateY(0); }
+  16.7% { transform: translateY(calc(var(--rig-planted, 1) * 1px)); }
+  45.8% { transform: translateY(-2px); }
+  66.7% { transform: translateY(-3px); }
+  100%  { transform: translateY(0); }
+}
+/* The torso compresses into the anticipation and extends through the impact: the weight shift the
+   arms are supposed to be coming out of. */
+@keyframes castCompress {
+  0%    { transform: scaleY(1) rotate(0deg); }
+  16.7% { transform: scaleY(0.94) rotate(2deg); }
+  45.8% { transform: scaleY(1.03) rotate(-1deg); }
+  66.7% { transform: scaleY(1.05) rotate(-2deg); }
+  100%  { transform: scaleY(1) rotate(0deg); }
 }
 /*
  * Which way is up.
  *
  * An arm hangs downwards from its shoulder, so in SVG's clockwise-positive rotation the near (left)
- * arm goes up and outwards on a POSITIVE angle and the far (right) arm on a negative one. Signed
- * the other way — which is how these were first written — both arms swing across the chest instead,
- * and a "cast" becomes a figure hugging itself.
+ * arm goes up and outwards on a POSITIVE angle and the far (right) arm on a negative one. Signed the
+ * other way — which is how these were first written — both arms swing across the chest instead, and
+ * a "cast" becomes a figure hugging itself.
+ *
+ * The anticipation frame is inside the resting angle rather than outside it: the appendages pull in
+ * before they go out, which is the compression the brief asks for stated at the joint.
  */
 @keyframes castRaiseFront {
-  0%   { transform: rotate(0deg); }
-  16%  { transform: rotate(52deg); }
-  33%  { transform: rotate(96deg); }
-  50%  { transform: rotate(112deg); }
-  66%  { transform: rotate(96deg); }
-  83%  { transform: rotate(44deg); }
-  100% { transform: rotate(0deg); }
+  0%    { transform: rotate(0deg); }
+  16.7% { transform: rotate(-14deg); }
+  45.8% { transform: rotate(96deg); }
+  66.7% { transform: rotate(118deg); }
+  100%  { transform: rotate(0deg); }
 }
 @keyframes castRaiseBack {
-  0%   { transform: rotate(0deg); }
-  16%  { transform: rotate(-52deg); }
-  33%  { transform: rotate(-96deg); }
-  50%  { transform: rotate(-112deg); }
-  66%  { transform: rotate(-96deg); }
-  83%  { transform: rotate(-44deg); }
-  100% { transform: rotate(0deg); }
+  0%    { transform: rotate(0deg); }
+  16.7% { transform: rotate(14deg); }
+  45.8% { transform: rotate(-96deg); }
+  66.7% { transform: rotate(-118deg); }
+  100%  { transform: rotate(0deg); }
 }
 @keyframes shadowShrink {
   0%, 100% { transform: scale(1); opacity: 0.28; }
-  33%, 66% { transform: scale(0.78); opacity: 0.18; }
+  16.7%    { transform: scale(1.08); opacity: 0.32; }
+  45.8%    { transform: scale(0.78); opacity: 0.18; }
+  66.7%    { transform: scale(0.7); opacity: 0.14; }
 }
 /*
  * The circle opens, turns, and blooms.
@@ -442,59 +631,58 @@
  * something being cast: a rune circle that turns has an author. The glow is a drop-shadow in the
  * magic colour rather than a second ring, so it costs one filter on one element and picks up
  * whatever colour the child chose.
- */
-/*
- * Five phases, one per frame pair: anticipation, charge, release, impact, recovery.
  *
- * The old version was a ring that faded from nothing to full and back to nothing every second,
- * which at six frames is a strobe rather than a spell — and the brief is explicit that an effect
- * must not flash. The opacity floor is 0.25 rather than 0 and the peak is held across two frames,
- * so what changes between frames is the *size* of the ring and the angle it has turned through: the
- * eye reads growth and rotation as a spell being worked, and reads on-off as a fault.
+ * The opacity floor is 0.25 rather than 0 and the peak is held across the impact, so what changes is
+ * the size of the ring and the angle it has turned through. The eye reads growth and rotation as a
+ * spell being worked, and reads on-off as a fault — which is what the brief means by "no flash".
  *
- * Nothing here exceeds scale 1.2, because the circle is authored at rx 14 on a 48 grid — a ring at
+ * Nothing here exceeds scale 1.2, because the circle is authored at rx 14 on a 48 grid: a ring at
  * 1.5 is a ring past the frame, and the figure it is supposed to be standing in is 18 units wide.
  */
 @keyframes runeOpen {
-  0%   { transform: scale(0.55) rotate(0deg); opacity: 0.25; }
-  16%  { transform: scale(0.72) rotate(24deg); opacity: 0.5; }
-  33%  { transform: scale(0.95) rotate(48deg); opacity: 0.85; }
-  50%  { transform: scale(1.15) rotate(72deg); opacity: 1; }
-  66%  { transform: scale(1.15) rotate(96deg); opacity: 0.9; }
-  83%  { transform: scale(0.85) rotate(120deg); opacity: 0.5; }
-  100% { transform: scale(0.55) rotate(144deg); opacity: 0.25; }
+  0%    { transform: scale(0.55) rotate(0deg); opacity: 0.25; }
+  16.7% { transform: scale(0.62) rotate(18deg); opacity: 0.35; }
+  45.8% { transform: scale(1.1) rotate(72deg); opacity: 0.95; }
+  66.7% { transform: scale(1.18) rotate(104deg); opacity: 1; }
+  100%  { transform: scale(0.55) rotate(160deg); opacity: 0.25; }
 }
 /* One glow, at one and a half units, on one element. A thicker one washes out the figure it is
    supposed to be lighting, which is the whole objection to the effect as it was. */
 .cast .fx { filter: drop-shadow(0 0 1.5px var(--av-magic)); }
-/* The orbs pull in towards the hands and brighten while the spell is going out. */
-.cast .orbs { animation: orbCharge 1s steps(6) infinite; }
+/* The orbs pull in towards the hands through the surge and are thrown out on the impact. */
+.cast .orbs { animation: orbCharge 1.2s var(--ease-impact) infinite; }
 @keyframes orbCharge {
-  0%   { transform: translate(0, 0) scale(1); opacity: 0.9; }
-  33%  { transform: translate(2px, -2px) scale(1.15); opacity: 1; }
-  66%  { transform: translate(3px, -3px) scale(1.25); opacity: 1; }
-  100% { transform: translate(0, 0) scale(1); opacity: 0.9; }
+  0%    { transform: translate(0, 0) scale(1); opacity: 0.9; }
+  16.7% { transform: translate(-1px, 1px) scale(0.85); opacity: 0.7; }
+  45.8% { transform: translate(2px, -2px) scale(1.2); opacity: 1; }
+  66.7% { transform: translate(3px, -3px) scale(1.3); opacity: 1; }
+  100%  { transform: translate(0, 0) scale(1); opacity: 0.9; }
 }
 /* The head follows the hands up: a caster staring straight ahead while its arms go over its head is
    a figure whose arms are doing something it is not paying attention to. */
-.cast .head { animation: castLook 1s steps(6) infinite; }
+.cast .head { animation: castLook 1.2s var(--ease-settle) infinite; }
 @keyframes castLook {
-  0%   { transform: rotate(0deg); }
-  33%  { transform: rotate(-4deg); }
-  66%  { transform: rotate(-5deg); }
-  100% { transform: rotate(0deg); }
+  0%    { transform: rotate(0deg); }
+  16.7% { transform: rotate(2deg); }
+  45.8% { transform: rotate(-4deg); }
+  66.7% { transform: rotate(-6deg); }
+  100%  { transform: rotate(0deg); }
 }
-.cast .hairBack { animation: hairSway 2s steps(4) infinite; }
+.cast .hairBack { animation: hairSway 2.4s var(--ease-drift) -0.6s infinite; }
+.cast .hairLength { animation: hairSway 2.4s var(--ease-drift) -0.7s infinite; }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * โจมตี · attack — 4 frames, 0.4s
+ * โจมตี · attack — 0.4s
  * Wind up, thrust, flash, reset. The wind-up is what makes the thrust read: a swing with no
  * anticipation frame looks like the arm teleported.
  * ──────────────────────────────────────────────────────────────────────────── */
-.attack .figure { animation: lunge 0.4s steps(4) infinite; }
-.attack .frontArm { animation: slash 0.4s steps(4) infinite; }
-.attack .torso { animation: attackTwist 0.4s steps(4) infinite; }
-.attack .fx { animation: flash 0.4s steps(4) infinite; }
+.attack .figure { animation: lunge 0.4s var(--ease-impact) infinite; }
+.attack .frontArm { animation: slash 0.4s var(--ease-anticipate) infinite; }
+.attack .torso { animation: attackTwist 0.4s var(--ease-limb) infinite; }
+.attack .fx { animation: flash 0.4s var(--ease-impact) infinite; }
+/* The blade carries through past the hand and is caught on the recovery, which is the follow-through
+   a thrust needs if the arm is not to read as stopping dead in the air. */
+.attack .frontArm .held { animation: bladeFollow 0.4s var(--ease-settle) -0.03s infinite; }
 
 @keyframes lunge {
   0%   { transform: translateX(1px); }
@@ -517,6 +705,13 @@
   25%      { transform: rotate(5deg); }
   50%      { transform: rotate(-8deg); }
 }
+@keyframes bladeFollow {
+  0%   { transform: rotate(10deg); }
+  25%  { transform: rotate(34deg); }
+  50%  { transform: rotate(-70deg); }
+  75%  { transform: rotate(-24deg); }
+  100% { transform: rotate(10deg); }
+}
 @keyframes flash {
   0%, 25%   { opacity: 0; transform: scale(0.6); }
   50%       { opacity: 1; transform: scale(1.15); }
@@ -525,17 +720,18 @@
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * กระโดด · jump — 4 frames, 0.5s
+ * กระโดด · jump — 0.5s
  * Squash, leap, stretch at the peak, squash on landing. Without the two squash frames a jump is a
  * figure being lifted rather than one pushing off.
  * ──────────────────────────────────────────────────────────────────────────── */
-.jump .figure { animation: leap 0.5s steps(4) infinite; }
-.jump .frontLeg { animation: tuckFront 0.5s steps(4) infinite; }
-.jump .backLeg { animation: tuckBack 0.5s steps(4) infinite; }
-.jump .frontArm { animation: jumpArmFront 0.5s steps(4) infinite; }
-.jump .backArm { animation: jumpArmBack 0.5s steps(4) infinite; }
-.jump .shadow { animation: shadowFall 0.5s steps(4) infinite; }
-.jump .hairBack { animation: hairLift 0.5s steps(4) infinite; }
+.jump .figure { animation: leap 0.5s var(--ease-impact) infinite; }
+.jump .frontLeg { animation: tuckFront 0.5s var(--ease-limb) infinite; }
+.jump .backLeg { animation: tuckBack 0.5s var(--ease-limb) infinite; }
+.jump .frontArm { animation: jumpArmFront 0.5s var(--ease-limb) infinite; }
+.jump .backArm { animation: jumpArmBack 0.5s var(--ease-limb) infinite; }
+.jump .shadow { animation: shadowFall 0.5s var(--ease-settle) infinite; }
+.jump .hairBack { animation: hairLift 0.5s var(--ease-settle) -0.08s infinite; }
+.jump .hairLength { animation: hairLift 0.5s var(--ease-settle) -0.11s infinite; }
 
 /* Hair lags the body on the way up and overshoots on the way down, which is the one place a chibi
    figure can show weight without the body itself changing shape. */
@@ -592,19 +788,21 @@
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * เชียร์ · cheer — 4 frames, 0.6s
+ * เชียร์ · cheer — 0.6s
  * Arms up, small repeated hops, stars bursting overhead. The hop is deliberately shorter than the
  * jump: a cheer that leaves the ground as far as a leap reads as the same pose twice.
  * ──────────────────────────────────────────────────────────────────────────── */
-.cheer .figure { animation: hop 0.6s steps(4) infinite; }
-.cheer .frontArm { animation: cheerArmFront 0.6s steps(4) infinite; }
-.cheer .backArm { animation: cheerArmBack 0.6s steps(4) infinite; }
-.cheer .fx { animation: starBurst 0.6s steps(4) infinite; }
-.cheer .tail { animation: tailSway 0.6s steps(4) infinite; }
-.cheer .hairBack { animation: hairLift 0.6s steps(4) infinite; }
-/* The arms go past the horizontal here, so what they carry is turned back to stay upright. */
-.cheer .frontArm .held { animation: heldUprightFront 0.6s steps(4) infinite; }
-.cheer .backArm .held { animation: heldUprightBack 0.6s steps(4) infinite; }
+.cheer .figure { animation: hop 0.6s var(--ease-impact) infinite; }
+.cheer .frontArm { animation: cheerArmFront 0.6s var(--ease-limb) infinite; }
+.cheer .backArm { animation: cheerArmBack 0.6s var(--ease-limb) infinite; }
+.cheer .fx { animation: starBurst 0.6s var(--ease-settle) infinite; }
+.cheer .tail { animation: tailSway 1.2s var(--ease-drift) -0.3s infinite; }
+.cheer .hairBack { animation: hairLift 0.6s var(--ease-settle) -0.1s infinite; }
+.cheer .hairLength { animation: hairLift 0.6s var(--ease-settle) -0.13s infinite; }
+/* The arms go past the horizontal here, so what they carry is turned back to stay upright — a
+   quarter-cycle late, so the banner keeps swinging after the arm has stopped. */
+.cheer .frontArm .held { animation: heldUprightFront 0.6s var(--ease-settle) -0.06s infinite; }
+.cheer .backArm .held { animation: heldUprightBack 0.6s var(--ease-settle) -0.06s infinite; }
 
 @keyframes heldUprightFront {
   0%   { transform: rotate(-132deg); }
@@ -623,14 +821,14 @@
 
 @keyframes hop {
   0%   { transform: translateY(0) scaleY(0.94); }
-  25%  { transform: translateY(-4px) scaleY(1.03); }
-  50%  { transform: translateY(-5px) scaleY(1.04); }
-  75%  { transform: translateY(-1px) scaleY(1); }
+  25%  { transform: translateY(calc(var(--rig-planted, 1) * -4px)) scaleY(1.03); }
+  50%  { transform: translateY(calc(var(--rig-planted, 1) * -5px)) scaleY(1.04); }
+  75%  { transform: translateY(calc(var(--rig-planted, 1) * -1px)) scaleY(1); }
   100% { transform: translateY(0) scaleY(0.94); }
 }
-/* Overhead is most of a half turn, not a quarter: at 96deg the arm is horizontal, which is a
-   shrug rather than a cheer. Stopping at 150 keeps the arms in a V rather than straight up, which
-   is what reads as celebrating instead of surrendering. */
+/* Overhead is most of a half turn, not a quarter: at 96deg the arm is horizontal, which is a shrug
+   rather than a cheer. Stopping at 150 keeps the arms in a V rather than straight up, which is what
+   reads as celebrating instead of surrendering. */
 @keyframes cheerArmFront {
   0%   { transform: rotate(132deg); }
   25%  { transform: rotate(150deg); }
@@ -645,8 +843,8 @@
   75%  { transform: rotate(-140deg); }
   100% { transform: rotate(-132deg); }
 }
-/* Stars rise, turn, and go out. The turn is what keeps four of them from reading as one shape
-   moving up the screen. */
+/* Stars rise, turn, and go out. The turn is what keeps four of them from reading as one shape moving
+   up the screen. */
 @keyframes starBurst {
   0%   { opacity: 0; transform: translateY(4px) scale(0.5) rotate(-20deg); }
   25%  { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
@@ -655,11 +853,11 @@
   100% { opacity: 0; transform: translateY(4px) scale(0.5) rotate(-20deg); }
 }
 /* Eyes shut and the ears go up on a cheer: the face joins in rather than watching. */
-.cheer .eyes { animation: cheerSquint 0.6s steps(1, end) infinite; }
-.cheer .ears { animation: cheerEars 0.6s steps(2) infinite; }
+.cheer .eyes { animation: cheerSquint 0.6s var(--ease-drift) infinite; }
+.cheer .ears { animation: cheerEars 0.6s var(--ease-drift) infinite; }
 @keyframes cheerSquint {
-  0%, 49%   { transform: scaleY(0.55); }
-  50%, 100% { transform: scaleY(0.7); }
+  0%, 100%  { transform: scaleY(0.55); }
+  50%       { transform: scaleY(0.7); }
 }
 @keyframes cheerEars {
   0%   { transform: rotate(-6deg); }
@@ -673,6 +871,11 @@
  * A held pose is information — this is what the costume looks like — while a loop is decoration.
  * Somebody who has asked their system not to animate gets the first frame of the pose they chose,
  * which is the frame the pose was designed to read in.
+ *
+ * `animation: none` rather than a paused state, and on every descendant: a paused animation is still
+ * an animation as far as the compositor is concerned, so it still holds a layer. Switched off, the
+ * figure costs one paint and then nothing at all, which is the "zero performance cost" the brief
+ * asks for rather than a slower version of the same work.
  * ──────────────────────────────────────────────────────────────────────────── */
 .paused * { animation-play-state: paused !important; }
 

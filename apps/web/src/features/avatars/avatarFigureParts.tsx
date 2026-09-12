@@ -244,6 +244,121 @@ const knitMarks = (): ReactElement => (
   </>
 );
 
+/* ── The three families the wardrobe was thin in ──
+ *
+ * Each of these is a silhouette rather than a trim: a puffer is horizontal bands that read at any
+ * size, plate is a pair of pauldrons that break the shoulder line, an exo rig is a frame you can see
+ * the body through. A garment whose whole identity is a stripe across the chest is a recolour with
+ * extra steps, and the customiser already has enough of those.
+ */
+
+/** Quilted bands, evenly spaced: the one thing that says "puffer" and not "jacket". */
+const quiltMarks = (): ReactElement => (
+  <>
+    {px(17, 22.5, 14, 1, PRIMARY_SHADOW)}
+    {px(17, 26, 14, 1, PRIMARY_SHADOW)}
+    {px(17, 29.5, 14, 1, PRIMARY_SHADOW)}
+    {px(16, 21, 2, 13, PRIMARY_HIGHLIGHT)}
+    {px(30, 21, 2, 13, PRIMARY_HIGHLIGHT)}
+  </>
+);
+
+/** A hood that is down, drawn as a roll on the shoulders rather than a panel on the chest. */
+const drapeMarks = (): ReactElement => (
+  <>
+    {px(18, 19.5, 12, 3, SECONDARY_SHADOW)}
+    {px(19, 18.5, 10, 2, PRIMARY)}
+    {px(19, 18.5, 10, 0.5, PRIMARY_HIGHLIGHT)}
+    {px(22, 23, 1, 7, PRIMARY_SHADOW)}
+    {px(25, 23, 1, 7, PRIMARY_SHADOW)}
+  </>
+);
+
+/** Contrast sleeves and a chest patch: a varsity jacket is its two colours meeting at the shoulder. */
+const varsityMarks = (): ReactElement => (
+  <>
+    {px(17, 21, 3, 13, WHITE)}
+    {px(28, 21, 3, 13, WHITE)}
+    {px(17, 30, 14, 1, ACCENT)}
+    {px(21, 24, 4, 4, ACCENT)}
+  </>
+);
+
+/**
+ * Pauldrons, which are the point.
+ *
+ * They are drawn past x 17 and x 31 — outside the torso box every other garment keeps to — because
+ * a shoulder plate that stays inside the shoulder is a shoulder plate nobody can see. This is the
+ * one garment in the set allowed out there, and it stops at 14 and 34, inside the arms.
+ */
+const pauldronMarks = (): ReactElement => (
+  <>
+    {px(17, 21, 14, 1, 'var(--av-secondary-highlight)')}
+    {px(17, 25, 14, 0.5, SECONDARY_SHADOW)}
+    {px(14, 20.5, 5, 4, SECONDARY)}
+    {px(29, 20.5, 5, 4, SECONDARY)}
+    {px(14, 20.5, 5, 1, ACCENT)}
+    {px(29, 20.5, 5, 1, ACCENT)}
+    {px(23, 24, 2, 8, ACCENT)}
+  </>
+);
+
+/** Vertical folds: what a robe has that a tunic does not, and the reason it reads as flowing. */
+const foldMarks = (): ReactElement => (
+  <>
+    {px(19, 22, 1, 12, 'var(--av-primary-shadow)')}
+    {px(23.5, 22, 1, 12, 'var(--av-primary-shadow)')}
+    {px(28, 22, 1, 12, 'var(--av-primary-shadow)')}
+    {px(20, 21, 8, 1.5, ACCENT)}
+  </>
+);
+
+/** A feathered collar, layered rather than solid, so it reads as plumage at 32 pixels. */
+const plumeMarks = (): ReactElement => (
+  <>
+    {px(15, 20.5, 18, 2, WHITE)}
+    {px(15, 22.5, 4, 4, WHITE)}
+    {px(29, 22.5, 4, 4, WHITE)}
+    {px(15, 26, 4, 0.5, ACCENT)}
+    {px(29, 26, 4, 0.5, ACCENT)}
+  </>
+);
+
+/** An exoskeleton: two struts down the torso and a power cell between them. */
+const exoMarks = (): ReactElement => (
+  <>
+    {px(19, 20.5, 2, 14, SECONDARY)}
+    {px(27, 20.5, 2, 14, SECONDARY)}
+    {px(17, 26, 14, 1, SECONDARY)}
+    {px(22, 25, 4, 4, ACCENT)}
+    {px(23, 26, 2, 2, MAGIC_HIGHLIGHT)}
+  </>
+);
+
+/** Circuit traces: one route, with corners, because a grid of lines is a grid rather than a circuit. */
+const circuitMarks = (): ReactElement => (
+  <>
+    {px(19, 21, 1, 8, MAGIC)}
+    {px(19, 28, 6, 1, MAGIC)}
+    {px(24, 24, 1, 5, MAGIC_HIGHLIGHT)}
+    {px(24, 24, 5, 1, MAGIC)}
+    {px(28, 24, 1, 7, MAGIC)}
+    {px(26, 21, 2, 2, MAGIC_HIGHLIGHT)}
+  </>
+);
+
+/** A collar that stands up past the jaw, and the hazard banding under it. */
+const hazardMarks = (): ReactElement => (
+  <>
+    {px(18, 17.5, 12, 4, ACCENT)}
+    {px(18, 17.5, 12, 0.5, 'var(--av-accent-highlight)')}
+    {px(17, 29, 14, 1.5, SECONDARY_SHADOW)}
+    {px(18, 29, 3, 1.5, WHITE)}
+    {px(23, 29, 3, 1.5, WHITE)}
+    {px(28, 29, 2.5, 1.5, WHITE)}
+  </>
+);
+
 /**
  * The tops, by id.
  *
@@ -275,7 +390,17 @@ const tops: Record<string, TopShape> = {
   ninjagi: { cloth: SECONDARY_SHADOW, sleeve: SECONDARY_SHADOW, marks: sashMarks() },
   pirate: { cloth: WHITE, sleeve: WHITE, marks: vestMarks() },
   spacesuit: { cloth: WHITE, sleeve: WHITE, marks: suitMarks(), wide: true },
-  druidwrap: { cloth: PRIMARY, sleeve: SKIN, marks: wrapMarks(), skirt: SECONDARY }
+  druidwrap: { cloth: PRIMARY, sleeve: SKIN, marks: wrapMarks(), skirt: SECONDARY },
+
+  puffer: { cloth: PRIMARY, sleeve: PRIMARY, marks: quiltMarks(), wide: true },
+  hoodiedrape: { cloth: SECONDARY, sleeve: SECONDARY, marks: drapeMarks(), wide: true },
+  varsity: { cloth: SECONDARY, sleeve: WHITE, marks: varsityMarks() },
+  platelayered: { cloth: SECONDARY, sleeve: SECONDARY, marks: pauldronMarks(), wide: true },
+  wizardrobe: { cloth: PRIMARY, sleeve: PRIMARY, marks: foldMarks(), wide: true, skirt: PRIMARY },
+  feathercloak: { cloth: PRIMARY, sleeve: PRIMARY, marks: plumeMarks(), wide: true, skirt: PRIMARY },
+  exorig: { cloth: SECONDARY_SHADOW, sleeve: SECONDARY, marks: exoMarks(), wide: true },
+  circuitjacket: { cloth: SECONDARY_SHADOW, sleeve: SECONDARY_SHADOW, marks: circuitMarks() },
+  hazardcoat: { cloth: ACCENT, sleeve: ACCENT, marks: hazardMarks(), wide: true, skirt: ACCENT }
 };
 
 /** What the sleeves are cut from, so an arm never has to know which garment it belongs to. */
@@ -313,7 +438,63 @@ const legStyles: Record<string, () => ReactElement> = {
       <g data-part="frontLeg">{px(18, 35, 5, 5, SECONDARY)}{px(18, 40, 5, 3, SECONDARY_SHADOW)}{px(17.5, 43, 6, 3, SECONDARY)}{px(17.5, 43, 6, 0.75, ACCENT)}{px(17, 45.5, 7, 0.5, OUTLINE)}</g>
     </g>
   ),
-  techpants: () => legsSneakers({ boot: SECONDARY, trouser: SECONDARY, skin: SKIN })
+  techpants: () => legsSneakers({ boot: SECONDARY, trouser: SECONDARY, skin: SKIN }),
+
+  /* ── Four more legs ──
+   * Tops and bottoms multiply, so a bottom is worth as many outfits as there are tops — which made
+   * six the number holding the whole wardrobe down. Each of these changes the outline of the leg
+   * rather than its colour: a cargo pocket at the thigh, a plate skirt over the knee, a piston at
+   * the calf, a hem in two layers. */
+  cargo: () => (
+    <g data-part="legs">
+      <g data-part="backLeg">
+        {px(25, 35, 5, 8, SECONDARY)}{px(24.5, 37, 1.5, 3, SECONDARY_SHADOW)}
+        {px(25, 42.5, 5, 0.5, PRIMARY_SHADOW)}{px(24.5, 43, 6, 2.5, PRIMARY)}{px(24, 45.5, 7, 0.5, OUTLINE)}
+      </g>
+      <g data-part="frontLeg">
+        {px(18, 35, 5, 8, SECONDARY)}{px(22, 37, 1.5, 3, SECONDARY_SHADOW)}
+        {px(18, 42.5, 5, 0.5, PRIMARY_SHADOW)}{px(17.5, 43, 6, 2.5, PRIMARY)}{px(17, 45.5, 7, 0.5, OUTLINE)}
+      </g>
+    </g>
+  ),
+  platelegs: () => (
+    <g data-part="legs">
+      <g data-part="backLeg">
+        {px(25, 35, 5.5, 4, SECONDARY)}{px(25, 35, 5.5, 0.5, ACCENT)}
+        {px(25, 39.5, 5, 3.5, SECONDARY_SHADOW)}{px(24.5, 43, 6, 3, SECONDARY)}{px(24, 45.5, 7, 0.5, OUTLINE)}
+      </g>
+      <g data-part="frontLeg">
+        {px(17.5, 35, 5.5, 4, SECONDARY)}{px(17.5, 35, 5.5, 0.5, ACCENT)}
+        {px(18, 39.5, 5, 3.5, SECONDARY_SHADOW)}{px(17.5, 43, 6, 3, SECONDARY)}{px(17, 45.5, 7, 0.5, OUTLINE)}
+      </g>
+    </g>
+  ),
+  exogreaves: () => (
+    <g data-part="legs">
+      <g data-part="backLeg">
+        {px(25.5, 35, 4, 5, SECONDARY_SHADOW)}{px(24.5, 36, 1, 4, SECONDARY)}
+        {px(25.5, 40, 4, 3, SECONDARY_SHADOW)}{px(26, 40.5, 1, 2, MAGIC)}
+        {px(24.5, 43, 6, 2.5, SECONDARY)}{px(24, 45.5, 7, 0.5, OUTLINE)}
+      </g>
+      <g data-part="frontLeg">
+        {px(18.5, 35, 4, 5, SECONDARY_SHADOW)}{px(22.5, 36, 1, 4, SECONDARY)}
+        {px(18.5, 40, 4, 3, SECONDARY_SHADOW)}{px(21, 40.5, 1, 2, MAGIC)}
+        {px(17.5, 43, 6, 2.5, SECONDARY)}{px(17, 45.5, 7, 0.5, OUTLINE)}
+      </g>
+    </g>
+  ),
+  layeredskirt: () => (
+    <g data-part="legs">
+      <g data-part="backLeg">{px(25.5, 39, 4, 4, SKIN)}{px(25, 43, 5, 2.5, SECONDARY)}{px(25, 45.5, 5, 0.5, OUTLINE)}</g>
+      <g data-part="frontLeg">{px(18.5, 39, 4, 4, SKIN)}{px(18, 43, 5, 2.5, SECONDARY)}{px(18, 45.5, 5, 0.5, OUTLINE)}</g>
+      {/* Two hems rather than one, the under-layer wider: that offset is the whole read, and it is
+          what a single flared panel cannot say however it is shaded. */}
+      <polygon points="17.5,35 30.5,35 32,39 16,39" fill={PRIMARY} />
+      <polygon points="16,38.5 32,38.5 34,42 14,42" fill={PRIMARY_SHADOW} />
+      {px(14, 41.5, 20, 0.5, ACCENT)}
+      <polygon points="17.5,35 24,35 24,39 16,39" fill={PRIMARY_HIGHLIGHT} opacity="0.3" />
+    </g>
+  )
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -378,6 +559,125 @@ function foxTails(): ReactElement {
   );
 }
 
+/* ── The reward tier, on the back ──
+ *
+ * Eight pieces a child is saving towards rather than starting with, and each one carries something
+ * the free half of the wardrobe does not: a companion that is its own drawing, a banded light
+ * standing in for an ambient glow, a trail that reads as motion in a still frame.
+ *
+ * All of them take their colour from the child's own six rather than introducing a ninth hue, which
+ * is what keeps a legendary item inside the app's own dark monochrome instead of making a hole in
+ * it. `data-part="tail"` and `data-part="wing"` are how a piece asks the poses to swing it — a
+ * familiar that hangs dead still while the figure runs is a sticker rather than a companion.
+ */
+function runicFamiliar(): ReactElement {
+  return (
+    <g data-part="back">
+      <g data-part="tail">
+        <g opacity="0.3"><circle cx="37" cy="22" r="7" fill={MAGIC} /></g>
+        <polygon points="37,17 41,22 37,27 33,22" fill={MAGIC} />
+        <polygon points="37,19 39.5,22 37,25 34.5,22" fill={MAGIC_HIGHLIGHT} />
+        {px(35.5, 21, 1, 1, WHITE)}
+        {px(38, 23, 1, 1, WHITE)}
+        {px(31, 28, 1.5, 1.5, MAGIC)}
+        {px(41, 16, 1.5, 1.5, MAGIC)}
+      </g>
+    </g>
+  );
+}
+
+function stardustTrail(): ReactElement {
+  return (
+    <g data-part="back">
+      <g data-part="tail">
+        {px(31, 26, 3, 3, WHITE)}
+        <g opacity="0.75">{px(35, 29, 2.5, 2.5, ACCENT)}</g>
+        <g opacity="0.5">{px(38, 32, 2, 2, ACCENT)}</g>
+        <g opacity="0.3">{px(40.5, 35, 1.5, 1.5, WHITE)}</g>
+        <g opacity="0.18">{px(42.5, 37.5, 1, 1, WHITE)}</g>
+      </g>
+    </g>
+  );
+}
+
+function prismWings(): ReactElement {
+  return (
+    <g data-part="wing" opacity="0.9">
+      <polygon points="17,21 4,15 6,31 17,31" fill={MAGIC} />
+      <polygon points="31,21 44,15 42,31 31,31" fill={MAGIC} />
+      <polygon points="17,23 7,19 7,24 17,25" fill={MAGIC_HIGHLIGHT} />
+      <polygon points="31,23 41,19 41,24 31,25" fill={MAGIC_HIGHLIGHT} />
+      <polygon points="17,27 7,26 8,30 17,30" fill={ACCENT} />
+      <polygon points="31,27 41,26 40,30 31,30" fill={ACCENT} />
+    </g>
+  );
+}
+
+function voidCloak(): ReactElement {
+  return (
+    <g data-part="back">
+      <polygon points="16,22 32,22 36,44 12,44" fill="var(--av-magic-outline)" />
+      {px(16, 22, 16, 1.5, MAGIC)}
+      <g opacity="0.45">{px(14, 30, 20, 1.5, MAGIC)}</g>
+      {px(17, 36, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+      {px(27, 39, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+      {px(22, 33, 1, 1, WHITE)}
+    </g>
+  );
+}
+
+function phoenixPlume(): ReactElement {
+  return (
+    <g data-part="tail">
+      <g opacity="0.25"><ellipse cx="36" cy="32" rx="10" ry="12" fill={MAGIC} /></g>
+      <polygon points="30,34 44,24 42,32 32,37" fill={ACCENT} />
+      <polygon points="30,36 45,36 41,42 32,40" fill="var(--av-accent-shadow)" />
+      <polygon points="30,33 40,27 39,31 32,34" fill={WHITE} opacity="0.5" />
+      {px(42, 25, 1.5, 1.5, WHITE)}
+    </g>
+  );
+}
+
+function gearHalo(): ReactElement {
+  return (
+    <g data-part="back">
+      <g data-part="orbs">
+        <g opacity="0.35"><ellipse cx="24" cy="3" rx="11" ry="3" fill={MAGIC} /></g>
+        <ellipse cx="24" cy="3" rx="9" ry="2" fill="none" stroke={SECONDARY} strokeWidth="1.5" />
+        {px(14, 2, 2, 2, ACCENT)}
+        {px(32, 2, 2, 2, ACCENT)}
+        {px(23, 0.5, 2, 1.5, ACCENT)}
+      </g>
+    </g>
+  );
+}
+
+function crystalSpire(): ReactElement {
+  return (
+    <g data-part="back">
+      <g opacity="0.25"><ellipse cx="24" cy="26" rx="16" ry="12" fill={MAGIC} /></g>
+      <polygon points="10,34 12,20 15,34" fill={MAGIC} />
+      <polygon points="14,34 17,16 19,34" fill={MAGIC_HIGHLIGHT} />
+      <polygon points="33,34 35,16 38,34" fill={MAGIC_HIGHLIGHT} />
+      <polygon points="37,34 39,21 41,34" fill={MAGIC} />
+    </g>
+  );
+}
+
+function auroraSash(): ReactElement {
+  return (
+    <g data-part="back" opacity="0.85">
+      <g data-part="wing">
+        {px(6, 24, 36, 2, MAGIC)}
+        {px(6, 26, 36, 1.5, ACCENT)}
+        {px(6, 27.5, 36, 1, MAGIC_HIGHLIGHT)}
+        {px(4, 23, 2, 6, "var(--av-magic-shadow)")}
+        {px(42, 23, 2, 6, "var(--av-magic-shadow)")}
+      </g>
+    </g>
+  );
+}
+
 const backGear: Record<string, () => ReactElement> = {
   none: () => <g data-part="back" />,
   batwings: () => batWings(),
@@ -392,7 +692,15 @@ const backGear: Record<string, () => ReactElement> = {
   tome,
   banner,
   shield: () => shield(),
-  jetpack
+  jetpack,
+  runicfamiliar: runicFamiliar,
+  stardusttrail: stardustTrail,
+  prismwings: prismWings,
+  voidcloak: voidCloak,
+  phoenixplume: phoenixPlume,
+  gearhalo: gearHalo,
+  crystalspire: crystalSpire,
+  aurorasash: auroraSash
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -477,6 +785,96 @@ function compass(): ReactElement {
   );
 }
 
+/* ── The reward tier, in the hand ──
+ *
+ * Same rule as the back half, and one extra constraint: a held thing hangs off the near wrist, which
+ * the poses swing through a hundred and fifty degrees. Anything here has to read upside down, because
+ * halfway through a cheer it is — which is why none of them carries text or a face. */
+function runeBlade(): ReactElement {
+  return (
+    <g>
+      <g opacity="0.3">{px(11.5, 12, 5, 18, MAGIC)}</g>
+      {px(13, 13, 2, 16, WHITE)}
+      {px(13, 16, 2, 1.5, MAGIC)}
+      {px(13, 20, 2, 1.5, MAGIC)}
+      {px(13, 24, 2, 1.5, MAGIC)}
+      {px(11, 29, 6, 1.5, ACCENT)}
+      {px(13, 30.5, 2, 3, SECONDARY_SHADOW)}
+    </g>
+  );
+}
+
+function familiarWisp(): ReactElement {
+  return (
+    <g data-part="orbs">
+      <g opacity="0.3"><circle cx="13" cy="26" r="5" fill={MAGIC} /></g>
+      <circle cx="13" cy="26" r="2.5" fill={MAGIC} />
+      <circle cx="12.5" cy="25.5" r="1" fill={MAGIC_HIGHLIGHT} />
+      {px(10, 31, 1.5, 1.5, MAGIC)}
+      {px(16, 21, 1, 1, MAGIC_HIGHLIGHT)}
+    </g>
+  );
+}
+
+function holoGlobe(): ReactElement {
+  return (
+    <g opacity="0.9">
+      <circle cx="14" cy="28" r="4" fill={MAGIC} />
+      {px(10, 27.5, 8, 1, MAGIC_HIGHLIGHT)}
+      <ellipse cx="14" cy="28" rx="1.5" ry="4" fill="none" stroke={MAGIC_HIGHLIGHT} strokeWidth="0.5" />
+      {px(11, 32.5, 6, 1, ACCENT)}
+    </g>
+  );
+}
+
+function chronoWatch(): ReactElement {
+  return (
+    <g>
+      <circle cx="14" cy="28.5" r="4" fill={SECONDARY} />
+      <circle cx="14" cy="28.5" r="3" fill={WHITE} />
+      {px(13.5, 26, 1, 3, OUTLINE)}
+      {px(14, 28, 2.5, 1, OUTLINE)}
+      {px(13, 23.5, 2, 1.5, ACCENT)}
+    </g>
+  );
+}
+
+function starLantern(): ReactElement {
+  return (
+    <g>
+      <g opacity="0.3"><circle cx="14" cy="29" r="6.5" fill={ACCENT} /></g>
+      {px(13.5, 22, 1, 3, SECONDARY_SHADOW)}
+      {px(11, 25, 6, 7, SECONDARY)}
+      {px(12, 26, 4, 5, ACCENT)}
+      <polygon points="14,26.5 14.8,28.5 16.8,28.5 15.2,29.8 15.8,31.8 14,30.6 12.2,31.8 12.8,29.8 11.2,28.5 13.2,28.5" fill={WHITE} />
+    </g>
+  );
+}
+
+function neonFan(): ReactElement {
+  return (
+    <g>
+      <polygon points="8,24 20,24 14,31" fill={MAGIC} />
+      <polygon points="10,25 18,25 14,29.5" fill={MAGIC_HIGHLIGHT} />
+      {px(13.5, 30, 1, 4, SECONDARY_SHADOW)}
+    </g>
+  );
+}
+
+function petDrake(): ReactElement {
+  return (
+    <g data-part="held">
+      {px(10, 27, 8, 5, SECONDARY)}
+      {px(17, 25.5, 3, 3, SECONDARY)}
+      <polygon points="10,27 7,22 12,25" fill={SECONDARY_SHADOW} />
+      <polygon points="14,27 12,22 17,25" fill={SECONDARY_SHADOW} />
+      {px(18, 26.5, 1, 1, ACCENT)}
+      {px(10, 32, 7, 1, SECONDARY_SHADOW)}
+      {px(8, 29, 2.5, 1.5, SECONDARY_SHADOW)}
+    </g>
+  );
+}
+
 const heldItems: Record<string, () => ReactElement> = {
   none: () => <g />,
   staff: () => staff(),
@@ -490,7 +888,14 @@ const heldItems: Record<string, () => ReactElement> = {
   petcat: petCat,
   petbird: petBird,
   orb,
-  compass
+  compass,
+  runeblade: runeBlade,
+  familiarwisp: familiarWisp,
+  hologlobe: holoGlobe,
+  chronowatch: chronoWatch,
+  starlantern: starLantern,
+  neonfan: neonFan,
+  petdrake: petDrake
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -771,6 +1176,75 @@ const auras: Record<string, () => ReactElement> = {
       <polygon points="9,18 13,24 10,24 13,31" fill={MAGIC_HIGHLIGHT} />
       <polygon points="39,18 35,24 38,24 35,31" fill={MAGIC_HIGHLIGHT} />
     </g>
+  ),
+
+  /* ── The reward tier ──
+   * An aura is the one layer allowed to be a wash rather than a shape, so these are banded
+   * opacities standing in for an ambient light. Three steps rather than a smooth ramp: a
+   * forty-stop gradient stops reading as pixels and starts reading as a blur, and the whole set is
+   * drawn as pixels. */
+  prism: () => (
+    <g data-part="fx" data-fx="aura">
+      <g opacity="0.5">{px(6, 14, 5, 26, MAGIC)}{px(37, 14, 5, 26, MAGIC)}</g>
+      <g opacity="0.3">{px(3, 18, 3, 18, ACCENT)}{px(42, 18, 3, 18, ACCENT)}</g>
+      <g opacity="0.7">{px(9, 22, 1.5, 10, MAGIC_HIGHLIGHT)}{px(38, 22, 1.5, 10, MAGIC_HIGHLIGHT)}</g>
+    </g>
+  ),
+  ember: () => (
+    <g data-part="fx" data-fx="aura">
+      <g opacity="0.8">{px(10, 38, 2.5, 2.5, ACCENT)}{px(36, 40, 2.5, 2.5, ACCENT)}</g>
+      <g opacity="0.55">{px(12, 32, 2, 2, ACCENT)}{px(34, 30, 2, 2, ACCENT)}</g>
+      <g opacity="0.3">{px(9, 25, 1.5, 1.5, WHITE)}{px(38, 22, 1.5, 1.5, WHITE)}</g>
+    </g>
+  ),
+  void: () => (
+    <g data-part="fx" data-fx="aura">
+      <g opacity="0.55"><ellipse cx="24" cy="30" rx="18" ry="16" fill="var(--av-magic-outline)" /></g>
+      <g opacity="0.3"><ellipse cx="24" cy="30" rx="21" ry="18" fill={MAGIC} /></g>
+      {px(9, 24, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+      {px(38, 34, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+    </g>
+  ),
+  bloom: () => (
+    <g data-part="fx" data-fx="aura" opacity="0.8">
+      <ellipse cx="9" cy="20" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(-25 9 20)" />
+      <ellipse cx="11" cy="30" rx="2" ry="1.25" fill={SECONDARY} transform="rotate(15 11 30)" />
+      <ellipse cx="8" cy="38" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(30 8 38)" />
+      <ellipse cx="39" cy="24" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(25 39 24)" />
+      <ellipse cx="37" cy="34" rx="2" ry="1.25" fill={SECONDARY} transform="rotate(-15 37 34)" />
+    </g>
+  ),
+  aurora: () => (
+    <g data-part="fx" data-fx="aura">
+      <g opacity="0.45">{px(4, 10, 40, 3, MAGIC)}</g>
+      <g opacity="0.3">{px(6, 14, 36, 2.5, ACCENT)}</g>
+      <g opacity="0.18">{px(9, 18, 30, 2, MAGIC_HIGHLIGHT)}</g>
+    </g>
+  ),
+  circuit: () => (
+    <g data-part="fx" data-fx="aura" opacity="0.65">
+      {px(6, 22, 6, 1, MAGIC)}{px(11, 22, 1, 12, MAGIC)}{px(6, 33, 6, 1, MAGIC)}
+      {px(36, 18, 6, 1, MAGIC)}{px(36, 18, 1, 14, MAGIC)}{px(36, 31, 6, 1, MAGIC)}
+      {px(10, 21, 2.5, 2.5, MAGIC_HIGHLIGHT)}
+      {px(35, 30, 2.5, 2.5, MAGIC_HIGHLIGHT)}
+    </g>
+  ),
+  frostring: () => (
+    <g data-part="fx" data-fx="aura" opacity="0.75">
+      <ellipse cx="24" cy="44" rx="15" ry="3.5" fill="none" stroke={ACCENT} strokeWidth="1" />
+      <ellipse cx="24" cy="44" rx="11" ry="2.5" fill="none" stroke={WHITE} strokeWidth="0.5" />
+      {px(10, 42, 2, 2, WHITE)}
+      {px(36, 42, 2, 2, WHITE)}
+    </g>
+  ),
+  solar: () => (
+    <g data-part="fx" data-fx="aura">
+      <g opacity="0.4"><circle cx="24" cy="26" r="20" fill={ACCENT} /></g>
+      <g opacity="0.25"><circle cx="24" cy="26" r="23" fill={WHITE} /></g>
+      <polygon points="24,2 26,8 22,8" fill={ACCENT} />
+      <polygon points="6,12 11,15 8,18" fill={ACCENT} />
+      <polygon points="42,12 37,15 40,18" fill={ACCENT} />
+    </g>
   )
 };
 
@@ -815,6 +1289,76 @@ const effects: Record<string, () => ReactElement> = {
       {px(7, 44, 34, 0.5, MAGIC)}
       {px(12, 42, 24, 0.5, MAGIC)}
       {px(17, 40, 14, 0.5, MAGIC)}
+    </g>
+  ),
+
+  /* ── The reward tier ──
+   * An effect is in front of everything, which makes it the one layer that can ruin a face. Every
+   * one of these keeps clear of x 15–33 at the eye line, and none is more than five shapes. A trail
+   * is four squares at falling opacities: that reads as motion in a still frame, and costs four
+   * rectangles rather than a filter — which matters, because these are the pieces a child who has
+   * earned them wears everywhere, including in a list of forty. */
+  stardust: () => (
+    <g data-part="fx">
+      {px(36, 10, 2.5, 2.5, WHITE)}
+      <g opacity="0.7">{px(39, 15, 2, 2, ACCENT)}</g>
+      <g opacity="0.45">{px(41.5, 20, 1.5, 1.5, ACCENT)}</g>
+      <g opacity="0.25">{px(43, 25, 1, 1, WHITE)}</g>
+    </g>
+  ),
+  runeglyphs: () => (
+    <g data-part="fx" opacity="0.9">
+      <polygon points="8,12 12,12 12,13 10,13 10,17 9,17 9,13 8,13" fill={MAGIC} />
+      <polygon points="37,18 41,18 41,19 39.5,19 39.5,23 38.5,23 38.5,19 37,19" fill={MAGIC} />
+      {px(11, 25, 2, 2, MAGIC_HIGHLIGHT)}
+    </g>
+  ),
+  neonstreak: () => (
+    <g data-part="fx">
+      {px(3, 22, 9, 1, MAGIC)}
+      <g opacity="0.6">{px(2, 26, 7, 1, MAGIC)}</g>
+      {px(36, 30, 9, 1, MAGIC_HIGHLIGHT)}
+      <g opacity="0.6">{px(39, 34, 7, 1, MAGIC)}</g>
+    </g>
+  ),
+  petalfall: () => (
+    <g data-part="fx" opacity="0.85">
+      <ellipse cx="9" cy="8" rx="2" ry="1.25" fill={ACCENT} transform="rotate(-30 9 8)" />
+      <ellipse cx="38" cy="14" rx="2" ry="1.25" fill={ACCENT} transform="rotate(25 38 14)" />
+      <ellipse cx="6" cy="24" rx="1.5" ry="1" fill={PRIMARY_HIGHLIGHT} transform="rotate(10 6 24)" />
+      <ellipse cx="42" cy="32" rx="1.5" ry="1" fill={ACCENT} transform="rotate(-15 42 32)" />
+    </g>
+  ),
+  emberrise: () => (
+    <g data-part="fx">
+      {px(9, 36, 2, 2, ACCENT)}
+      <g opacity="0.7">{px(8, 29, 1.5, 1.5, ACCENT)}</g>
+      <g opacity="0.45">{px(10, 22, 1.5, 1.5, WHITE)}</g>
+      {px(38, 34, 2, 2, ACCENT)}
+      <g opacity="0.6">{px(40, 26, 1.5, 1.5, ACCENT)}</g>
+    </g>
+  ),
+  glitch: () => (
+    <g data-part="fx" opacity="0.8">
+      {px(9, 19, 6, 1, MAGIC)}
+      {px(11, 20, 6, 1, ACCENT)}
+      {px(33, 35, 6, 1, MAGIC)}
+      {px(31, 36, 6, 1, ACCENT)}
+    </g>
+  ),
+  snowfall: () => (
+    <g data-part="fx" opacity="0.9">
+      {px(8, 9, 2, 2, WHITE)}
+      {px(39, 16, 2, 2, WHITE)}
+      {px(11, 26, 1.5, 1.5, WHITE)}
+      {px(36, 32, 1.5, 1.5, WHITE)}
+    </g>
+  ),
+  halolight: () => (
+    <g data-part="fx">
+      <g opacity="0.35"><polygon points="18,0 30,0 34,14 14,14" fill={WHITE} /></g>
+      <g opacity="0.2"><polygon points="14,0 34,0 40,12 8,12" fill={ACCENT} /></g>
+      {px(19, 3, 10, 1, WHITE)}
     </g>
   )
 };

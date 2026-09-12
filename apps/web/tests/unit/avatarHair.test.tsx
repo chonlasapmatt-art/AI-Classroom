@@ -158,12 +158,24 @@ describe('the hair system', () => {
   it('puts length behind the figure and the cap in front of it', () => {
     // A plait that goes in front is a plait over the chin, which is where the long styles were.
     for (const id of ['long', 'ponytail', 'twintail', 'braid', 'afro', 'wavy', 'bob', 'curly']) {
-      const { back } = hairFor(id, 'human');
-      expect(back, `${id} has no length behind it`).not.toBeNull();
+      const { container } = render(<svg>{hairFor(id, 'human').back}</svg>);
+      expect(container.querySelector('[data-part="hairLength"]'), `${id} has no length behind it`).not.toBeNull();
+      cleanup();
     }
-    // And a cut with no length does not invent any.
+    /*
+     * And a cut with no length does not invent any — but it still has a back of a head.
+     *
+     * The back node used to be null for twelve of the twenty-four styles, which straight on is
+     * right: there is nothing to see behind a head you are looking at the front of. Turned, it is a
+     * silhouette with a bite out of it, because the skull's outline is narrower than the hair on it
+     * and the strip between the two is background. So the mass is unconditional and the length is
+     * not, and those are two different children of one group rather than one nullable node.
+     */
     for (const id of ['short', 'buzz', 'mohawk', 'bun', 'fur']) {
-      expect(hairFor(id, 'human').back, `${id} hangs something behind it`).toBeNull();
+      const { container } = render(<svg>{hairFor(id, 'human').back}</svg>);
+      expect(container.querySelector('[data-part="hairLength"]'), `${id} hangs length behind it`).toBeNull();
+      expect(container.querySelector('[data-part="hairBackMass"]'), `${id} shows bare skull from behind`).not.toBeNull();
+      cleanup();
     }
   });
 
