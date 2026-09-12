@@ -1352,7 +1352,10 @@ export function cheerStars(): ReactElement {
 export function spellAura(): ReactElement {
   return (
     <g data-part="fx" data-fx="aura" opacity="0.5">
-      <ellipse cx="24" cy="27" rx="17" ry="20" fill="none" stroke={MAGIC} strokeWidth="1" />
+      {/* The ring breathes, because a circle of magic that holds perfectly still is a drawn circle. */}
+      <g data-part="auraPulse">
+        <ellipse cx="24" cy="27" rx="17" ry="20" fill="none" stroke={MAGIC} strokeWidth="1" />
+      </g>
     </g>
   );
 }

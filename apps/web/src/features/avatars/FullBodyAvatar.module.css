@@ -49,6 +49,9 @@
   --ease-impact: cubic-bezier(0.16, 1.08, 0.3, 1);
   /* Breathing, swaying, drifting — anything driven by nothing at all. */
   --ease-drift: cubic-bezier(0.45, 0, 0.55, 1);
+  /* No curve at all, and the only honest answer for something that never stops: a ring that turns
+     forever has no beginning to ease out of, and easing one makes it hesitate once per revolution. */
+  --ease-constant: linear;
 }
 
 .avatar {
@@ -163,6 +166,10 @@
 .compact [data-slot='aura_back'] { display: none; }
 /* Filters are the expensive half. One drop-shadow on one element is cheap; forty are not. */
 .compact .fx, .compact .orbs { filter: none !important; }
+/* The aura's own motion is background work too: at 32 pixels a drifting ember is one device pixel
+   that still costs an animation frame. */
+.compact .auraPulse, .compact .auraRise > *, .compact .auraSway > *,
+.compact .auraSpin, .compact .auraFlicker { animation: none !important; }
 /* The micro-strokes: highlights and seams authored at half a unit, which below 48 pixels is half a
    device pixel — invisible, and still a paint. */
 .compact .orbs { display: none; }
@@ -889,6 +896,78 @@
   0%   { transform: rotate(-6deg); }
   50%  { transform: rotate(6deg); }
   100% { transform: rotate(-6deg); }
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Auras that move
+ *
+ * An aura is light, and light is the one thing in this figure that has no business holding still.
+ * Every one of the sixteen was a static drawing painted once behind the character: a ring of fire
+ * that does not flicker reads as a sticker of a ring of fire, which is exactly the complaint.
+ *
+ * The motion is in five shapes, and a drawing opts into one by naming it as a part. Each runs in
+ * every pose — like the blink — because an aura is not a pose: a figure standing still is the state
+ * the classroom sees most, and it is the state these exist for.
+ *
+ * Cheap by construction: transform and opacity only, no filters, nothing that forces a layout, and
+ * every one of them is switched off at `compact` with the rest of the background work.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/* A rim breathing in and out. The scale is deliberately small — 4% — because a ring that pulses
+   visibly reads as a heartbeat monitor rather than as a glow. */
+.auraPulse {
+  transform-origin: 24px 28px;
+  animation: auraPulse 3.4s var(--ease-drift) infinite;
+}
+@keyframes auraPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0.9;  transform: scale(1.04); }
+}
+
+/* Embers and motes leaving the ground. Each child starts later than the one before it, so three
+   particles read as a stream rather than as three things moving in formation. */
+.auraRise > * { animation: auraRise 2.8s var(--ease-drift) infinite; }
+.auraRise > *:nth-child(2) { animation-delay: 0.9s; }
+.auraRise > *:nth-child(3) { animation-delay: 1.8s; }
+.auraRise > *:nth-child(4) { animation-delay: 0.45s; }
+.auraRise > *:nth-child(5) { animation-delay: 1.35s; }
+@keyframes auraRise {
+  0%   { opacity: 0;    transform: translateY(4px) scale(0.7); }
+  20%  { opacity: 0.95; }
+  70%  { opacity: 0.5; }
+  100% { opacity: 0;    transform: translateY(-10px) scale(1.1); }
+}
+
+/* A curtain: the aurora, and anything else that hangs rather than burns. Sideways and slow, with
+   the brightness moving through it rather than the shape. */
+.auraSway > * { animation: auraSway 6s var(--ease-drift) infinite; }
+.auraSway > *:nth-child(2) { animation-delay: 1.5s; }
+.auraSway > *:nth-child(3) { animation-delay: 3s; }
+@keyframes auraSway {
+  0%, 100% { opacity: 0.75; transform: translateX(-1.2px) scaleY(0.96); }
+  50%      { opacity: 1;    transform: translateX(1.2px)  scaleY(1.04); }
+}
+
+/* Rings that turn. Nine seconds for a full turn is slow enough that nobody watches it happen and
+   fast enough that the figure is never twice in the same state. */
+.auraSpin {
+  transform-origin: 24px 26px;
+  animation: auraSpin 9s var(--ease-constant) infinite;
+}
+@keyframes auraSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Current: lightning and circuitry, which do not fade — they are on or they are off. Steps rather
+   than a curve, because an arc that eases is not an arc. */
+.auraFlicker { animation: auraFlicker 1.6s var(--ease-constant) infinite; }
+@keyframes auraFlicker {
+  0%, 44%   { opacity: 0.85; }
+  46%, 52%  { opacity: 0.25; }
+  54%, 88%  { opacity: 0.7; }
+  90%, 100% { opacity: 1; }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

@@ -1571,47 +1571,80 @@ const eyewear: Record<string, () => ReactElement | null> = {
 
 const ringAura = (stroke: string, dashed = false): ReactElement => (
   <g data-part="fx" data-fx="aura" opacity="0.55">
-    <ellipse
-      cx="24" cy="27" rx="17" ry="20" fill="none" stroke={stroke} strokeWidth="1"
-      {...(dashed ? { strokeDasharray: '3 2' } : {})}
-    />
+    <g data-part="auraPulse">
+      <ellipse
+        cx="24" cy="27" rx="17" ry="20" fill="none" stroke={stroke} strokeWidth="1"
+        {...(dashed ? { strokeDasharray: '3 2' } : {})}
+      />
+    </g>
   </g>
 );
 
+/*
+ * The sixteen auras, and the one thing they all used to have in common.
+ *
+ * Each was a still drawing painted behind the figure — a ring of fire that never flickered, embers
+ * that never rose, an aurora hanging in the air like a printed stripe. Light is the one part of a
+ * figure that has no business holding still, and a still drawing of light reads as a sticker of it.
+ *
+ * So each one names a motion the stylesheet knows: `auraPulse` for a rim that breathes, `auraRise`
+ * for anything leaving the ground, `auraSway` for a curtain, `auraSpin` for a ring that turns, and
+ * `auraFlicker` for current, which switches rather than fades. A few gained particles to move with:
+ * one mote drifting alone reads as a dust speck, three read as a stream.
+ *
+ * All of it is transform and opacity, all of it is switched off at `compact` and under
+ * `prefers-reduced-motion`, and a new aura that names no motion simply stands still as before.
+ */
 const auras: Record<string, () => ReactElement> = {
   none: () => <g data-part="fx" />,
   fire: () => (
     <g data-part="fx" data-fx="aura" opacity="0.6">
-      <polygon points="24,4 28,14 24,11 20,14" fill={ACCENT} />
-      <polygon points="10,34 13,24 16,32" fill={ACCENT} />
-      <polygon points="38,34 35,24 32,32" fill={ACCENT} />
+      <g data-part="auraRise">
+        <polygon points="24,4 28,14 24,11 20,14" fill={ACCENT} />
+        <polygon points="10,34 13,24 16,32" fill={ACCENT} />
+        <polygon points="38,34 35,24 32,32" fill={ACCENT} />
+        <polygon points="13,41 15,34 17,40" fill={MAGIC_HIGHLIGHT} />
+        <polygon points="33,42 35,35 37,41" fill={MAGIC_HIGHLIGHT} />
+      </g>
     </g>
   ),
   ice: () => ringAura(MAGIC_HIGHLIGHT, true),
   shadow: () => (
     <g data-part="fx" data-fx="aura" opacity="0.5">
-      <ellipse cx="24" cy="30" rx="16" ry="14" fill={OUTLINE} opacity="0.35" />
+      <g data-part="auraPulse">
+        <ellipse cx="24" cy="30" rx="16" ry="14" fill={OUTLINE} opacity="0.35" />
+        <ellipse cx="24" cy="30" rx="18" ry="16" fill="none" stroke={OUTLINE} strokeWidth="0.75" opacity="0.3" />
+      </g>
     </g>
   ),
   nature: () => (
     <g data-part="fx" data-fx="aura" opacity="0.6">
-      <ellipse cx="12" cy="24" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(-25 12 24)" />
-      <ellipse cx="36" cy="28" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(25 36 28)" />
-      <ellipse cx="14" cy="33" rx="2" ry="1.25" fill={ACCENT} transform="rotate(15 14 33)" />
+      <g data-part="auraRise">
+        <ellipse cx="12" cy="24" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(-25 12 24)" />
+        <ellipse cx="36" cy="28" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(25 36 28)" />
+        <ellipse cx="14" cy="33" rx="2" ry="1.25" fill={ACCENT} transform="rotate(15 14 33)" />
+        <ellipse cx="34" cy="37" rx="2" ry="1.25" fill={SECONDARY} transform="rotate(-20 34 37)" />
+      </g>
     </g>
   ),
   star: () => spellAura(),
   cyber: () => (
     <g data-part="fx" data-fx="aura" opacity="0.5">
-      {px(6, 20, 36, 0.5, MAGIC)}
-      {px(6, 30, 36, 0.5, MAGIC)}
-      {px(6, 40, 36, 0.5, MAGIC)}
+      <g data-part="auraFlicker">
+        {px(6, 20, 36, 0.5, MAGIC)}
+        {px(6, 30, 36, 0.5, MAGIC)}
+        {px(6, 40, 36, 0.5, MAGIC)}
+      </g>
     </g>
   ),
   lightning: () => (
     <g data-part="fx" data-fx="aura" opacity="0.65">
-      <polygon points="9,18 13,24 10,24 13,31" fill={MAGIC_HIGHLIGHT} />
-      <polygon points="39,18 35,24 38,24 35,31" fill={MAGIC_HIGHLIGHT} />
+      <g data-part="auraFlicker">
+        <polygon points="9,18 13,24 10,24 13,31" fill={MAGIC_HIGHLIGHT} />
+        <polygon points="39,18 35,24 38,24 35,31" fill={MAGIC_HIGHLIGHT} />
+        {px(6, 27, 1.5, 1.5, ACCENT)}
+        {px(41, 22, 1.5, 1.5, ACCENT)}
+      </g>
     </g>
   ),
 
@@ -1622,16 +1655,22 @@ const auras: Record<string, () => ReactElement> = {
    * drawn as pixels. */
   prism: () => (
     <g data-part="fx" data-fx="aura">
-      <g opacity="0.5">{px(6, 14, 5, 26, MAGIC)}{px(37, 14, 5, 26, MAGIC)}</g>
-      <g opacity="0.3">{px(3, 18, 3, 18, ACCENT)}{px(42, 18, 3, 18, ACCENT)}</g>
-      <g opacity="0.7">{px(9, 22, 1.5, 10, MAGIC_HIGHLIGHT)}{px(38, 22, 1.5, 10, MAGIC_HIGHLIGHT)}</g>
+      <g data-part="auraSway">
+        <g opacity="0.5">{px(6, 14, 5, 26, MAGIC)}{px(37, 14, 5, 26, MAGIC)}</g>
+        <g opacity="0.3">{px(3, 18, 3, 18, ACCENT)}{px(42, 18, 3, 18, ACCENT)}</g>
+        <g opacity="0.7">{px(9, 22, 1.5, 10, MAGIC_HIGHLIGHT)}{px(38, 22, 1.5, 10, MAGIC_HIGHLIGHT)}</g>
+      </g>
     </g>
   ),
   ember: () => (
     <g data-part="fx" data-fx="aura">
-      <g opacity="0.8">{px(10, 38, 2.5, 2.5, ACCENT)}{px(36, 40, 2.5, 2.5, ACCENT)}</g>
-      <g opacity="0.55">{px(12, 32, 2, 2, ACCENT)}{px(34, 30, 2, 2, ACCENT)}</g>
-      <g opacity="0.3">{px(9, 25, 1.5, 1.5, WHITE)}{px(38, 22, 1.5, 1.5, WHITE)}</g>
+      <g data-part="auraRise">
+        <g opacity="0.8">{px(10, 38, 2.5, 2.5, ACCENT)}</g>
+        <g opacity="0.8">{px(36, 40, 2.5, 2.5, ACCENT)}</g>
+        <g opacity="0.55">{px(12, 32, 2, 2, ACCENT)}</g>
+        <g opacity="0.55">{px(34, 30, 2, 2, ACCENT)}</g>
+        <g opacity="0.3">{px(9, 25, 1.5, 1.5, WHITE)}{px(38, 22, 1.5, 1.5, WHITE)}</g>
+      </g>
     </g>
   ),
   /*
@@ -1644,20 +1683,26 @@ const auras: Record<string, () => ReactElement> = {
    */
   void: () => (
     <g data-part="fx" data-fx="aura">
-      <ellipse cx="24" cy="29" rx="17" ry="16" fill="none" stroke="var(--av-magic-outline)" strokeWidth="3" opacity="0.45" />
-      <ellipse cx="24" cy="29" rx="19" ry="17.5" fill="none" stroke={MAGIC} strokeWidth="1.5" opacity="0.3" />
-      {px(8, 22, 1.5, 1.5, MAGIC_HIGHLIGHT)}
-      {px(38, 34, 1.5, 1.5, MAGIC_HIGHLIGHT)}
-      {px(11, 40, 1, 1, MAGIC)}
+      <g data-part="auraPulse">
+        <ellipse cx="24" cy="29" rx="17" ry="16" fill="none" stroke="var(--av-magic-outline)" strokeWidth="3" opacity="0.45" />
+        <ellipse cx="24" cy="29" rx="19" ry="17.5" fill="none" stroke={MAGIC} strokeWidth="1.5" opacity="0.3" />
+      </g>
+      <g data-part="auraRise">
+        {px(8, 22, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+        {px(38, 34, 1.5, 1.5, MAGIC_HIGHLIGHT)}
+        {px(11, 40, 1, 1, MAGIC)}
+      </g>
     </g>
   ),
   bloom: () => (
     <g data-part="fx" data-fx="aura" opacity="0.8">
-      <ellipse cx="9" cy="20" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(-25 9 20)" />
-      <ellipse cx="11" cy="30" rx="2" ry="1.25" fill={SECONDARY} transform="rotate(15 11 30)" />
-      <ellipse cx="8" cy="38" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(30 8 38)" />
-      <ellipse cx="39" cy="24" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(25 39 24)" />
-      <ellipse cx="37" cy="34" rx="2" ry="1.25" fill={SECONDARY} transform="rotate(-15 37 34)" />
+      <g data-part="auraRise">
+        <ellipse cx="9" cy="20" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(-25 9 20)" />
+        <ellipse cx="11" cy="30" rx="2" ry="1.25" fill={SECONDARY} transform="rotate(15 11 30)" />
+        <ellipse cx="8" cy="38" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(30 8 38)" />
+        <ellipse cx="39" cy="24" rx="2.5" ry="1.5" fill={ACCENT} transform="rotate(25 39 24)" />
+        <ellipse cx="37" cy="34" rx="2" ry="1.25" fill={SECONDARY} transform="rotate(-15 37 34)" />
+      </g>
     </g>
   ),
   /*
@@ -1670,35 +1715,45 @@ const auras: Record<string, () => ReactElement> = {
    */
   aurora: () => (
     <g data-part="fx" data-fx="aura">
-      <g opacity="0.4">{px(7, 4, 3, 34, MAGIC)}{px(38, 6, 3, 30, MAGIC)}</g>
-      <g opacity="0.28">{px(11, 8, 2, 28, ACCENT)}{px(35, 3, 2, 33, ACCENT)}</g>
-      <g opacity="0.16">{px(4, 10, 1.5, 24, MAGIC_HIGHLIGHT)}{px(43, 12, 1.5, 22, MAGIC_HIGHLIGHT)}</g>
+      <g data-part="auraSway">
+        <g opacity="0.4">{px(7, 4, 3, 34, MAGIC)}{px(38, 6, 3, 30, MAGIC)}</g>
+        <g opacity="0.28">{px(11, 8, 2, 28, ACCENT)}{px(35, 3, 2, 33, ACCENT)}</g>
+        <g opacity="0.16">{px(4, 10, 1.5, 24, MAGIC_HIGHLIGHT)}{px(43, 12, 1.5, 22, MAGIC_HIGHLIGHT)}</g>
+      </g>
     </g>
   ),
   circuit: () => (
     <g data-part="fx" data-fx="aura" opacity="0.65">
-      {px(6, 22, 6, 1, MAGIC)}{px(11, 22, 1, 12, MAGIC)}{px(6, 33, 6, 1, MAGIC)}
-      {px(36, 18, 6, 1, MAGIC)}{px(36, 18, 1, 14, MAGIC)}{px(36, 31, 6, 1, MAGIC)}
-      {px(10, 21, 2.5, 2.5, MAGIC_HIGHLIGHT)}
-      {px(35, 30, 2.5, 2.5, MAGIC_HIGHLIGHT)}
+      <g data-part="auraFlicker">
+        {px(6, 22, 6, 1, MAGIC)}{px(11, 22, 1, 12, MAGIC)}{px(6, 33, 6, 1, MAGIC)}
+        {px(36, 18, 6, 1, MAGIC)}{px(36, 18, 1, 14, MAGIC)}{px(36, 31, 6, 1, MAGIC)}
+        {px(10, 21, 2.5, 2.5, MAGIC_HIGHLIGHT)}
+        {px(35, 30, 2.5, 2.5, MAGIC_HIGHLIGHT)}
+      </g>
     </g>
   ),
   frostring: () => (
     <g data-part="fx" data-fx="aura" opacity="0.75">
-      <ellipse cx="24" cy="44" rx="15" ry="3.5" fill="none" stroke={ACCENT} strokeWidth="1" />
-      <ellipse cx="24" cy="44" rx="11" ry="2.5" fill="none" stroke={WHITE} strokeWidth="0.5" />
-      {px(10, 42, 2, 2, WHITE)}
-      {px(36, 42, 2, 2, WHITE)}
+      <g data-part="auraSpin">
+        <ellipse cx="24" cy="44" rx="15" ry="3.5" fill="none" stroke={ACCENT} strokeWidth="1" />
+        <ellipse cx="24" cy="44" rx="11" ry="2.5" fill="none" stroke={WHITE} strokeWidth="0.5" />
+        {px(10, 42, 2, 2, WHITE)}
+        {px(36, 42, 2, 2, WHITE)}
+      </g>
     </g>
   ),
   solar: () => (
     <g data-part="fx" data-fx="aura">
-      <circle cx="24" cy="26" r="19" fill="none" stroke={ACCENT} strokeWidth="2" opacity="0.4" />
-      <circle cx="24" cy="26" r="21.5" fill="none" stroke={WHITE} strokeWidth="1" opacity="0.22" />
-      <polygon points="24,3 25.5,8 22.5,8" fill={ACCENT} opacity="0.8" />
-      <polygon points="5,14 10,16 7,19" fill={ACCENT} opacity="0.8" />
-      <polygon points="43,14 38,16 41,19" fill={ACCENT} opacity="0.8" />
-      <polygon points="24,47 22.5,42 25.5,42" fill={ACCENT} opacity="0.6" />
+      <g data-part="auraPulse">
+        <circle cx="24" cy="26" r="19" fill="none" stroke={ACCENT} strokeWidth="2" opacity="0.4" />
+        <circle cx="24" cy="26" r="21.5" fill="none" stroke={WHITE} strokeWidth="1" opacity="0.22" />
+      </g>
+      <g data-part="auraSpin">
+        <polygon points="24,3 25.5,8 22.5,8" fill={ACCENT} opacity="0.8" />
+        <polygon points="5,14 10,16 7,19" fill={ACCENT} opacity="0.8" />
+        <polygon points="43,14 38,16 41,19" fill={ACCENT} opacity="0.8" />
+        <polygon points="24,47 22.5,42 25.5,42" fill={ACCENT} opacity="0.6" />
+      </g>
     </g>
   )
 };
