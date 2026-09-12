@@ -484,6 +484,69 @@ export type SnoutStyle = 'none' | 'muzzle' | 'beak';
  */
 const BLUSH = 'var(--av-blush, #ff97ae)';
 
+/**
+ * The mouth, which carries as much of an expression as the eyes do and used to have one drawing.
+ *
+ * Every face in the product wore the same three pixels: a bar and a dimple under it, with a tooth
+ * added for a fang. Six shapes now, and each is a different silhouette rather than the same one
+ * recoloured — a grin is wide and open, a cat's mouth is two curves, a flat line is the face of
+ * somebody concentrating.
+ */
+export type MouthShape = 'smile' | 'fang' | 'none' | 'grin' | 'open' | 'flat' | 'cat';
+
+function mouthShape(shape: MouthShape): ReactElement | null {
+  switch (shape) {
+    case 'none':
+      return null;
+    case 'flat':
+      // Concentration: one level line, no curve to it at all.
+      return <g data-part="mouth">{px(22.25, 16.5, 3.5, 0.75, OUTLINE)}</g>;
+    case 'grin':
+      // Wide and open, with the teeth as the lit half rather than as separate pixels.
+      return (
+        <g data-part="mouth">
+          {px(21.5, 16, 5, 2.25, OUTLINE)}
+          {px(22, 16.25, 4, 0.75, WHITE)}
+          {px(22.5, 18.25, 3, 0.5, OUTLINE)}
+        </g>
+      );
+    case 'open':
+      // Surprise, or delight: a small round hole, darker at the bottom where the light does not go.
+      return (
+        <g data-part="mouth">
+          {px(22.75, 16, 2.5, 2.5, OUTLINE)}
+          {px(23.25, 17.5, 1.5, 0.75, 'var(--av-blush, #ff97ae)')}
+        </g>
+      );
+    case 'cat':
+      // Two little curves meeting in the middle, which is the cheapest mouth that reads as fond.
+      return (
+        <g data-part="mouth">
+          {px(21.75, 16.25, 1, 0.75, OUTLINE)}
+          {px(22.75, 17, 1, 0.75, OUTLINE)}
+          {px(23.75, 17, 1, 0.75, OUTLINE)}
+          {px(24.75, 16.25, 1, 0.75, OUTLINE)}
+        </g>
+      );
+    case 'fang':
+      return (
+        <g data-part="mouth">
+          {px(22.5, 16.25, 3, 0.75, OUTLINE)}
+          {px(23.25, 17, 1.5, 0.5, OUTLINE)}
+          {px(22.75, 17, 1, 1, WHITE)}
+          {px(24.75, 17, 1, 1, WHITE)}
+        </g>
+      );
+    default:
+      return (
+        <g data-part="mouth">
+          {px(22.5, 16.25, 3, 0.75, OUTLINE)}
+          {px(23.25, 17, 1.5, 0.5, OUTLINE)}
+        </g>
+      );
+  }
+}
+
 interface FaceOptions {
   /** Iris colour, and the darker half of it. */
   eye: string;
@@ -496,7 +559,12 @@ interface FaceOptions {
   whiskers?: boolean;
   /** Narrowed, angled eyes with a lit pupil — the same face read as dangerous rather than sweet. */
   sharp?: boolean;
-  mouth?: 'smile' | 'fang' | 'none';
+  /** The cut of the eye itself. Shape is what separates one expression from another; colour is not. */
+  eyeShape?: EyeShape;
+  /** Shut on one side only, which is the whole of a wink and cannot be done with a colour. */
+  wink?: boolean;
+  brow?: BrowShape;
+  mouth?: MouthShape;
 }
 
 /**
@@ -511,28 +579,114 @@ interface FaceOptions {
  * `sharp` narrows the lid and slants it inward, which is the whole difference between a face that
  * looks pleased to see you and one that does not.
  */
-interface EyeOptions { eye: string; eyeLight?: string | undefined; sharp?: boolean | undefined }
+/**
+ * The shape of an eye, which is most of what one face has that another does not.
+ *
+ * Colour was the only thing that separated twelve expressions, and colour is the one difference a
+ * 48-pixel face cannot carry: a violet iris and a black one in the same socket, under the same lid,
+ * over the same mouth, read as one character painted twice. These are shapes — how tall the white
+ * is, where the lid cuts it, whether it is closed at all.
+ *
+ * `soft` is the eye every figure had. The rest are departures from it, and each one is drawn rather
+ * than tinted.
+ */
+export type EyeShape = 'soft' | 'sharp' | 'wide' | 'sleepy' | 'star' | 'closed';
 
-function eyeAt(x: number, { eye, eyeLight, sharp }: EyeOptions, mirrored = false): ReactElement {
+/** A brow says more than an iris does. Four of them, above the lid and never touching it. */
+export type BrowShape = 'none' | 'flat' | 'angled' | 'raised';
+
+interface EyeOptions {
+  eye: string;
+  eyeLight?: string | undefined;
+  sharp?: boolean | undefined;
+  shape?: EyeShape | undefined;
+}
+
+/** How tall the white is, where the lid sits, and how much iris is under it. */
+const eyeGeometry: Record<EyeShape, { top: number; height: number }> = {
+  soft: { top: 9.75, height: 5.25 },
+  sharp: { top: 10.5, height: 4 },
+  // Rounder and taller, with the lid lifted clear of the iris: surprise, and what a child reads as
+  // friendly at this size.
+  wide: { top: 9.25, height: 6 },
+  // Half shut. The lid comes down over most of the white rather than the eye being drawn smaller,
+  // which is the difference between sleepy and simply little.
+  sleepy: { top: 11.25, height: 2.5 },
+  star: { top: 9.5, height: 5.5 },
+  closed: { top: 12, height: 1 }
+};
+
+function eyeAt(x: number, { eye, eyeLight, sharp, shape }: EyeOptions, mirrored = false): ReactElement {
   const lit = eyeLight ?? 'var(--av-magic-highlight)';
-  const top = sharp ? 10.5 : 9.75;
-  const height = sharp ? 4 : 5.25;
+  const cut: EyeShape = shape ?? (sharp ? 'sharp' : 'soft');
+  const { top, height } = eyeGeometry[cut];
+
+  /* A closed eye is a lash line and nothing else: no white, no iris, no glint to give it away. */
+  if (cut === 'closed') {
+    return (
+      <g>
+        {px(x, top, 4, 0.75, OUTLINE)}
+        {px(mirrored ? x - 0.5 : x + 3.75, top - 0.75, 0.75, 0.75, OUTLINE)}
+      </g>
+    );
+  }
+
   const inner = mirrored ? x : x + 3.25;
+  const irisTop = top + 0.75;
+  const irisHeight = height - 1.25;
   return (
     <g>
       {px(x, top, 4, height, WHITE)}
       {/* The iris: base below, lit above, so the light has a direction. */}
-      {px(x + 0.5, top + 0.75, 3, height - 1.25, eye)}
-      {px(x + 0.5, top + 0.75, 3, (height - 1.25) / 2, lit)}
-      {/* The lid line. Slanted inwards on a sharp eye, level on a soft one. */}
-      {sharp
+      {px(x + 0.5, irisTop, 3, irisHeight, eye)}
+      {px(x + 0.5, irisTop, 3, irisHeight / 2, lit)}
+      {/*
+        * A star in the iris, for the one expression that is about delight rather than mood.
+        *
+        * Four arms and a lit centre, drawn in the highlight rather than in white, so it reads as the
+        * iris catching light and not as a sticker over it.
+        */}
+      {cut === 'star' ? (
+        <g>
+          {px(x + 1.25, irisTop + 0.5, 1.5, irisHeight - 1, lit)}
+          {px(x + 0.5, irisTop + irisHeight / 2 - 0.75, 3, 1.5, lit)}
+          {px(x + 1.5, irisTop + irisHeight / 2 - 0.5, 1, 1, WHITE)}
+        </g>
+      ) : null}
+      {/* The lid line. Slanted inwards on a sharp eye, level on a soft one, lifted on a wide one. */}
+      {cut === 'sharp'
         ? <polygon points={`${x},${top} ${x + 4},${top - 1} ${x + 4},${top + 0.75} ${x},${top + 0.75}`} fill={OUTLINE} />
-        : px(x, top, 4, 0.75, OUTLINE)}
+        : px(x, top, 4, cut === 'sleepy' ? 1 : 0.75, OUTLINE)}
       {/* The two glints. Big where the light is, small on the far side; the small one is the wet. */}
-      {px(mirrored ? x + 2.25 : x + 0.75, top + 1, 1.25, 1.25, WHITE)}
-      {px(inner - 0.75, top + height - 1.75, 0.75, 0.75, WHITE)}
+      {cut === 'sleepy' ? null : px(mirrored ? x + 2.25 : x + 0.75, top + 1, 1.25, 1.25, WHITE)}
+      {cut === 'sleepy' ? null : px(inner - 0.75, top + height - 1.75, 0.75, 0.75, WHITE)}
     </g>
   );
+}
+
+/**
+ * The pair of brows, drawn above whatever the lid is doing.
+ *
+ * `angled` drops the inner end and lifts the outer one, which is the whole of a scowl; `raised`
+ * does the opposite and reads as open or delighted; `flat` is a level line, the resting face. They
+ * are mirrored about the face's centre so both sides of a scowl point the same way.
+ */
+function browPair(shape: BrowShape): ReactElement | null {
+  if (shape === 'none') return null;
+  const brow = (x: number, mirrored: boolean) => {
+    if (shape === 'flat') return px(x, 8, 4, 0.75, OUTLINE);
+    const near = shape === 'angled' ? 8.75 : 7.5;
+    const far = shape === 'angled' ? 7.5 : 8.5;
+    const left = mirrored ? far : near;
+    const right = mirrored ? near : far;
+    return (
+      <polygon
+        points={`${x},${left} ${x + 4},${right} ${x + 4},${right + 0.75} ${x},${left + 0.75}`}
+        fill={OUTLINE}
+      />
+    );
+  };
+  return <g data-part="brows">{brow(18.25, false)}{brow(25.75, true)}</g>;
 }
 
 /**
@@ -719,7 +873,8 @@ Partial<FaceOptions> & { rig?: DirectionRig }): ReactElement {
  * head that has turned rather than a face that has slid.
  */
 export function faceFeatures({
-  eye, eyeLight, snout = 'none', blush, whiskers, sharp, mouth = 'smile', rig
+  eye, eyeLight, snout = 'none', blush, whiskers, sharp, eyeShape, wink, brow = 'none',
+  mouth = 'smile', rig
 }: FaceOptions & { rig?: DirectionRig }): ReactElement {
   const turn = rig ?? directionRig('front');
   /*
@@ -766,6 +921,7 @@ export function faceFeatures({
           {px(32, 15.5, 4.5, 0.5, SKIN_SHADOW)}
         </g>
       ) : null}
+      {browPair(brow)}
       {/* The eyes, in their own group, because blinking is a thing eyes do and heads do not. */}
       <g data-part="eyes">
         {sharp ? (
@@ -782,8 +938,9 @@ export function faceFeatures({
             {px(25.4, 10, 4.8, 4.8, eye)}
           </g>
         ) : null}
-        {eyeAt(18.25, { eye, eyeLight, sharp })}
-        {eyeAt(25.75, { eye, eyeLight, sharp }, true)}
+        {eyeAt(18.25, { eye, eyeLight, sharp, shape: eyeShape })}
+        {/* A wink shuts the near eye only, so the pair still reads as one face doing one thing. */}
+        {eyeAt(25.75, { eye, eyeLight, sharp, shape: wink ? 'closed' : eyeShape }, true)}
       </g>
       {blush ? (
         <g opacity="0.7">
@@ -791,13 +948,7 @@ export function faceFeatures({
           {px(28.5, 14.5, 3, 1.5, BLUSH)}
         </g>
       ) : null}
-      {snout === 'none' && mouth !== 'none' ? (
-        <>
-          {px(22.5, 16.25, 3, 0.75, OUTLINE)}
-          {px(23.25, 17, 1.5, 0.5, OUTLINE)}
-          {mouth === 'fang' ? px(22.75, 17, 1, 1, WHITE) : null}
-        </>
-      ) : null}
+      {snout === 'none' ? mouthShape(mouth) : null}
     </g>
   );
 }

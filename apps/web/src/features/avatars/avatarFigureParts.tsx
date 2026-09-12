@@ -12,7 +12,8 @@ import {
   hornedHelm, jetpack, lantern, legsSneakers, openBook, palette,
   legsStanding, legsWebbed, robedLegs, scaledTail, shield, spellAura,
   staff, sword, torsoRound,
-  type BodySlot, type EarStyle, type FootwearShape, type HandwearShape, type SnoutStyle
+  type BodySlot, type BrowShape, type EarStyle, type EyeShape, type FootwearShape, type HandwearShape,
+  type MouthShape, type SnoutStyle
 } from './avatarFullBody';
 import { hairFor, hairStyleDefinitions } from './avatarHair';
 import { directionRig, type DirectionRig } from './avatarDirection';
@@ -1435,22 +1436,34 @@ interface FaceStyle {
   eyeLight?: string;
   sharp?: boolean;
   blush?: boolean;
-  mouth?: 'smile' | 'fang' | 'none';
+  /** The cut of the eye. A colour cannot tell two expressions apart at this size; a shape can. */
+  eyeShape?: EyeShape;
+  wink?: boolean;
+  brow?: BrowShape;
+  mouth?: MouthShape;
 }
 
+/*
+ * Twelve expressions, and what each one is made of.
+ *
+ * They used to differ by iris colour and a blush flag, which is why a grid of them read as one
+ * child painted twelve times: same lid, same brow, same three-pixel mouth on every face in the
+ * school. Each row now names a cut of eye, a brow and a mouth — shapes, which survive being 48
+ * pixels across, where a violet iris does not.
+ */
 const faceStyles: Record<string, FaceStyle> = {
-  neutral: { eye: OUTLINE, eyeLight: 'var(--av-magic-highlight)' },
-  smile: { eye: OUTLINE, eyeLight: 'var(--av-magic-highlight)', blush: true },
-  focused: { eye: OUTLINE, sharp: true, mouth: 'none' },
-  glow: { eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT },
-  fangs: { eye: OUTLINE, mouth: 'fang' },
-  sleepy: { eye: SECONDARY, eyeLight: 'var(--av-magic-highlight)', mouth: 'none' },
-  wink: { eye: OUTLINE, eyeLight: 'var(--av-magic-highlight)', blush: true, mouth: 'smile' },
-  star: { eye: MAGIC, eyeLight: WHITE, blush: true },
-  wide: { eye: OUTLINE, eyeLight: WHITE },
-  fierce: { eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT, sharp: true, mouth: 'fang' },
-  calm: { eye: SECONDARY, eyeLight: 'var(--av-magic-highlight)' },
-  cyber: { eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, sharp: true, mouth: 'none' }
+  neutral: { eye: OUTLINE, eyeLight: 'var(--av-magic-highlight)', brow: 'flat', mouth: 'smile' },
+  smile: { eye: OUTLINE, eyeLight: 'var(--av-magic-highlight)', blush: true, brow: 'raised', mouth: 'grin' },
+  focused: { eye: OUTLINE, sharp: true, brow: 'angled', mouth: 'flat' },
+  glow: { eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, eyeShape: 'wide', brow: 'none', mouth: 'smile' },
+  fangs: { eye: OUTLINE, brow: 'angled', mouth: 'fang' },
+  sleepy: { eye: SECONDARY, eyeLight: 'var(--av-magic-highlight)', eyeShape: 'sleepy', brow: 'raised', mouth: 'none' },
+  wink: { eye: OUTLINE, eyeLight: 'var(--av-magic-highlight)', blush: true, wink: true, brow: 'raised', mouth: 'grin' },
+  star: { eye: MAGIC, eyeLight: WHITE, eyeShape: 'star', blush: true, brow: 'raised', mouth: 'open' },
+  wide: { eye: OUTLINE, eyeLight: WHITE, eyeShape: 'wide', brow: 'raised', mouth: 'open' },
+  fierce: { eye: ACCENT, eyeLight: MAGIC_HIGHLIGHT, sharp: true, brow: 'angled', mouth: 'fang' },
+  calm: { eye: SECONDARY, eyeLight: 'var(--av-magic-highlight)', brow: 'flat', mouth: 'cat' },
+  cyber: { eye: MAGIC, eyeLight: MAGIC_HIGHLIGHT, sharp: true, brow: 'none', mouth: 'flat' }
 };
 
 /** Worn over the eyes, drawn after the face so it covers rather than hides behind it. */
@@ -2030,6 +2043,9 @@ export function figureSlotsFor(
       ...(face?.eyeLight === undefined ? {} : { eyeLight: face.eyeLight }),
       ...(face?.sharp === undefined ? {} : { sharp: face.sharp }),
       ...(face?.blush === undefined ? {} : { blush: face.blush }),
+      ...(face?.eyeShape === undefined ? {} : { eyeShape: face.eyeShape }),
+      ...(face?.wink === undefined ? {} : { wink: face.wink }),
+      ...(face?.brow === undefined ? {} : { brow: face.brow }),
       ...(face?.mouth === undefined ? {} : { mouth: face.mouth }),
       snout: race.snout,
       ...(race.whiskers === undefined ? {} : { whiskers: race.whiskers }),

@@ -100,7 +100,15 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
        * รายงาน, which is a different job and is named as one.
        */
       reachedElsewhere('/classroom', 'เปิดคาบเรียน · เช็กชื่อ', 'attendance'),
-      destination('/quiz', 'Quiz Challenge', 'quiz'),
+      /*
+       * Quiz Challenge is off the menu, and still reachable.
+       *
+       * The school asked for the row to go. The route is what the menu grants, so deleting the
+       * entry outright would also close the address — including the link on the preview tour that
+       * walks a teacher through running a round. Hidden keeps the screen for the roles that had it
+       * and takes away only the row.
+       */
+      reachedElsewhere('/quiz', 'Quiz Challenge', 'quiz'),
       destination('/assignments', 'งานและกิจกรรม', 'assignments'),
       destination('/scores', 'คะแนนและเกรด', 'scores'),
       // The administrator keeps the teacher's merged screen — one entry over both views — rather
@@ -142,7 +150,8 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
      */
     { key: 'activities', label: 'สอนวันนี้', items: [
       reachedElsewhere('/classroom', 'เปิดคาบเรียน · เช็กชื่อ', 'attendance'),
-      destination('/quiz', 'Quiz Challenge', 'quiz'),
+      // Off the menu for the teacher too, and kept reachable for the same reason as the administrator's.
+      reachedElsewhere('/quiz', 'Quiz Challenge', 'quiz'),
       destination('/question-bank', 'คลังข้อสอบ', 'question-bank'),
       destination('/exams', 'ข้อสอบ', 'exams')
     ] },
