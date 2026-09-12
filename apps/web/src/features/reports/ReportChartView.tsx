@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { ReportChart } from './reportBuilders';
 
 /**
@@ -29,7 +30,7 @@ export function ReportChartView({ chart }: { chart: ReportChart }) {
                 className="report-chart-bar"
                 // A zero-length bar is still a category with a value of zero, so it keeps a sliver
                 // of width — a row that vanishes reads as a category that does not exist.
-                style={{ width: `${Math.max((bar.value / max) * 100, bar.value > 0 ? 2 : 0)}%` }}
+                style={{ '--fill': Math.max(bar.value / max, bar.value > 0 ? 0.02 : 0) } as CSSProperties}
               />
             </span>
             <span className="report-chart-value">{bar.value.toLocaleString('th-TH')} {chart.unit}</span>

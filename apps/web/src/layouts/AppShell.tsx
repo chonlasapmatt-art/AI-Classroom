@@ -15,6 +15,7 @@ import { useSyncStatus } from '../sync/SyncStatusContext';
 import { ConfirmDialog, PageLoading } from '../ui/components';
 import { Icon } from '../ui/Icon';
 import { destination, isAdvisorOnlyRoute, navigationByRole, type NavGroup, type NavItem } from './navigation';
+import { useAnimationAllowed, usePageTransition } from '../app/motion';
 import {
   applyArrangement, ARRANGE_MODE_KEY, arrangementStorageKey, moveGroup, moveItem, NAV_ORDER_EVENT,
   NAV_ORDER_SETTING, publishedArrangement, readArrangement, type NavArrangement
@@ -279,6 +280,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
   const [expandedGroups, setExpandedGroups] = useState(() => readExpandedGroups(membership.role, orderedGroups, location.pathname));
   const [menuQuery, setMenuQuery] = useState('');
+  /*
+   * Moving between screens carries one into the next, the way the public pages already do.
+   *
+   * It was written for Home → sign-in and used nowhere else, so the part of the product people spend
+   * all day in was the part that swapped screens with no motion at all. The handler checks the
+   * motion settings and the modifier keys itself and does nothing when any of them says no — in
+   * which case the link underneath navigates exactly as it always has.
+   */
+  const transitionTo = usePageTransition(useAnimationAllowed());
   const menuSearch = useRef<HTMLInputElement | null>(null);
   const { nav: navElement, marker } = useActiveRowMarker([location.pathname, expandedGroups, collapsed, menuQuery, membership.role]);
   // Matching the section name as well as the entry answers "where did they put the timetable?" —
@@ -484,7 +494,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <NavLink
                       key={item.to} to={item.to} end={item.to === '/'} title={item.label}
                       data-icon={item.icon}
-                      onClick={() => { setOpen(false); setMenuQuery(''); }}
+                      onClick={(event) => { setOpen(false); setMenuQuery(''); transitionTo(event, item.to); }}
                     >
                       <Icon name={item.icon} size={18} />
                       <span className="nav-label">{item.label}</span>
@@ -541,7 +551,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <NavLink
                       to={item.to} end={item.to === '/'} title={item.label}
                       data-icon={item.icon}
-                      onClick={() => setOpen(false)}
+                      onClick={(event) => { setOpen(false); transitionTo(event, item.to); }}
                     >
                       <Icon name={item.icon} size={18} />
                       <span className="nav-label">{item.label}</span>

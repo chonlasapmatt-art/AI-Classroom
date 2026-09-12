@@ -196,7 +196,7 @@ export function WhatsNewNotice() {
             <span
               className="whats-new-meter"
               aria-hidden="true"
-              style={{ '--whats-new-left': `${(remaining / NOTICE_SECONDS) * 100}%` } as React.CSSProperties}
+              style={{ '--whats-new-left': remaining / NOTICE_SECONDS } as React.CSSProperties}
             />
           )}
         </footer>

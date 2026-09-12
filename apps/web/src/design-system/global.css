@@ -48,7 +48,7 @@ code { background:#f0eef9; border-radius:6px; padding:.12em .4em; font-family:ui
 .boot-title { letter-spacing:.22em; font-size:.72rem; font-weight:900; animation:boot-content-in .72s .15s var(--ease-emphasized) both; }
 .boot-subtitle { letter-spacing:.08em; font-size:.62rem; font-weight:500; opacity:.6; animation:boot-content-in .72s .28s var(--ease-emphasized) both; }
 .boot-progress-bar { width:120px; height:3px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.12); margin-top:.25rem; }
-.boot-progress-fill { height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--brand-300,#a99aff),#fff); transition:width .35s var(--ease-out); }
+.boot-progress-fill { height:100%; width:100%; border-radius:inherit; background:linear-gradient(90deg,var(--brand-300,#a99aff),#fff); transform:scaleX(var(--boot-fill,0)); transform-origin:left center; transition:transform .35s var(--ease-out); }
 .app-boot-orbit { position:absolute; border:1px solid #ffffff20; border-radius:50%; animation:boot-orbit-in 1.1s var(--ease-emphasized) both, boot-orbit-float 7s ease-in-out infinite alternate; }
 .app-boot-orbit-one { width:min(68vw,680px); aspect-ratio:1; right:-15%; top:-24%; }
 .app-boot-orbit-two { width:min(46vw,460px); aspect-ratio:1; left:-13%; bottom:-18%; animation-delay:.12s, -.8s; }
@@ -484,8 +484,8 @@ input[type="file"] { min-height:auto; padding:.45rem; }
 .panel, .metric-card, .hero, .subject-card, .student-card, .avatar-card { transition:border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out); }
 .panel:hover, .metric-card:hover, .hero:hover, .subject-card:hover, .student-card:hover, .avatar-card:hover { border-color:var(--line-strong); box-shadow:var(--shadow-md); }
 .metric-card:hover, .subject-card:hover, .student-card:hover, .avatar-card:hover { transform:translateY(-3px); }
-.record-list li, .notification-list li, .timeline li { transition:background var(--duration-fast) var(--ease-out), padding-left var(--duration-fast) var(--ease-out); }
-.record-list li:hover, .notification-list li:hover, .timeline li:hover { background:var(--surface-hover); padding-left:.7rem; }
+.record-list li, .notification-list li, .timeline li { transition:background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out); }
+.record-list li:hover, .notification-list li:hover, .timeline li:hover { background:var(--surface-hover); transform:translateX(.35rem); }
 .sync-pill.online span { animation:online-pulse 2.2s ease-in-out infinite; }
 @keyframes online-pulse { 0%,100% { box-shadow:0 0 0 0 currentColor; } 45% { box-shadow:0 0 0 4px transparent; } }
 
@@ -542,6 +542,31 @@ input[type="file"] { min-height:auto; padding:.45rem; }
  * step further in" said without any words. A name has to be unique in a page for the browser to
  * pair it up, so these selectors each match exactly one element on the screen they apply to.
  */
+/*
+ * Inside the app, only the screen moves.
+ *
+ * The public pages cross-fade whole: there is no shell, and the whole page really is the thing that
+ * changed. Inside the app the menu, the header and the sync pill are the same objects before and
+ * after — sliding them out and back in says they were replaced, which is both untrue and the reason
+ * moving between screens felt like a reload rather than like turning a page.
+ *
+ * Naming them takes them out of the root snapshot and gives each its own group, and a group with no
+ * animation holds perfectly still. What is left in the root is the one thing that did change.
+ */
+.app-frame .sidebar { view-transition-name: app-sidebar; }
+.app-frame .page-content { view-transition-name: app-page; }
+.app-frame .bottom-nav { view-transition-name: app-bottom-nav; }
+
+::view-transition-group(app-sidebar),
+::view-transition-group(app-bottom-nav) { animation: none; }
+
+/* A sibling screen arrives from below rather than from the side: there is no journey inwards to
+   describe, so the movement is small and vertical and the fade does most of the work. */
+::view-transition-old(app-page) { animation: screen-leave 140ms var(--ease-out) both; }
+::view-transition-new(app-page) { animation: screen-arrive 220ms var(--ease-emphasized) both; }
+@keyframes screen-leave { to { opacity: 0; transform: translateY(-0.5%); } }
+@keyframes screen-arrive { from { opacity: 0; transform: translateY(1.2%); } }
+
 .welcome-nav .brand-mark, .auth-art > .brand-mark { view-transition-name: brand-mark; }
 ::view-transition-group(brand-mark) { animation-duration: 380ms; animation-timing-function: var(--ease-emphasized); }
 

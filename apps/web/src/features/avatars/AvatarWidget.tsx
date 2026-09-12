@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { useSchoolSnapshot } from '../../data/RepositoryContext';
 import { bonusTotalFor } from '../../data/selectors';
 import type { Student } from '../../domain/types';
@@ -65,7 +65,8 @@ export function AvatarWidget({ student }: {
           aria-valuemax={progress.needed}
           aria-label={`ความคืบหน้าไประดับ ${progress.level + 1}`}
         >
-          <span style={{ width: `${Math.round((progress.into / progress.needed) * 100)}%` }} />
+          {/* The fraction the bar is scaled to, rather than a width it is laid out at. */}
+          <span style={{ '--fill': progress.into / progress.needed } as CSSProperties} />
         </div>
         <small>อีก {progress.needed - progress.into} คะแนนถึงระดับ {progress.level + 1}</small>
       </div>

@@ -397,7 +397,11 @@
 /* ---------- Progress ---------- */
 .ui-progress { display: flex; align-items: center; gap: var(--space-3); }
 .ui-progress-track { flex: 1; height: 8px; border-radius: var(--radius-pill); background: var(--surface-sunken); overflow: hidden; }
-.ui-progress-track span { display: block; height: 100%; border-radius: var(--radius-pill); background: currentColor; transition: width var(--duration-normal) var(--ease-out); }
+.ui-progress-track span {
+  display: block; width: 100%; height: 100%; border-radius: var(--radius-pill); background: currentColor;
+  transform: scaleX(var(--fill, 0)); transform-origin: left center;
+  transition: transform var(--duration-normal) var(--ease-out);
+}
 .ui-progress-brand { color: var(--brand-500); }
 .ui-progress-success { color: var(--success); }
 .ui-progress-warning { color: var(--warning); }
@@ -498,7 +502,26 @@
   transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
 .ui-tabs button:hover { color: var(--ink-900); }
-.ui-tabs button[aria-selected="true"] { color: var(--brand-700); border-bottom-color: var(--brand-600); }
+/*
+ * The underline grows into place instead of appearing under the new tab.
+ *
+ * A border that switches from one button to another is two events — one line vanishing, another
+ * arriving — and the eye reads two events as a jump. Drawn as a scaled pseudo-element it is one
+ * object changing width, which is the same information delivered as a single movement. It is on the
+ * button rather than on a single travelling bar because the tabs scroll horizontally: a shared bar
+ * would need its position measured on every scroll, and this needs nothing measured at all.
+ */
+.ui-tabs button { position: relative; }
+.ui-tabs button::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px;
+  background: var(--brand-600); border-radius: var(--radius-pill);
+  transform: scaleX(0); transform-origin: center;
+  transition: transform var(--duration-normal) var(--ease-move);
+}
+.ui-tabs button[aria-selected="true"] { color: var(--brand-700); }
+.ui-tabs button[aria-selected="true"]::after { transform: scaleX(1); }
+/* The one that is being hovered shows a hint of where the line would go. */
+.ui-tabs button:hover:not([aria-selected="true"])::after { transform: scaleX(0.35); opacity: .45; }
 .ui-tabs button:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--brand-200); }
 
 /* ---------- Drawer / Slide-over ---------- */
@@ -507,6 +530,15 @@
   background: var(--overlay); backdrop-filter: blur(4px);
   animation: ui-fade var(--duration-normal) var(--ease-out);
 }
+/*
+ * A panel that scrolls does not hand its momentum to the page behind it.
+ *
+ * Reaching the end of a list inside a drawer and carrying on scrolling used to scroll the screen
+ * underneath, so closing the drawer left somebody somewhere else entirely — on a tablet that reads
+ * as the app having lost their place. The contain rule stops the chain at the panel's own edge.
+ */
+.ui-drawer, .ui-modal, .ui-modal-body { overscroll-behavior: contain; }
+
 .ui-drawer {
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 91;
   width: min(480px, 90vw); display: flex; flex-direction: column;

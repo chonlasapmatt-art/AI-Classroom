@@ -44,3 +44,16 @@ export function useTheme(): ThemeState {
   if (!value) throw new Error('useTheme must be used inside ThemeProvider');
   return value;
 }
+
+/**
+ * The same settings, for something that would rather do without them than fail.
+ *
+ * A screen that reads the theme belongs inside the provider and should say so by throwing. Motion
+ * is the exception: whether an animation runs is a preference, and a component asking about it in a
+ * test harness — or in any tree that mounts a fragment of the app on its own — should get the
+ * system answer rather than an exception. Null means "nobody has said", which is a real answer.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useThemeIfAvailable(): ThemeState | null {
+  return useContext(ThemeContext);
+}

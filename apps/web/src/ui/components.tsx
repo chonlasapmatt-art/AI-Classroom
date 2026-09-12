@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { ButtonHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode, TextareaHTMLAttributes } from 'react';
 import { Link } from 'react-router-dom';
 // `useToast` and the tone type live in ./toastContext, which is what a screen imports to raise one.
 import { ToastContext, type ToastTone } from './toastContext';
@@ -446,7 +446,8 @@ export function ProgressBar({ value, max, tone = 'brand', label }: { value: numb
         aria-valuemax={max}
         aria-label={typeof label === 'string' ? label : undefined}
       >
-        <span style={{ width: `${percent}%` }} />
+        {/* A fraction rather than a width: the bar is scaled on the compositor, never laid out. */}
+        <span style={{ '--fill': percent / 100 } as CSSProperties} />
       </div>
       {label && <span className="ui-progress-label">{label}</span>}
     </div>

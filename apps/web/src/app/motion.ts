@@ -1,7 +1,7 @@
 import { useEffect, useState, type MouseEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from './ThemeContext';
+import { useThemeIfAvailable } from './ThemeContext';
 
 /**
  * Whether this visit gets the moving version of the interface.
@@ -12,7 +12,11 @@ import { useTheme } from './ThemeContext';
  * not have to reload the page to be listened to.
  */
 export function useAnimationAllowed() {
-  const { motion } = useTheme();
+  /* Outside a ThemeProvider the app's own toggle has not been set by anybody, so the operating
+     system's preference is the whole answer. Asking for it must never be the thing that breaks a
+     screen. */
+  const theme = useThemeIfAvailable();
+  const motion = theme?.motion ?? 'full';
   const [systemReduced, setSystemReduced] = useState(
     () => typeof window !== 'undefined' && (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false)
   );

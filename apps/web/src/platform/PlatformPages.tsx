@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Icon } from '../ui/Icon';
 import {
   Badge, Button, Card, CardHeader, DataTable, EmptyState, ErrorState, Field, PromptDialog, Skeleton, Stat, Toolbar
@@ -132,7 +132,9 @@ export function OverviewPage() {
           </div>
           <div className="platform-health-progress">
             <div><span>โรงเรียนที่ใช้งานอยู่</span><strong>{activeSchoolPercent}%</strong></div>
-            <div className="platform-progress-track"><span style={{ width: `${activeSchoolPercent}%` }} /></div>
+            <div className="platform-progress-track">
+              <span style={{ '--fill': activeSchoolPercent / 100 } as CSSProperties} />
+            </div>
           </div>
         </Card>
       </div>

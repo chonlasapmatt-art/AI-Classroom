@@ -1045,7 +1045,11 @@
 .avatar-widget-level-head span { color: var(--ink-600); font-size: var(--text-sm); }
 .avatar-widget-level small { color: var(--ink-500); font-size: var(--text-xs); }
 .avatar-widget-bar { height: 8px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--brand-200) 55%, var(--surface)); overflow: hidden; }
-.avatar-widget-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--brand-gradient); transition: width var(--duration-slow) var(--ease-out); }
+.avatar-widget-bar > span {
+  display: block; width: 100%; height: 100%; border-radius: inherit; background: var(--brand-gradient);
+  transform: scaleX(var(--fill, 0)); transform-origin: left center;
+  transition: transform var(--duration-slow) var(--ease-out);
+}
 
 /* The purse that replaced the medal shelf: a balance, the two things it is made of, and what it
    is for. The sources are listed because a number a child cannot explain is a number they do not
@@ -2081,7 +2085,14 @@ tr.row-warning td { background: var(--warning-soft); }
 .platform-health-progress > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); color: var(--ink-500); font-size: var(--text-xs); }
 .platform-health-progress strong { color: var(--ink-900); font-variant-numeric: tabular-nums; }
 .platform-progress-track { height: 9px; margin-top: var(--space-2); border-radius: var(--radius-pill); background: var(--surface-sunken); overflow: hidden; }
-.platform-progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--brand-500), var(--success)); transition: width 600ms var(--ease-emphasized); }
+.platform-progress-track span {
+  display: block; width: 100%; height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-500), var(--success));
+  transform: scaleX(var(--fill, 0)); transform-origin: left center;
+  /* 600 ms was longer than anything else in the product and read as the bar lagging the number
+     beside it. Within the range the rest of the interface moves in, it reads as the same event. */
+  transition: transform var(--duration-slow) var(--ease-emphasized);
+}
 .platform-school-summary { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: var(--space-5); padding: var(--space-3) 0 var(--space-4); }
 .platform-school-total { display: flex; flex-direction: column; align-items: center; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--brand-50); }
 .platform-school-total strong { color: var(--brand-700); font-size: clamp(2rem, 5vw, 3rem); line-height: 1; font-variant-numeric: tabular-nums; }
@@ -2563,10 +2574,13 @@ tr.row-warning td { background: var(--warning-soft); }
   background: var(--color-surface-sunken); overflow: hidden;
 }
 .report-chart-bar {
-  display: block; height: 100%;
+  display: block; width: 100%; height: 100%;
   /* Rounded at the data end only, anchored to the baseline it grows from. */
   border-radius: 0 4px 4px 0; background: var(--brand-500);
-  transition: width var(--motion-slow) var(--motion-ease-emphasized);
+  /* Scaled from the baseline rather than widened: a chart of twenty rows animating their widths
+     relays out the whole figure twenty times a frame, and the bars arrive together anyway. */
+  transform: scaleX(var(--fill, 0)); transform-origin: left center;
+  transition: transform var(--motion-slow) var(--motion-ease-emphasized);
 }
 .report-chart-value {
   /* The number wears a text token, never the series colour — the bar beside it carries identity. */
@@ -4312,7 +4326,11 @@ tr.row-warning td { background: var(--warning-soft); }
   background: linear-gradient(90deg,
     color-mix(in srgb, var(--color-primary) 55%, transparent),
     var(--color-primary));
-  transition: inline-size 1s linear;
+  inline-size: 100%;
+  transform: scaleX(var(--whats-new-left, 1)); transform-origin: left center;
+  /* Linear, and correctly so: this is a clock running down, and a clock that eases is a clock that
+     lies about how much time is left. Scaling rather than resizing keeps it off the layout path. */
+  transition: transform 1s linear;
 }
 @keyframes whats-new-in {
   from { opacity: 0; transform: translateY(14px) scale(.97); }

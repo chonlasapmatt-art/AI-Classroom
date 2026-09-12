@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { BrandMark } from '../ui/BrandMark';
 
 /**
@@ -62,7 +62,8 @@ export function BootSplash({ children }: { children: ReactNode }) {
             <span className="boot-title">SMART CLASSROOM</span>
             <span className="boot-subtitle">ระบบห้องเรียนอัจฉริยะ</span>
             <div className="boot-progress-bar">
-              <div className="boot-progress-fill" style={{ width: `${progress}%` }} />
+              {/* A fraction rather than a width: the fill is scaled, so the splash never lays out again. */}
+              <div className="boot-progress-fill" style={{ '--boot-fill': progress / 100 } as CSSProperties} />
             </div>
           </div>
         </div>
