@@ -58,8 +58,21 @@ export interface BoneAnchors {
   wing: readonly [number, number];
   /** Where horns leave the skull. Wide on a dragon, narrow on a demon, unused without horns. */
   horn: readonly [number, number];
-  /** What a held thing swings about, which is the wrist rather than the hand. */
+  /** What a thing in the near hand swings about, which is the wrist rather than the hand. */
   grip: readonly [number, number];
+  /**
+   * The same, for the far hand — and a separate bone because a figure has two wrists.
+   *
+   * One grip for both hands is the kind of simplification that looks harmless until a pose turns an
+   * arm past the horizontal. The cheer counter-rotates whatever a hand is holding so it stays
+   * upright while the arm goes overhead; with a single anchor, the far hand's shield was being
+   * counter-rotated about a point eighteen units away from itself, which threw it to x −1 and out of
+   * the frame entirely. The rotation was right and the centre was somebody else's wrist.
+   *
+   * Derived by mirroring `grip` about the figure's centre line unless a costume states otherwise, so
+   * no row has to remember to keep the two in step.
+   */
+  gripFar: readonly [number, number];
 }
 
 /**
@@ -140,7 +153,8 @@ const humanoidSkeleton: BoneAnchors = {
   tail: [31, 34],
   wing: [24, 24],
   horn: [24, 6],
-  grip: [15, 29]
+  grip: [15, 29],
+  gripFar: [33, 29]
 };
 
 /**
@@ -513,9 +527,24 @@ const rigSpecs: Record<FullBodyArchetype, RigSpec> = {
   }
 };
 
+/** The figure's own centre line, which the far hand is the near hand reflected in. */
+const FIGURE_CENTRE = 24;
+
 function resolveRig(spec: RigSpec): ArchetypeRig {
+  const anchors = { ...spec.base, ...(spec.anchors ?? {}) };
+  /*
+   * A costume that moves the near wrist moves the far one with it, unless it says otherwise.
+   *
+   * Three of the forty-one reposition `grip` — the artist holds a brush lower, the musician holds a
+   * neck further out, the mage holds a staff higher — and none of them was going to remember to
+   * state the mirror as well. Deriving it means the two wrists cannot drift apart, which is exactly
+   * how the far hand ended up rotating about the near hand's anchor.
+   */
+  if (!spec.anchors?.gripFar && spec.anchors?.grip) {
+    anchors.gripFar = [FIGURE_CENTRE * 2 - anchors.grip[0], anchors.grip[1]];
+  }
   return {
-    anchors: { ...spec.base, ...(spec.anchors ?? {}) },
+    anchors,
     posture: { ...restingPosture, ...(spec.posture ?? {}) },
     footprint: spec.footprint
   };
@@ -568,6 +597,7 @@ export function rigVariables(rig: ArchetypeRig): Record<string, string> {
   const [wingX, wingY] = pointOf(anchors.wing);
   const [hornX, hornY] = pointOf(anchors.horn);
   const [gripX, gripY] = pointOf(anchors.grip);
+  const [gripFarX, gripFarY] = pointOf(anchors.gripFar);
   return {
     '--rig-neck-x': neckX, '--rig-neck-y': neckY,
     '--rig-crown-x': crownX, '--rig-crown-y': crownY,
@@ -579,6 +609,7 @@ export function rigVariables(rig: ArchetypeRig): Record<string, string> {
     '--rig-wing-x': wingX, '--rig-wing-y': wingY,
     '--rig-horn-x': hornX, '--rig-horn-y': hornY,
     '--rig-grip-x': gripX, '--rig-grip-y': gripY,
+    '--rig-grip-far-x': gripFarX, '--rig-grip-far-y': gripFarY,
     '--rig-neck-tilt': `${posture.neckTilt}deg`,
     '--rig-torso-lean': `${posture.torsoLean}deg`,
     '--rig-shoulder-span': String(posture.shoulderSpan),
@@ -689,7 +720,7 @@ export function skeletonSignature(rig: ArchetypeRig): string {
   const { anchors, posture } = rig;
   const bones: Array<keyof BoneAnchors> = [
     'neck', 'crown', 'shoulderNear', 'shoulderFar', 'hipNear', 'hipFar',
-    'root', 'tail', 'wing', 'horn', 'grip'
+    'root', 'tail', 'wing', 'horn', 'grip', 'gripFar'
   ];
   const joints = bones.map((bone) => `${bone}:${anchors[bone][0]},${anchors[bone][1]}`).join('|');
   const stance = [

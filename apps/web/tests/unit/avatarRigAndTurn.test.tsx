@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FullBodyAvatar } from '../../src/features/avatars/FullBodyAvatar';
-import { fullBodyArchetypeList } from '../../src/features/avatars/avatarFullBody';
+import {
+  fullBodyArchetypeList, shield, spellbook, sword, FULL_BODY_GRID
+} from '../../src/features/avatars/avatarFullBody';
 import {
   footprintDistance, footprintFor, isSilhouetteDistinct, nearestFootprint, rigArchetypeIds, rigFor,
   rigVariables, silhouetteVerdict, skeletonSignature, SILHOUETTE_MIN_DISTANCE,
@@ -15,6 +20,66 @@ import type { AvatarRace } from '../../src/features/avatars/avatarSchema';
 afterEach(cleanup);
 
 const races: AvatarRace[] = ['human', 'dragonkin', 'demon', 'beastfolk', 'spirit', 'robot'];
+
+const here = dirname(fileURLToPath(import.meta.url));
+const poseStyles = readFileSync(
+  resolve(here, '../../src/features/avatars/FullBodyAvatar.module.css'), 'utf8');
+
+/** One `@keyframes` block, braces and all. A `[^}]*` match stops at the first frame's brace. */
+function keyframes(name: string): string {
+  const start = poseStyles.indexOf(`@keyframes ${name} {`);
+  if (start < 0) throw new Error(`no @keyframes ${name}`);
+  let depth = 0;
+  for (let index = poseStyles.indexOf('{', start); index < poseStyles.length; index += 1) {
+    if (poseStyles[index] === '{') depth += 1;
+    if (poseStyles[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return poseStyles.slice(start, index + 1);
+    }
+  }
+  throw new Error(`unterminated @keyframes ${name}`);
+}
+
+/** Every rotation a keyframe passes through, keyed by the stop it happens at. */
+function anglesByStop(name: string): Map<string, number> {
+  const found = new Map<string, number>();
+  for (const match of keyframes(name).matchAll(/([\d.]+)%\s*\{\s*transform: rotate\((-?[\d.]+)deg\)/g)) {
+    found.set(match[1]!, Number(match[2]));
+  }
+  return found;
+}
+
+type Point = readonly [number, number];
+
+function rotate([x, y]: Point, [cx, cy]: Point, degrees: number): Point {
+  const radians = (degrees * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const dx = x - cx;
+  const dy = y - cy;
+  return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos];
+}
+
+/** Every corner a drawing occupies, rects and polygons alike. */
+function cornersOf(drawing: ReturnType<typeof shield>): Point[] {
+  const { container } = render(<svg>{drawing}</svg>);
+  const points: Point[] = [];
+  for (const rect of container.querySelectorAll('rect')) {
+    const x = Number(rect.getAttribute('x'));
+    const y = Number(rect.getAttribute('y'));
+    const w = Number(rect.getAttribute('width'));
+    const h = Number(rect.getAttribute('height'));
+    points.push([x, y], [x + w, y], [x, y + h], [x + w, y + h]);
+  }
+  for (const polygon of container.querySelectorAll('polygon')) {
+    for (const pair of (polygon.getAttribute('points') ?? '').trim().split(/\s+/)) {
+      const [x, y] = pair.split(',').map(Number);
+      points.push([x!, y!]);
+    }
+  }
+  cleanup();
+  return points;
+}
 
 /*
  * The skeleton, and why forty-one characters needed forty-one of them.
@@ -114,6 +179,66 @@ describe('the skeleton under each figure', () => {
     for (const slot of ['head_neck', 'torso_body', 'front_arm_weapon', 'back_arm']) {
       const group = container.querySelector(`[data-slot="${slot}"]`);
       expect(group?.getAttribute('class'), slot).toBeTruthy();
+    }
+  });
+});
+
+/*
+ * What a raised hand is holding, and whether it is still in the picture.
+ *
+ * The cheer takes both arms past 150 degrees and counter-rotates whatever they carry so it stays
+ * upright. Those two rotations compose, and if the second one is centred on the wrong wrist the
+ * result is a shield that turns correctly around somebody else's hand and leaves the frame.
+ *
+ * jsdom lays out no SVG, so the rule is applied here to the authored points: every corner of the
+ * drawing, through the hand's rotation and then the shoulder's, at every stop the keyframes pass
+ * through. That checks the composition rather than a spelling of it, and it is the only way to catch
+ * this without a browser — which is how it got shipped in the first place.
+ */
+describe('what a raised hand is holding', () => {
+  const cases = [
+    { name: 'shield', drawing: shield, arm: 'cheerArmBack', held: 'heldUprightBack', grip: 'gripFar', shoulder: 'shoulderFar' },
+    { name: 'spellbook', drawing: spellbook, arm: 'cheerArmBack', held: 'heldUprightBack', grip: 'gripFar', shoulder: 'shoulderFar' },
+    { name: 'sword', drawing: sword, arm: 'cheerArmFront', held: 'heldUprightFront', grip: 'grip', shoulder: 'shoulderNear' }
+  ] as const;
+
+  it('stays inside the frame through every stop of the cheer', () => {
+    const { anchors } = rigFor('adventurer');
+    for (const { name, drawing, arm, held, grip, shoulder } of cases) {
+      const armAngles = anglesByStop(arm);
+      const heldAngles = anglesByStop(held);
+      expect(armAngles.size, `${arm} has no rotations`).toBeGreaterThan(0);
+
+      for (const [stop, armDegrees] of armAngles) {
+        const heldDegrees = heldAngles.get(stop);
+        expect(heldDegrees, `${held} has no stop at ${stop}%`).toBeDefined();
+        for (const corner of cornersOf(drawing())) {
+          const inHand = rotate(corner, anchors[grip], heldDegrees!);
+          const [x, y] = rotate(inHand, anchors[shoulder], armDegrees);
+          expect(x, `${name} at ${stop}% reaches x ${x.toFixed(1)}`).toBeGreaterThanOrEqual(0);
+          expect(x, `${name} at ${stop}% reaches x ${x.toFixed(1)}`).toBeLessThanOrEqual(FULL_BODY_GRID);
+          expect(y, `${name} at ${stop}% reaches y ${y.toFixed(1)}`).toBeGreaterThanOrEqual(0);
+          expect(y, `${name} at ${stop}% reaches y ${y.toFixed(1)}`).toBeLessThanOrEqual(FULL_BODY_GRID);
+        }
+      }
+    }
+  });
+
+  it('turns the far hand about the far wrist, and the near hand about the near one', () => {
+    // The defect itself, stated as the rule that prevents it. Both fall back to the plain frame's
+    // two wrists, which are mirror images at 15 and 33.
+    expect(poseStyles).toContain('.held   { transform-origin: var(--rig-grip-x, 15px) var(--rig-grip-y, 29px); }');
+    expect(poseStyles).toContain('.backArm .held { transform-origin: var(--rig-grip-far-x, 33px) var(--rig-grip-far-y, 29px); }');
+    // Order matters: the far rule has to come after the general one to win on the far arm.
+    expect(poseStyles.indexOf('.backArm .held {')).toBeGreaterThan(poseStyles.indexOf('.held   {'));
+  });
+
+  it('mirrors the far wrist when a costume moves the near one', () => {
+    // Three costumes reposition the near grip and none of them was going to remember the mirror.
+    for (const id of ['artist', 'musician', 'arcaneMage'] as const) {
+      const { grip, gripFar } = rigFor(id).anchors;
+      expect(gripFar[0], id).toBeCloseTo(48 - grip[0], 6);
+      expect(gripFar[1], id).toBe(grip[1]);
     }
   });
 });

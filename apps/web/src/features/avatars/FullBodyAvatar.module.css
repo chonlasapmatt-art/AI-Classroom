@@ -92,6 +92,19 @@
 .backLeg  { transform-origin: var(--rig-hip-far-x, 27.5px) var(--rig-hip-y, 36px); }
 /* The hand, so a held thing can be turned back against an arm that has gone past the horizontal. */
 .held   { transform-origin: var(--rig-grip-x, 15px) var(--rig-grip-y, 29px); }
+/*
+ * And the other hand, which is a different hand.
+ *
+ * One grip for both of them looks harmless right up until a pose turns an arm past the horizontal.
+ * The cheer counter-rotates a held thing so it stays upright while the arm goes overhead; about the
+ * near wrist that is exactly right, and about the near wrist for the *far* hand it is a rotation
+ * centred eighteen units from the thing being rotated. The shield left the frame at x −1 — turning
+ * correctly, around somebody else's hand.
+ *
+ * Placed after `.held` so it wins on the far arm and leaves the near one alone; both fall back to
+ * the plain human frame's wrists, which are mirror images at 15 and 33.
+ */
+.backArm .held { transform-origin: var(--rig-grip-far-x, 33px) var(--rig-grip-far-y, 29px); }
 .tail   { transform-origin: var(--rig-tail-x, 31px) var(--rig-tail-y, 34px); }
 /* Back hair hangs from the crown, so it swings from there rather than from the middle of its own
    length — a plait pivoting about its midpoint swings its root away from the head it grows out of. */
