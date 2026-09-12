@@ -225,9 +225,19 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
        */
       destination('/timetable', 'ตารางเรียน', 'timetable')
     ] },
-    { key: 'work', label: 'งานของฉัน', items: [
+    /*
+     * Everything about the studying, under one heading.
+     *
+     * Work, exams, marks and lessons were four rows under three headings — "งานของฉัน", "คะแนน" and
+     * half of "ห้องเรียนของฉัน" — and a heading that holds one row is a line to read for no choice
+     * offered. A child looking for what they scored and a child looking for what to hand in are on
+     * the same errand, so the menu says it once.
+     */
+    { key: 'learning', label: 'การเรียนของฉัน', items: [
       destination('/assignments', 'งานและกิจกรรม', 'assignments'),
-      destination('/sit-exam', 'สอบ', 'sit-exam')
+      destination('/sit-exam', 'สอบ', 'sit-exam'),
+      destination('/scores', 'คะแนนและเกรด', 'scores'),
+      destination('/subjects', 'รายวิชาและบทเรียน', 'subjects')
     ] },
     /*
      * Medals are given, not browsed.
@@ -238,28 +248,19 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
      * they learn about a returned piece of work — a notification addressed to them — and sees the
      * ones they hold on their own profile. Taking the entry away also refuses the address.
      */
-    { key: 'activities', label: 'กิจกรรม', items: [
+    { key: 'classroom', label: 'ห้องเรียนและรางวัล', items: [
+      destination('/students', 'เพื่อนร่วมชั้น', 'students'),
       destination('/leaderboard', 'Leaderboard', 'leaderboard')
     ] },
     /*
-     * One place for marks, not two.
+     * Marks and lessons moved up into "การเรียนของฉัน", and the two headings they had are gone.
      *
-     * "สมุดเกรด" and "คะแนนและเกรด" answered the same question about the same rows for a student —
-     * what they have scored — and a child choosing between them was choosing between two words for
-     * one thing. What is left is the screen written for them.
+     * One place for marks, not two: "สมุดเกรด" and "คะแนนและเกรด" answered the same question about
+     * the same rows, and a child choosing between them was choosing between two words for one
+     * thing. A subject is where the lessons are, so it stays on every menu — a student opens it to
+     * watch what their teacher published, a guardian to see what is being taught. What each of them
+     * may do inside is decided there, not here.
      */
-    { key: 'scores', label: 'คะแนน', items: [
-      destination('/scores', 'คะแนนและเกรด', 'scores')
-    ] },
-    /*
-     * A subject is where the lessons are now, so it is on every menu: a student opens it to
-     * watch what their teacher published, and a guardian opens it to see what is being taught and
-     * to ask the teacher about it. What each of them may do inside is decided there, not here.
-     */
-    { key: 'classmates', label: 'ห้องเรียนของฉัน', items: [
-      destination('/students', 'เพื่อนร่วมชั้น', 'students'),
-      destination('/subjects', 'รายวิชาและบทเรียน', 'subjects')
-    ] },
     { key: 'account', label: 'ตั้งค่า', items: [
       reachedElsewhere('/profile', 'โปรไฟล์ของฉัน', 'profile'),
       destination('/settings', 'ตั้งค่า', 'settings')
@@ -272,10 +273,15 @@ export const navigationByRole: Record<Role, NavGroup[]> = {
       // The timetable sits with the calendar for the same reason it does on a student's menu: it is
       // the short answer to "what is on today", and it had a whole section to itself for one row.
       destination('/timetable', 'ตารางเรียนของลูก', 'timetable'),
+      /*
+       * The register is one row, and it had a section of its own.
+       *
+       * A guardian's whole menu is six rows; spending a heading on one of them is two lines of
+       * reading for one destination. It is about their child, which is what this section is already
+       * called.
+       */
+      destination('/attendance', 'การเข้าเรียนของลูก', 'attendance'),
       destination('/subjects', 'รายวิชาและบทเรียน', 'subjects')
-    ] },
-    { key: 'attendance', label: 'การเข้าเรียน', items: [
-      destination('/attendance', 'การเข้าเรียนของลูก', 'attendance')
     ] },
     // No `/parents` entry here. For a guardian that screen only redirects to `/my-children`, so it
     // was a second door onto a page the menu already names — and the two sat under headings that

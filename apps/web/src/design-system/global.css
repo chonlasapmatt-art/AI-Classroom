@@ -409,11 +409,17 @@ input[type="file"] { min-height:auto; padding:.45rem; }
 .sidebar-search { display:flex; flex-direction:row; align-items:center; gap:.5rem; margin:0 0 .6rem; padding:0 .6rem;
   border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface-sunken);
   color:var(--ink-500); }
-.sidebar-search input { flex:1; min-height:44px; border:0; background:transparent; color:var(--ink-800);
+.sidebar-search input { flex:1; min-width:0; min-height:40px; border:0; background:transparent; color:var(--ink-800);
   font-size:.85rem; }
 .sidebar-search input:focus { outline:none; }
 .sidebar-search:focus-within { border-color:var(--brand-400); box-shadow:var(--focus-ring); }
 .sidebar-empty { margin:0; padding:.6rem; color:var(--ink-500); font-size:.8rem; }
+.sidebar-search-key {
+  flex:none; padding:1px 6px; border-radius:6px; font-size:.62rem; font-weight:600; letter-spacing:.02em;
+  color:var(--ink-400); background:var(--surface); border:1px solid var(--line); white-space:nowrap;
+}
+/* A phone has no Ctrl key and no room for a chip that says so. */
+@media (max-width: 900px) { .sidebar-search-key { display:none; } }
 
 .sidebar-section-toggle {
   width:100%; display:flex; align-items:center; justify-content:space-between;
@@ -435,7 +441,11 @@ input[type="file"] { min-height:auto; padding:.45rem; }
  * nothing about the menu's normal width or alignment changes when the buttons appear and disappear:
  * a heading that reflows every time a mode is turned on is a heading people lose their place in.
  */
-.sidebar-section-head { display:flex; align-items:center; gap:2px; }
+.sidebar-section-head {
+  display:flex; align-items:center; gap:2px;
+  position:sticky; top:0; z-index:2;
+  background:linear-gradient(180deg, var(--surface-muted) 72%, color-mix(in srgb, var(--surface-muted) 40%, transparent));
+}
 .sidebar-section-head .sidebar-section-toggle { flex:1; min-width:0; }
 
 .sidebar-row { display:flex; align-items:center; gap:2px; }

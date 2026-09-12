@@ -279,6 +279,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
   const [expandedGroups, setExpandedGroups] = useState(() => readExpandedGroups(membership.role, orderedGroups, location.pathname));
   const [menuQuery, setMenuQuery] = useState('');
+  const menuSearch = useRef<HTMLInputElement | null>(null);
   const { nav: navElement, marker } = useActiveRowMarker([location.pathname, expandedGroups, collapsed, menuQuery, membership.role]);
   // Matching the section name as well as the entry answers "where did they put the timetable?" —
   // somebody searching "คะแนน" wants everything filed under it, not only the screen with that name.
@@ -317,6 +318,27 @@ export function AppShell({ children }: { children: ReactNode }) {
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
+
+  /*
+   * Ctrl+K — or ⌘K — puts the cursor in the menu search from anywhere in the product.
+   *
+   * The menu is seven sections deep for an administrator, and the fastest way through it has always
+   * been to type the name of the place you want. That was true and invisible: the field is at the
+   * top of a column somebody has to look at first, which is the thing they were trying to avoid. The
+   * shortcut is the one every product with a command box uses, the field says so in a corner, and on
+   * a phone it opens the drawer first so the thing it focuses is on screen.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'k' || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+      event.preventDefault();
+      setOpen(true);
+      // After the drawer paints, or the field is still display:none on a phone and takes no focus.
+      window.setTimeout(() => menuSearch.current?.focus(), 0);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     const refreshAvatar = () => setOwnAvatarId(recall(avatarStorageKey(membership.profileId)));
@@ -444,9 +466,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           <label className="sidebar-search">
             <Icon name="search" size={16} />
             <input
+              ref={menuSearch}
               type="search" value={menuQuery} onChange={(event) => setMenuQuery(event.target.value)}
               placeholder="ค้นหาเมนู" aria-label="ค้นหาเมนู"
+              onKeyDown={(event) => { if (event.key === 'Escape') { setMenuQuery(''); event.currentTarget.blur(); } }}
             />
+            {/* The shortcut, said where the thing it opens is. A hint nobody can see is a hint
+                nobody uses, and this is the one key people already try. */}
+            <kbd className="sidebar-search-key" aria-hidden="true">Ctrl K</kbd>
           </label>
           {menuQuery.trim() ? (
             <section className="sidebar-section">

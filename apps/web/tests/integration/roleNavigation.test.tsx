@@ -76,10 +76,12 @@ describe('the menu each role gets', () => {
   it('gives a student their own sections and none of the staff ones', async () => {
     renderApp();
     await switchRole('preview-student');
-    await waitFor(() => expect(sectionNames()).toContain('งานของฉัน'));
+    // Work, exams, marks and lessons are one section now: three headings, two of which held a
+    // single row, were three lines of reading for one errand.
+    await waitFor(() => expect(sectionNames()).toContain('การเรียนของฉัน'));
     const sections = sectionNames();
     expect(sections.length).toBeLessThanOrEqual(8);
-    expect(sections).toContain('ห้องเรียนของฉัน');
+    expect(sections).toContain('ห้องเรียนและรางวัล');
     // Lessons live under the subject now, so a student's menu has a way into them.
     expect(mainMenu().getByRole('link', { name: /รายวิชาและบทเรียน/ })).toBeInTheDocument();
     expect(sections).not.toContain('เช็กชื่อ');
@@ -90,7 +92,9 @@ describe('the menu each role gets', () => {
     renderApp();
     await switchRole('preview-parent');
     await waitFor(() => expect(sectionNames()).toContain('ลูกของฉัน'));
-    expect(sectionNames()).toContain('การเข้าเรียน');
+    // The register is one row about their child, so it sits with the child rather than under a
+    // heading of its own.
+    expect(mainMenu().getByRole('link', { name: /การเข้าเรียนของลูก/ })).toBeInTheDocument();
     expect(mainMenu().queryByRole('link', { name: /คลังข้อสอบ/ })).not.toBeInTheDocument();
   });
 
@@ -105,6 +109,25 @@ describe('the menu each role gets', () => {
 
     fireEvent.change(search, { target: { value: 'ไม่มีเมนูนี้' } });
     await waitFor(() => expect(screen.getByText(/ไม่พบเมนูที่ตรงกับ/)).toBeInTheDocument());
+  });
+
+  it('puts the cursor in that field from anywhere, on the key people already try', async () => {
+    /*
+     * Typing the name of a screen was the fastest way through a menu seven sections deep, and also
+     * the least discoverable: the field sits at the top of the column somebody is trying not to
+     * read. Ctrl+K is the shortcut every product with a command box uses, and the field says so in
+     * its own corner rather than leaving it to be found by accident.
+     */
+    renderApp();
+    const search = await screen.findByLabelText('ค้นหาเมนู');
+    expect(document.activeElement).not.toBe(search);
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    await waitFor(() => expect(document.activeElement).toBe(search));
+
+    // Escape gives the menu back rather than leaving a half-typed filter across all of it.
+    fireEvent.change(search, { target: { value: 'คะแนน' } });
+    fireEvent.keyDown(search, { key: 'Escape' });
+    await waitFor(() => expect((search as HTMLInputElement).value).toBe(''));
   });
 });
 
