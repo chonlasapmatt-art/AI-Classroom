@@ -214,7 +214,7 @@ describe('the poses', () => {
     // 0.25 Hz, 0.12 Hz and 0.5 Hz: four seconds, eight and a third, and two. They come back into
     // phase once every fifty seconds, which is why the idle stops reading as a loop.
     expect(poseStyles).toMatch(/\.idle \.torso \{ animation: chestExpand 4s /);
-    expect(poseStyles).toMatch(/\.idle \.head \{ animation: headDrift 8\.333s /);
+    expect(poseStyles).toMatch(/\.idle \.headRig \{ animation: headDrift 8\.333s /);
     expect(poseStyles).toMatch(/\.idle \.hairBack \{ animation: hairSway 2s /);
   });
 

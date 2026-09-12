@@ -145,15 +145,36 @@ function isElement(value: unknown): value is ReactElement {
  * fringe, hat — and a neck that carried only the skull forward would leave the face behind it.
  */
 const stanceBand: Partial<Record<BodySlot, string>> = {
-  head_neck: 'stanceHead',
-  face: 'stanceHead',
-  hair_side: 'stanceHead',
-  hair_headwear: 'stanceHead',
-  headwear: 'stanceHead',
   torso_body: 'stanceTorso',
   back_arm: 'stanceArmFar',
   front_arm_weapon: 'stanceArmNear'
 };
+
+/**
+ * Everything that is part of a head, and therefore everything that turns when one does.
+ *
+ * ── The bug this is the fix for ──
+ * A pose that tilted the head addressed `.head`, which is the class on the group the *skull* draws
+ * itself into. The hair, the fringe, the side wrap and the hat are separate slots — they have to be,
+ * because half of them are painted before the face and half after — so a wave tilted a bare skull
+ * three degrees and left the hair standing exactly where it was. At rest the two line up and
+ * everything looks right; the moment anything moves, the hair stops fitting the head, which is
+ * precisely the complaint.
+ *
+ * Six slots rather than five: `hair_back` is in here too. It hangs behind the torso, nowhere near
+ * the others in the paint order, and it is still rooted in the same skull — a plait that keeps still
+ * while the head it grows out of turns is the same fault seen from behind.
+ *
+ * ── Why a second wrapper ──
+ * `stanceHead` already carries the character's own posture, and an animation on an element replaces
+ * whatever transform that element had. So the posture stays on the outer group and the pose animates
+ * an inner one; the two compose instead of the second silently dropping the first. Every slot gets
+ * its own pair, and because they all run the same keyframes at the same duration with no delay they
+ * stay in lockstep — a head is one thing however many layers it takes to draw.
+ */
+const headBand = new Set<BodySlot>([
+  'hair_back', 'head_neck', 'face', 'hair_side', 'hair_headwear', 'headwear'
+]);
 
 export function FullBodyAvatar({
   archetype, slots, animation = 'idle', tints, size = 176, label, backdrop, paused,
@@ -235,6 +256,13 @@ export function FullBodyAvatar({
         {bodySlotOrder.map((slot: BodySlot) => {
           const drawing = drawn[slot];
           if (!drawing) return null;
+          if (headBand.has(slot)) {
+            return (
+              <g key={slot} data-slot={slot} className={styles.stanceHead}>
+                <g className={styles.headRig}>{withPartClasses(drawing)}</g>
+              </g>
+            );
+          }
           const band = stanceBand[slot];
           return (
             <g key={slot} data-slot={slot} {...(band ? { className: styles[band] } : {})}>

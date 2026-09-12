@@ -146,8 +146,15 @@ describe('the dark theme', () => {
     for (const [index, rung] of ladder.slice(1).entries()) {
       expect(rung - ladder[index]!, `step ${index} of the dark ground ladder`).toBeGreaterThanOrEqual(5);
     }
-    // And the page is the darkest thing on it, the navigation darker still.
-    expect(green('nav-surface')).toBeLessThan(ladder[0]!);
+    /*
+     * And the navigation is never lighter than the page.
+     *
+     * It used to be strictly darker, which was the right rule while the page was #0f0e18. The page
+     * is #000000 now — the school asked for a dark theme that is actually dark rather than a lifted
+     * grey — and nothing is darker than black, so the navigation sits level with it and is separated
+     * by its own hairline instead. Equal is the floor of the same rule, not an exception to it.
+     */
+    expect(green('nav-surface')).toBeLessThanOrEqual(ladder[0]!);
   });
 
   it('draws its greys close to neutral, so a school that picked ocean does not get a violet app', () => {

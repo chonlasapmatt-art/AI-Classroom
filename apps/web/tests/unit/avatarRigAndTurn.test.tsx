@@ -13,9 +13,10 @@ import {
   type SilhouetteFootprint
 } from '../../src/features/avatars/avatarRig';
 import { avatarDirections, directionRig } from '../../src/features/avatars/avatarDirection';
+import { figureSlotsFor } from '../../src/features/avatars/avatarFigureParts';
 import { crownShift, hairFitFor, hairFor, hairStyleIds } from '../../src/features/avatars/avatarHair';
 import { COMPACT_DETAIL_BELOW, detailForSize, SKULL } from '../../src/features/avatars/avatarGeometry';
-import type { AvatarRace } from '../../src/features/avatars/avatarSchema';
+import type { AvatarConfigV2, AvatarRace } from '../../src/features/avatars/avatarSchema';
 
 afterEach(cleanup);
 
@@ -180,6 +181,48 @@ describe('the skeleton under each figure', () => {
       const group = container.querySelector(`[data-slot="${slot}"]`);
       expect(group?.getAttribute('class'), slot).toBeTruthy();
     }
+  });
+
+  it('turns a whole head, not a bare skull', () => {
+    /*
+     * The fault a still frame cannot show.
+     *
+     * A pose that tilted the head addressed the group the *skull* draws itself into. Hair, fringe,
+     * side wrap and hat are separate slots — they have to be, because half are painted before the
+     * face and half after — so a wave tilted a bare skull and left the hair standing where it was.
+     * At rest they line up; the moment anything moves, the hair stops fitting the head.
+     *
+     * All six carry the same handle now, including the length behind the torso: a plait that keeps
+     * still while the head it grows from turns is the same fault seen from behind.
+     */
+    // A composed figure rather than a bare costume, because `hair_back` only exists once a child has
+    // chosen a cut with length in it — which is the case the fault is most visible in.
+    const longHaired: AvatarConfigV2 = {
+      archetype: 0, palette: 0, skinTone: 0, hair: 0, accessory: 0, badge: 0, v: 2, race: 'human',
+      layers: { hair_headpiece: 'hair_long', face_features: 'face_smile', top_clothing: 'top_uniform' }
+    };
+    const { container } = render(
+      <FullBodyAvatar
+        archetype="student"
+        animation="wave"
+        slots={figureSlotsFor(longHaired, directionRig('front'))}
+      />);
+    for (const slot of ['hair_back', 'head_neck', 'face', 'hair_side', 'hair_headwear']) {
+      const outer = container.querySelector(`[data-slot="${slot}"]`);
+      expect(outer?.getAttribute('class'), `${slot} carries no posture`).toMatch(/stanceHead/);
+      const rig = outer?.firstElementChild;
+      expect(rig?.getAttribute('class'), `${slot} does not turn with the head`).toMatch(/headRig/);
+    }
+
+    // And the poses address that handle rather than the skull's own group.
+    for (const rule of [
+      '.idle .headRig { animation: headDrift',
+      '.wave .headRig { animation: waveHeadTilt',
+      '.cast .headRig { animation: castLook'
+    ]) {
+      expect(poseStyles, rule).toContain(rule);
+    }
+    expect(poseStyles, 'a pose still tilts the skull alone').not.toMatch(/\.\w+ \.head \{ animation:/);
   });
 });
 

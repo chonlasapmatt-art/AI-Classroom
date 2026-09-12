@@ -130,6 +130,19 @@
   transform-origin: var(--rig-neck-x, 24px) var(--rig-neck-y, 20px);
   transform: rotate(var(--rig-neck-tilt, 0deg));
 }
+/*
+ * The head, as the one thing it is.
+ *
+ * A head is six slots — skull, face, side hair, fringe, hat, and the length hanging behind the
+ * torso — because half of them are painted before the face and half after. A pose that tilted only
+ * the skull's own group tilted a bare skull and left the hair where it was: at rest the two line up,
+ * and the moment anything moves the hair stops fitting the head. Every pose that turns a head turns
+ * this instead, on all six at once.
+ *
+ * Inside `.stanceHead` rather than on it, because an animation replaces the element's own transform
+ * and that element is carrying the character's posture. Nested, the two compose.
+ */
+.headRig { transform-origin: var(--rig-neck-x, 24px) var(--rig-neck-y, 20px); }
 .stanceTorso {
   transform-origin: var(--rig-neck-x, 24px) var(--rig-hip-y, 36px);
   transform: rotate(var(--rig-torso-lean, 0deg));
@@ -213,7 +226,7 @@
  * twice a second, and a living thing never does.
  * ──────────────────────────────────────────────────────────────────────────── */
 .idle .figure { animation: bodyBreathe 4s var(--ease-drift) infinite; }
-.idle .head { animation: headDrift 8.333s var(--ease-drift) infinite; }
+.idle .headRig { animation: headDrift 8.333s var(--ease-drift) infinite; }
 .idle .torso { animation: chestExpand 4s var(--ease-drift) infinite; }
 .idle .frontArm { animation: armDangle 4s var(--ease-drift) infinite; }
 .idle .backArm { animation: armDangleBack 4s var(--ease-drift) infinite; }
@@ -421,7 +434,7 @@
 .wave .figure { animation: bodyBreathe 4s var(--ease-drift) infinite; }
 .wave .frontArm { animation: waveArm 0.8s var(--ease-limb) infinite; }
 .wave .backArm { animation: armDangleBack 4s var(--ease-drift) infinite; }
-.wave .head { animation: waveHeadTilt 0.8s var(--ease-drift) infinite; }
+.wave .headRig { animation: waveHeadTilt 0.8s var(--ease-drift) infinite; }
 .wave .torso { animation: waveLean 0.8s var(--ease-drift) infinite; }
 .wave .tail { animation: tailSway 1.6s var(--ease-drift) -0.4s infinite; }
 /*
@@ -673,7 +686,7 @@
 }
 /* The head follows the hands up: a caster staring straight ahead while its arms go over its head is
    a figure whose arms are doing something it is not paying attention to. */
-.cast .head { animation: castLook 1.2s var(--ease-settle) infinite; }
+.cast .headRig { animation: castLook 1.2s var(--ease-settle) infinite; }
 @keyframes castLook {
   0%    { transform: rotate(0deg); }
   16.7% { transform: rotate(2deg); }

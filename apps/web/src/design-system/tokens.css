@@ -276,9 +276,9 @@
     /* Soft brand surfaces have to darken too, or light-on-light text disappears on brand tiles.
      * The plain values keep older engines correct; color-mix re-tints them to the chosen preset. */
     --brand-50:#241f4a; --brand-100:#2e2764; --brand-200:#3d3480;
-    --brand-50:color-mix(in srgb, var(--brand-500) 18%, #17142e);
-    --brand-100:color-mix(in srgb, var(--brand-500) 26%, #17142e);
-    --brand-200:color-mix(in srgb, var(--brand-500) 38%, #17142e);
+    --brand-50:color-mix(in srgb, var(--brand-500) 18%, #0a0910);
+    --brand-100:color-mix(in srgb, var(--brand-500) 26%, #0a0910);
+    --brand-200:color-mix(in srgb, var(--brand-500) 38%, #0a0910);
     /* Ink up, fill unchanged. Derived from the preset's own --brand-400, so a school that picked
        ocean or berry keeps its hue instead of every dark theme turning violet. */
     --brand-600:color-mix(in srgb, var(--brand-400) 72%, #ffffff);
@@ -286,8 +286,8 @@
     --brand-800:color-mix(in srgb, var(--brand-400) 32%, #ffffff);
     --brand-solid:var(--brand-500);
     --brand-solid-strong:color-mix(in srgb, var(--brand-500) 82%, #000000);
-    --canvas:#0f0e18; --surface:#1c1b28; --surface-muted:#23222f; --surface-sunken:#15141f;
-    --line:#302f40; --line-strong:#43415a;
+    --canvas:#000000; --surface:#0c0c11; --surface-muted:#141419; --surface-sunken:#050507;
+    --line:#1e1e26; --line-strong:#33333f;
     --ink-900:#f7f7fb; --ink-800:#e6e6f0; --ink-700:#d0d0e0; --ink-600:#b0b0c6; --ink-500:#9898b0;
     --ink-400:#8a8aa2; --ink-300:#6f6f88;
     --success-soft:#0e3a2e; --success-line:#1d5e4b; --success:#5fd3ae;
@@ -302,15 +302,23 @@
     --accent-green:#5fd37f; --accent-green-soft:#123b23;
     --accent-gold:#e8bb63; --accent-gold-soft:#3d2c0b;
     --accent-violet:#b79bff; --accent-violet-soft:#2a2150;
-    --nav-surface:#0a0912; --topbar-surface:#1c1b28e6;
+    --nav-surface:#000000; --topbar-surface:#000000e6;
     --inverse-surface:#f0f0f7; --inverse-ink:#15141f;
-    --overlay:#04040acc;
-    /* On a dark ground a drop shadow occludes nothing, so elevation is a hairline of light along
+    --overlay:#000000dd;
+    /*
+     * Elevation on a ground that is actually black.
+     *
+     * The canvas is #000000 and a card is #0c0c11 — four steps of lift, which on an LCD is nearly
+     * nothing. So the separation is carried by the hairline of light along the top edge rather than
+     * by the fill, and it is brighter here than a lifted-grey theme would need: a drop shadow
+     * occludes nothing when there is nothing darker to cast onto.
+     *
+     * A hairline of light along
        the top edge and a softer, wider shadow underneath than the light theme needs. */
-    --shadow-xs:inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.5);
-    --shadow-sm:inset 0 1px 0 rgba(255,255,255,.05), 0 2px 10px rgba(0,0,0,.5);
-    --shadow-md:inset 0 1px 0 rgba(255,255,255,.06), 0 14px 34px rgba(0,0,0,.55);
-    --shadow-lg:inset 0 1px 0 rgba(255,255,255,.07), 0 28px 68px rgba(0,0,0,.6);
+    --shadow-xs:inset 0 1px 0 rgba(255,255,255,.09), 0 1px 2px rgba(0,0,0,.5);
+    --shadow-sm:inset 0 1px 0 rgba(255,255,255,.09), 0 2px 10px rgba(0,0,0,.5);
+    --shadow-md:inset 0 1px 0 rgba(255,255,255,.10), 0 14px 34px rgba(0,0,0,.55);
+    --shadow-lg:inset 0 1px 0 rgba(255,255,255,.12), 0 28px 68px rgba(0,0,0,.6);
     color-scheme: dark;
   }
 }
@@ -319,9 +327,9 @@
   /* Soft brand surfaces have to darken too, or light-on-light text disappears on brand tiles.
    * The plain values keep older engines correct; color-mix re-tints them to the chosen preset. */
   --brand-50:#241f4a; --brand-100:#2e2764; --brand-200:#3d3480;
-  --brand-50:color-mix(in srgb, var(--brand-500) 18%, #17142e);
-  --brand-100:color-mix(in srgb, var(--brand-500) 26%, #17142e);
-  --brand-200:color-mix(in srgb, var(--brand-500) 38%, #17142e);
+  --brand-50:color-mix(in srgb, var(--brand-500) 18%, #0a0910);
+  --brand-100:color-mix(in srgb, var(--brand-500) 26%, #0a0910);
+  --brand-200:color-mix(in srgb, var(--brand-500) 38%, #0a0910);
   /* Ink up, fill unchanged. Derived from the preset's own --brand-400, so a school that picked
      ocean or berry keeps its hue instead of every dark theme turning violet. */
   --brand-600:color-mix(in srgb, var(--brand-400) 72%, #ffffff);
@@ -329,8 +337,8 @@
   --brand-800:color-mix(in srgb, var(--brand-400) 32%, #ffffff);
   --brand-solid:var(--brand-500);
   --brand-solid-strong:color-mix(in srgb, var(--brand-500) 82%, #000000);
-  --canvas:#0f0e18; --surface:#1c1b28; --surface-muted:#23222f; --surface-sunken:#15141f;
-  --line:#302f40; --line-strong:#43415a;
+  --canvas:#000000; --surface:#0c0c11; --surface-muted:#141419; --surface-sunken:#050507;
+  --line:#1e1e26; --line-strong:#33333f;
   --ink-900:#f7f7fb; --ink-800:#e6e6f0; --ink-700:#d0d0e0; --ink-600:#b0b0c6; --ink-500:#9898b0;
   --ink-400:#8a8aa2; --ink-300:#6f6f88;
   --success-soft:#0e3a2e; --success-line:#1d5e4b; --success:#5fd3ae;
@@ -352,22 +360,30 @@
   --accent-green:#5fd37f; --accent-green-soft:#123b23;
   --accent-gold:#e8bb63; --accent-gold-soft:#3d2c0b;
   --accent-violet:#b79bff; --accent-violet-soft:#2a2150;
-  --nav-surface:#0a0912; --topbar-surface:#1c1b28e6;
+  --nav-surface:#000000; --topbar-surface:#000000e6;
   --inverse-surface:#f0f0f7; --inverse-ink:#15141f;
-  --overlay:#04040acc;
-  /* On a dark ground a drop shadow occludes nothing, so elevation is a hairline of light along
+  --overlay:#000000dd;
+  /*
+     * Elevation on a ground that is actually black.
+     *
+     * The canvas is #000000 and a card is #0c0c11 — four steps of lift, which on an LCD is nearly
+     * nothing. So the separation is carried by the hairline of light along the top edge rather than
+     * by the fill, and it is brighter here than a lifted-grey theme would need: a drop shadow
+     * occludes nothing when there is nothing darker to cast onto.
+     *
+     * A hairline of light along
      the top edge and a softer, wider shadow underneath than the light theme needs. */
-  --shadow-xs:inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.5);
-  --shadow-sm:inset 0 1px 0 rgba(255,255,255,.05), 0 2px 10px rgba(0,0,0,.5);
-  --shadow-md:inset 0 1px 0 rgba(255,255,255,.06), 0 14px 34px rgba(0,0,0,.55);
-  --shadow-lg:inset 0 1px 0 rgba(255,255,255,.07), 0 28px 68px rgba(0,0,0,.6);
+  --shadow-xs:inset 0 1px 0 rgba(255,255,255,.09), 0 1px 2px rgba(0,0,0,.5);
+  --shadow-sm:inset 0 1px 0 rgba(255,255,255,.09), 0 2px 10px rgba(0,0,0,.5);
+  --shadow-md:inset 0 1px 0 rgba(255,255,255,.10), 0 14px 34px rgba(0,0,0,.55);
+  --shadow-lg:inset 0 1px 0 rgba(255,255,255,.12), 0 28px 68px rgba(0,0,0,.6);
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --surface-hover:#2b2a3a; --surface-glass:#1c1b28e6; }
+  :root:not([data-theme="light"]) { --surface-hover:#1b1b23; --surface-glass:#0c0c11e6; }
 }
-:root[data-theme="dark"] { --surface-hover:#2b2a3a; --surface-glass:#1c1b28e6; }
+:root[data-theme="dark"] { --surface-hover:#1b1b23; --surface-glass:#0c0c11e6; }
 
 /* Display preferences are deliberately token based, so old screens and new screens get the same
    spacing rhythm without each feature having to know which density the viewer selected. */
